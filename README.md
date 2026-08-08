@@ -59,3 +59,7 @@ evidence attach evidence/DEP-... --target pr
 - `templates/` and `.github/`: engineering record fields.
 
 This is an experimental framework. Fixture benchmark results test the harness; they do not prove superiority over another workflow.
+
+## License
+
+Apache License 2.0. See `LICENSE`.
