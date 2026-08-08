@@ -24,4 +24,4 @@ Red → Evidence → Fix → Green → Proof
 - 安全遮罩：`redaction/LOCAL_REDACTION_GATEWAY.md`
 - CLI：`evidence init|collect|redact|transition|verify|attach`
 
-目前版本是 `v0.2.0-experimental`。Benchmark fixture 只證明測試框架能運作，不代表已實證優於其他開發流程。
+目前版本是 `v0.2.0-experimental.1`。Benchmark fixture 只證明測試框架能運作，不代表已實證優於其他開發流程。

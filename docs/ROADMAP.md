@@ -1,6 +1,6 @@
 # Roadmap
 
-## v0.2.0-experimental — current MVP
+## v0.2.0-experimental.1 — current MVP
 
 - Thin Policy Kernel and three governance Profiles.
 - Progressive-disclosure Governance Skill and Codex/Hermes adapters.

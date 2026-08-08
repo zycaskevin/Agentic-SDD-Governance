@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0-experimental — 2026-08-08
+## 0.2.0-experimental.1 — 2026-08-08
 
 ### Added
 
@@ -16,6 +16,7 @@
 
 ### Changed
 
+- Preserved the canonical GitHub Initial commit and Apache-2.0 `LICENSE` in the delivery history.
 - Reduced routine Agent context to Policy Kernel + Profile + Work Package + relevant Playbook.
 - Moved detailed evidence material out of the README and Skill entrypoint.
 

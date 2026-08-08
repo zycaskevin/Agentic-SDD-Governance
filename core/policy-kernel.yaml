@@ -1,4 +1,4 @@
-version: "0.2.0-experimental"
+version: "0.2.0-experimental.1"
 runtime_load_set:
   - core/POLICY_KERNEL.md
   - selected_project_profile
