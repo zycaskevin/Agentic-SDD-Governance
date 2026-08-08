@@ -1,0 +1,43 @@
+name: Evidence-backed bug
+description: Report a reproducible mismatch with a DEP reference
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: input
+    id: evidence
+    attributes:
+      label: Evidence ID
+      description: DEP ID only. Do not paste raw logs or secrets.
+    validations:
+      required: true
+  - type: input
+    id: sdd
+    attributes:
+      label: SDD reference
+    validations:
+      required: true
+  - type: dropdown
+    id: risk
+    attributes:
+      label: Risk
+      options: [L0, L1, L2, L3]
+    validations:
+      required: true
+  - type: textarea
+    id: expected_actual
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Deterministic reproduction
+    validations:
+      required: true
+  - type: textarea
+    id: non_scope
+    attributes:
+      label: Non-scope
+    validations:
+      required: true

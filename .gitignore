@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+work/
+outputs/
+dist/
+build/
+.DS_Store
+
+# Raw evidence is local-only and must not enter Git.
+evidence/**/private/raw/

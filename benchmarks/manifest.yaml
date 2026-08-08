@@ -1,0 +1,23 @@
+version: "0.1"
+benchmark: asg-evidence-debugging
+paired: true
+tracks:
+  screenshot_only:
+    visible_inputs: [symptom, screenshot_description]
+  evidence_driven:
+    visible_inputs: [symptom, screenshot_description, redacted_dep]
+controlled:
+  - repository_snapshot
+  - model_family
+  - reasoning_effort
+  - time_budget
+  - tool_permissions
+  - acceptance_tests
+metrics:
+  - root_cause_correct
+  - first_valid_fix
+  - regression_test_added
+  - speculation_count
+  - human_interruptions
+  - sensitive_data_leak
+  - elapsed_minutes

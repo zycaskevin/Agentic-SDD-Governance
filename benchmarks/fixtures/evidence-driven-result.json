@@ -1,0 +1,9 @@
+{
+  "root_cause_correct": true,
+  "minimal_fix": true,
+  "regression_test_added": true,
+  "proof_complete": true,
+  "speculation_count": 0,
+  "human_interruptions": 0,
+  "sensitive_data_leak": false
+}

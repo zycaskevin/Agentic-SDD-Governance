@@ -1,0 +1,1 @@
+An item creation screen shows a success message. After refresh, the new item is gone. Diagnose and fix the bug using the repository and the supplied redacted Debug Evidence Package. Validate the root-cause hypothesis, preserve non-scope, and add regression proof.
