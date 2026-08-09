@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentic-sdd-governance"
-version = "0.2.0.dev1"
+version = "0.2.0.dev2"
 description = "Governance and evidence infrastructure for autonomous software engineering"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -21,7 +21,23 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-sddgov = ["resources/dep/*"]
+sddgov = [
+  "resources/dep/*",
+  "resources/governance/*",
+  "resources/governance/adapters/codex/*",
+  "resources/governance/adapters/hermes/*",
+  "resources/governance/collectors/*",
+  "resources/governance/core/*",
+  "resources/governance/docs/*",
+  "resources/governance/policies/*",
+  "resources/governance/profiles/*",
+  "resources/governance/redaction/*",
+  "resources/governance/schemas/*",
+  "resources/governance/templates/*",
+  "resources/governance/skill/agentic-sdd-governance/*",
+  "resources/governance/skill/agentic-sdd-governance/agents/*",
+  "resources/governance/skill/agentic-sdd-governance/references/*",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

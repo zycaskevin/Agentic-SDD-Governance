@@ -9,6 +9,7 @@ from . import __version__
 from .benchmark import compare
 from .evidence import attach, collect, make_dep, redact, transition, verify
 from .governance import claim_work, emit_event, enqueue_external_action, init_project, project_status
+from .installer import AGENTS, doctor, setup_agent, uninstall_agent
 
 
 def _evidence_parser(subparsers) -> None:
@@ -53,6 +54,16 @@ def build_parser() -> argparse.ArgumentParser:
     init = sub.add_parser("init", help="Initialize project governance state")
     init.add_argument("path", nargs="?", type=Path, default=Path.cwd())
     init.add_argument("--profile", choices=("solo-fast", "team-standard", "regulated"), default="team-standard")
+    setup = sub.add_parser("setup-agent", help="Install governance and a discoverable Agent Skill")
+    setup.add_argument("path", nargs="?", type=Path, default=Path.cwd())
+    setup.add_argument("--agent", choices=AGENTS, required=True)
+    setup.add_argument("--profile", choices=("solo-fast", "team-standard", "regulated"), default="team-standard")
+    setup.add_argument("--force", action="store_true", help="Replace only managed installation files after review")
+    health = sub.add_parser("doctor", help="Verify an installed Agent governance integration")
+    health.add_argument("path", nargs="?", type=Path, default=Path.cwd())
+    uninstall = sub.add_parser("uninstall-agent", help="Remove managed Agent integration files but retain state and evidence")
+    uninstall.add_argument("path", nargs="?", type=Path, default=Path.cwd())
+    uninstall.add_argument("--force", action="store_true", help="Remove modified managed files after review")
     status = sub.add_parser("status", help="Show governance state")
     status.add_argument("path", nargs="?", type=Path, default=Path.cwd())
     claim = sub.add_parser("claim", help="Claim a Work Package with a TTL")
@@ -89,7 +100,11 @@ def _validate_repo(root: Path) -> list[str]:
         "schemas/governance-event.schema.json", "schemas/work-claim.schema.json",
         "schemas/external-action.schema.json", "policies/protected-files.yaml",
         "skill/agentic-sdd-governance/SKILL.md",
-        "docs/EVIDENCE_DRIVEN_SDD.md", "CHANGELOG.md", "docs/ROADMAP.md",
+        "docs/EVIDENCE_DRIVEN_SDD.md", "docs/AGENT_INSTALLATION.md",
+        "src/sddgov/installer.py",
+        "src/sddgov/resources/governance/VERSION",
+        "src/sddgov/resources/governance/skill/agentic-sdd-governance/SKILL.md",
+        "CHANGELOG.md", "docs/ROADMAP.md",
     )
     errors = [f"missing {item}" for item in required if not (root / item).is_file()]
     skill = root / "skill/agentic-sdd-governance/SKILL.md"
@@ -110,6 +125,16 @@ def run(args: argparse.Namespace) -> int:
         return 0
     if args.command == "status":
         print(json.dumps(project_status(args.path), ensure_ascii=False, indent=2))
+        return 0
+    if args.command == "setup-agent":
+        print(json.dumps(setup_agent(args.path, args.agent, args.profile, args.force), ensure_ascii=False, indent=2))
+        return 0
+    if args.command == "doctor":
+        result = doctor(args.path)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0 if result["ok"] else 1
+    if args.command == "uninstall-agent":
+        print(json.dumps(uninstall_agent(args.path, args.force), ensure_ascii=False, indent=2))
         return 0
     if args.command == "claim":
         print(json.dumps(claim_work(args.path, args.work_package, args.agent, args.ttl_minutes), ensure_ascii=False, indent=2))

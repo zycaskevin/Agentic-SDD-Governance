@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.2.0-experimental.2 — 2026-08-09
+
+### Added
+
+- `sddgov setup-agent` for Codex or Hermes with selectable governance Profile.
+- `sddgov doctor` for manifest, managed-file, Skill-path, `AGENTS.md`, and state verification.
+- `sddgov uninstall-agent` with safe retention of `.sddgov` and Evidence.
+- Wheel-packaged governance resources so setup works outside the source checkout.
+
+### Changed
+
+- Codex Skills are installed at the official Repo discovery path, `.agents/skills/agentic-sdd-governance/`.
+- The Skill resolves `.agentic-sdd-governance/` as its installed Governance Root while retaining canonical-repository compatibility.
+
+### Security
+
+- Setup records SHA-256 hashes for every managed file and refuses ambiguous upgrades without `--force`.
+- Setup adds a managed `.gitignore` rule so default `evidence/**/private/raw/` artifacts remain local.
+- Doctor reports tampering; uninstall fails closed on modified managed files unless explicitly forced.
+- Existing project instructions, governance state, and evidence are not silently removed.
+
+### Evidence
+
+- Codex/Hermes setup, idempotence, Profile switching, tamper detection, and guarded uninstall are covered by automated tests.
+
 ## 0.2.0-experimental.1 — 2026-08-08
 
 ### Added

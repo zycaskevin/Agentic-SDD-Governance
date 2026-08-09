@@ -1,6 +1,13 @@
 # Roadmap
 
-## v0.2.0-experimental.1 — current MVP
+## v0.2.0-experimental.2 — current installable MVP
+
+- Idempotent Codex/Hermes project setup with official Codex Repo Skill discovery layout.
+- Managed-file manifest, SHA-256 doctor checks, guarded upgrades, and recoverable uninstall.
+- Wheel-contained Policy Kernel, Profiles, Skill references, collectors, schemas, templates, and redaction rules.
+- Temporary-project integration tests for setup, Profile switching, tamper detection, and state/evidence retention.
+
+## v0.2.0-experimental.1 — evidence MVP
 
 - Thin Policy Kernel and three governance Profiles.
 - Progressive-disclosure Governance Skill and Codex/Hermes adapters.
@@ -12,6 +19,8 @@
 
 ## v0.3 — enforcement hardening
 
+- Real Codex prompt-level and Hermes runtime pilot evaluation.
+- Merge-safe `AGENTS.md` policy composition for multiple governance providers.
 - Pluggable redaction detectors and secret-scanner integration.
 - Signed provenance receipts and tamper-evident event telemetry.
 - CI adapters for GitHub/GitLab and protected evidence-policy files.

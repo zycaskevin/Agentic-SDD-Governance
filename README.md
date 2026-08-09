@@ -19,6 +19,17 @@ Policy Kernel + selected Profile + current Work Package + relevant Playbook
 
 Start at `core/POLICY_KERNEL.md`. For development or debugging, use `skill/agentic-sdd-governance/SKILL.md`.
 
+## Install into a project
+
+After installing the CLI, add a discoverable Codex or Hermes integration without replacing existing project instructions:
+
+```bash
+sddgov setup-agent /path/to/project --agent codex --profile team-standard
+sddgov doctor /path/to/project
+```
+
+The installer manages a marked block in `AGENTS.md`, a Repo Skill under `.agents/skills/`, and a versioned governance layer under `.agentic-sdd-governance/`. See `docs/AGENT_INSTALLATION.md` for upgrades, removal, and safety behavior.
+
 ## Evidence quick start
 
 ```bash
@@ -57,6 +68,7 @@ evidence attach evidence/DEP-... --target pr
 - `src/sddgov/`: executable CLI.
 - `benchmarks/`: paired evaluation tasks and scoring.
 - `templates/` and `.github/`: engineering record fields.
+- `src/sddgov/installer.py`: idempotent Agent setup, health checks, and guarded removal.
 
 This is an experimental framework. Fixture benchmark results test the harness; they do not prove superiority over another workflow.
 
