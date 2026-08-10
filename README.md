@@ -28,6 +28,15 @@ sddgov setup-agent /path/to/project --agent codex --profile team-standard
 sddgov doctor /path/to/project
 ```
 
+Prevent hosted CI from becoming a remote debugging loop:
+
+```bash
+sddgov ci verify .
+sddgov ci local-gate .
+```
+
+See `docs/CI_COST_GUARD.md` for the tracked budget contract, Local Green Gate, stale-run cancellation, Draft PR behavior, and rerun policy.
+
 The installer manages a marked block in `AGENTS.md`, a Repo Skill under `.agents/skills/`, and a versioned governance layer under `.agentic-sdd-governance/`. See `docs/AGENT_INSTALLATION.md` for upgrades, removal, and safety behavior.
 
 ## Evidence quick start

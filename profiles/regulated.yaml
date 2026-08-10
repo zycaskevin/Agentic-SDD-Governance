@@ -15,6 +15,11 @@ debugging:
   local_redaction_gateway_required: true
   raw_export: forbidden
   binary_artifact_manual_review: required
+ci_cost_guard:
+  local_green_required: true
+  hosted_runs_per_work_package: 1
+  reruns_per_revision: 0
+  full_matrix: release
 approval_budget:
   l0_engineering: 0
   l1_engineering: 0

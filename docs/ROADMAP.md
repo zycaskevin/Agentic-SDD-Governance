@@ -1,6 +1,13 @@
 # Roadmap
 
-## v0.2.0-experimental.2 — current installable MVP
+## v0.2.0-experimental.3 — current CI Cost Guard MVP
+
+- Machine-readable hosted-run budget and local Green Gate commands.
+- Static enforcement for read-only permissions, stale-run cancellation, Draft PR runner avoidance, and job timeouts.
+- Progressive-disclosure Skill route for CI changes, failures, reruns, and cost control.
+- Repository adapters for Agentic SDD Governance, MyHermes, Vault-Agent-Memory, and Piku.
+
+## v0.2.0-experimental.2 — installable Evidence MVP
 
 - Idempotent Codex/Hermes project setup with official Codex Repo Skill discovery layout.
 - Managed-file manifest, SHA-256 doctor checks, guarded upgrades, and recoverable uninstall.

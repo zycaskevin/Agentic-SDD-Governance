@@ -6,6 +6,6 @@ The earlier ChatGPT deliverable was identified as `agentic-sdd-governance-v0.1.0
 
 The historical attachment endpoint remained visible in the owner's signed-in conversation, but automated retrieval was rejected by the expired/protected download path. No byte-for-byte v0.1 source archive was therefore available inside this Work workspace, and the current GitHub baseline does not contain those v0.1 files.
 
-`v0.2.0-experimental.2` preserves the actual GitHub baseline and adds a clean canonical reconstruction of the verified v0.1 capabilities plus the approved v0.2 governance/evidence and Agent-installation plan. It must not be described as a textual patch against every original v0.1 file.
+`v0.2.0-experimental.3` preserves the actual GitHub baseline and adds a clean canonical reconstruction of the verified v0.1 capabilities plus the approved v0.2 governance, evidence, Agent-installation, and CI Cost Guard plan. It must not be described as a textual patch against every original v0.1 file.
 
 No BugEzy source code, private material, or third-party repository files were copied into this version. Evidence capture, DEP schemas, CLI behavior, templates, and redaction rules are independently implemented from the approved product requirements.

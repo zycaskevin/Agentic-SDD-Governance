@@ -23,6 +23,15 @@ sddgov setup-agent /path/to/project --agent codex --profile team-standard
 sddgov doctor /path/to/project
 ```
 
+防止 GitHub-hosted CI 被當成遠端除錯器：
+
+```bash
+sddgov ci verify .
+sddgov ci local-gate .
+```
+
+完整的本機 Green Gate、過期執行取消、Draft PR 與重跑規則請見 `docs/CI_COST_GUARD.md`。
+
 安裝器會保留既有 `AGENTS.md`，並把可探索 Skill 放進 `.agents/skills/`。解除安裝預設保留 `.sddgov` 與 Evidence；完整規格見 `docs/AGENT_INSTALLATION.md`。
 
 快速入口：
@@ -34,4 +43,4 @@ sddgov doctor /path/to/project
 - Agent 導入：`docs/AGENT_INSTALLATION.md`
 - CLI：`evidence init|collect|redact|transition|verify|attach`
 
-目前版本是 `v0.2.0-experimental.2`。Benchmark fixture 只證明測試框架能運作，不代表已實證優於其他開發流程。
+目前版本是 `v0.2.0-experimental.3`。Benchmark fixture 只證明測試框架能運作，不代表已實證優於其他開發流程。

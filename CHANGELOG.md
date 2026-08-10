@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.0-experimental.3 — 2026-08-10
+
+### Added
+
+- CI Cost Guard policy, JSON Schema/template, Work Package, and progressive-disclosure Skill route.
+- `sddgov ci verify` for fail-closed contract and GitHub workflow control checks.
+- `sddgov ci local-gate` for shell-free, repository-configured local Green checks.
+
+### Changed
+
+- The governance workflow now cancels stale runs, avoids Draft PR runners, uses read-only permissions, and bounds job runtime.
+- All Profiles now define hosted-run, rerun, and Full Matrix defaults without weakening acceptance criteria.
+
 ## 0.2.0-experimental.2 — 2026-08-09
 
 ### Added

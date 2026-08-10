@@ -13,6 +13,11 @@ evidence:
 debugging:
   screenshot_only_fix_allowed: false
   dep_required_when: [failure_not_locally_obvious, cross_module, regression, security_sensitive]
+ci_cost_guard:
+  local_green_required: true
+  hosted_runs_per_work_package: 1
+  reruns_per_revision: 1
+  full_matrix: manual_or_ready_for_review
 approval_budget:
   l0_engineering: 0
   l1_engineering: 0

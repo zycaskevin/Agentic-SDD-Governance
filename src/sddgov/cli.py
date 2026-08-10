@@ -7,6 +7,7 @@ from pathlib import Path
 
 from . import __version__
 from .benchmark import compare
+from .ci_guard import run_local_gate, verify_guard
 from .evidence import attach, collect, make_dep, redact, transition, verify
 from .governance import claim_work, emit_event, enqueue_external_action, init_project, project_status
 from .installer import AGENTS, doctor, setup_agent, uninstall_agent
@@ -46,11 +47,21 @@ def _evidence_parser(subparsers) -> None:
     link.add_argument("--output", type=Path)
 
 
+def _ci_parser(subparsers) -> None:
+    ci = subparsers.add_parser("ci", help="Enforce a repository CI Cost Guard")
+    commands = ci.add_subparsers(dest="ci_command", required=True)
+    check = commands.add_parser("verify", help="Verify CI budget contract and workflow controls")
+    check.add_argument("path", nargs="?", type=Path, default=Path.cwd())
+    local = commands.add_parser("local-gate", help="Verify controls and run configured local Green checks")
+    local.add_argument("path", nargs="?", type=Path, default=Path.cwd())
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="sddgov")
     parser.add_argument("--version", action="version", version=__version__)
     sub = parser.add_subparsers(dest="command", required=True)
     _evidence_parser(sub)
+    _ci_parser(sub)
     init = sub.add_parser("init", help="Initialize project governance state")
     init.add_argument("path", nargs="?", type=Path, default=Path.cwd())
     init.add_argument("--profile", choices=("solo-fast", "team-standard", "regulated"), default="team-standard")
@@ -99,8 +110,11 @@ def _validate_repo(root: Path) -> list[str]:
         "schemas/debug-evidence-package.schema.json", "schemas/objective-contract.schema.json",
         "schemas/governance-event.schema.json", "schemas/work-claim.schema.json",
         "schemas/external-action.schema.json", "policies/protected-files.yaml",
+        "schemas/ci-cost-guard.schema.json", "policies/ci-cost-guard.yaml",
         "skill/agentic-sdd-governance/SKILL.md",
-        "docs/EVIDENCE_DRIVEN_SDD.md", "docs/AGENT_INSTALLATION.md",
+        "skill/agentic-sdd-governance/references/ci-cost-guard.md",
+        "docs/EVIDENCE_DRIVEN_SDD.md", "docs/AGENT_INSTALLATION.md", "docs/CI_COST_GUARD.md",
+        "templates/CI_COST_GUARD.json", "src/sddgov/ci_guard.py",
         "src/sddgov/installer.py",
         "src/sddgov/resources/governance/VERSION",
         "src/sddgov/resources/governance/skill/agentic-sdd-governance/SKILL.md",
@@ -158,6 +172,13 @@ def run(args: argparse.Namespace) -> int:
     if args.command == "benchmark":
         print(json.dumps(compare(args.screenshot, args.evidence), ensure_ascii=False, indent=2))
         return 0
+    if args.command == "ci":
+        if args.ci_command == "verify":
+            result = verify_guard(args.path)
+        else:
+            result = run_local_gate(args.path)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0 if result["ok"] else 1
     if args.evidence_command == "init":
         print(make_dep(args.path, args.issue, args.risk, args.sdd, args.id))
     elif args.evidence_command == "collect":

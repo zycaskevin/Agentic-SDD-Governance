@@ -24,6 +24,8 @@ SDD -> Work Package -> executable check -> implementation -> review -> CI -> pro
 
 Treat Issue, Commit, PR, CI, and Evidence as engineering records, not approval prompts.
 
+For CI creation, modification, reruns, or cost control, read `references/ci-cost-guard.md` and require the repository Local Green Gate before Push.
+
 ## Debugging route
 
 When a task includes a failure, bug, regression, incident, flaky test, unexpected UI/API behavior, or a request for verification proof:
