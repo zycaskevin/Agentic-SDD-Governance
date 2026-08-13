@@ -8,6 +8,7 @@ from importlib import resources
 from pathlib import Path
 
 from .redaction import redact_files, write_report
+from .schema_validation import bundled_schema, validate_instance
 
 
 COLLECTORS = {
@@ -40,6 +41,29 @@ def _resource_dir():
     return resources.files("sddgov").joinpath("resources/dep")
 
 
+def _bounded_zone(dep: Path, relative: Path) -> Path:
+    dep_root = dep.resolve()
+    candidate = dep / relative
+    candidate.mkdir(parents=True, exist_ok=True)
+    resolved = candidate.resolve()
+    try:
+        actual_relative = resolved.relative_to(dep_root)
+    except ValueError as exc:
+        raise ValueError(f"evidence zone escapes DEP root: {relative}") from exc
+    if actual_relative != relative:
+        raise ValueError(f"evidence zone resolves unexpectedly: {relative}")
+    return resolved
+
+
+def _bounded_filename(directory: Path, name: str) -> Path:
+    if not name or name in {".", ".."} or name.rstrip(" .") != name:
+        raise ValueError("evidence filename is unsafe after platform normalization")
+    candidate = (directory / name).resolve()
+    if candidate.parent != directory.resolve():
+        raise ValueError("evidence destination escapes its collector zone")
+    return candidate
+
+
 def make_dep(base: Path, issue: str, risk: str, sdd_ref: str | None = None, dep_id: str | None = None) -> Path:
     if risk not in {"L0", "L1", "L2", "L3"}:
         raise ValueError("risk must be L0, L1, L2, or L3")
@@ -49,7 +73,8 @@ def make_dep(base: Path, issue: str, risk: str, sdd_ref: str | None = None, dep_
     dep = base / dep_id
     if dep.exists():
         raise FileExistsError(f"DEP already exists: {dep}")
-    (dep / "private" / "raw").mkdir(parents=True)
+    (dep / "private" / "raw").mkdir(parents=True, mode=0o700)
+    (dep / "private" / "raw").chmod(0o700)
     (dep / "shareable" / "artifacts").mkdir(parents=True)
     for item in _resource_dir().iterdir():
         if item.name == "summary.yaml":
@@ -81,19 +106,19 @@ def collect(dep: Path, collector: str, input_path: Path, label: str | None = Non
         raise ValueError(f"unsupported collector: {collector}")
     if not input_path.is_file():
         raise FileNotFoundError(input_path)
-    raw_dir = dep / "private" / "raw"
-    raw_dir.mkdir(parents=True, exist_ok=True)
+    raw_dir = _bounded_zone(dep, Path("private/raw"))
+    raw_dir.chmod(0o700)
     ordinal = len(_load(dep / "manifest.json").get("raw", [])) + 1
     default_label = f"artifact-{ordinal}{input_path.suffix.lower()}"
     safe_label = "".join(c if c.isalnum() or c in "-_." else "-" for c in (label or default_label))
-    destination = raw_dir / f"{collector}--{safe_label}"
+    destination = _bounded_filename(raw_dir, f"{collector}--{safe_label}")
     shutil.copy2(input_path, destination)
     digest = hashlib.sha256(destination.read_bytes()).hexdigest()
     manifest_path = dep / "manifest.json"
     manifest = _load(manifest_path)
     manifest["raw"].append({
         "collector": collector,
-        "path": str(destination.relative_to(dep)),
+        "path": str(destination.relative_to(dep.resolve())),
         "sha256": digest,
         "collected_at": utc_now(),
         "shareable": False,
@@ -103,8 +128,8 @@ def collect(dep: Path, collector: str, input_path: Path, label: str | None = Non
 
 
 def redact(dep: Path) -> dict:
-    raw_dir = dep / "private" / "raw"
-    shareable = dep / "shareable" / "artifacts"
+    raw_dir = _bounded_zone(dep, Path("private/raw"))
+    shareable = _bounded_zone(dep, Path("shareable/artifacts"))
     files = sorted(p for p in raw_dir.iterdir() if p.is_file()) if raw_dir.exists() else []
     report = redact_files(files, shareable)
     report["dep_id"] = _load(dep / "summary.yaml")["dep_id"]
@@ -159,6 +184,16 @@ def verify(dep: Path, strict: bool = False) -> list[str]:
         manifest = _load(dep / "manifest.json")
     except (OSError, json.JSONDecodeError) as exc:
         return [f"invalid machine-readable document: {exc}"]
+    try:
+        errors.extend(
+            f"summary schema: {error}"
+            for error in validate_instance(
+                summary,
+                bundled_schema("debug-evidence-package.schema.json"),
+            )
+        )
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        errors.append(f"summary schema unavailable: {exc}")
     for field in ("dep_id", "issue", "risk_level", "workflow", "expected_behavior", "actual_behavior", "environment"):
         if field not in summary:
             errors.append(f"summary missing {field}")
@@ -166,6 +201,17 @@ def verify(dep: Path, strict: bool = False) -> list[str]:
     if phase not in PHASES:
         errors.append("invalid workflow phase")
         return errors
+    history = summary.get("workflow", {}).get("history")
+    expected_history = list(PHASES[: PHASES.index(phase) + 1])
+    actual_history = (
+        [item.get("phase") for item in history if isinstance(item, dict)]
+        if isinstance(history, list)
+        else []
+    )
+    if actual_history != expected_history or not isinstance(history, list) or len(history) != len(expected_history):
+        errors.append(
+            "workflow history must be the exact phase prefix: " + " -> ".join(expected_history)
+        )
     if strict and phase != "proof":
         errors.append(f"strict verification requires proof phase, found {phase}")
     for name in REQUIRED_DOCS["proof" if strict else phase]:
@@ -184,7 +230,12 @@ def verify(dep: Path, strict: bool = False) -> list[str]:
                 errors.append("redaction report contains blocked artifacts requiring manual review")
             if not manifest.get("shareable"):
                 errors.append("no shareable redacted evidence")
-    raw_refs = [a for a in summary.get("attachments", []) if str(a.get("path", "")).startswith("private/")]
+    raw_refs = [
+        attachment
+        for attachment in summary.get("attachments", [])
+        if isinstance(attachment, dict)
+        and str(attachment.get("path", "")).startswith("private/")
+    ]
     if raw_refs:
         errors.append("summary attachments must never reference private/raw evidence")
     return errors

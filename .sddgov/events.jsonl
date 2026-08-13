@@ -1,3 +1,6 @@
 {"schema_version": "1.0", "event_type": "governance_initialized", "risk_level": "L0", "at": "2026-08-09T08:22:19Z", "payload": {"profile": "team-standard"}}
 {"schema_version": "1.0", "event_type": "governance_initialized", "risk_level": "L0", "at": "2026-08-10T00:10:22Z", "payload": {"profile": "team-standard"}}
 {"schema_version": "1.0", "event_type": "governance_profile_updated", "risk_level": "L0", "at": "2026-08-10T00:10:22Z", "payload": {"profile": "team-standard"}}
+{"schema_version": "1.0", "event_type": "governance_initialized", "risk_level": "L0", "at": "2026-08-12T06:40:53Z", "payload": {"profile": "team-standard"}}
+{"schema_version": "1.0", "event_type": "governance_profile_updated", "risk_level": "L0", "at": "2026-08-12T06:40:53Z", "payload": {"profile": "team-standard"}}
+{"schema_version": "1.0", "event_type": "governance_version_updated", "risk_level": "L0", "at": "2026-08-12T09:45:50Z", "payload": {"previous_profile": "team-standard", "profile": "team-standard", "previous_governance_version": "0.2.0-experimental.3", "governance_version": "0.2.0-experimental.5"}}

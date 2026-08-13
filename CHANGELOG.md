@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.2.0-experimental.5 — Unreleased
+
+### Added
+
+- Added SDG Autonomous Development v1.2 with executable escalation classification, Decision Memory, informational Checkpoints, and strict `ACTION REQUIRED` packages.
+- Added machine-only artifact `lock` and `verify` commands; SHA-256 remains in provenance but is never a human approval token.
+- Added bounded Production deployment evaluation with exact recorded Baseline scope and eight mandatory machine guardrails.
+- Added acceptance tests for autonomous L0/L1 work, non-pausing Checkpoints, decision reuse, one-use L3 approval, artifact mismatch containment, and unrelated Work Package continuation.
+
+### Security
+
+- Prevented `machine_verifiable` claims and caller-supplied booleans from bypassing L3 or Production authority.
+- Bound L2 Decision reuse and L1 routine Production deployment to exact recorded scopes and unchanged assumptions.
+- Serialized Decision Store mutations so concurrent Agents cannot consume one L3 approval twice or overwrite each other's decisions.
+- Rejected platform-normalized and symlink-redirected Evidence destinations and strengthened quoted secret-field redaction.
+- Made browser evidence sharing deny-by-default for sensitive URL, identity, provider, runtime, connector, OAuth, bot/admin, and Supabase service-role data.
+- Rejected C0/DEL control characters in raw and shareable evidence paths and activated RFC 3339 `date-time` validation through JSON Schema `FormatChecker`.
+- Bound L2/L3 attachments to approved package state, Decision Package or explicit operation approval, authorized destination, and minimum disclosure.
+
+### Changed
+
+- Made Flutter, terminal, Supabase, and Docker collection examples bounded, private-path explicit, and failure-preserving.
+- Clarified that every regression fix is L1/full-DEP, while ordinary approved bug fixes are not L2 merely because broken observed behavior changes.
+- Narrowed uninstall retention claims to shareable evidence and recorded a repository-owner cleanup obligation for local raw evidence.
+- Added explicit strict DEP verification commands, rejected root-cause status, and repository-relative CI Cost Guard setup.
+
+## 0.2.0-experimental.4 — 2026-08-11 local integration candidate
+
+### Security
+
+- Restricted evidence paths to normalized `private/raw/` and `shareable/` descendants without traversal or backslash aliases.
+- Added explicit password, patient-identifier, and customer-identifier redaction rules.
+
+### Changed
+
+- Preserved repository bootstrap instructions before layered Governance Root loading.
+- Required non-blank Objective Contract list entries and safer collector reproduction context.
+- Cancelled active pull-request CI when a PR is converted back to Draft.
+
 ## 0.2.0-experimental.3 — 2026-08-10
 
 ### Added

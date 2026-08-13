@@ -5,9 +5,27 @@
 Capture the exact targeted command, exit code, relevant stdout/stderr, runtime/tool version, and working tree state. Avoid full environment dumps and shell history.
 
 ```bash
-pytest tests/test_target.py > failing-test.log 2>&1
-evidence collect <DEP> --collector terminal --input failing-test.log
+umask 077
+if ! mkdir -p <DEP>/private/raw; then exit 1; fi
+if ! chmod 700 <DEP>/private/raw; then exit 1; fi
+pytest tests/test_target.py > <DEP>/private/raw/failing-test.log 2>&1
+status=$?
+{
+  printf '%s\n' 'command=pytest tests/test_target.py'
+  printf 'exit status=%s\n' "$status"
+  pytest --version
+  git status --short
+} > <DEP>/private/raw/failing-test-context.txt
+collection_status=0
+evidence collect <DEP> --collector terminal --input <DEP>/private/raw/failing-test.log || collection_status=$?
+evidence collect <DEP> --collector terminal --input <DEP>/private/raw/failing-test-context.txt || collection_status=$?
+if [ "$collection_status" -ne 0 ]; then
+  exit "$collection_status"
+fi
+exit "$status"
 ```
+
+Keep `status` and `collection_status` separate: a failing test must stay failing, and a failed evidence import must never be hidden by the original command's exit status.
 
 ## Git (`git`)
 

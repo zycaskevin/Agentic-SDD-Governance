@@ -39,7 +39,7 @@ DEP-.../
 └── shareable/artifacts/         # only after local redaction/review
 ```
 
-`schemas/debug-evidence-package.schema.json` defines the machine contract. `evidence verify --strict` is the release gate. A DEP is not proof merely because the directory exists.
+`schemas/debug-evidence-package.schema.json` defines the machine contract. Run `evidence verify <DEP> --strict` as the release gate. A DEP is not proof merely because the directory exists.
 
 ## Risk behavior
 

@@ -13,7 +13,7 @@ The same revision may be rerun only when evidence identifies a transient runner,
 
 ## Contract
 
-Copy `templates/CI_COST_GUARD.json` to `.sddgov/ci-cost-guard.json`, then replace the local commands and expected minutes for the repository. Commands are argument arrays and are executed without a shell.
+From an installed governed repository, copy `.agentic-sdd-governance/templates/CI_COST_GUARD.json` to `.sddgov/ci-cost-guard.json`, then replace the local commands and expected minutes for the repository. Commands are argument arrays and are executed without a shell.
 
 ```bash
 sddgov ci verify .

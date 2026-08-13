@@ -10,7 +10,10 @@
         "android-logcat", "supabase-log", "docker-log", "terminal", "git"
       ]
     },
-    "path": {"type": "string"},
+    "path": {
+      "type": "string",
+      "pattern": "^private/raw/(?:(?!\\.{1,2}(?:/|$))[^/\\\\\\x00-\\x1F\\x7F]*[^/\\\\\\x00-\\x1F\\x7F .]/)*(?!\\.{1,2}$)[^/\\\\\\x00-\\x1F\\x7F]*[^/\\\\\\x00-\\x1F\\x7F .]$"
+    },
     "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
     "collected_at": {"type": "string", "format": "date-time"},
     "shareable": {"const": false}

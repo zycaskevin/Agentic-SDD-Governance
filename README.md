@@ -1,5 +1,7 @@
 # Agentic SDD Governance
 
+[English](README.md) | [繁體中文](README.zh-TW.md)
+
 Experimental governance and evidence infrastructure for autonomous software engineering.
 
 This repository answers four questions:
@@ -8,6 +10,8 @@ This repository answers four questions:
 2. When may it interrupt a human?
 3. What evidence is required before a fix or Merge?
 4. How do we measure whether the workflow works?
+
+The v1.2 autonomy contract adds a fifth rule: **machine-verifiable questions never become human approval prompts**. See `docs/AUTONOMOUS_DEVELOPMENT_V1_2.md`.
 
 ## Runtime model
 
@@ -35,9 +39,18 @@ sddgov ci verify .
 sddgov ci local-gate .
 ```
 
+Generate and verify artifact integrity without human checksum handling:
+
+```bash
+sddgov artifact lock dist/package.whl --release release-X --output release.lock
+sddgov artifact verify dist/package.whl --lock release.lock
+```
+
 See `docs/CI_COST_GUARD.md` for the tracked budget contract, Local Green Gate, stale-run cancellation, Draft PR behavior, and rerun policy.
 
 The installer manages a marked block in `AGENTS.md`, a Repo Skill under `.agents/skills/`, and a versioned governance layer under `.agentic-sdd-governance/`. See `docs/AGENT_INSTALLATION.md` for upgrades, removal, and safety behavior.
+
+For a complete Traditional Chinese walkthrough covering Release downloads, Codex, Hermes, offline installation, daily workflows, Evidence, CI Cost Guard, upgrades, removal, and troubleshooting, see [`docs/USER_GUIDE.zh-TW.md`](docs/USER_GUIDE.zh-TW.md).
 
 ## Evidence quick start
 
@@ -80,6 +93,8 @@ evidence attach evidence/DEP-... --target pr
 - `src/sddgov/installer.py`: idempotent Agent setup, health checks, and guarded removal.
 
 This is an experimental framework. Fixture benchmark results test the harness; they do not prove superiority over another workflow.
+
+Before changing a private repository to public, follow the repeatable checks in [`docs/PUBLIC_RELEASE_CHECKLIST.zh-TW.md`](docs/PUBLIC_RELEASE_CHECKLIST.zh-TW.md). Security reports and contributions are covered by [`SECURITY.md`](SECURITY.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## License
 

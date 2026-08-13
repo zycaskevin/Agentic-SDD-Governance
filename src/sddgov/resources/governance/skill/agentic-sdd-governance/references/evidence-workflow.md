@@ -10,7 +10,7 @@ Select only the collectors required to distinguish plausible causes. Collect int
 
 ## Fix
 
-Write one falsifiable Root Cause Hypothesis. Define the smallest sufficient Fix Scope, explicit non-scope, and blast radius. If the fix changes product behavior or acceptance criteria, classify L2 and prepare a Decision Package before implementation.
+Write one falsifiable Root Cause Hypothesis. Define the smallest sufficient Fix Scope, explicit non-scope, and blast radius. Classify L2 and prepare a Decision Package only when the proposed fix changes approved behavior, acceptance criteria, user-visible promises, privacy/cost/public contracts, or authority boundaries. An ordinary bug fix is not L2 solely because the observed broken behavior changes after the implementation is corrected.
 
 ## Green
 

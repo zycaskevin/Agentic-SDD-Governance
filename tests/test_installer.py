@@ -38,11 +38,18 @@ class InstallerTests(unittest.TestCase):
             self.assertTrue(
                 (project / ".agentic-sdd-governance/core/POLICY_KERNEL.md").is_file()
             )
+            self.assertTrue(
+                (
+                    project
+                    / ".agentic-sdd-governance/templates/CI_COST_GUARD.json"
+                ).is_file()
+            )
             self.assertTrue(doctor(project)["ok"])
             self.assertIn("build/", gitignore.read_text(encoding="utf-8"))
             self.assertIn(
                 "evidence/**/private/raw/", gitignore.read_text(encoding="utf-8")
             )
+            self.assertIn(".sddgov/*.lock", gitignore.read_text(encoding="utf-8"))
 
             repeated = setup_agent(project, "codex", "team-standard")
             self.assertEqual(repeated["status"], "already-installed")
@@ -100,12 +107,30 @@ class InstallerTests(unittest.TestCase):
             setup_agent(project, "codex", "team-standard")
 
             result = uninstall_agent(project)
-            self.assertEqual(result["retained"], [".sddgov", "evidence"])
+            self.assertEqual(result["retained"], [".sddgov", "evidence/*/shareable"])
+            self.assertEqual(
+                result["local_cleanup_required"]["path"],
+                "evidence/*/private/raw",
+            )
             self.assertEqual(agents.read_text(encoding="utf-8"), "# Existing Project Rules\n")
             self.assertEqual(gitignore.read_text(encoding="utf-8"), "dist/\n")
             self.assertTrue(evidence.is_file())
             self.assertFalse((project / ".agentic-sdd-governance").exists())
             self.assertFalse((project / ".agents").exists())
+
+    def test_install_manifest_does_not_claim_raw_evidence_retention(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            setup_agent(project, "codex", "team-standard")
+            manifest = json.loads(
+                (project / ".agentic-sdd-governance/manifest.json").read_text(encoding="utf-8")
+            )
+
+            self.assertEqual(manifest["uninstall_retains"], [".sddgov", "evidence/*/shareable"])
+            cleanup = manifest["uninstall_local_cleanup_required"]
+            self.assertEqual(cleanup["path"], "evidence/*/private/raw")
+            self.assertIn("repository owner", cleanup["owner"])
+            self.assertIn("repository retention policy", cleanup["retention"])
 
     def test_doctor_requires_setup(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -120,6 +145,16 @@ class InstallerTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 setup_agent(project, "codex", "team-standard")
             setup_agent(project, "codex", "team-standard", force=True)
+            self.assertTrue(doctor(project)["ok"])
+
+    def test_forced_same_version_setup_refreshes_managed_resources(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            setup_agent(project, "codex", "team-standard")
+
+            refreshed = setup_agent(project, "codex", "team-standard", force=True)
+
+            self.assertEqual(refreshed["status"], "updated")
             self.assertTrue(doctor(project)["ok"])
 
     def test_setup_does_not_replace_unmanaged_gitignore_block(self):
@@ -157,6 +192,46 @@ class InstallerTests(unittest.TestCase):
             report = doctor(project)
             self.assertFalse(report["ok"])
             self.assertTrue(any("omitted managed file" in item for item in report["errors"]))
+
+    def test_forced_upgrade_does_not_emit_a_second_initialization_event(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            setup_agent(project, "codex", "team-standard")
+            managed = project / ".agentic-sdd-governance/VERSION"
+            managed.write_text("tampered\n", encoding="utf-8")
+
+            setup_agent(project, "codex", "team-standard", force=True)
+
+            events = [
+                json.loads(line)
+                for line in (project / ".sddgov/events.jsonl").read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+            initialized = [event for event in events if event["event_type"] == "governance_initialized"]
+            self.assertEqual(len(initialized), 1)
+
+    def test_version_upgrade_emits_a_version_specific_audit_event(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            setup_agent(project, "codex", "team-standard")
+            state_path = project / ".sddgov/project.json"
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+            state["governance_version"] = "0.2.0-experimental.3"
+            state_path.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
+
+            setup_agent(project, "codex", "team-standard", force=True)
+
+            events = [
+                json.loads(line)
+                for line in (project / ".sddgov/events.jsonl").read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+            self.assertEqual(events[-1]["event_type"], "governance_version_updated")
+            self.assertEqual(
+                events[-1]["payload"]["previous_governance_version"],
+                "0.2.0-experimental.3",
+            )
+            self.assertEqual(events[-1]["payload"]["governance_version"], "0.2.0-experimental.5")
 
     def test_packaged_install_assets_match_canonical_sources(self):
         for relative, content in _resource_files().items():
