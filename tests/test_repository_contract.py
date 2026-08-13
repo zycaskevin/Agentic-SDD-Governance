@@ -3,6 +3,8 @@ import re
 import unittest
 from pathlib import Path
 
+import yaml
+
 from sddgov.cli import _validate_repo
 
 
@@ -261,9 +263,27 @@ class RepositoryContractTests(unittest.TestCase):
         )
         self.assertIn("AUTONOMY BY DEFAULT. ESCALATION BY EXCEPTION.", autonomy)
         self.assertIn("Main Agent", autonomy)
-        workflow = (ROOT / ".github/workflows/governance.yml").read_text(encoding="utf-8")
-        self.assertIn("sddgov merge verify", workflow)
-        self.assertIn("fetch-depth: 0", workflow)
+        workflow = yaml.safe_load(
+            (ROOT / ".github/workflows/governance.yml").read_text(encoding="utf-8")
+        )
+        verifier_jobs = [
+            job
+            for job in workflow["jobs"].values()
+            if any(
+                "sddgov merge verify" in str(step.get("run", ""))
+                for step in job.get("steps", [])
+            )
+        ]
+        self.assertEqual(len(verifier_jobs), 1)
+        checkout_steps = [
+            step
+            for step in verifier_jobs[0]["steps"]
+            if str(step.get("uses", "")).startswith("actions/checkout@")
+        ]
+        self.assertEqual(len(checkout_steps), 1)
+        self.assertEqual(checkout_steps[0]["with"]["fetch-depth"], 0)
+        self.assertFalse(checkout_steps[0]["with"]["persist-credentials"])
+        self.assertIn("pull_request.head.sha", checkout_steps[0]["with"]["ref"])
         cli = (ROOT / "src/sddgov/cli.py").read_text(encoding="utf-8")
         self.assertIn("import-operation-approval", cli)
         self.assertNotIn('"authorize-operation"', cli)

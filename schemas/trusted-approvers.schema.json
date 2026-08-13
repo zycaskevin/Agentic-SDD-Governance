@@ -7,13 +7,15 @@
     "schema_version": {"const": "1.0"},
     "approvers": {
       "type": "array",
+      "uniqueItems": true,
+      "x-sddgov-unique-key": "approver_id",
       "items": {
         "type": "object",
         "required": ["approver_id", "algorithm", "public_key", "status"],
         "properties": {
           "approver_id": {"type": "string", "minLength": 1},
           "algorithm": {"const": "ed25519"},
-          "public_key": {"type": "string", "minLength": 43, "maxLength": 44},
+          "public_key": {"type": "string", "minLength": 44, "maxLength": 44},
           "status": {"enum": ["active", "revoked"]}
         },
         "additionalProperties": false

@@ -2,12 +2,12 @@
 
 ## Green command and result
 
-Initial post-fix full suite: 68/68 passed. Final Local Green, `validate`, `doctor`, CI Guard, clean wheel install, and executable Merge verifier results will be recorded after exact-head review binding.
+Initial implementation suite: 68/68 passed. After resolving 14 CodeRabbit findings, the expanded suite passed 75/75. Final exact-head Local Green, `validate`, `doctor`, CI Guard, clean package install, and executable Merge verifier status are recorded after the follow-up commit.
 
 ## Before/after evidence
 
-Before: L1 downgrade returned CONTINUE; unsigned strings minted L3 authority; the same approval could authorize repeatedly; Merge policy was not executed. After: all four scenarios fail closed or require one verified and atomically consumed owner receipt; workflow invokes `sddgov merge verify`.
+Before: L1 downgrade returned CONTINUE; unsigned strings minted L3 authority; the same approval could authorize repeatedly; Merge policy was not executed. CodeRabbit then showed candidate-controlled reviewer authority, unbound Merge metadata, and hidden raw Evidence history gaps. After: all scenarios fail closed, L3 requires one verified and atomically consumed owner receipt, Review binds code plus gate metadata to trusted-base authority, and workflow invokes `sddgov merge verify` on the exact PR head.
 
 ## Remaining limitations
 
-Owner private-key provisioning, GitHub required-check/ruleset configuration, and Production credential isolation remain external Operational controls. CodeRabbit CLI review requires a separately authenticated account session.
+Owner/reviewer private-key provisioning, initial out-of-band reviewer trust bootstrap, GitHub required-check/ruleset configuration, and Production credential isolation remain external Operational controls. CodeRabbit GitHub App review completed; its review is advisory and does not replace the independent signed Merge receipt.

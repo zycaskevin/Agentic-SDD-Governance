@@ -8,15 +8,17 @@
 - Added trusted Ed25519 L3 approval receipt import, exact operation binding, nonce replay protection, expiry validation, and atomic single-use consumption on `CONTINUE`.
 - Added executable `sddgov merge verify` enforcement for exact change digest, Local Green, strict DEP, Redaction, Rollback, raw-evidence exclusion, and protected-file independent Review.
 - Added schemas, templates, documentation, and adversarial tests for all three Hard Gates.
+- Added review-bound Merge metadata digests, trusted-base policy/key resolution, structured Rollback validation, and full commit-history raw Evidence scanning.
 
 ### Security
 
 - Removed the string-only `decision authorize-operation` and separate `consume-operation` trust paths.
 - Made unknown categories, dangerous downgrades, malformed receipts, untrusted signers, tampering, replay, stale approval, dirty worktrees, and missing Merge receipts fail closed without creating routine human approval prompts.
+- Prevented candidate branches from authorizing themselves by modifying protected-path policy or reviewer keys, and rejected duplicate trust-store identities before key selection.
 
 ### Changed
 
-- GitHub Governance now fetches full history and executes the Merge verifier for non-Draft pull requests and `main` pushes.
+- GitHub Governance now checks out the exact PR head without persisted credentials, fetches full history, and executes the Merge verifier for non-Draft pull requests and `main` pushes.
 - Moved signed provenance receipts and protected Merge enforcement forward from the v0.3 Roadmap.
 
 ## 0.2.0-experimental.5 — 2026-08-13

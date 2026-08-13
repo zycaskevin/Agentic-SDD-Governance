@@ -179,6 +179,7 @@ def record_decision(
 
 
 def _canonical_receipt(receipt: dict[str, Any]) -> bytes:
+    """Return signing bytes: canonical UTF-8 JSON without ASCII escaping."""
     return json.dumps(
         receipt, ensure_ascii=False, sort_keys=True, separators=(",", ":")
     ).encode("utf-8")
@@ -206,6 +207,21 @@ def _trusted_approver(root: Path, approver_id: str) -> dict[str, Any]:
         or not isinstance(data.get("approvers"), list)
     ):
         raise ValueError("trusted approver store is missing or invalid")
+    seen: set[str] = set()
+    for row in data["approvers"]:
+        if (
+            not isinstance(row, dict)
+            or set(row) != {"approver_id", "algorithm", "public_key", "status"}
+            or not isinstance(row.get("approver_id"), str)
+            or not row["approver_id"].strip()
+            or row.get("algorithm") != "ed25519"
+            or row.get("status") not in {"active", "revoked"}
+            or not isinstance(row.get("public_key"), str)
+        ):
+            raise ValueError("trusted approver record has an invalid contract")
+        if row["approver_id"] in seen:
+            raise ValueError("trusted approver store contains duplicate approver_id")
+        seen.add(row["approver_id"])
     matches = [
         row
         for row in data["approvers"]
@@ -216,10 +232,6 @@ def _trusted_approver(root: Path, approver_id: str) -> dict[str, Any]:
     if len(matches) != 1:
         raise ValueError("approval receipt signer is not a unique active trusted approver")
     approver = matches[0]
-    if set(approver) != {"approver_id", "algorithm", "public_key", "status"}:
-        raise ValueError("trusted approver record has an invalid contract")
-    if approver.get("algorithm") != "ed25519":
-        raise ValueError("trusted approver algorithm must be ed25519")
     return approver
 
 

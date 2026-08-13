@@ -20,6 +20,8 @@ Caller-provided strings are not authority. `decision authorize-operation` and th
 
 Private signing keys must never enter the repository, chat, DEP, Agent workspace, or CI. Provisioning or using an owner signing key is an Operational/L3 boundary and is intentionally outside this repository's autonomous workflow.
 
+Both approval and review signatures use these canonical signing bytes: serialize only the inner `receipt` or `review` object with `json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))`, then UTF-8 encode it. Padded Base64 is required: Ed25519 public keys are 44 characters and signatures are 88 characters.
+
 ## Executable Merge policy
 
 `sddgov merge verify . --base-ref <exact-base>` executes the Merge contract:
@@ -29,16 +31,20 @@ Private signing keys must never enter the repository, chat, DEP, Agent workspace
 - repository Local Green Gate;
 - strict Proof-phase DEP for L1-L3;
 - zero Redaction blockers and no tracked `private/raw` Evidence;
-- completed rollback record;
+- structured rollback record with `rollback_version`, explicit `target`, executable `command`, and `verify` fields;
 - trusted-reviewer Ed25519 receipt when a protected path changed.
 
 The GitHub Governance workflow fetches full history and runs this command for non-Draft PRs and `main` pushes. Configure it as a required check in repository rulesets; a workflow file alone cannot prevent an administrator from bypassing GitHub controls.
 
 The Merge gate follows `schemas/merge-gate.schema.json`. `change_digest` excludes only audit receipts (`.sddgov/merge-gate.json`, `.sddgov/reviews/`, and `evidence/`) so a review receipt may be added after reviewing the executable change without invalidating that review.
 
-Calculate it with `sddgov merge digest . --base-ref <exact-base>`, place that value in the Merge gate and independent Review receipt, then run `sddgov merge verify`.
+Calculate the executable digest with `sddgov merge digest . --base-ref <exact-base>`, place it in the Merge gate, then calculate the review metadata binding with `sddgov merge gate-digest .`. Place both values in the independent Review receipt, then run `sddgov merge verify`.
 
-The Review receipt follows `schemas/protected-review-receipt.schema.json` and must live under `.sddgov/reviews/`. Its signer must be active in `.sddgov/trusted-reviewers.json`, the reviewer must differ from the Builder, and the receipt must approve the exact executable change while unexpired. A Builder-authored `reviewer_id` string is not review authority.
+The Review receipt follows `schemas/protected-review-receipt.schema.json` and must live under `.sddgov/reviews/`. Its signer must be active in the reviewer store from the trusted base revision, the reviewer must differ from the Builder, and the receipt must approve both the exact executable `change_digest` and `gate_metadata_digest` while unexpired. The metadata digest is SHA-256 over canonical JSON containing `schema_version`, `risk_level`, `builder_id`, `change_digest`, `deps`, and `rollback_path`; changing risk or Evidence requirements after review therefore invalidates the receipt. A Builder-authored `reviewer_id` string is not review authority.
+
+Protected-path policy is also read from the trusted base revision. If the initial rollout has no base-committed reviewer store, bootstrap must provide an out-of-band public-key store outside the repository through `SDDGOV_TRUSTED_REVIEWERS_FILE`; candidate-controlled policy or keys are never accepted as authority.
+
+Raw Evidence is checked across every commit in `base_ref..HEAD`, not only the final tree. Adding and later deleting `private/raw/` data still fails the gate because the sensitive bytes remain in Git history.
 
 ## Remaining trust boundary
 

@@ -4,8 +4,9 @@ import base64
 import binascii
 import hashlib
 import json
+import os
 import subprocess
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -74,6 +75,31 @@ def _canonical(value: dict[str, Any]) -> bytes:
     ).encode("utf-8")
 
 
+def gate_metadata_digest(gate: dict[str, Any]) -> str:
+    """Bind review to the gate fields that affect verification decisions."""
+    required = (
+        "schema_version",
+        "risk_level",
+        "builder_id",
+        "change_digest",
+        "deps",
+        "rollback_path",
+    )
+    missing = [key for key in required if key not in gate]
+    if missing:
+        raise ValueError("merge gate metadata is missing: " + ", ".join(missing))
+    metadata = {key: gate[key] for key in required}
+    return hashlib.sha256(_canonical(metadata)).hexdigest()
+
+
+def compute_gate_metadata_digest(
+    root: Path, gate_path: Path = DEFAULT_GATE
+) -> dict[str, str]:
+    root = root.resolve()
+    gate = _load_json(root / gate_path, str(gate_path))
+    return {"gate_metadata_digest": gate_metadata_digest(gate)}
+
+
 def _parse_time(value: Any, field: str) -> datetime:
     if not isinstance(value, str):
         raise ValueError(f"review receipt {field} must be an RFC3339 timestamp")
@@ -92,6 +118,8 @@ def _verify_review_receipt(
     *,
     builder_id: str,
     digest: str,
+    metadata_digest: str,
+    trust: dict[str, Any],
 ) -> dict[str, Any]:
     path = (root / relative).resolve()
     try:
@@ -113,6 +141,7 @@ def _verify_review_receipt(
         "reviewer_id",
         "builder_id",
         "change_digest",
+        "gate_metadata_digest",
         "verdict",
         "issued_at",
         "expires_at",
@@ -125,22 +154,44 @@ def _verify_review_receipt(
         raise ValueError("protected-file review payload has an invalid contract")
     if review["builder_id"] != builder_id or review["reviewer_id"] == builder_id:
         raise ValueError("protected-file review is not independent of the Builder")
-    if review["change_digest"] != digest or review["verdict"] != "approved":
+    if (
+        review["change_digest"] != digest
+        or review["gate_metadata_digest"] != metadata_digest
+        or review["verdict"] != "approved"
+    ):
         raise ValueError("protected-file review does not approve the exact executable change")
     issued_at = _parse_time(review["issued_at"], "issued_at")
     expires_at = _parse_time(review["expires_at"], "expires_at")
     now = datetime.now(timezone.utc)
-    if issued_at > now or expires_at <= now or expires_at <= issued_at:
+    if (
+        issued_at > now + timedelta(minutes=5)
+        or expires_at <= now
+        or expires_at <= issued_at
+    ):
         raise ValueError("protected-file review receipt is not currently valid")
-    trust = _load_json(
-        root / ".sddgov" / "trusted-reviewers.json", "trusted reviewer store"
-    )
+    if expires_at - issued_at > timedelta(hours=24):
+        raise ValueError("protected-file review validity exceeds 24 hours")
     if (
         set(trust) != {"schema_version", "reviewers"}
         or trust.get("schema_version") != "1.0"
         or not isinstance(trust.get("reviewers"), list)
     ):
         raise ValueError("trusted reviewer store has an invalid contract")
+    seen: set[str] = set()
+    for row in trust["reviewers"]:
+        if (
+            not isinstance(row, dict)
+            or set(row) != {"reviewer_id", "algorithm", "public_key", "status"}
+            or not isinstance(row.get("reviewer_id"), str)
+            or not row["reviewer_id"].strip()
+            or row.get("algorithm") != "ed25519"
+            or row.get("status") not in {"active", "revoked"}
+            or not isinstance(row.get("public_key"), str)
+        ):
+            raise ValueError("trusted reviewer record has an invalid contract")
+        if row["reviewer_id"] in seen:
+            raise ValueError("trusted reviewer store contains duplicate reviewer_id")
+        seen.add(row["reviewer_id"])
     matches = [
         row
         for row in trust["reviewers"]
@@ -151,8 +202,6 @@ def _verify_review_receipt(
     if len(matches) != 1:
         raise ValueError("review signer is not a unique active trusted reviewer")
     reviewer = matches[0]
-    if set(reviewer) != {"reviewer_id", "algorithm", "public_key", "status"} or reviewer.get("algorithm") != "ed25519":
-        raise ValueError("trusted reviewer record has an invalid contract")
     try:
         public_key = base64.b64decode(reviewer["public_key"], validate=True)
         signature = base64.b64decode(envelope["signature"], validate=True)
@@ -164,13 +213,14 @@ def _verify_review_receipt(
     return review
 
 
-def _protected_patterns(root: Path) -> list[str]:
-    path = root / "policies" / "protected-files.yaml"
-    if not path.is_file():
-        raise ValueError("policies/protected-files.yaml is required")
+def _protected_patterns(root: Path, base_ref: str) -> list[str]:
+    try:
+        text = _git(root, "show", f"{base_ref}:policies/protected-files.yaml")
+    except ValueError as exc:
+        raise ValueError("protected-file policy is required at the trusted base") from exc
     patterns: list[str] = []
     in_protected = False
-    for raw in path.read_text(encoding="utf-8").splitlines():
+    for raw in text.splitlines():
         if raw.strip() == "protected:":
             in_protected = True
             continue
@@ -184,19 +234,59 @@ def _protected_patterns(root: Path) -> list[str]:
     return patterns
 
 
+def _trusted_reviewers(root: Path, base_ref: str) -> dict[str, Any]:
+    """Load reviewer authority from the trusted base or an out-of-band file."""
+    try:
+        text = _git(root, "show", f"{base_ref}:.sddgov/trusted-reviewers.json")
+    except ValueError as base_error:
+        external = os.environ.get("SDDGOV_TRUSTED_REVIEWERS_FILE")
+        if not external:
+            raise ValueError(
+                "trusted reviewer store is absent from the trusted base; "
+                "bootstrap requires SDDGOV_TRUSTED_REVIEWERS_FILE"
+            ) from base_error
+        source = Path(external).expanduser().resolve()
+        try:
+            source.relative_to(root)
+        except ValueError:
+            return _load_json(source, "out-of-band trusted reviewer store")
+        raise ValueError(
+            "out-of-band trusted reviewer store must be outside the repository"
+        )
+    try:
+        value = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ValueError("trusted reviewer store at trusted base is invalid") from exc
+    if not isinstance(value, dict):
+        raise ValueError("trusted reviewer store at trusted base must contain a JSON object")
+    return value
+
+
 def _is_protected(path: str, patterns: list[str]) -> bool:
-    return any(path.startswith(pattern) if pattern.endswith("/") else path == pattern for pattern in patterns)
+    return any(
+        path.startswith(pattern) if pattern.endswith("/") else path == pattern
+        for pattern in patterns
+    )
 
 
 def _real_rollback(path: Path) -> bool:
     if not path.is_file():
         return False
-    lines = [
-        line.strip()
-        for line in path.read_text(encoding="utf-8", errors="ignore").splitlines()
-        if line.strip() and not line.lstrip().startswith("#")
-    ]
-    return any("TODO" not in line and "<!--" not in line for line in lines)
+    fields: dict[str, str] = {}
+    for raw in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        fields[key.strip().lower()] = value.strip().strip("`")
+    required = {"rollback_version", "target", "command", "verify"}
+    if not required.issubset(fields) or fields["rollback_version"] != "1.0":
+        return False
+    forbidden = ("todo", "replace", "unavailable", "<", ">")
+    return all(
+        fields[key] and not any(token in fields[key].lower() for token in forbidden)
+        for key in ("target", "command", "verify")
+    )
 
 
 def verify_merge(
@@ -231,7 +321,9 @@ def verify_merge(
     if gate.get("change_digest") != actual_digest:
         raise ValueError("merge gate change_digest does not match the exact executable change")
     deps = gate.get("deps")
-    if not isinstance(deps, list) or any(not isinstance(item, str) or not item for item in deps):
+    if not isinstance(deps, list) or any(
+        not isinstance(item, str) or not item for item in deps
+    ):
         raise ValueError("merge gate deps must be a string array")
     if gate["risk_level"] != "L0" and not deps:
         raise ValueError("L1-L3 Merge requires at least one strict DEP")
@@ -252,18 +344,34 @@ def verify_merge(
         raise ValueError("rollback path escapes the repository") from exc
     if not _real_rollback(rollback):
         raise ValueError("rollback record is missing or incomplete")
-    tracked = _git(root, "ls-files").splitlines()
-    raw = [path for path in tracked if "/private/raw/" in f"/{path}"]
+    commits = _git(root, "rev-list", f"{base_ref}..HEAD").splitlines()
+    raw = sorted(
+        {
+            path
+            for commit in commits
+            for path in _git(root, "ls-tree", "-r", "--name-only", commit).splitlines()
+            if "/private/raw/" in f"/{path}"
+        }
+    )
     if raw:
         raise ValueError("raw evidence is tracked by Git: " + ", ".join(raw))
     changed = _git(root, "diff", "--name-only", f"{base_ref}...HEAD").splitlines()
-    protected = [path for path in changed if _is_protected(path, _protected_patterns(root))]
+    protected = [
+        path
+        for path in changed
+        if _is_protected(path, _protected_patterns(root, base_ref))
+    ]
     review = gate.get("protected_file_review")
     if protected:
         if not isinstance(review, str) or not review:
             raise ValueError("protected-file changes require a signed independent review receipt")
         verified_review = _verify_review_receipt(
-            root, review, builder_id=gate["builder_id"], digest=actual_digest
+            root,
+            review,
+            builder_id=gate["builder_id"],
+            digest=actual_digest,
+            metadata_digest=gate_metadata_digest(gate),
+            trust=_trusted_reviewers(root, base_ref),
         )
     elif review is not None:
         raise ValueError("protected_file_review must be null when no protected file changed")

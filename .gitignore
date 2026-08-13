@@ -19,4 +19,6 @@ evidence/**/private/raw/
 .sddgov/*.lock
 # Merge Gate, independent review receipts, and trusted approver public keys are auditable project policy.
 # Owner private signing keys must never enter the repository.
+*.ed25519.key
+.sddgov/keys/
 # agentic-sdd-governance:end

@@ -20,7 +20,12 @@ from .ci_guard import run_local_gate, verify_guard
 from .evidence import attach, collect, make_dep, redact, transition, verify
 from .governance import claim_work, emit_event, enqueue_external_action, init_project, project_status
 from .installer import AGENTS, doctor, setup_agent, uninstall_agent
-from .merge_gate import DEFAULT_GATE, compute_change_digest, verify_merge
+from .merge_gate import (
+    DEFAULT_GATE,
+    compute_change_digest,
+    compute_gate_metadata_digest,
+    verify_merge,
+)
 from .schema_validation import check_schema, load_schema, validate_instance
 
 
@@ -125,6 +130,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     merge_digest.add_argument("path", nargs="?", type=Path, default=Path.cwd())
     merge_digest.add_argument("--base-ref", required=True)
+    merge_gate_digest = merge_commands.add_parser(
+        "gate-digest", help="Calculate the review-bound Merge metadata digest"
+    )
+    merge_gate_digest.add_argument("path", nargs="?", type=Path, default=Path.cwd())
+    merge_gate_digest.add_argument("--gate", type=Path, default=DEFAULT_GATE)
     merge_verify = merge_commands.add_parser(
         "verify", help="Verify exact change, Local Green, DEP, rollback, and review gates"
     )
@@ -291,11 +301,12 @@ def run(args: argparse.Namespace) -> int:
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0 if result.get("ok", result.get("state") == "CONTINUE") else 1
     if args.command == "merge":
-        result = (
-            compute_change_digest(args.path, args.base_ref)
-            if args.merge_command == "digest"
-            else verify_merge(args.path, args.base_ref, args.gate)
-        )
+        if args.merge_command == "digest":
+            result = compute_change_digest(args.path, args.base_ref)
+        elif args.merge_command == "gate-digest":
+            result = compute_gate_metadata_digest(args.path, args.gate)
+        else:
+            result = verify_merge(args.path, args.base_ref, args.gate)
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0 if result.get("ok", True) else 1
     if args.command == "validate":

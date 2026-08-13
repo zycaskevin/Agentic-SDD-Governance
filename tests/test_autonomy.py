@@ -86,7 +86,7 @@ class AutonomyTests(unittest.TestCase):
             "expires_at": (now + timedelta(minutes=30)).isoformat().replace(
                 "+00:00", "Z"
             ),
-            "nonce": "nonce-1234567890",
+            "nonce": f"nonce-{approval_id}-{operation_id}",
         }
         canonical = json.dumps(
             receipt, ensure_ascii=False, sort_keys=True, separators=(",", ":")
@@ -163,6 +163,28 @@ class AutonomyTests(unittest.TestCase):
                 self.root,
                 {"risk_level": "L1", "category": "implementation", "effects": []},
             )
+        for invalid in ({"unknown_effect": True}, {"production": False}):
+            with self.subTest(effects=invalid):
+                with self.assertRaisesRegex(ValueError, "known sensitive flags"):
+                    evaluate_escalation(
+                        self.root,
+                        {
+                            "risk_level": "L1",
+                            "category": "implementation",
+                            "effects": invalid,
+                        },
+                    )
+
+    def test_duplicate_approver_id_is_rejected_before_key_selection(self):
+        path, _ = self._signed_operation_approval()
+        trust_path = self.root / ".sddgov/trusted-approvers.json"
+        trust = json.loads(trust_path.read_text())
+        duplicate = dict(trust["approvers"][0])
+        duplicate["status"] = "revoked"
+        trust["approvers"].append(duplicate)
+        trust_path.write_text(json.dumps(trust))
+        with self.assertRaisesRegex(ValueError, "duplicate approver_id"):
+            import_operation_approval(self.root, path)
 
     def test_checkpoint_is_informational_and_continues(self):
         result = checkpoint("WP-001 complete", "WP-002")

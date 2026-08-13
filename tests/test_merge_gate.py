@@ -11,7 +11,7 @@ from unittest.mock import patch
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from sddgov.merge_gate import change_digest, verify_merge
+from sddgov.merge_gate import change_digest, gate_metadata_digest, verify_merge
 
 
 def _run(root: Path, *args: str) -> str:
@@ -105,23 +105,46 @@ jobs:
         (self.root / "core/POLICY_KERNEL.md").write_text("hardened\n")
         rollback = self.root / "evidence/DEP-1/rollback.md"
         rollback.parent.mkdir(parents=True)
-        rollback.write_text("# Rollback\n\nRevert the bounded commit and rerun tests.\n")
+        rollback.write_text(
+            "# Rollback\n\n"
+            "rollback_version: 1.0\n"
+            "target: bounded test commit\n"
+            "command: git revert HEAD\n"
+            "verify: python -m unittest\n"
+        )
         _run(self.root, "git", "add", ".")
         _run(self.root, "git", "commit", "-qm", "harden")
 
     def tearDown(self):
         self.temporary.cleanup()
 
-    def _write_gate(self, review=True):
+    def _write_gate(
+        self,
+        review=True,
+        *,
+        reviewer_key=None,
+        reviewer_id="independent-reviewer",
+    ):
         digest = change_digest(self.root, self.base)
+        gate = {
+            "schema_version": "1.0",
+            "risk_level": "L1",
+            "builder_id": "codex-builder",
+            "change_digest": digest,
+            "deps": ["evidence/DEP-1"],
+            "rollback_path": "evidence/DEP-1/rollback.md",
+            "protected_file_review": None,
+        }
         review_path = None
         if review:
+            reviewer_key = reviewer_key or self.reviewer_key
             now = datetime.now(timezone.utc).replace(microsecond=0)
             review_payload = {
                 "review_id": "REV-1",
-                "reviewer_id": "independent-reviewer",
+                "reviewer_id": reviewer_id,
                 "builder_id": "codex-builder",
                 "change_digest": digest,
+                "gate_metadata_digest": gate_metadata_digest(gate),
                 "verdict": "approved",
                 "issued_at": now.isoformat().replace("+00:00", "Z"),
                 "expires_at": (now + timedelta(hours=1)).isoformat().replace("+00:00", "Z"),
@@ -134,23 +157,18 @@ jobs:
                 "schema_version": "1.0",
                 "algorithm": "ed25519",
                 "review": review_payload,
-                "signature": base64.b64encode(self.reviewer_key.sign(canonical)).decode("ascii"),
+                "signature": base64.b64encode(reviewer_key.sign(canonical)).decode("ascii"),
             }
             reviews = self.root / ".sddgov/reviews"
-            reviews.mkdir()
+            reviews.mkdir(exist_ok=True)
             review_path = ".sddgov/reviews/REV-1.json"
             (self.root / review_path).write_text(json.dumps(envelope))
-        gate = {
-            "schema_version": "1.0",
-            "risk_level": "L1",
-            "builder_id": "codex-builder",
-            "change_digest": digest,
-            "deps": ["evidence/DEP-1"],
-            "rollback_path": "evidence/DEP-1/rollback.md",
-            "protected_file_review": review_path,
-        }
+        gate["protected_file_review"] = review_path
         (self.root / ".sddgov/merge-gate.json").write_text(json.dumps(gate))
-        _run(self.root, "git", "add", ".sddgov/merge-gate.json", ".sddgov/reviews") if review else _run(self.root, "git", "add", ".sddgov/merge-gate.json")
+        if review:
+            _run(self.root, "git", "add", ".sddgov/merge-gate.json", ".sddgov/reviews")
+        else:
+            _run(self.root, "git", "add", ".sddgov/merge-gate.json")
         _run(self.root, "git", "commit", "-qm", "merge receipt")
 
     @patch("sddgov.merge_gate.verify_dep", return_value=[])
@@ -177,6 +195,96 @@ jobs:
         _run(self.root, "git", "add", "-f", str(raw.relative_to(self.root)))
         _run(self.root, "git", "commit", "-qm", "bad raw")
         with self.assertRaisesRegex(ValueError, "raw evidence"):
+            verify_merge(self.root, self.base, run_checks=False)
+
+    @patch("sddgov.merge_gate.verify_dep", return_value=[])
+    def test_deleted_raw_evidence_still_fails_history_scan(self, _verify):
+        self._write_gate()
+        raw = self.root / "evidence/DEP-1/private/raw/deleted-leak.log"
+        raw.parent.mkdir(parents=True)
+        raw.write_text("secret")
+        _run(self.root, "git", "add", "-f", str(raw.relative_to(self.root)))
+        _run(self.root, "git", "commit", "-qm", "bad raw history")
+        raw.unlink()
+        _run(self.root, "git", "add", "-u")
+        _run(self.root, "git", "commit", "-qm", "hide raw from head")
+        with self.assertRaisesRegex(ValueError, "raw evidence"):
+            verify_merge(self.root, self.base, run_checks=False)
+
+    @patch("sddgov.merge_gate.verify_dep", return_value=[])
+    def test_review_binds_risk_and_dep_metadata(self, _verify):
+        self._write_gate()
+        gate_path = self.root / ".sddgov/merge-gate.json"
+        gate = json.loads(gate_path.read_text())
+        gate["risk_level"] = "L0"
+        gate["deps"] = []
+        gate_path.write_text(json.dumps(gate))
+        _run(self.root, "git", "add", str(gate_path.relative_to(self.root)))
+        _run(self.root, "git", "commit", "-qm", "tamper gate metadata")
+        with self.assertRaisesRegex(ValueError, "exact executable change"):
+            verify_merge(self.root, self.base, run_checks=False)
+
+    @patch("sddgov.merge_gate.verify_dep", return_value=[])
+    def test_candidate_policy_cannot_unprotect_base_paths(self, _verify):
+        (self.root / "policies/protected-files.yaml").write_text(
+            "protected:\n  - harmless.txt\nrules:\n"
+        )
+        _run(self.root, "git", "add", "policies/protected-files.yaml")
+        _run(self.root, "git", "commit", "-qm", "attempt policy bypass")
+        self._write_gate(review=False)
+        with self.assertRaisesRegex(ValueError, "independent review"):
+            verify_merge(self.root, self.base, run_checks=False)
+
+    @patch("sddgov.merge_gate.verify_dep", return_value=[])
+    def test_candidate_reviewer_key_cannot_authorize_change(self, _verify):
+        rogue_key = Ed25519PrivateKey.generate()
+        rogue_public = rogue_key.public_key().public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw,
+        )
+        candidate_trust = {
+            "schema_version": "1.0",
+            "reviewers": [{
+                "reviewer_id": "rogue-reviewer",
+                "algorithm": "ed25519",
+                "public_key": base64.b64encode(rogue_public).decode("ascii"),
+                "status": "active",
+            }],
+        }
+        (self.root / ".sddgov/trusted-reviewers.json").write_text(
+            json.dumps(candidate_trust)
+        )
+        _run(self.root, "git", "add", ".sddgov/trusted-reviewers.json")
+        _run(self.root, "git", "commit", "-qm", "attempt reviewer bypass")
+        self._write_gate(reviewer_key=rogue_key, reviewer_id="rogue-reviewer")
+        with self.assertRaisesRegex(ValueError, "not a unique active trusted reviewer"):
+            verify_merge(self.root, self.base, run_checks=False)
+
+    @patch("sddgov.merge_gate.verify_dep", return_value=[])
+    def test_duplicate_reviewer_id_in_trusted_base_is_rejected(self, _verify):
+        trust_path = self.root / ".sddgov/trusted-reviewers.json"
+        trust = json.loads(trust_path.read_text())
+        duplicate = dict(trust["reviewers"][0])
+        duplicate["status"] = "revoked"
+        trust["reviewers"].append(duplicate)
+        trust_path.write_text(json.dumps(trust))
+        _run(self.root, "git", "add", ".sddgov/trusted-reviewers.json")
+        _run(self.root, "git", "commit", "-qm", "duplicate reviewer in base")
+        self.base = _run(self.root, "git", "rev-parse", "HEAD")
+        (self.root / "core/POLICY_KERNEL.md").write_text("hardened again\n")
+        _run(self.root, "git", "add", "core/POLICY_KERNEL.md")
+        _run(self.root, "git", "commit", "-qm", "protected follow-up")
+        self._write_gate()
+        with self.assertRaisesRegex(ValueError, "duplicate reviewer_id"):
+            verify_merge(self.root, self.base, run_checks=False)
+
+    @patch("sddgov.merge_gate.verify_dep", return_value=[])
+    def test_arbitrary_rollback_prose_is_rejected(self, _verify):
+        (self.root / "evidence/DEP-1/rollback.md").write_text("Rollback unavailable")
+        _run(self.root, "git", "add", "evidence/DEP-1/rollback.md")
+        _run(self.root, "git", "commit", "-qm", "invalid rollback")
+        self._write_gate()
+        with self.assertRaisesRegex(ValueError, "rollback record"):
             verify_merge(self.root, self.base, run_checks=False)
 
 

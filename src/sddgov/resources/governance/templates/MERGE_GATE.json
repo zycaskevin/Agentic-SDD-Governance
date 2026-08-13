@@ -5,5 +5,5 @@
   "change_digest": "replace-with-sddgov-change-digest",
   "deps": ["evidence/DEP-REPLACE"],
   "rollback_path": "evidence/DEP-REPLACE/rollback.md",
-  "protected_file_review": ".sddgov/reviews/REV-REPLACE.json"
+  "protected_file_review": null
 }
