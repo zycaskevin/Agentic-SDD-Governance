@@ -108,6 +108,10 @@ class InstallerTests(unittest.TestCase):
 
             result = uninstall_agent(project)
             self.assertEqual(result["retained"], [".sddgov", "evidence/*/shareable"])
+            self.assertEqual(
+                result["local_cleanup_required"]["path"],
+                "evidence/*/private/raw",
+            )
             self.assertEqual(agents.read_text(encoding="utf-8"), "# Existing Project Rules\n")
             self.assertEqual(gitignore.read_text(encoding="utf-8"), "dist/\n")
             self.assertTrue(evidence.is_file())

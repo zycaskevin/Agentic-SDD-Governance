@@ -20,7 +20,19 @@
   "allOf": [
     {
       "if": {"properties": {"risk_level": {"const": "L3"}}},
-      "then": {"required": ["operation_id", "approved_by", "expires_at", "consumed_at"]}
+      "then": {
+        "required": ["operation_id", "approved_by", "expires_at", "consumed_at"],
+        "allOf": [
+          {
+            "if": {"properties": {"status": {"const": "approved"}}},
+            "then": {"properties": {"consumed_at": {"type": "null"}}}
+          },
+          {
+            "if": {"properties": {"status": {"const": "completed"}}},
+            "then": {"properties": {"consumed_at": {"type": "string", "format": "date-time"}}}
+          }
+        ]
+      }
     }
   ],
   "additionalProperties": false

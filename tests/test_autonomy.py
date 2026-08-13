@@ -91,7 +91,7 @@ class AutonomyTests(unittest.TestCase):
         result = evaluate_escalation(
             self.root,
             {
-                "risk_level": "L2",
+                "risk_level": "L1",
                 "category": "uncertainty",
                 "machine_verifiable": True,
             },
@@ -101,6 +101,16 @@ class AutonomyTests(unittest.TestCase):
             result["next_action"], "verify_with_repo_decisions_tests_ci_or_tools"
         )
         self.assertFalse(result["requires_response"])
+
+        with self.assertRaisesRegex(ValueError, "strict decision_package"):
+            evaluate_escalation(
+                self.root,
+                {
+                    "risk_level": "L2",
+                    "category": "uncertainty",
+                    "machine_verifiable": True,
+                },
+            )
 
     def test_decision_log_prevents_duplicate_l2_questions(self):
         first = evaluate_escalation(

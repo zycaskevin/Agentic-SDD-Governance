@@ -5,7 +5,9 @@
 Capture the exact targeted command, exit code, relevant stdout/stderr, runtime/tool version, and working tree state. Avoid full environment dumps and shell history.
 
 ```bash
+umask 077
 mkdir -p <DEP>/private/raw
+chmod 700 <DEP>/private/raw
 pytest tests/test_target.py > <DEP>/private/raw/failing-test.log 2>&1
 status=$?
 {

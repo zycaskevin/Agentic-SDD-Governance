@@ -73,7 +73,8 @@ def make_dep(base: Path, issue: str, risk: str, sdd_ref: str | None = None, dep_
     dep = base / dep_id
     if dep.exists():
         raise FileExistsError(f"DEP already exists: {dep}")
-    (dep / "private" / "raw").mkdir(parents=True)
+    (dep / "private" / "raw").mkdir(parents=True, mode=0o700)
+    (dep / "private" / "raw").chmod(0o700)
     (dep / "shareable" / "artifacts").mkdir(parents=True)
     for item in _resource_dir().iterdir():
         if item.name == "summary.yaml":
@@ -106,6 +107,7 @@ def collect(dep: Path, collector: str, input_path: Path, label: str | None = Non
     if not input_path.is_file():
         raise FileNotFoundError(input_path)
     raw_dir = _bounded_zone(dep, Path("private/raw"))
+    raw_dir.chmod(0o700)
     ordinal = len(_load(dep / "manifest.json").get("raw", [])) + 1
     default_label = f"artifact-{ordinal}{input_path.suffix.lower()}"
     safe_label = "".join(c if c.isalnum() or c in "-_." else "-" for c in (label or default_label))

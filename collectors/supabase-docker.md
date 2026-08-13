@@ -5,10 +5,14 @@
 Default to the local development stack. Record the command, local project reference, migration snapshot, API status, and narrow service log window.
 
 ```bash
+umask 077
 mkdir -p <DEP>/private/raw
+chmod 700 <DEP>/private/raw
 supabase_status=0
 supabase status > <DEP>/private/raw/supabase-status.txt 2>&1 || supabase_status=$?
-test "$supabase_status" -eq 0
+if [ "$supabase_status" -ne 0 ]; then
+  exit "$supabase_status"
+fi
 evidence collect <DEP> --collector supabase-log --input <DEP>/private/raw/supabase-status.txt
 supabase functions serve <name> --debug > <DEP>/private/raw/supabase-function.log 2>&1 &
 serve_pid=$!
@@ -20,8 +24,12 @@ Run the bounded reproduction while the local server is active. Then interrupt th
 kill -INT "$serve_pid"
 serve_status=0
 wait "$serve_pid" || serve_status=$?
-test "$serve_status" -eq 0 -o "$serve_status" -eq 130
-test -s <DEP>/private/raw/supabase-function.log
+if [ "$serve_status" -ne 0 ] && [ "$serve_status" -ne 130 ]; then
+  exit "$serve_status"
+fi
+if [ ! -s <DEP>/private/raw/supabase-function.log ]; then
+  exit 1
+fi
 evidence collect <DEP> --collector supabase-log --input <DEP>/private/raw/supabase-function.log
 ```
 
@@ -32,11 +40,17 @@ Fail closed when a command may target production. Do not apply, repair, reset, o
 Use explicit container/service names and a bounded time window:
 
 ```bash
+umask 077
 mkdir -p <DEP>/private/raw
-docker logs --since 10m <test-container> > <DEP>/private/raw/docker-failure.log 2>&1
-docker_status=$?
-test "$docker_status" -eq 0
-test -s <DEP>/private/raw/docker-failure.log
+chmod 700 <DEP>/private/raw
+docker_status=0
+docker logs --since 10m <test-container> > <DEP>/private/raw/docker-failure.log 2>&1 || docker_status=$?
+if [ "$docker_status" -ne 0 ]; then
+  exit "$docker_status"
+fi
+if [ ! -s <DEP>/private/raw/docker-failure.log ]; then
+  exit 1
+fi
 evidence collect <DEP> --collector docker-log --input <DEP>/private/raw/docker-failure.log
 ```
 

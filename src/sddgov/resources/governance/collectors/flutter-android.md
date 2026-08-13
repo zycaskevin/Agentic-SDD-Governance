@@ -5,7 +5,9 @@
 Capture the narrow failing run:
 
 ```bash
+umask 077
 mkdir -p <DEP>/private/raw
+chmod 700 <DEP>/private/raw
 flutter run --verbose > <DEP>/private/raw/flutter-failure.log 2>&1
 # Reproduce once, Press `q`, and wait until `flutter run` exits before continuing.
 evidence collect <DEP> --collector flutter-log --input <DEP>/private/raw/flutter-failure.log
@@ -20,7 +22,9 @@ Prefer `flutter test <target> --machine` for deterministic test evidence. Record
 Clear stale logs only in a disposable test context, reproduce once, and filter to the application process or relevant tags:
 
 ```bash
+umask 077
 mkdir -p <DEP>/private/raw
+chmod 700 <DEP>/private/raw
 adb logcat -v threadtime --pid=<test-app-pid> > <DEP>/private/raw/logcat-failure.log 2>&1
 # Reproduce once, Press Ctrl-C, and wait until `adb logcat` exits before continuing.
 evidence collect <DEP> --collector android-logcat --input <DEP>/private/raw/logcat-failure.log

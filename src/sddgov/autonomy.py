@@ -373,12 +373,12 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
             ),
         }
         return result
-    if category in ROUTINE_OPERATIONS and risk != "L3":
+    if category in ROUTINE_OPERATIONS and risk in {"L0", "L1"}:
         return _continue(
             "no_human_escalation_if_machine_verifiable",
             "verify_with_repo_decisions_tests_ci_or_tools",
         )
-    if request.get("machine_verifiable") and risk != "L3":
+    if request.get("machine_verifiable") and risk in {"L0", "L1"}:
         return _continue(
             "no_human_escalation_if_machine_verifiable",
             "verify_with_repo_decisions_tests_ci_or_tools",

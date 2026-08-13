@@ -43,8 +43,8 @@ class RedactionTests(unittest.TestCase):
 
     def test_masks_quoted_json_keys_and_escaped_quoted_values(self):
         source = (
-            r'''{"password":"correct-\\"horse","api_key":"sk-\\"secret",'''
-            r'''"patient_id":"patient-\\"123","customer_identifier":"customer-\\"456"}'''
+            r'''{"password":"correct-\"horse","api_key":"sk-\"secret",'''
+            r'''"patient_id":"patient-\"123","customer_identifier":"customer-\"456"}'''
         )
         cleaned, counts = redact_text(source)
         for fragment in ("correct", "sk-", "patient-", "customer-"):
@@ -53,6 +53,18 @@ class RedactionTests(unittest.TestCase):
         self.assertEqual(counts["secret-field"], 1)
         self.assertEqual(counts["patient-identifier"], 1)
         self.assertEqual(counts["customer-identifier"], 1)
+
+    def test_masks_uppercase_snake_case_credentials(self):
+        source = (
+            "DB_PASSWORD=database-secret\n"
+            "SECRET_KEY=signing-secret\n"
+            "ACCESS_KEY=provider-secret\n"
+        )
+        cleaned, counts = redact_text(source)
+        for fragment in ("database-secret", "signing-secret", "provider-secret"):
+            self.assertNotIn(fragment, cleaned)
+        self.assertEqual(counts["password"], 1)
+        self.assertEqual(counts["secret-field"], 2)
 
 
 if __name__ == "__main__":

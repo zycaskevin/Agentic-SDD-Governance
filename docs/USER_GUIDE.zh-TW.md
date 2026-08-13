@@ -172,7 +172,11 @@ SDD
 
 ```bash
 evidence init --issue ISSUE-123 --risk L1 --sdd CAP-03
-evidence collect evidence/DEP-... --collector terminal --input failure.log
+umask 077
+mkdir -p evidence/DEP-.../private/raw
+chmod 700 evidence/DEP-.../private/raw
+your-test-command > evidence/DEP-.../private/raw/failure.log 2>&1
+evidence collect evidence/DEP-... --collector terminal --input evidence/DEP-.../private/raw/failure.log
 evidence redact evidence/DEP-...
 evidence transition evidence/DEP-... evidence
 ```
@@ -319,6 +323,6 @@ gh release download <tag> --repo <owner/repo>
 - 不要在 Issue、PR、Chat、Screenshot 或文件放 Token、Cookie、OTP、Private Key 或 Production dump。
 - Redactor 是降低意外洩漏的 MVP，不是法律匿名化認證。
 - 更多 Evidence 不會授權更高風險的行動。
-- 正式部署、付款、資料刪除、Credential 與 MFA 均須明確 Owner 授權。
+- 付款、正式資料刪除、Credential 與 MFA 均須明確 Owner 授權；正式部署只有在屬於 L3、破壞性、高權限、Secret／Permission boundary 變更、不可逆或無可靠復原時需要新的明確授權。符合已記錄 Baseline 且八項機器 Guardrails 全通過的可逆 L1 部署可自主執行。
 
 公開 Repository 前，請完成 [`PUBLIC_RELEASE_CHECKLIST.zh-TW.md`](PUBLIC_RELEASE_CHECKLIST.zh-TW.md)。

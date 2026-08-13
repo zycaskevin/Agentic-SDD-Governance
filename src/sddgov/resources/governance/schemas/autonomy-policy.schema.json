@@ -71,8 +71,20 @@
         "required_guardrails": {
           "type": "array",
           "minItems": 8,
+          "maxItems": 8,
           "uniqueItems": true,
-          "items": {"type": "string", "minLength": 1}
+          "items": {
+            "enum": [
+              "all_required_checks_pass",
+              "rollback_available",
+              "no_unresolved_security_findings",
+              "no_destructive_schema_change",
+              "no_secret_change",
+              "no_permission_boundary_change",
+              "health_check_pass",
+              "blast_radius_within_policy"
+            ]
+          }
         }
       },
       "additionalProperties": false

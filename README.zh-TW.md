@@ -180,7 +180,7 @@ sddgov ci local-gate .
 
 ## 自主執行與 Artifact Integrity
 
-預設狀態是 `CONTINUE`。只要能由 Repo、SDD、Decision／ADR、Tests、CI 或 Tools 決定，就不得詢問產品負責人。完整規格見 [SDG Autonomous Development v1.2](docs/AUTONOMOUS_DEVELOPMENT_V1_2.md)。
+預設狀態是 `CONTINUE`。經 autonomy classifier 判定為已授權 L0/L1 後，可由 Repo、SDD、Decision／ADR、Tests、CI 或 Tools 驗證的證據問題不得詢問產品負責人；未解決的 L2 產品／額度／價格／隱私／Public API 決策、具體 L3 操作、Operational Action 與 Necessary UAT 仍須使用 `ACTION REQUIRED`。完整規格見 [SDG Autonomous Development v1.2](docs/AUTONOMOUS_DEVELOPMENT_V1_2.md)。
 
 SHA-256 保留為 Invisible Infrastructure，由機器產生與驗證：
 

@@ -1,4 +1,5 @@
 import json
+import stat
 import tempfile
 import unittest
 from pathlib import Path
@@ -91,6 +92,10 @@ class EvidenceFlowTests(unittest.TestCase):
         raw.symlink_to(redirected, target_is_directory=True)
         with self.assertRaisesRegex(ValueError, "zone"):
             collect(self.dep, "terminal", source)
+
+    def test_raw_zone_is_owner_only(self):
+        mode = stat.S_IMODE((self.dep / "private" / "raw").stat().st_mode)
+        self.assertEqual(mode, 0o700)
 
     def test_summary_datetime_formats_are_enforced(self):
         summary_path = self.dep / "summary.yaml"
