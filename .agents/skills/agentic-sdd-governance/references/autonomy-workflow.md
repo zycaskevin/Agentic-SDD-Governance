@@ -11,9 +11,13 @@ sddgov autonomy evaluate request.json --path .
 sddgov checkpoint --summary "..." --next-work-package WP-002
 sddgov artifact lock dist/package.whl --release release-X --output release.lock
 sddgov artifact verify dist/package.whl --lock release.lock
+sddgov decision import-operation-approval signed-approval.json --path .
+sddgov merge verify . --base-ref <exact-base>
 ```
 
-Record an approved L2 decision once in `.sddgov/decisions.json` and reuse it while assumptions remain unchanged. L3 requires a fresh, exact, unexpired and one-use operation approval; a previous product decision never authorizes a new L3 operation.
+Record an approved L2 decision once in `.sddgov/decisions.json` and reuse it while assumptions remain unchanged. L3 requires a trusted-owner Ed25519 receipt that is fresh, exact, unexpired, and atomically consumed on the first `CONTINUE`; a previous product decision or caller string never authorizes a new L3 operation.
+
+Unknown categories and dangerous L0/L1 downgrades fail closed for machine reclassification. Before Merge, execute the Merge verifier; do not treat `policies/merge-policy.yaml` as self-enforcing documentation.
 
 For Production, L0 is invalid. A routine reversible L1 deploy is autonomous only with recorded Baseline authorization and every guard in `policies/autonomy-policy.json`. Missing evidence blocks and triggers investigation; it does not become an approval request by itself.
 

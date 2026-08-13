@@ -25,6 +25,8 @@ GITIGNORE_BLOCK = (
     "evidence/**/private/raw/\n"
     "# Runtime locks are local coordination state.\n"
     ".sddgov/*.lock\n"
+    "# Merge Gate, independent review receipts, and trusted approver public keys are auditable project policy.\n"
+    "# Owner private signing keys must never enter the repository.\n"
     f"{GITIGNORE_END_MARKER}"
 )
 

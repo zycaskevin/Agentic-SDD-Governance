@@ -47,6 +47,34 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("agentic-sdd-governance", hermes)
         self.assertIn("Red -> Evidence -> Fix -> Green -> Proof", codex)
 
+    def test_packaged_hard_gate_assets_match_canonical_sources(self):
+        paths = (
+            "docs/HARD_GATES_V1_2.md",
+            "policies/autonomy-policy.json",
+            "policies/protected-files.yaml",
+            "schemas/autonomy-policy.schema.json",
+            "schemas/decision-record.schema.json",
+            "schemas/merge-gate.schema.json",
+            "schemas/operation-approval-receipt.schema.json",
+            "schemas/protected-review-receipt.schema.json",
+            "schemas/trusted-approvers.schema.json",
+            "schemas/trusted-reviewers.schema.json",
+            "templates/MERGE_GATE.json",
+            "templates/OPERATION_APPROVAL_RECEIPT.json",
+            "templates/PROTECTED_REVIEW_RECEIPT.json",
+            "templates/TRUSTED_APPROVERS.json",
+            "templates/TRUSTED_REVIEWERS.json",
+            "skill/agentic-sdd-governance/SKILL.md",
+            "skill/agentic-sdd-governance/references/autonomy-workflow.md",
+        )
+        packaged = ROOT / "src/sddgov/resources/governance"
+        for relative in paths:
+            with self.subTest(path=relative):
+                self.assertEqual(
+                    (ROOT / relative).read_bytes(),
+                    (packaged / relative).read_bytes(),
+                )
+
     def test_codex_adapter_preserves_repository_bootstrap_before_layered_loading(self):
         codex = (ROOT / "adapters/codex/AGENTS.md").read_text(encoding="utf-8")
         self.assertIn(
@@ -210,10 +238,14 @@ class RepositoryContractTests(unittest.TestCase):
         )
         self.assertEqual(policy["default_state"], "CONTINUE")
         self.assertTrue(policy["no_human_escalation_if_machine_verifiable"])
+        self.assertEqual(policy["action_classifier"]["unknown_category_state"], "BLOCKED")
+        self.assertTrue(policy["action_classifier"]["sensitive_effects_require_l3"])
         self.assertEqual(policy["approval_budget"]["L0"], 0)
         self.assertEqual(policy["approval_budget"]["L1"], 0)
         self.assertTrue(policy["integrity"]["human_copy_paste_forbidden"])
         self.assertFalse(policy["integrity"]["mismatch_requires_human_approval"])
+        self.assertFalse(policy["l3_approval_receipts"]["caller_strings_are_authority"])
+        self.assertTrue(policy["l3_approval_receipts"]["consume_atomically_on_continue"])
         self.assertFalse(policy["production_deploy"]["l0_pre_authorized"])
         self.assertFalse(policy["production_deploy"]["l1_pre_authorized"])
         self.assertTrue(
@@ -229,6 +261,12 @@ class RepositoryContractTests(unittest.TestCase):
         )
         self.assertIn("AUTONOMY BY DEFAULT. ESCALATION BY EXCEPTION.", autonomy)
         self.assertIn("Main Agent", autonomy)
+        workflow = (ROOT / ".github/workflows/governance.yml").read_text(encoding="utf-8")
+        self.assertIn("sddgov merge verify", workflow)
+        self.assertIn("fetch-depth: 0", workflow)
+        cli = (ROOT / "src/sddgov/cli.py").read_text(encoding="utf-8")
+        self.assertIn("import-operation-approval", cli)
+        self.assertNotIn('"authorize-operation"', cli)
         all_runtime_text = "\n".join(
             path.read_text(encoding="utf-8")
             for path in (

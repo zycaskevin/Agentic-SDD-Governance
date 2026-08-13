@@ -20,9 +20,13 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - run: python -m pip install -e .
-      - run: python -m unittest discover -s tests -v
-      - run: sddgov validate .
+      - name: Enforce exact Merge policy
+        env:
+          SDDGOV_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD^' }}
+        run: sddgov merge verify . --base-ref "$SDDGOV_BASE_REF"

@@ -6,6 +6,8 @@ protected:
   - policies/
   - tests/
   - redaction/rules.json
+  - .sddgov/trusted-approvers.json
+  - .sddgov/trusted-reviewers.json
 rules:
   builder_may_modify: true
   independent_review_required: true

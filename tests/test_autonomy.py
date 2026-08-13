@@ -1,17 +1,21 @@
+import base64
 import json
 import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from sddgov.autonomy import (
     ACTION_REQUIRED_FIELDS,
     DEPLOY_GUARDS,
-    authorize_operation,
     checkpoint,
-    consume_operation_approval,
     evaluate_deployment,
     evaluate_escalation,
+    import_operation_approval,
     lock_artifact,
     record_decision,
     render_action_required,
@@ -46,6 +50,57 @@ class AutonomyTests(unittest.TestCase):
     def tearDown(self):
         self.temporary.cleanup()
 
+    def _signed_operation_approval(
+        self,
+        approval_id="APP-OP-1",
+        operation_id="PROD-OP-1",
+        approved_by="product-owner",
+    ):
+        private_key = Ed25519PrivateKey.generate()
+        public_key = private_key.public_key().public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw,
+        )
+        trust = {
+            "schema_version": "1.0",
+            "approvers": [
+                {
+                    "approver_id": approved_by,
+                    "algorithm": "ed25519",
+                    "public_key": base64.b64encode(public_key).decode("ascii"),
+                    "status": "active",
+                }
+            ],
+        }
+        (self.root / ".sddgov" / "trusted-approvers.json").write_text(
+            json.dumps(trust), encoding="utf-8"
+        )
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        receipt = {
+            "approval_id": approval_id,
+            "operation_id": operation_id,
+            "summary": "Run one exact Production operation",
+            "scope": "One exact operation only",
+            "approved_by": approved_by,
+            "issued_at": now.isoformat().replace("+00:00", "Z"),
+            "expires_at": (now + timedelta(minutes=30)).isoformat().replace(
+                "+00:00", "Z"
+            ),
+            "nonce": "nonce-1234567890",
+        }
+        canonical = json.dumps(
+            receipt, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+        envelope = {
+            "schema_version": "1.0",
+            "algorithm": "ed25519",
+            "receipt": receipt,
+            "signature": base64.b64encode(private_key.sign(canonical)).decode("ascii"),
+        }
+        path = self.root / "signed-approval.json"
+        path.write_text(json.dumps(envelope), encoding="utf-8")
+        return path, envelope
+
     def test_l0_l1_routine_engineering_never_prompts(self):
         operations = (
             "issue",
@@ -77,6 +132,37 @@ class AutonomyTests(unittest.TestCase):
                     )
                     self.assertEqual(result["state"], "CONTINUE")
                     self.assertFalse(result["requires_response"])
+
+    def test_unknown_or_dangerous_action_cannot_be_downgraded_to_l1(self):
+        unknown = evaluate_escalation(
+            self.root,
+            {"risk_level": "L1", "category": "delete_production_customer_data"},
+        )
+        self.assertEqual(unknown["state"], "BLOCKED")
+        self.assertFalse(unknown["requires_response"])
+        self.assertEqual(unknown["reason"], "unrecognized_action_category")
+
+        dangerous = evaluate_escalation(
+            self.root,
+            {"risk_level": "L1", "category": "production_data_deletion"},
+        )
+        self.assertEqual(dangerous["state"], "BLOCKED")
+        self.assertIn("L3", dangerous["required_risk_levels"])
+
+        disguised = evaluate_escalation(
+            self.root,
+            {
+                "risk_level": "L1",
+                "category": "implementation",
+                "effects": {"destructive": True, "production": True},
+            },
+        )
+        self.assertEqual(disguised["state"], "BLOCKED")
+        with self.assertRaisesRegex(ValueError, "effects must be an object"):
+            evaluate_escalation(
+                self.root,
+                {"risk_level": "L1", "category": "implementation", "effects": []},
+            )
 
     def test_checkpoint_is_informational_and_continues(self):
         result = checkpoint("WP-001 complete", "WP-002")
@@ -229,42 +315,82 @@ class AutonomyTests(unittest.TestCase):
             "ACTION_REQUIRED",
         )
 
-        authorize_operation(
-            self.root,
-            "APP-OP-1",
-            "PROD-OP-1",
-            "Run exact Production operation",
-            "One operation only",
-            "product-owner",
-        )
+        receipt, _ = self._signed_operation_approval()
+        import_operation_approval(self.root, receipt)
         request["approval_id"] = "APP-OP-1"
         authorized = evaluate_escalation(self.root, request)
         self.assertEqual(authorized["state"], "CONTINUE")
-        consume_operation_approval(self.root, "APP-OP-1", "PROD-OP-1")
         self.assertEqual(evaluate_escalation(self.root, request)["state"], "ACTION_REQUIRED")
 
-    def test_l3_approval_consumption_is_serialized(self):
-        authorize_operation(
-            self.root,
-            "APP-CONCURRENT",
-            "PROD-CONCURRENT",
-            "Run one exact operation",
-            "One operation only",
-            "product-owner",
+    def test_l3_signed_receipt_is_required_and_consumption_is_serialized(self):
+        receipt, envelope = self._signed_operation_approval(
+            "APP-CONCURRENT", "PROD-CONCURRENT"
         )
+        imported = import_operation_approval(self.root, receipt)
+        self.assertEqual(imported["approval_id"], "APP-CONCURRENT")
+        self.assertEqual(imported["verification"], "SIGNATURE_VERIFIED")
 
-        def consume_once():
-            try:
-                consume_operation_approval(
-                    self.root, "APP-CONCURRENT", "PROD-CONCURRENT"
-                )
-            except ValueError:
-                return "rejected"
-            return "consumed"
+        tampered = dict(envelope)
+        tampered["receipt"] = dict(envelope["receipt"])
+        tampered["receipt"]["operation_id"] = "PROD-DIFFERENT"
+        tampered_path = self.root / "tampered-approval.json"
+        tampered_path.write_text(json.dumps(tampered), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "signature"):
+            import_operation_approval(self.root, tampered_path)
+
+        request = {
+            "risk_level": "L3",
+            "category": "high_risk_operation",
+            "operation_id": "PROD-CONCURRENT",
+            "approval_id": "APP-CONCURRENT",
+            "decision_package": decision_package("L3", "APP-CONCURRENT-NEXT"),
+        }
+
+        def evaluate_once():
+            return evaluate_escalation(self.root, request)["state"]
 
         with ThreadPoolExecutor(max_workers=2) as executor:
-            results = list(executor.map(lambda _: consume_once(), range(2)))
-        self.assertEqual(sorted(results), ["consumed", "rejected"])
+            results = list(executor.map(lambda _: evaluate_once(), range(2)))
+        self.assertEqual(sorted(results), ["ACTION_REQUIRED", "CONTINUE"])
+
+    def test_l3_receipt_rejects_unknown_signer_expiry_and_replay(self):
+        receipt, envelope = self._signed_operation_approval("APP-EDGE", "PROD-EDGE")
+        trust_path = self.root / ".sddgov" / "trusted-approvers.json"
+        trust = json.loads(trust_path.read_text(encoding="utf-8"))
+        trust["approvers"][0]["approver_id"] = "different-owner"
+        trust_path.write_text(json.dumps(trust), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "trusted approver"):
+            import_operation_approval(self.root, receipt)
+
+        receipt, envelope = self._signed_operation_approval("APP-EDGE", "PROD-EDGE")
+        private_key = Ed25519PrivateKey.generate()
+        public_key = private_key.public_key().public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw,
+        )
+        trust = {
+            "schema_version": "1.0",
+            "approvers": [{
+                "approver_id": "product-owner",
+                "algorithm": "ed25519",
+                "public_key": base64.b64encode(public_key).decode("ascii"),
+                "status": "active",
+            }],
+        }
+        trust_path.write_text(json.dumps(trust), encoding="utf-8")
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        envelope["receipt"]["issued_at"] = (now - timedelta(hours=2)).isoformat().replace("+00:00", "Z")
+        envelope["receipt"]["expires_at"] = (now - timedelta(hours=1)).isoformat().replace("+00:00", "Z")
+        canonical = json.dumps(envelope["receipt"], ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        envelope["signature"] = base64.b64encode(private_key.sign(canonical)).decode("ascii")
+        receipt.write_text(json.dumps(envelope), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "expired"):
+            import_operation_approval(self.root, receipt)
+
+        fresh_receipt, _ = self._signed_operation_approval("APP-REPLAY", "PROD-REPLAY")
+        import_operation_approval(self.root, fresh_receipt)
+        with self.assertRaisesRegex(ValueError, "already imported"):
+            import_operation_approval(self.root, fresh_receipt)
 
     def test_malformed_decision_store_fails_closed(self):
         decisions = self.root / ".sddgov" / "decisions.json"

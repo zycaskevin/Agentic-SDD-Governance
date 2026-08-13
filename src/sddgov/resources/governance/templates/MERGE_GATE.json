@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "risk_level": "L1",
+  "builder_id": "replace-with-builder-id",
+  "change_digest": "replace-with-sddgov-change-digest",
+  "deps": ["evidence/DEP-REPLACE"],
+  "rollback_path": "evidence/DEP-REPLACE/rollback.md",
+  "protected_file_review": ".sddgov/reviews/REV-REPLACE.json"
+}

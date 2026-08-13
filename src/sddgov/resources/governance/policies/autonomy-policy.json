@@ -3,6 +3,11 @@
   "principle": "AUTONOMY BY DEFAULT. ESCALATION BY EXCEPTION.",
   "default_state": "CONTINUE",
   "no_human_escalation_if_machine_verifiable": true,
+  "action_classifier": {
+    "unknown_category_state": "BLOCKED",
+    "dangerous_downgrade_state": "BLOCKED",
+    "sensitive_effects_require_l3": true
+  },
   "approval_budget": {
     "L0": 0,
     "L1": 0,
@@ -21,6 +26,13 @@
     "human_copy_paste_forbidden": true,
     "mismatch_state": "BLOCKED",
     "mismatch_requires_human_approval": false
+  },
+  "l3_approval_receipts": {
+    "algorithm": "ed25519",
+    "trusted_approver_store": ".sddgov/trusted-approvers.json",
+    "caller_strings_are_authority": false,
+    "consume_atomically_on_continue": true,
+    "reuse_state": "ACTION_REQUIRED"
   },
   "allowed_escalations": [
     "unresolved_l2_product_decision",

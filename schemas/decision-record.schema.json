@@ -15,13 +15,16 @@
     "operation_id": {"type": "string", "minLength": 1},
     "approved_by": {"type": "string", "minLength": 1},
     "expires_at": {"type": "string", "format": "date-time"},
-    "consumed_at": {"type": ["string", "null"], "format": "date-time"}
+    "consumed_at": {"type": ["string", "null"], "format": "date-time"},
+    "approval_nonce": {"type": "string", "minLength": 12},
+    "receipt_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "signature_algorithm": {"const": "ed25519"}
   },
   "allOf": [
     {
       "if": {"properties": {"risk_level": {"const": "L3"}}},
       "then": {
-        "required": ["operation_id", "approved_by", "expires_at", "consumed_at"],
+        "required": ["operation_id", "approved_by", "expires_at", "consumed_at", "approval_nonce", "receipt_sha256", "signature_algorithm"],
         "allOf": [
           {
             "if": {"properties": {"status": {"const": "approved"}}},

@@ -14,6 +14,7 @@ description: Govern software development, bug fixing, refactoring, testing, pull
 5. Classify the work L0-L3 before mutation.
 6. Continue autonomously for approved L0/L1 work. Escalate only within the Policy Kernel boundary.
 7. Before any proposed stop or owner question, read `references/autonomy-workflow.md` and run the escalation classifier. Machine-verifiable questions must continue without human approval.
+8. Before Merge, run `sddgov merge verify` against the exact base. Unknown action categories, dangerous risk downgrades, unsigned L3 approval strings, and reused L3 receipts fail closed.
 
 Do not load every governance document. Use the smallest relevant set.
 

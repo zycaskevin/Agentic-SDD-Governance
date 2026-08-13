@@ -8,11 +8,10 @@ from pathlib import Path
 from . import __version__
 from .benchmark import compare
 from .autonomy import (
-    authorize_operation,
     checkpoint,
-    consume_operation_approval,
     evaluate_deployment,
     evaluate_escalation,
+    import_operation_approval,
     lock_artifact,
     record_decision,
     verify_artifact,
@@ -21,6 +20,7 @@ from .ci_guard import run_local_gate, verify_guard
 from .evidence import attach, collect, make_dep, redact, transition, verify
 from .governance import claim_work, emit_event, enqueue_external_action, init_project, project_status
 from .installer import AGENTS, doctor, setup_agent, uninstall_agent
+from .merge_gate import DEFAULT_GATE, compute_change_digest, verify_merge
 from .schema_validation import check_schema, load_schema, validate_instance
 
 
@@ -93,18 +93,12 @@ def _autonomy_parsers(subparsers) -> None:
     record.add_argument("--basis", required=True)
     record.add_argument("--reopen-condition", required=True)
     record.add_argument("--path", type=Path, default=Path.cwd())
-    authorize = decision_commands.add_parser("authorize-operation", help="Record fresh one-use approval for one concrete L3 operation")
-    authorize.add_argument("approval_id")
-    authorize.add_argument("--operation-id", required=True)
-    authorize.add_argument("--summary", required=True)
-    authorize.add_argument("--scope", required=True)
-    authorize.add_argument("--approved-by", required=True)
-    authorize.add_argument("--valid-minutes", type=int, default=60)
-    authorize.add_argument("--path", type=Path, default=Path.cwd())
-    consume = decision_commands.add_parser("consume-operation", help="Consume one exact L3 operation approval")
-    consume.add_argument("approval_id")
-    consume.add_argument("--operation-id", required=True)
-    consume.add_argument("--path", type=Path, default=Path.cwd())
+    import_approval = decision_commands.add_parser(
+        "import-operation-approval",
+        help="Verify and import one trusted owner-signed L3 approval receipt",
+    )
+    import_approval.add_argument("receipt", type=Path)
+    import_approval.add_argument("--path", type=Path, default=Path.cwd())
 
     report = subparsers.add_parser("checkpoint", help="Emit an informational checkpoint that continues by default")
     report.add_argument("--summary", required=True)
@@ -124,6 +118,19 @@ def build_parser() -> argparse.ArgumentParser:
     _evidence_parser(sub)
     _ci_parser(sub)
     _autonomy_parsers(sub)
+    merge = sub.add_parser("merge", help="Enforce executable Merge policy gates")
+    merge_commands = merge.add_subparsers(dest="merge_command", required=True)
+    merge_digest = merge_commands.add_parser(
+        "digest", help="Calculate the exact executable change digest for review receipts"
+    )
+    merge_digest.add_argument("path", nargs="?", type=Path, default=Path.cwd())
+    merge_digest.add_argument("--base-ref", required=True)
+    merge_verify = merge_commands.add_parser(
+        "verify", help="Verify exact change, Local Green, DEP, rollback, and review gates"
+    )
+    merge_verify.add_argument("path", nargs="?", type=Path, default=Path.cwd())
+    merge_verify.add_argument("--base-ref", required=True)
+    merge_verify.add_argument("--gate", type=Path, default=DEFAULT_GATE)
     init = sub.add_parser("init", help="Initialize project governance state")
     init.add_argument("path", nargs="?", type=Path, default=Path.cwd())
     init.add_argument("--profile", choices=("solo-fast", "team-standard", "regulated"), default="team-standard")
@@ -175,6 +182,9 @@ def _validate_repo(root: Path) -> list[str]:
         "schemas/external-action.schema.json", "policies/protected-files.yaml",
         "schemas/autonomy-policy.schema.json", "schemas/decision-record.schema.json",
         "schemas/artifact-lock.schema.json", "policies/autonomy-policy.json",
+        "schemas/trusted-approvers.schema.json", "schemas/operation-approval-receipt.schema.json",
+        "schemas/trusted-reviewers.schema.json", "schemas/protected-review-receipt.schema.json",
+        "schemas/merge-gate.schema.json", "src/sddgov/merge_gate.py",
         "schemas/ci-cost-guard.schema.json", "policies/ci-cost-guard.yaml",
         "skill/agentic-sdd-governance/SKILL.md",
         "skill/agentic-sdd-governance/references/ci-cost-guard.md",
@@ -266,20 +276,8 @@ def run(args: argparse.Namespace) -> int:
                 args.basis,
                 args.reopen_condition,
             )
-        elif args.decision_command == "authorize-operation":
-            result = authorize_operation(
-                args.path,
-                args.approval_id,
-                args.operation_id,
-                args.summary,
-                args.scope,
-                args.approved_by,
-                args.valid_minutes,
-            )
         else:
-            result = consume_operation_approval(
-                args.path, args.approval_id, args.operation_id
-            )
+            result = import_operation_approval(args.path, args.receipt)
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
     if args.command == "checkpoint":
@@ -292,6 +290,14 @@ def run(args: argparse.Namespace) -> int:
         result = evaluate_deployment(args.path, gate)
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0 if result.get("ok", result.get("state") == "CONTINUE") else 1
+    if args.command == "merge":
+        result = (
+            compute_change_digest(args.path, args.base_ref)
+            if args.merge_command == "digest"
+            else verify_merge(args.path, args.base_ref, args.gate)
+        )
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0 if result.get("ok", True) else 1
     if args.command == "validate":
         errors = _validate_repo(args.path)
         if errors:

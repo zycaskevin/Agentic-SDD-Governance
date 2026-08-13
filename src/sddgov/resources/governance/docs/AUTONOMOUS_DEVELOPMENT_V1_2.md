@@ -40,6 +40,8 @@ Sub-agents route uncertainty to the Main Agent. The Main Agent performs the look
 
 An old L3 decision does not authorize a new operation. Fresh approval must match the exact operation ID, remain unexpired, and be unused.
 
+The v1.2 Hard Gates require an owner-signed Ed25519 receipt from a configured trusted public key. Caller-provided `approved_by` text is never authority. The first successful L3 evaluation consumes the exact receipt atomically; a second or concurrent consumer fails closed. See `HARD_GATES_V1_2.md`.
+
 ## Integrity is invisible infrastructure
 
 `sddgov artifact lock` calculates SHA-256 and writes `release.lock`. `sddgov artifact verify` recalculates and compares it. A match continues. A mismatch blocks that artifact, records `human_action_required: false`, and starts investigation. The system never asks a human to copy, paste, calculate, or approve a digest.
@@ -60,6 +62,12 @@ Production is external state, so an L0 deployment is not pre-authorized. A routi
 - blast radius is within policy.
 
 Missing machine evidence blocks the deployment and triggers investigation, not an approval request. An L2 product-impacting deployment reuses a recorded decision only while its assumptions remain true. Destructive, high-privilege, Secret, permission-boundary, irreversible, or non-recoverable operations remain L3 and require fresh approval.
+
+Unknown action categories and any action declaring Production, destructive, irreversible, Secret, permission-boundary, payment, or high-privilege effects fail closed when labeled L0/L1. The Agent must correct the classification; the mismatch does not become an owner approval prompt.
+
+## Executable Merge gate
+
+`sddgov merge verify` binds the exact executable change to Local Green, strict DEP, Redaction, Rollback, raw-Evidence exclusion, and protected-file independent Review. GitHub workflows must execute it, and repository rulesets should require the resulting check.
 
 ## ACTION REQUIRED contract
 

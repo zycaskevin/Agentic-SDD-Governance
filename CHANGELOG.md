@@ -1,6 +1,25 @@
 # Changelog
 
-## 0.2.0-experimental.5 — Unreleased
+## 0.2.0-experimental.6 — Unreleased
+
+### Added
+
+- Added fail-closed canonical action and sensitive-effect classification so dangerous work cannot be downgraded by a caller-supplied L0/L1 label.
+- Added trusted Ed25519 L3 approval receipt import, exact operation binding, nonce replay protection, expiry validation, and atomic single-use consumption on `CONTINUE`.
+- Added executable `sddgov merge verify` enforcement for exact change digest, Local Green, strict DEP, Redaction, Rollback, raw-evidence exclusion, and protected-file independent Review.
+- Added schemas, templates, documentation, and adversarial tests for all three Hard Gates.
+
+### Security
+
+- Removed the string-only `decision authorize-operation` and separate `consume-operation` trust paths.
+- Made unknown categories, dangerous downgrades, malformed receipts, untrusted signers, tampering, replay, stale approval, dirty worktrees, and missing Merge receipts fail closed without creating routine human approval prompts.
+
+### Changed
+
+- GitHub Governance now fetches full history and executes the Merge verifier for non-Draft pull requests and `main` pushes.
+- Moved signed provenance receipts and protected Merge enforcement forward from the v0.3 Roadmap.
+
+## 0.2.0-experimental.5 — 2026-08-13
 
 ### Added
 

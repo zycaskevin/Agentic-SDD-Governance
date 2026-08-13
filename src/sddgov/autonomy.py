@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import binascii
 import hashlib
 import json
 import os
@@ -8,6 +10,9 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable
+
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 
 RISK_LEVELS = {"L0", "L1", "L2", "L3"}
@@ -31,6 +36,34 @@ ROUTINE_OPERATIONS = {
     "integrity_verification",
     "ci",
     "merge",
+}
+ESCALATION_CATEGORIES = {
+    "uncertainty",
+    "product_decision",
+    "high_risk_operation",
+    "operational_action",
+    "necessary_uat",
+}
+HIGH_RISK_CATEGORIES = {
+    "production_data_deletion",
+    "irreversible_migration",
+    "secret_change",
+    "permission_boundary_change",
+    "real_payment",
+    "high_privilege_production_operation",
+}
+SENSITIVE_EFFECTS = {
+    "production",
+    "destructive",
+    "irreversible",
+    "secret_change",
+    "permission_boundary_change",
+    "real_payment",
+    "high_privilege",
+}
+KNOWN_CATEGORIES = ROUTINE_OPERATIONS | ESCALATION_CATEGORIES | HIGH_RISK_CATEGORIES | {
+    "checkpoint",
+    "integrity_mismatch",
 }
 ACTION_REQUIRED_FIELDS = (
     "decision_id",
@@ -145,64 +178,152 @@ def record_decision(
     return decision
 
 
-def authorize_operation(
-    root: Path,
-    approval_id: str,
-    operation_id: str,
-    summary: str,
-    scope: str,
-    approved_by: str,
-    valid_minutes: int = 60,
-) -> dict[str, Any]:
-    """Record fresh, one-use approval for one concrete L3 operation."""
-    if valid_minutes < 1 or valid_minutes > 1440:
-        raise ValueError("valid_minutes must be between 1 and 1440")
-    if not all(
-        value.strip()
-        for value in (approval_id, operation_id, summary, scope, approved_by)
+def _canonical_receipt(receipt: dict[str, Any]) -> bytes:
+    return json.dumps(
+        receipt, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+
+
+def _parse_time(value: Any, field: str) -> datetime:
+    if not isinstance(value, str):
+        raise ValueError(f"approval receipt {field} must be an RFC3339 timestamp")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(f"approval receipt {field} must be an RFC3339 timestamp") from exc
+    if parsed.tzinfo is None:
+        raise ValueError(f"approval receipt {field} must include a timezone")
+    return parsed.astimezone(timezone.utc)
+
+
+def _trusted_approver(root: Path, approver_id: str) -> dict[str, Any]:
+    path = root / ".sddgov" / "trusted-approvers.json"
+    data = _read_json(path)
+    if (
+        not isinstance(data, dict)
+        or set(data) != {"schema_version", "approvers"}
+        or data.get("schema_version") != "1.0"
+        or not isinstance(data.get("approvers"), list)
     ):
-        raise ValueError("operation approval fields must not be blank")
+        raise ValueError("trusted approver store is missing or invalid")
+    matches = [
+        row
+        for row in data["approvers"]
+        if isinstance(row, dict)
+        and row.get("approver_id") == approver_id
+        and row.get("status") == "active"
+    ]
+    if len(matches) != 1:
+        raise ValueError("approval receipt signer is not a unique active trusted approver")
+    approver = matches[0]
+    if set(approver) != {"approver_id", "algorithm", "public_key", "status"}:
+        raise ValueError("trusted approver record has an invalid contract")
+    if approver.get("algorithm") != "ed25519":
+        raise ValueError("trusted approver algorithm must be ed25519")
+    return approver
+
+
+def import_operation_approval(root: Path, envelope_path: Path) -> dict[str, Any]:
+    """Verify and import one owner-signed, exact, expiring L3 approval receipt."""
+    envelope = _read_json(envelope_path)
+    if (
+        not isinstance(envelope, dict)
+        or set(envelope) != {"schema_version", "algorithm", "receipt", "signature"}
+        or envelope.get("schema_version") != "1.0"
+        or envelope.get("algorithm") != "ed25519"
+        or not isinstance(envelope.get("receipt"), dict)
+        or not isinstance(envelope.get("signature"), str)
+    ):
+        raise ValueError("signed approval receipt has an invalid contract")
+    receipt = envelope["receipt"]
+    required = {
+        "approval_id",
+        "operation_id",
+        "summary",
+        "scope",
+        "approved_by",
+        "issued_at",
+        "expires_at",
+        "nonce",
+    }
+    if set(receipt) != required or any(
+        not isinstance(receipt.get(field), str) or not receipt[field].strip()
+        for field in required
+    ):
+        raise ValueError("approval receipt payload has an invalid contract")
+    issued_at = _parse_time(receipt["issued_at"], "issued_at")
+    expires_at = _parse_time(receipt["expires_at"], "expires_at")
+    now = _now()
+    if issued_at > now + timedelta(minutes=5):
+        raise ValueError("approval receipt issued_at is in the future")
+    if expires_at <= now or expires_at <= issued_at:
+        raise ValueError("approval receipt is expired or has an invalid validity window")
+    if expires_at - issued_at > timedelta(hours=24):
+        raise ValueError("approval receipt validity exceeds 24 hours")
+    approver = _trusted_approver(root, receipt["approved_by"])
+    try:
+        public_key = base64.b64decode(approver["public_key"], validate=True)
+        signature = base64.b64decode(envelope["signature"], validate=True)
+        Ed25519PublicKey.from_public_bytes(public_key).verify(
+            signature, _canonical_receipt(receipt)
+        )
+    except (ValueError, binascii.Error, InvalidSignature) as exc:
+        raise ValueError("approval receipt signature verification failed") from exc
+    receipt_sha256 = hashlib.sha256(_canonical_receipt(receipt)).hexdigest()
     with _decision_lock(root):
         data = _decision_store(root)
-        if any(row["decision_id"] == approval_id for row in data["decisions"]):
-            raise ValueError(f"decision already recorded: {approval_id}")
-        approved_at = _now()
+        if any(
+            row["decision_id"] == receipt["approval_id"]
+            or row.get("approval_nonce") == receipt["nonce"]
+            for row in data["decisions"]
+        ):
+            raise ValueError("approval receipt or nonce was already imported")
         decision = {
-            "decision_id": approval_id,
+            "decision_id": receipt["approval_id"],
             "risk_level": "L3",
-            "summary": summary,
-            "scope": scope,
-            "basis": "fresh explicit approval for one concrete operation",
+            "summary": receipt["summary"],
+            "scope": receipt["scope"],
+            "basis": "verified owner-signed approval receipt for one concrete operation",
             "status": "approved",
-            "recorded_at": _stamp(approved_at),
-            "reopen_condition": "a different operation or changed scope requires fresh approval",
-            "operation_id": operation_id,
-            "approved_by": approved_by,
-            "expires_at": _stamp(approved_at + timedelta(minutes=valid_minutes)),
+            "recorded_at": _stamp(),
+            "reopen_condition": "a different operation or changed scope requires a new signed receipt",
+            "operation_id": receipt["operation_id"],
+            "approved_by": receipt["approved_by"],
+            "expires_at": receipt["expires_at"],
             "consumed_at": None,
+            "approval_nonce": receipt["nonce"],
+            "receipt_sha256": receipt_sha256,
+            "signature_algorithm": "ed25519",
         }
         data["decisions"].append(decision)
         _atomic_json(_decisions_path(root), data)
-    return decision
+    return {
+        "approval_id": decision["decision_id"],
+        "operation_id": decision["operation_id"],
+        "approved_by": decision["approved_by"],
+        "expires_at": decision["expires_at"],
+        "receipt_sha256": receipt_sha256,
+        "verification": "SIGNATURE_VERIFIED",
+    }
 
 
-def consume_operation_approval(root: Path, approval_id: str, operation_id: str) -> dict[str, Any]:
+def _consume_operation_approval(root: Path, approval_id: str, operation_id: str) -> dict[str, Any] | None:
     with _decision_lock(root):
         data = _decision_store(root)
         for row in data["decisions"]:
             if row["decision_id"] != approval_id:
                 continue
             if row.get("risk_level") != "L3" or row.get("operation_id") != operation_id:
-                raise ValueError("approval does not match the concrete L3 operation")
+                return None
             if row.get("consumed_at") is not None:
-                raise ValueError("L3 approval was already consumed")
+                return None
             if not _l3_approval_is_fresh(row, operation_id):
-                raise ValueError("L3 approval is not fresh")
+                return None
             row["consumed_at"] = _stamp()
             row["status"] = "completed"
             _atomic_json(_decisions_path(root), data)
             return row
-    raise ValueError(f"approval not found: {approval_id}")
+    return None
 
 
 def _find_decision(root: Path, decision_id: str | None) -> dict[str, Any] | None:
@@ -357,6 +478,30 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("risk_level must be L0, L1, L2, or L3")
     if not isinstance(category, str) or not category:
         raise ValueError("category is required")
+    if category not in KNOWN_CATEGORIES:
+        return {
+            "state": "BLOCKED",
+            "requires_response": False,
+            "reason": "unrecognized_action_category",
+            "next_action": "classify_with_canonical_action_category_and_effects",
+        }
+    effects = request.get("effects", {})
+    if not isinstance(effects, dict):
+        raise ValueError("effects must be an object of known sensitive flags")
+    if any(
+        key not in SENSITIVE_EFFECTS or value is not True
+        for key, value in effects.items()
+    ):
+        raise ValueError("effects must contain only known sensitive flags set to true")
+    high_risk = category in HIGH_RISK_CATEGORIES or bool(effects)
+    if high_risk and risk != "L3":
+        return {
+            "state": "BLOCKED",
+            "requires_response": False,
+            "reason": "dangerous_action_cannot_be_downgraded",
+            "required_risk_levels": ["L3"],
+            "next_action": "reclassify_and_prepare_exact_l3_decision_package",
+        }
     forced_human_category = category in {"operational_action", "necessary_uat"}
 
     if category == "checkpoint":
@@ -409,11 +554,14 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
             return _continue("existing_decision_reused_without_duplicate_question")
 
     if risk == "L3":
-        approval = _find_decision(root, request.get("approval_id"))
-        if approval and _l3_approval_is_fresh(approval, request.get("operation_id")):
+        approval = _consume_operation_approval(
+            root, request.get("approval_id"), request.get("operation_id")
+        )
+        if approval:
             result = _continue("fresh_l3_operation_approval_verified")
             result["approval_id"] = approval["decision_id"]
             result["operation_id"] = approval["operation_id"]
+            result["approval_consumed"] = True
             return result
 
     package_input = request.get("decision_package")

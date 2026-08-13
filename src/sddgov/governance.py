@@ -43,6 +43,12 @@ def init_project(root: Path, profile: str) -> list[Path]:
         state / "work-claims.json": {"schema_version": "1.0", "claims": []},
         state / "external-actions.json": {"schema_version": "1.0", "actions": []},
         state / "decisions.json": {"schema_version": "1.0", "decisions": []},
+        state / "trusted-approvers.json": {
+            "schema_version": "1.0", "approvers": []
+        },
+        state / "trusted-reviewers.json": {
+            "schema_version": "1.0", "reviewers": []
+        },
     }
     created: list[Path] = []
     for path, value in defaults.items():

@@ -1,6 +1,12 @@
 # Roadmap
 
-## v0.2.0-experimental.5 — current evidence-boundary hardening patch
+## v0.2.0-experimental.6 — current v1.2 Hard Gates patch
+
+- Fail-closed canonical action and sensitive-effect classification.
+- Trusted-owner Ed25519 L3 approval receipts with atomic single-use consumption.
+- Executable Merge policy with exact change digest, Local Green, strict DEP, Redaction, Rollback, raw-evidence exclusion, and protected-file independent Review.
+
+## v0.2.0-experimental.5 — autonomous development and evidence-boundary hardening
 
 - SDG Autonomous Development v1.2: default `CONTINUE`, executable escalation classifier, Decision Memory, and strict Decision Packages.
 - Invisible machine-to-machine SHA-256 artifact locking and verification without human copy/paste gates.
@@ -39,7 +45,7 @@
 - Real Codex prompt-level and Hermes runtime pilot evaluation.
 - Merge-safe `AGENTS.md` policy composition for multiple governance providers.
 - Pluggable redaction detectors and secret-scanner integration.
-- Signed provenance receipts and tamper-evident event telemetry.
+- Tamper-evident event telemetry and broader provenance federation.
 - CI adapters for GitHub/GitLab and protected evidence-policy files.
 - Work Claim TTL and External Action Queue enforcement.
 - Additional domain-specific JSON Schema formats and cross-document validation.
