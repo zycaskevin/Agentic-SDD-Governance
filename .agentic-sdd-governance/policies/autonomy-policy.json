@@ -29,7 +29,9 @@
   },
   "l3_approval_receipts": {
     "algorithm": "ed25519",
-    "trusted_approver_store": ".sddgov/trusted-approvers.json",
+    "auditable_approver_store": ".sddgov/trusted-approvers.json",
+    "authority_sources": ["trusted_base_ref", "out_of_band_file"],
+    "candidate_worktree_store_is_authority": false,
     "caller_strings_are_authority": false,
     "consume_atomically_on_continue": true,
     "reuse_state": "ACTION_REQUIRED"

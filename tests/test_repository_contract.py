@@ -247,6 +247,9 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertTrue(policy["integrity"]["human_copy_paste_forbidden"])
         self.assertFalse(policy["integrity"]["mismatch_requires_human_approval"])
         self.assertFalse(policy["l3_approval_receipts"]["caller_strings_are_authority"])
+        self.assertFalse(
+            policy["l3_approval_receipts"]["candidate_worktree_store_is_authority"]
+        )
         self.assertTrue(policy["l3_approval_receipts"]["consume_atomically_on_continue"])
         self.assertFalse(policy["production_deploy"]["l0_pre_authorized"])
         self.assertFalse(policy["production_deploy"]["l1_pre_authorized"])

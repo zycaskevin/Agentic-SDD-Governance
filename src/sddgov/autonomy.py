@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import base64
 import binascii
+import fcntl
 import hashlib
 import json
 import os
-import fcntl
+import subprocess
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -197,9 +198,45 @@ def _parse_time(value: Any, field: str) -> datetime:
     return parsed.astimezone(timezone.utc)
 
 
+def _trusted_approver_store(root: Path) -> dict[str, Any]:
+    external = os.environ.get("SDDGOV_TRUSTED_APPROVERS_FILE")
+    if external:
+        source = Path(external).expanduser().resolve()
+        try:
+            source.relative_to(root.resolve())
+        except ValueError:
+            data = _read_json(source)
+        else:
+            raise ValueError(
+                "out-of-band trusted approver store must be outside the repository"
+            )
+    else:
+        base_ref = os.environ.get("SDDGOV_TRUSTED_BASE_REF")
+        if not base_ref:
+            raise ValueError(
+                "trusted approver bootstrap requires SDDGOV_TRUSTED_APPROVERS_FILE "
+                "or SDDGOV_TRUSTED_BASE_REF"
+            )
+        completed = subprocess.run(
+            ["git", "show", f"{base_ref}:.sddgov/trusted-approvers.json"],
+            cwd=root,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if completed.returncode != 0:
+            raise ValueError("trusted approver store is absent from the trusted base")
+        try:
+            data = json.loads(completed.stdout)
+        except json.JSONDecodeError as exc:
+            raise ValueError("trusted approver store at trusted base is invalid") from exc
+    if not isinstance(data, dict):
+        raise ValueError("trusted approver store must contain a JSON object")
+    return data
+
+
 def _trusted_approver(root: Path, approver_id: str) -> dict[str, Any]:
-    path = root / ".sddgov" / "trusted-approvers.json"
-    data = _read_json(path)
+    data = _trusted_approver_store(root)
     if (
         not isinstance(data, dict)
         or set(data) != {"schema_version", "approvers"}
@@ -365,7 +402,12 @@ def _l3_approval_is_fresh(decision: dict[str, Any], operation_id: str | None) ->
         )
     except (KeyError, TypeError, ValueError):
         return False
-    return expires_at > _now()
+    if expires_at.tzinfo is None:
+        return False
+    try:
+        return expires_at > _now()
+    except TypeError:
+        return False
 
 
 def build_action_required(

@@ -1,10 +1,13 @@
 import base64
+import io
 import json
 import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import redirect_stderr
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -21,6 +24,7 @@ from sddgov.autonomy import (
     render_action_required,
     verify_artifact,
 )
+from sddgov.cli import main
 from sddgov.governance import init_project
 
 
@@ -44,10 +48,18 @@ def decision_package(risk="L2", decision_id="DEC-NEW"):
 class AutonomyTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
+        self.trust_temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)
+        self.trust_path = Path(self.trust_temporary.name) / "trusted-approvers.json"
+        self.trust_environment = patch.dict(
+            "os.environ", {"SDDGOV_TRUSTED_APPROVERS_FILE": str(self.trust_path)}
+        )
+        self.trust_environment.start()
         init_project(self.root, "team-standard")
 
     def tearDown(self):
+        self.trust_environment.stop()
+        self.trust_temporary.cleanup()
         self.temporary.cleanup()
 
     def _signed_operation_approval(
@@ -72,9 +84,7 @@ class AutonomyTests(unittest.TestCase):
                 }
             ],
         }
-        (self.root / ".sddgov" / "trusted-approvers.json").write_text(
-            json.dumps(trust), encoding="utf-8"
-        )
+        self.trust_path.write_text(json.dumps(trust), encoding="utf-8")
         now = datetime.now(timezone.utc).replace(microsecond=0)
         receipt = {
             "approval_id": approval_id,
@@ -177,7 +187,7 @@ class AutonomyTests(unittest.TestCase):
 
     def test_duplicate_approver_id_is_rejected_before_key_selection(self):
         path, _ = self._signed_operation_approval()
-        trust_path = self.root / ".sddgov/trusted-approvers.json"
+        trust_path = self.trust_path
         trust = json.loads(trust_path.read_text())
         duplicate = dict(trust["approvers"][0])
         duplicate["status"] = "revoked"
@@ -185,6 +195,79 @@ class AutonomyTests(unittest.TestCase):
         trust_path.write_text(json.dumps(trust))
         with self.assertRaisesRegex(ValueError, "duplicate approver_id"):
             import_operation_approval(self.root, path)
+
+    def test_repo_local_approver_store_is_not_an_authority_source(self):
+        path, _ = self._signed_operation_approval()
+        repository_store = self.root / ".sddgov/trusted-approvers.json"
+        repository_store.write_text(self.trust_path.read_text())
+        with patch.dict(
+            "os.environ",
+            {
+                "SDDGOV_TRUSTED_APPROVERS_FILE": "",
+                "SDDGOV_TRUSTED_BASE_REF": "",
+            },
+        ):
+            with self.assertRaisesRegex(ValueError, "bootstrap requires"):
+                import_operation_approval(self.root, path)
+
+    def test_adversarial_receipt_encodings_fail_closed(self):
+        path, envelope = self._signed_operation_approval("APP-BAD", "PROD-BAD")
+
+        cases = {
+            "invalid_base64_signature": "!" * 88,
+            "wrong_length_signature": base64.b64encode(b"short").decode("ascii"),
+            "valid_length_wrong_signature": base64.b64encode(bytes(64)).decode("ascii"),
+        }
+        for label, signature in cases.items():
+            with self.subTest(case=label):
+                candidate = dict(envelope)
+                candidate["signature"] = signature
+                path.write_text(json.dumps(candidate))
+                with self.assertRaisesRegex(ValueError, "signature"):
+                    import_operation_approval(self.root, path)
+
+        trust = json.loads(self.trust_path.read_text())
+        trust["approvers"][0]["public_key"] = base64.b64encode(b"short").decode(
+            "ascii"
+        )
+        self.trust_path.write_text(json.dumps(trust))
+        path.write_text(json.dumps(envelope))
+        with self.assertRaisesRegex(ValueError, "signature"):
+            import_operation_approval(self.root, path)
+
+        path.write_text("[]")
+        with patch(
+            "sys.argv",
+            [
+                "sddgov",
+                "decision",
+                "import-operation-approval",
+                str(path),
+                "--path",
+                str(self.root),
+            ],
+        ), redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as exit_info:
+            main()
+        self.assertEqual(exit_info.exception.code, 2)
+
+    def test_timezone_naive_imported_expiry_blocks_without_exception(self):
+        path, _ = self._signed_operation_approval("APP-NAIVE", "PROD-NAIVE")
+        import_operation_approval(self.root, path)
+        decisions_path = self.root / ".sddgov/decisions.json"
+        decisions = json.loads(decisions_path.read_text())
+        decisions["decisions"][0]["expires_at"] = "2026-08-13"
+        decisions_path.write_text(json.dumps(decisions))
+        result = evaluate_escalation(
+            self.root,
+            {
+                "risk_level": "L3",
+                "category": "high_risk_operation",
+                "operation_id": "PROD-NAIVE",
+                "approval_id": "APP-NAIVE",
+                "decision_package": decision_package("L3", "APP-NAIVE-NEXT"),
+            },
+        )
+        self.assertEqual(result["state"], "ACTION_REQUIRED")
 
     def test_checkpoint_is_informational_and_continues(self):
         result = checkpoint("WP-001 complete", "WP-002")
@@ -377,7 +460,7 @@ class AutonomyTests(unittest.TestCase):
 
     def test_l3_receipt_rejects_unknown_signer_expiry_and_replay(self):
         receipt, envelope = self._signed_operation_approval("APP-EDGE", "PROD-EDGE")
-        trust_path = self.root / ".sddgov" / "trusted-approvers.json"
+        trust_path = self.trust_path
         trust = json.loads(trust_path.read_text(encoding="utf-8"))
         trust["approvers"][0]["approver_id"] = "different-owner"
         trust_path.write_text(json.dumps(trust), encoding="utf-8")

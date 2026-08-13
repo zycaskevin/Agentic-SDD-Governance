@@ -15,6 +15,8 @@
 - Removed the string-only `decision authorize-operation` and separate `consume-operation` trust paths.
 - Made unknown categories, dangerous downgrades, malformed receipts, untrusted signers, tampering, replay, stale approval, dirty worktrees, and missing Merge receipts fail closed without creating routine human approval prompts.
 - Prevented candidate branches from authorizing themselves by modifying protected-path policy or reviewer keys, and rejected duplicate trust-store identities before key selection.
+- Removed the candidate worktree approver store from L3 authority, required a trusted Base or out-of-band public-key source, and bound Merge reviews to an immutable base SHA.
+- Bound DEP and Rollback content plus the exact reviewed Head into Merge authorization, rejected non-audit post-review commits and protected-path rename bypasses, and made malformed stored expiry timestamps fail closed.
 
 ### Changed
 

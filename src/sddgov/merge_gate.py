@@ -21,7 +21,6 @@ DEFAULT_GATE = Path(".sddgov/merge-gate.json")
 AUDIT_EXCLUDES = (
     ":(exclude).sddgov/merge-gate.json",
     ":(exclude).sddgov/reviews/**",
-    ":(exclude)evidence/**",
 )
 
 
@@ -51,9 +50,10 @@ def change_digest(root: Path, base_ref: str) -> str:
 
 def compute_change_digest(root: Path, base_ref: str) -> dict[str, str]:
     root = root.resolve()
-    _git(root, "rev-parse", "--verify", base_ref)
+    base_sha = _git(root, "rev-parse", "--verify", f"{base_ref}^{{commit}}")
     return {
         "base_ref": base_ref,
+        "base_sha": base_sha,
         "head_sha": _git(root, "rev-parse", "HEAD"),
         "change_digest": change_digest(root, base_ref),
     }
@@ -79,6 +79,8 @@ def gate_metadata_digest(gate: dict[str, Any]) -> str:
     """Bind review to the gate fields that affect verification decisions."""
     required = (
         "schema_version",
+        "base_sha",
+        "head_sha",
         "risk_level",
         "builder_id",
         "change_digest",
@@ -269,6 +271,41 @@ def _is_protected(path: str, patterns: list[str]) -> bool:
     )
 
 
+def _changed_paths(root: Path, start: str, end: str = "HEAD") -> list[str]:
+    """Return both source and destination paths for rename/copy records."""
+    lines = _git(root, "diff", "-M", "--name-status", f"{start}...{end}").splitlines()
+    paths: set[str] = set()
+    for line in lines:
+        fields = line.split("\t")
+        if len(fields) < 2:
+            raise ValueError("git diff produced an invalid name-status record")
+        status = fields[0]
+        expected = 3 if status.startswith(("R", "C")) else 2
+        if len(fields) != expected:
+            raise ValueError("git diff produced an invalid rename/copy record")
+        paths.update(fields[1:])
+    return sorted(paths)
+
+
+def _only_audit_changes_after_review(
+    root: Path, reviewed_head_sha: str, current_head_sha: str
+) -> bool:
+    completed = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", reviewed_head_sha, current_head_sha],
+        cwd=root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        return False
+    allowed = (".sddgov/merge-gate.json", ".sddgov/reviews/")
+    return all(
+        path == allowed[0] or path.startswith(allowed[1])
+        for path in _changed_paths(root, reviewed_head_sha, current_head_sha)
+    )
+
+
 def _real_rollback(path: Path) -> bool:
     if not path.is_file():
         return False
@@ -300,10 +337,12 @@ def verify_merge(
     if _git(root, "status", "--porcelain"):
         raise ValueError("merge verification requires a clean exact-HEAD worktree")
     head_sha = _git(root, "rev-parse", "HEAD")
-    _git(root, "rev-parse", "--verify", base_ref)
+    base_sha = _git(root, "rev-parse", "--verify", f"{base_ref}^{{commit}}")
     gate = _load_json(root / gate_path, str(gate_path))
     required = {
         "schema_version",
+        "base_sha",
+        "head_sha",
         "risk_level",
         "builder_id",
         "change_digest",
@@ -315,6 +354,14 @@ def verify_merge(
         raise ValueError("merge gate has an invalid contract")
     if gate.get("risk_level") not in {"L0", "L1", "L2", "L3"}:
         raise ValueError("merge gate risk_level is invalid")
+    if gate.get("base_sha") != base_sha:
+        raise ValueError("merge gate base_sha does not match the trusted exact base")
+    if not isinstance(gate.get("head_sha"), str) or not gate["head_sha"].strip():
+        raise ValueError("merge gate head_sha is required")
+    if not _only_audit_changes_after_review(root, gate["head_sha"], head_sha):
+        raise ValueError(
+            "merge gate head_sha is not the exact reviewed Head or has non-audit descendants"
+        )
     if not isinstance(gate.get("builder_id"), str) or not gate["builder_id"].strip():
         raise ValueError("merge gate builder_id is required")
     actual_digest = change_digest(root, base_ref)
@@ -355,7 +402,7 @@ def verify_merge(
     )
     if raw:
         raise ValueError("raw evidence is tracked by Git: " + ", ".join(raw))
-    changed = _git(root, "diff", "--name-only", f"{base_ref}...HEAD").splitlines()
+    changed = _changed_paths(root, base_ref)
     protected = [
         path
         for path in changed
@@ -385,6 +432,8 @@ def verify_merge(
         "state": "MERGE_READY",
         "head_sha": head_sha,
         "base_ref": base_ref,
+        "base_sha": base_sha,
+        "reviewed_head_sha": gate["head_sha"],
         "change_digest": actual_digest,
         "risk_level": gate["risk_level"],
         "deps_verified": deps,

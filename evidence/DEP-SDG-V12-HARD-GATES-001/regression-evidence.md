@@ -6,7 +6,7 @@ Added adversarial tests for unknown and dangerous downgrade classification, stri
 
 ## Related tests executed
 
-`PYTHONPATH=src python3 -m unittest discover -s tests -v`: 75 tests passed after the CodeRabbit review fixes. Final exact-head Local Green is recorded in `verification.md` after the follow-up commit.
+`PYTHONPATH=src python3 -m unittest discover -s tests -v`: 82 tests passed after two CodeRabbit review rounds and the follow-up trust-boundary audit. Final exact-head Local Green is recorded in `verification.md` after the follow-up commit.
 
 ## Unaffected paths sampled
 

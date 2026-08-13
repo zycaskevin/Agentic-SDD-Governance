@@ -128,6 +128,8 @@ jobs:
         digest = change_digest(self.root, self.base)
         gate = {
             "schema_version": "1.0",
+            "base_sha": self.base,
+            "head_sha": _run(self.root, "git", "rev-parse", "HEAD"),
             "risk_level": "L1",
             "builder_id": "codex-builder",
             "change_digest": digest,
@@ -188,18 +190,17 @@ jobs:
 
     @patch("sddgov.merge_gate.verify_dep", return_value=[])
     def test_tracked_raw_evidence_fails(self, _verify):
-        self._write_gate()
         raw = self.root / "evidence/DEP-1/private/raw/leak.log"
         raw.parent.mkdir(parents=True)
         raw.write_text("secret")
         _run(self.root, "git", "add", "-f", str(raw.relative_to(self.root)))
         _run(self.root, "git", "commit", "-qm", "bad raw")
+        self._write_gate()
         with self.assertRaisesRegex(ValueError, "raw evidence"):
             verify_merge(self.root, self.base, run_checks=False)
 
     @patch("sddgov.merge_gate.verify_dep", return_value=[])
     def test_deleted_raw_evidence_still_fails_history_scan(self, _verify):
-        self._write_gate()
         raw = self.root / "evidence/DEP-1/private/raw/deleted-leak.log"
         raw.parent.mkdir(parents=True)
         raw.write_text("secret")
@@ -208,6 +209,7 @@ jobs:
         raw.unlink()
         _run(self.root, "git", "add", "-u")
         _run(self.root, "git", "commit", "-qm", "hide raw from head")
+        self._write_gate()
         with self.assertRaisesRegex(ValueError, "raw evidence"):
             verify_merge(self.root, self.base, run_checks=False)
 
@@ -225,12 +227,53 @@ jobs:
             verify_merge(self.root, self.base, run_checks=False)
 
     @patch("sddgov.merge_gate.verify_dep", return_value=[])
+    def test_gate_and_review_are_bound_to_exact_base_sha(self, _verify):
+        self._write_gate()
+        gate_path = self.root / ".sddgov/merge-gate.json"
+        gate = json.loads(gate_path.read_text())
+        gate["base_sha"] = "0" * 40
+        gate_path.write_text(json.dumps(gate))
+        _run(self.root, "git", "add", str(gate_path.relative_to(self.root)))
+        _run(self.root, "git", "commit", "-qm", "tamper exact base")
+        with self.assertRaisesRegex(ValueError, "base_sha"):
+            verify_merge(self.root, self.base, run_checks=False)
+
+    @patch("sddgov.merge_gate.verify_dep", return_value=[])
+    def test_non_audit_descendant_after_reviewed_head_fails(self, _verify):
+        self._write_gate()
+        (self.root / "post-review.py").write_text("unsafe = True\n")
+        _run(self.root, "git", "add", "post-review.py")
+        _run(self.root, "git", "commit", "-qm", "change after review")
+        with self.assertRaisesRegex(ValueError, "non-audit descendants"):
+            verify_merge(self.root, self.base, run_checks=False)
+
+    def test_dep_and_rollback_contents_are_inside_change_digest(self):
+        before = change_digest(self.root, self.base)
+        rollback = self.root / "evidence/DEP-1/rollback.md"
+        rollback.write_text(rollback.read_text() + "verify: python -m unittest -v\n")
+        _run(self.root, "git", "add", str(rollback.relative_to(self.root)))
+        _run(self.root, "git", "commit", "-qm", "change rollback proof")
+        self.assertNotEqual(before, change_digest(self.root, self.base))
+
+    @patch("sddgov.merge_gate.verify_dep", return_value=[])
     def test_candidate_policy_cannot_unprotect_base_paths(self, _verify):
         (self.root / "policies/protected-files.yaml").write_text(
             "protected:\n  - harmless.txt\nrules:\n"
         )
         _run(self.root, "git", "add", "policies/protected-files.yaml")
         _run(self.root, "git", "commit", "-qm", "attempt policy bypass")
+        self._write_gate(review=False)
+        with self.assertRaisesRegex(ValueError, "independent review"):
+            verify_merge(self.root, self.base, run_checks=False)
+
+    @patch("sddgov.merge_gate.verify_dep", return_value=[])
+    def test_protected_source_path_cannot_be_renamed_out_of_policy(self, _verify):
+        protected = self.root / "core/POLICY_KERNEL.md"
+        protected.write_text("baseline\n")
+        _run(self.root, "git", "add", "core/POLICY_KERNEL.md")
+        _run(self.root, "git", "commit", "-qm", "restore rename source")
+        _run(self.root, "git", "mv", "core/POLICY_KERNEL.md", "harmless.txt")
+        _run(self.root, "git", "commit", "-qm", "attempt protected rename bypass")
         self._write_gate(review=False)
         with self.assertRaisesRegex(ValueError, "independent review"):
             verify_merge(self.root, self.base, run_checks=False)
