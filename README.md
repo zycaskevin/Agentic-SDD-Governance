@@ -1,5 +1,7 @@
 # Agentic SDD Governance
 
+[English](README.md) | [繁體中文](README.zh-TW.md)
+
 Experimental governance and evidence infrastructure for autonomous software engineering.
 
 This repository answers four questions:
@@ -38,6 +40,8 @@ sddgov ci local-gate .
 See `docs/CI_COST_GUARD.md` for the tracked budget contract, Local Green Gate, stale-run cancellation, Draft PR behavior, and rerun policy.
 
 The installer manages a marked block in `AGENTS.md`, a Repo Skill under `.agents/skills/`, and a versioned governance layer under `.agentic-sdd-governance/`. See `docs/AGENT_INSTALLATION.md` for upgrades, removal, and safety behavior.
+
+For a complete Traditional Chinese walkthrough covering Release downloads, Codex, Hermes, offline installation, daily workflows, Evidence, CI Cost Guard, upgrades, removal, and troubleshooting, see [`docs/USER_GUIDE.zh-TW.md`](docs/USER_GUIDE.zh-TW.md).
 
 ## Evidence quick start
 
@@ -80,6 +84,8 @@ evidence attach evidence/DEP-... --target pr
 - `src/sddgov/installer.py`: idempotent Agent setup, health checks, and guarded removal.
 
 This is an experimental framework. Fixture benchmark results test the harness; they do not prove superiority over another workflow.
+
+Before changing a private repository to public, follow the repeatable checks in [`docs/PUBLIC_RELEASE_CHECKLIST.zh-TW.md`](docs/PUBLIC_RELEASE_CHECKLIST.zh-TW.md). Security reports and contributions are covered by [`SECURITY.md`](SECURITY.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## License
 
