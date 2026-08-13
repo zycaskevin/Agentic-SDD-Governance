@@ -6,8 +6,8 @@ Capture the narrow failing run:
 
 ```bash
 umask 077
-mkdir -p <DEP>/private/raw
-chmod 700 <DEP>/private/raw
+if ! mkdir -p <DEP>/private/raw; then exit 1; fi
+if ! chmod 700 <DEP>/private/raw; then exit 1; fi
 flutter run --verbose > <DEP>/private/raw/flutter-failure.log 2>&1
 # Reproduce once, Press `q`, and wait until `flutter run` exits before continuing.
 evidence collect <DEP> --collector flutter-log --input <DEP>/private/raw/flutter-failure.log
@@ -23,8 +23,8 @@ Clear stale logs only in a disposable test context, reproduce once, and filter t
 
 ```bash
 umask 077
-mkdir -p <DEP>/private/raw
-chmod 700 <DEP>/private/raw
+if ! mkdir -p <DEP>/private/raw; then exit 1; fi
+if ! chmod 700 <DEP>/private/raw; then exit 1; fi
 adb logcat -v threadtime --pid=<test-app-pid> > <DEP>/private/raw/logcat-failure.log 2>&1
 # Reproduce once, Press Ctrl-C, and wait until `adb logcat` exits before continuing.
 evidence collect <DEP> --collector android-logcat --input <DEP>/private/raw/logcat-failure.log

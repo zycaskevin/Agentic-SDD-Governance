@@ -490,5 +490,12 @@ def uninstall_agent(root: Path, force: bool = False) -> dict[str, Any]:
         "project": str(root),
         "removed_file_count": len(removed),
         "retained": list(manifest.get("uninstall_retains", [".sddgov"])),
-        "local_cleanup_required": manifest.get("uninstall_local_cleanup_required"),
+        "local_cleanup_required": manifest.get(
+            "uninstall_local_cleanup_required",
+            {
+                "path": "evidence/*/private/raw",
+                "owner": "repository owner",
+                "retention": "review and remove under the repository retention policy",
+            },
+        ),
     }

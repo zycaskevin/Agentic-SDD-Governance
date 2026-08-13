@@ -173,10 +173,14 @@ SDD
 ```bash
 evidence init --issue ISSUE-123 --risk L1 --sdd CAP-03
 umask 077
-mkdir -p evidence/DEP-.../private/raw
-chmod 700 evidence/DEP-.../private/raw
-your-test-command > evidence/DEP-.../private/raw/failure.log 2>&1
-evidence collect evidence/DEP-... --collector terminal --input evidence/DEP-.../private/raw/failure.log
+if ! mkdir -p evidence/DEP-.../private/raw; then exit 1; fi
+if ! chmod 700 evidence/DEP-.../private/raw; then exit 1; fi
+test_status=0
+your-test-command > evidence/DEP-.../private/raw/failure.log 2>&1 || test_status=$?
+collection_status=0
+evidence collect evidence/DEP-... --collector terminal --input evidence/DEP-.../private/raw/failure.log || collection_status=$?
+if [ "$collection_status" -ne 0 ]; then exit "$collection_status"; fi
+if [ "$test_status" -ne 0 ]; then exit "$test_status"; fi
 evidence redact evidence/DEP-...
 evidence transition evidence/DEP-... evidence
 ```

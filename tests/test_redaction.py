@@ -59,12 +59,20 @@ class RedactionTests(unittest.TestCase):
             "DB_PASSWORD=database-secret\n"
             "SECRET_KEY=signing-secret\n"
             "ACCESS_KEY=provider-secret\n"
+            "secret-key=hyphen-secret\n"
+            "AWS_ACCESS_KEY_ID=aws-secret\n"
         )
         cleaned, counts = redact_text(source)
-        for fragment in ("database-secret", "signing-secret", "provider-secret"):
+        for fragment in (
+            "database-secret",
+            "signing-secret",
+            "provider-secret",
+            "hyphen-secret",
+            "aws-secret",
+        ):
             self.assertNotIn(fragment, cleaned)
         self.assertEqual(counts["password"], 1)
-        self.assertEqual(counts["secret-field"], 2)
+        self.assertEqual(counts["secret-field"], 4)
 
 
 if __name__ == "__main__":

@@ -6,8 +6,8 @@ Capture the exact targeted command, exit code, relevant stdout/stderr, runtime/t
 
 ```bash
 umask 077
-mkdir -p <DEP>/private/raw
-chmod 700 <DEP>/private/raw
+if ! mkdir -p <DEP>/private/raw; then exit 1; fi
+if ! chmod 700 <DEP>/private/raw; then exit 1; fi
 pytest tests/test_target.py > <DEP>/private/raw/failing-test.log 2>&1
 status=$?
 {

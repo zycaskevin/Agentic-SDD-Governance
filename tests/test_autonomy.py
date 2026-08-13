@@ -288,6 +288,27 @@ class AutonomyTests(unittest.TestCase):
         self.assertFalse(result["requires_response"])
         self.assertIn("action_required", result)
 
+    def test_operational_action_and_necessary_uat_bypass_l1_shortcut(self):
+        operational = evaluate_escalation(
+            self.root,
+            {
+                "risk_level": "L1",
+                "category": "operational_action",
+                "decision_package": decision_package("Operational", "LOGIN-L1"),
+            },
+        )
+        self.assertEqual(operational["state"], "ACTION_REQUIRED")
+        uat = evaluate_escalation(
+            self.root,
+            {
+                "risk_level": "L1",
+                "category": "necessary_uat",
+                "machine_verifiable": True,
+                "decision_package": decision_package("UAT", "UAT-L1"),
+            },
+        )
+        self.assertEqual(uat["state"], "ACTION_REQUIRED")
+
     def test_sha256_is_generated_verified_and_never_a_human_token(self):
         artifact = self.root / "package.whl"
         artifact.write_bytes(b"verified build")

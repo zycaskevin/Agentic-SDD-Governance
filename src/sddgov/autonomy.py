@@ -357,6 +357,7 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("risk_level must be L0, L1, L2, or L3")
     if not isinstance(category, str) or not category:
         raise ValueError("category is required")
+    forced_human_category = category in {"operational_action", "necessary_uat"}
 
     if category == "checkpoint":
         return _continue("checkpoint_is_informational")
@@ -373,17 +374,25 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
             ),
         }
         return result
-    if category in ROUTINE_OPERATIONS and risk in {"L0", "L1"}:
+    if (
+        not forced_human_category
+        and category in ROUTINE_OPERATIONS
+        and risk in {"L0", "L1"}
+    ):
         return _continue(
             "no_human_escalation_if_machine_verifiable",
             "verify_with_repo_decisions_tests_ci_or_tools",
         )
-    if request.get("machine_verifiable") and risk in {"L0", "L1"}:
+    if (
+        not forced_human_category
+        and request.get("machine_verifiable")
+        and risk in {"L0", "L1"}
+    ):
         return _continue(
             "no_human_escalation_if_machine_verifiable",
             "verify_with_repo_decisions_tests_ci_or_tools",
         )
-    if risk in {"L0", "L1"}:
+    if risk in {"L0", "L1"} and not forced_human_category:
         return _continue("l0_l1_engineering_is_pre_authorized")
 
     decision_id = request.get("decision_id")
