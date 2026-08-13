@@ -26,6 +26,8 @@ class GovernanceTests(unittest.TestCase):
         status = project_status(self.root)
         self.assertEqual(status["active_claims"], 1)
         self.assertEqual(status["pending_external_actions"], 1)
+        self.assertEqual(status["recorded_decisions"], 0)
+        self.assertTrue((self.root / ".sddgov/decisions.json").is_file())
         self.assertGreaterEqual(status["event_count"], 3)
 
     def test_external_action_rejects_routine_engineering(self):

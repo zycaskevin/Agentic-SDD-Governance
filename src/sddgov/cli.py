@@ -7,10 +7,21 @@ from pathlib import Path
 
 from . import __version__
 from .benchmark import compare
+from .autonomy import (
+    authorize_operation,
+    checkpoint,
+    consume_operation_approval,
+    evaluate_deployment,
+    evaluate_escalation,
+    lock_artifact,
+    record_decision,
+    verify_artifact,
+)
 from .ci_guard import run_local_gate, verify_guard
 from .evidence import attach, collect, make_dep, redact, transition, verify
 from .governance import claim_work, emit_event, enqueue_external_action, init_project, project_status
 from .installer import AGENTS, doctor, setup_agent, uninstall_agent
+from .schema_validation import check_schema, load_schema, validate_instance
 
 
 def _evidence_parser(subparsers) -> None:
@@ -56,12 +67,63 @@ def _ci_parser(subparsers) -> None:
     local.add_argument("path", nargs="?", type=Path, default=Path.cwd())
 
 
+def _autonomy_parsers(subparsers) -> None:
+    autonomy = subparsers.add_parser("autonomy", help="Classify escalation without unnecessary human prompts")
+    autonomy_commands = autonomy.add_subparsers(dest="autonomy_command", required=True)
+    evaluate = autonomy_commands.add_parser("evaluate", help="Evaluate one JSON escalation request")
+    evaluate.add_argument("request", type=Path)
+    evaluate.add_argument("--path", type=Path, default=Path.cwd())
+
+    artifact = subparsers.add_parser("artifact", help="Generate and verify machine-readable artifact integrity locks")
+    artifact_commands = artifact.add_subparsers(dest="artifact_command", required=True)
+    lock = artifact_commands.add_parser("lock", help="Calculate SHA-256 and write release.lock")
+    lock.add_argument("artifact", type=Path)
+    lock.add_argument("--release", required=True)
+    lock.add_argument("--output", type=Path, default=Path("release.lock"))
+    verify_lock = artifact_commands.add_parser("verify", help="Recalculate and compare an artifact lock")
+    verify_lock.add_argument("artifact", type=Path)
+    verify_lock.add_argument("--lock", dest="lock_path", type=Path, default=Path("release.lock"))
+
+    decision = subparsers.add_parser("decision", help="Record and reuse bounded L2/L3 decisions")
+    decision_commands = decision.add_subparsers(dest="decision_command", required=True)
+    record = decision_commands.add_parser("record", help="Record one approved L2 decision")
+    record.add_argument("decision_id")
+    record.add_argument("--summary", required=True)
+    record.add_argument("--scope", required=True)
+    record.add_argument("--basis", required=True)
+    record.add_argument("--reopen-condition", required=True)
+    record.add_argument("--path", type=Path, default=Path.cwd())
+    authorize = decision_commands.add_parser("authorize-operation", help="Record fresh one-use approval for one concrete L3 operation")
+    authorize.add_argument("approval_id")
+    authorize.add_argument("--operation-id", required=True)
+    authorize.add_argument("--summary", required=True)
+    authorize.add_argument("--scope", required=True)
+    authorize.add_argument("--approved-by", required=True)
+    authorize.add_argument("--valid-minutes", type=int, default=60)
+    authorize.add_argument("--path", type=Path, default=Path.cwd())
+    consume = decision_commands.add_parser("consume-operation", help="Consume one exact L3 operation approval")
+    consume.add_argument("approval_id")
+    consume.add_argument("--operation-id", required=True)
+    consume.add_argument("--path", type=Path, default=Path.cwd())
+
+    report = subparsers.add_parser("checkpoint", help="Emit an informational checkpoint that continues by default")
+    report.add_argument("--summary", required=True)
+    report.add_argument("--next-work-package")
+
+    deploy = subparsers.add_parser("deploy", help="Evaluate automated Production deployment guardrails")
+    deploy_commands = deploy.add_subparsers(dest="deploy_command", required=True)
+    deploy_evaluate = deploy_commands.add_parser("evaluate", help="Evaluate one JSON deployment gate")
+    deploy_evaluate.add_argument("gate", type=Path)
+    deploy_evaluate.add_argument("--path", type=Path, default=Path.cwd())
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="sddgov")
     parser.add_argument("--version", action="version", version=__version__)
     sub = parser.add_subparsers(dest="command", required=True)
     _evidence_parser(sub)
     _ci_parser(sub)
+    _autonomy_parsers(sub)
     init = sub.add_parser("init", help="Initialize project governance state")
     init.add_argument("path", nargs="?", type=Path, default=Path.cwd())
     init.add_argument("--profile", choices=("solo-fast", "team-standard", "regulated"), default="team-standard")
@@ -107,13 +169,17 @@ def _validate_repo(root: Path) -> list[str]:
     required = (
         "core/POLICY_KERNEL.md", "core/policy-kernel.yaml",
         "profiles/solo-fast.yaml", "profiles/team-standard.yaml", "profiles/regulated.yaml",
-        "schemas/debug-evidence-package.schema.json", "schemas/objective-contract.schema.json",
+        "schemas/debug-evidence-package.schema.json", "schemas/collector-event.schema.json",
+        "schemas/objective-contract.schema.json",
         "schemas/governance-event.schema.json", "schemas/work-claim.schema.json",
         "schemas/external-action.schema.json", "policies/protected-files.yaml",
+        "schemas/autonomy-policy.schema.json", "schemas/decision-record.schema.json",
+        "schemas/artifact-lock.schema.json", "policies/autonomy-policy.json",
         "schemas/ci-cost-guard.schema.json", "policies/ci-cost-guard.yaml",
         "skill/agentic-sdd-governance/SKILL.md",
         "skill/agentic-sdd-governance/references/ci-cost-guard.md",
         "docs/EVIDENCE_DRIVEN_SDD.md", "docs/AGENT_INSTALLATION.md", "docs/CI_COST_GUARD.md",
+        "docs/AUTONOMOUS_DEVELOPMENT_V1_2.md", "templates/ACTION_REQUIRED.md",
         "templates/CI_COST_GUARD.json", "src/sddgov/ci_guard.py",
         "src/sddgov/installer.py",
         "src/sddgov/resources/governance/VERSION",
@@ -126,9 +192,24 @@ def _validate_repo(root: Path) -> list[str]:
         errors.append("SKILL.md exceeds 500 lines")
     for schema in (root / "schemas").glob("*.json") if (root / "schemas").exists() else []:
         try:
-            json.loads(schema.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as exc:
+            document = load_schema(schema)
+        except (OSError, json.JSONDecodeError, ValueError) as exc:
             errors.append(f"invalid JSON schema {schema.name}: {exc}")
+            continue
+        errors.extend(f"invalid JSON schema {schema.name}: {error}" for error in check_schema(document))
+    policy_path = root / "policies/autonomy-policy.json"
+    policy_schema_path = root / "schemas/autonomy-policy.schema.json"
+    if policy_path.is_file() and policy_schema_path.is_file():
+        try:
+            policy = json.loads(policy_path.read_text(encoding="utf-8"))
+            policy_schema = load_schema(policy_schema_path)
+        except (OSError, json.JSONDecodeError, ValueError) as exc:
+            errors.append(f"invalid autonomy policy: {exc}")
+        else:
+            errors.extend(
+                f"invalid autonomy policy: {error}"
+                for error in validate_instance(policy, policy_schema)
+            )
     return errors
 
 
@@ -162,6 +243,55 @@ def run(args: argparse.Namespace) -> int:
     if args.command == "external-action":
         print(json.dumps(enqueue_external_action(args.path, args.action_id, args.summary, args.risk, args.owner), ensure_ascii=False, indent=2))
         return 0
+    if args.command == "autonomy":
+        request = json.loads(args.request.read_text(encoding="utf-8"))
+        if not isinstance(request, dict):
+            raise ValueError("autonomy request must be a JSON object")
+        print(json.dumps(evaluate_escalation(args.path, request), ensure_ascii=False, indent=2))
+        return 0
+    if args.command == "artifact":
+        if args.artifact_command == "lock":
+            result = lock_artifact(args.artifact, args.release, args.output)
+        else:
+            result = verify_artifact(args.artifact, args.lock_path)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0 if result["ok"] else 1
+    if args.command == "decision":
+        if args.decision_command == "record":
+            result = record_decision(
+                args.path,
+                args.decision_id,
+                args.summary,
+                args.scope,
+                args.basis,
+                args.reopen_condition,
+            )
+        elif args.decision_command == "authorize-operation":
+            result = authorize_operation(
+                args.path,
+                args.approval_id,
+                args.operation_id,
+                args.summary,
+                args.scope,
+                args.approved_by,
+                args.valid_minutes,
+            )
+        else:
+            result = consume_operation_approval(
+                args.path, args.approval_id, args.operation_id
+            )
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0
+    if args.command == "checkpoint":
+        print(json.dumps(checkpoint(args.summary, args.next_work_package), ensure_ascii=False, indent=2))
+        return 0
+    if args.command == "deploy":
+        gate = json.loads(args.gate.read_text(encoding="utf-8"))
+        if not isinstance(gate, dict):
+            raise ValueError("deployment gate must be a JSON object")
+        result = evaluate_deployment(args.path, gate)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0 if result.get("ok", result.get("state") == "CONTINUE") else 1
     if args.command == "validate":
         errors = _validate_repo(args.path)
         if errors:

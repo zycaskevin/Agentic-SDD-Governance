@@ -10,7 +10,7 @@
 
 ## Scope
 
-- Root-cause status: unknown / hypothesized / confirmed
+- Root-cause status: unknown / hypothesized / confirmed / rejected
 - In scope:
 - Non-scope:
 - Verification plan:

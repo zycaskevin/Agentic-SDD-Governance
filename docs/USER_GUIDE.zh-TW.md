@@ -42,10 +42,14 @@ gh release download v0.2.0-experimental.3 \
   --pattern 'SHA256SUMS.txt' \
   --dir sdg-release
 
-(cd sdg-release && shasum -a 256 -c SHA256SUMS.txt --ignore-missing)
+wheel_name=$(find sdg-release -maxdepth 1 -type f -name '*.whl' -print -quit)
+test -n "$wheel_name"
+(cd sdg-release && rg "  $(basename "$wheel_name")$" SHA256SUMS.txt > wheel.SHA256SUMS)
+(cd sdg-release && test -s wheel.SHA256SUMS)
+(cd sdg-release && shasum -a 256 -c wheel.SHA256SUMS --strict)
 ```
 
-macOS 內建 `shasum`。Linux 若沒有相容選項，可改用 `sha256sum -c SHA256SUMS.txt`。
+macOS 內建 `shasum`。Linux 可把最後一行改成 `sha256sum -c wheel.SHA256SUMS`。這段流程會先確認 wheel 存在、再從 Registry checksum 取出該 wheel 的唯一紀錄並由機器比對；不需要把 Digest 複製或貼給 Agent。
 
 安裝到獨立 Virtual Environment：
 
@@ -136,6 +140,8 @@ sddgov doctor /absolute/path/to/project
 適合需要 Provenance、第二風險 Review、嚴格 Redaction 與完整 L3 Rollback Proof 的環境。它不是法規認證，仍須由組織自行完成合規評估。
 
 ## 5. 日常功能開發
+
+SDG v1.2 預設 `CONTINUE`。Issue、Branch、Commit、feature-branch Push、PR、Review、測試、CI、可恢復 Retry、Integrity verification 與通過必要 Gate 後的 L0/L1 Merge都是工程操作，不是 Owner Approval 點。只有 unresolved L2、concrete L3、Operational Action 或 Necessary UAT 才能輸出嚴格的 `ACTION REQUIRED`。詳見 [`AUTONOMOUS_DEVELOPMENT_V1_2.md`](AUTONOMOUS_DEVELOPMENT_V1_2.md)。
 
 建議循環：
 

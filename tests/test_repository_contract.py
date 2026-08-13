@@ -1,4 +1,5 @@
 import json
+import re
 import unittest
 from pathlib import Path
 
@@ -18,6 +19,7 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertLess(len(lines), 150)
         text = "\n".join(lines)
         self.assertIn("references/evidence-workflow.md", text)
+        self.assertIn("references/autonomy-workflow.md", text)
         self.assertNotIn("# Evidence-Driven SDD", text)
 
     def test_json_schemas_are_parseable(self):
@@ -25,12 +27,220 @@ class RepositoryContractTests(unittest.TestCase):
             with self.subTest(path=path.name):
                 json.loads(path.read_text(encoding="utf-8"))
 
+    def test_dep_security_boundary_objects_reject_unknown_fields(self):
+        schema = json.loads(
+            (ROOT / "schemas/debug-evidence-package.schema.json").read_text(encoding="utf-8")
+        )
+        self.assertFalse(schema["additionalProperties"])
+        history = schema["properties"]["workflow"]["properties"]["history"]
+        self.assertEqual(history["minItems"], 1)
+        self.assertEqual(history["maxItems"], 5)
+        self.assertFalse(history["items"]["additionalProperties"])
+        self.assertFalse(
+            schema["properties"]["attachments"]["items"]["additionalProperties"]
+        )
+
     def test_adapters_route_to_canonical_skill(self):
         codex = (ROOT / "adapters/codex/AGENTS.md").read_text(encoding="utf-8")
         hermes = (ROOT / "adapters/hermes/AGENTS.md").read_text(encoding="utf-8")
         self.assertIn("agentic-sdd-governance", codex)
         self.assertIn("agentic-sdd-governance", hermes)
         self.assertIn("Red -> Evidence -> Fix -> Green -> Proof", codex)
+
+    def test_codex_adapter_preserves_repository_bootstrap_before_layered_loading(self):
+        codex = (ROOT / "adapters/codex/AGENTS.md").read_text(encoding="utf-8")
+        self.assertIn(
+            "After completing the repository's required bootstrap reads, load only the following additional Governance Root sources:",
+            codex,
+        )
+
+    def test_evidence_paths_are_normalized_and_zone_bounded(self):
+        collector = json.loads(
+            (ROOT / "schemas/collector-event.schema.json").read_text(encoding="utf-8")
+        )
+        attachment = json.loads(
+            (ROOT / "schemas/debug-evidence-package.schema.json").read_text(encoding="utf-8")
+        )
+        collector_pattern = collector["properties"]["path"]["pattern"]
+        attachment_pattern = attachment["properties"]["attachments"]["items"]["properties"]["path"]["pattern"]
+
+        for pattern, accepted, rejected in (
+            (
+                collector_pattern,
+                ["private/raw/terminal.log", "private/raw/run/output.json"],
+                [
+                    "private/raw/../shareable/leak.txt",
+                    "private/raw/./log.txt",
+                    "private/raw\\leak.txt",
+                    "private/raw/control\u0000value.txt",
+                    "private/raw/control\u001fvalue.txt",
+                    "private/raw/control\u007fvalue.txt",
+                    "private/raw/.. /leak.txt",
+                    "private/raw/report. ",
+                    "private/raw/report.",
+                    "private/raw/",
+                ],
+            ),
+            (
+                attachment_pattern,
+                ["shareable/artifacts/summary.txt", "shareable/artifacts/run/report.json"],
+                [
+                    "shareable/report.json",
+                    "shareable/manifest.json",
+                    "shareable/../private/raw.txt",
+                    "shareable/./report.txt",
+                    "shareable\\leak.txt",
+                    "shareable/control\u0000value.txt",
+                    "shareable/control\u001fvalue.txt",
+                    "shareable/control\u007fvalue.txt",
+                    "shareable/artifacts/.. /leak.txt",
+                    "shareable/artifacts/report. ",
+                    "shareable/artifacts/report.",
+                    "shareable/",
+                ],
+            ),
+        ):
+            for value in accepted:
+                self.assertIsNotNone(re.fullmatch(pattern, value), value)
+            for value in rejected:
+                self.assertIsNone(re.fullmatch(pattern, value), value)
+
+    def test_objective_contract_lists_reject_blank_items(self):
+        schema = json.loads(
+            (ROOT / "schemas/objective-contract.schema.json").read_text(encoding="utf-8")
+        )
+        for key in ("guardrails", "keep_condition", "rollback_condition"):
+            pattern = schema["properties"][key]["items"]["pattern"]
+            self.assertIsNotNone(re.search(pattern, "bounded rollback"), key)
+            self.assertIsNone(re.search(pattern, "   \t"), key)
+
+    def test_redaction_inventory_matches_sensitive_identifier_contract(self):
+        rules = json.loads((ROOT / "redaction/rules.json").read_text(encoding="utf-8"))
+        actions = {item["id"]: item["action"] for item in rules["rules"]}
+        self.assertEqual(actions["password"], "replace")
+        self.assertEqual(actions["patient-identifier"], "mask")
+        self.assertEqual(actions["customer-identifier"], "mask")
+
+    def test_collector_playbooks_preserve_safe_reproduction_context(self):
+        browser = (ROOT / "collectors/browser-playwright.md").read_text(encoding="utf-8")
+        terminal = (ROOT / "collectors/terminal-git.md").read_text(encoding="utf-8")
+        self.assertIn("URL fragments", browser)
+        self.assertIn("failing-test-context.txt", terminal)
+        self.assertIn("exit status", terminal)
+
+    def test_coderabbit_upstream_review_contracts(self):
+        contracts = {
+            "browser deny-by-default URL handling": (
+                ROOT / "collectors/browser-playwright.md",
+                (
+                    "Deny by default",
+                    "query parameters",
+                    "path segments",
+                    "headers",
+                    "referrers",
+                    "Supabase service-role",
+                    "safe metadata allowlist",
+                    "Referer",
+                    "Set-Cookie",
+                    "Proxy-Authorization",
+                    "API-key",
+                ),
+            ),
+            "bounded Flutter capture": (
+                ROOT / "collectors/flutter-android.md",
+                ("Press `q`", "wait until `flutter run` exits", "<DEP>/private/raw/flutter-failure.log"),
+            ),
+            "bounded Android capture": (
+                ROOT / "collectors/flutter-android.md",
+                ("Press Ctrl-C", "wait until `adb logcat` exits", "<DEP>/private/raw/logcat-failure.log"),
+            ),
+            "terminal private evidence and collection status": (
+                ROOT / "collectors/terminal-git.md",
+                (
+                    "<DEP>/private/raw/failing-test.log",
+                    "<DEP>/private/raw/failing-test-context.txt",
+                    "collection_status",
+                ),
+            ),
+            "Supabase and Docker private evidence": (
+                ROOT / "collectors/supabase-docker.md",
+                (
+                    "<DEP>/private/raw/supabase-function.log",
+                    "<DEP>/private/raw/docker-failure.log",
+                ),
+            ),
+            "repository-relative Cost Guard template": (
+                ROOT / "docs/CI_COST_GUARD.md",
+                (".agentic-sdd-governance/templates/CI_COST_GUARD.json",),
+            ),
+            "explicit DEP verification command": (
+                ROOT / "docs/EVIDENCE_DRIVEN_SDD.md",
+                ("evidence verify <DEP> --strict",),
+            ),
+            "explicit DEP verification command in Skill": (
+                ROOT / "skill/agentic-sdd-governance/SKILL.md",
+                ("evidence verify <DEP> --strict",),
+            ),
+            "rejected Issue root-cause state": (
+                ROOT / "templates/ISSUE_EVIDENCE.md",
+                ("unknown / hypothesized / confirmed / rejected",),
+            ),
+            "destination-authorized attachment": (
+                ROOT / "skill/agentic-sdd-governance/references/dep-contract.md",
+                ("approved package state", "Decision Package", "explicit approval", "authorized destination", "minimum disclosure"),
+            ),
+            "narrow L2 trigger": (
+                ROOT / "skill/agentic-sdd-governance/references/evidence-workflow.md",
+                ("approved behavior", "user-visible promises", "authority boundaries", "ordinary bug fix"),
+            ),
+            "unambiguous regression level": (
+                ROOT / "skill/agentic-sdd-governance/references/risk-evidence-matrix.md",
+                ("Every regression fix is L1", "full DEP"),
+            ),
+        }
+        for label, (path, fragments) in contracts.items():
+            with self.subTest(contract=label):
+                text = path.read_text(encoding="utf-8")
+                for fragment in fragments:
+                    self.assertIn(fragment, text)
+
+    def test_autonomy_v1_2_contract_is_machine_enforced(self):
+        policy = json.loads(
+            (ROOT / "policies/autonomy-policy.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(policy["default_state"], "CONTINUE")
+        self.assertTrue(policy["no_human_escalation_if_machine_verifiable"])
+        self.assertEqual(policy["approval_budget"]["L0"], 0)
+        self.assertEqual(policy["approval_budget"]["L1"], 0)
+        self.assertTrue(policy["integrity"]["human_copy_paste_forbidden"])
+        self.assertFalse(policy["integrity"]["mismatch_requires_human_approval"])
+        self.assertFalse(policy["production_deploy"]["l0_pre_authorized"])
+        self.assertFalse(policy["production_deploy"]["l1_pre_authorized"])
+        self.assertTrue(
+            policy["production_deploy"][
+                "l1_autonomous_with_recorded_baseline_authorization"
+            ]
+        )
+        kernel = (ROOT / "core/POLICY_KERNEL.md").read_text(encoding="utf-8")
+        self.assertIn("NO_HUMAN_ESCALATION_IF_MACHINE_VERIFIABLE", kernel)
+        self.assertIn("Never ask a human to copy, paste", kernel)
+        autonomy = (ROOT / "docs/AUTONOMOUS_DEVELOPMENT_V1_2.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("AUTONOMY BY DEFAULT. ESCALATION BY EXCEPTION.", autonomy)
+        self.assertIn("Main Agent", autonomy)
+        all_runtime_text = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in (
+                ROOT / "core/POLICY_KERNEL.md",
+                ROOT / "core/policy-kernel.yaml",
+                ROOT / "policies/autonomy-policy.json",
+                ROOT / "skill/agentic-sdd-governance/SKILL.md",
+                ROOT / "src/sddgov/autonomy.py",
+            )
+        ).lower()
+        self.assertNotIn("paste sha-256 to approve", all_runtime_text)
+        self.assertNotIn("貼回 sha-256", all_runtime_text)
 
 
 if __name__ == "__main__":

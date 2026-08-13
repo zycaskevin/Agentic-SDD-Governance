@@ -29,3 +29,12 @@ evidence attach <DEP> --target pr
 ```
 
 Blocked binary artifacts require a human-reviewed safe derivative. Do not mark them shareable by editing the report.
+
+Attachment eligibility is destination-specific and fail closed:
+
+- L0/L1 requires a strict-verified DEP in an approved package state.
+- L2 additionally requires the approved Decision Package for the behavior or authority change.
+- L3 additionally requires explicit approval for the concrete operation and destination.
+- Sensitive L2/L3 evidence stays local unless the engineering record names an authorized destination and the minimum disclosure required there.
+
+Verification changes evidence confidence; it never grants a destination or operation by itself.

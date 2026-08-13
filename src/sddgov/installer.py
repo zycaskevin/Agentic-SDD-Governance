@@ -23,6 +23,8 @@ GITIGNORE_BLOCK = (
     f"{GITIGNORE_START_MARKER}\n"
     "# Raw Debug Evidence Packages stay local.\n"
     "evidence/**/private/raw/\n"
+    "# Runtime locks are local coordination state.\n"
+    ".sddgov/*.lock\n"
     f"{GITIGNORE_END_MARKER}"
 )
 
@@ -311,6 +313,7 @@ def setup_agent(root: Path, agent: str, profile: str, force: bool = False) -> di
     if gitignore_path.exists():
         _extract_gitignore_block(gitignore_path.read_text(encoding="utf-8"))
     state_path = root / ".sddgov" / "project.json"
+    state_before: dict[str, Any] | None = None
     if state_path.exists():
         try:
             state_before = _read_json(state_path)
@@ -326,7 +329,7 @@ def setup_agent(root: Path, agent: str, profile: str, force: bool = False) -> di
             and existing.get("profile") == profile
             and existing.get("governance_version") == __version__
         )
-        if not errors and same_config:
+        if not errors and same_config and not force:
             return {
                 "ok": True,
                 "status": "already-installed",
@@ -368,10 +371,27 @@ def setup_agent(root: Path, agent: str, profile: str, force: bool = False) -> di
     created_state = init_project(root, profile)
     state = _read_json(state_path)
     if state.get("profile") != profile or state.get("governance_version") != __version__:
+        previous_profile = state.get("profile")
+        previous_version = state.get("governance_version")
         state["profile"] = profile
         state["governance_version"] = __version__
         state_path.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        emit_event(root, "governance_profile_updated", "L0", {"profile": profile})
+        event_type = (
+            "governance_profile_updated"
+            if previous_profile != profile
+            else "governance_version_updated"
+        )
+        emit_event(
+            root,
+            event_type,
+            "L0",
+            {
+                "previous_profile": previous_profile,
+                "profile": profile,
+                "previous_governance_version": previous_version,
+                "governance_version": __version__,
+            },
+        )
 
     managed_hashes = {
         relative: _current_hash(_managed_path(root, relative)) for relative in sorted(desired)
@@ -385,7 +405,12 @@ def setup_agent(root: Path, agent: str, profile: str, force: bool = False) -> di
         "managed_files": managed_hashes,
         "agents_block_sha256": _sha256(block.encode("utf-8")),
         "gitignore_block_sha256": _sha256(GITIGNORE_BLOCK.encode("utf-8")),
-        "uninstall_retains": [".sddgov", "evidence"],
+        "uninstall_retains": [".sddgov", "evidence/*/shareable"],
+        "uninstall_local_cleanup_required": {
+            "path": "evidence/*/private/raw",
+            "owner": "repository owner",
+            "retention": "review and remove under the repository retention policy; uninstall does not delete unmanaged evidence",
+        },
     }
     manifest_path = root / MANIFEST_PATH
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -464,5 +489,5 @@ def uninstall_agent(root: Path, force: bool = False) -> dict[str, Any]:
         "status": "uninstalled",
         "project": str(root),
         "removed_file_count": len(removed),
-        "retained": [item for item in (".sddgov", "evidence") if (root / item).exists()],
+        "retained": list(manifest.get("uninstall_retains", [".sddgov"])),
     }

@@ -12,6 +12,10 @@ Read this file at the start of governed development. Load detailed modules only 
 8. Checkpoints are informational unless explicitly titled `ACTION REQUIRED` with one bounded decision or operation.
 9. Respect the Approval Budget and do not ask the same decided question again unless its recorded reopen condition occurs.
 10. Continue to the next unblocked Work Package until a documented legal stopping condition is reached.
+11. `NO_HUMAN_ESCALATION_IF_MACHINE_VERIFIABLE`: if Repo, SDD, Decision/ADR, Policy, CI, Tests, Tools, or deterministic verification can answer the question, verify it and continue.
+12. SHA-256 is machine-generated and machine-verified integrity infrastructure. Never ask a human to copy, paste, calculate, or approve a digest.
+13. Before stopping, run the escalation classifier. Only unresolved L2, concrete L3, Operational Action, or Necessary UAT may emit the strict `ACTION REQUIRED` Decision Package.
+14. A Main Agent absorbs sub-agent uncertainty. L0/L1 technical questions never pass directly from a sub-agent to the product owner.
 
 Runtime load set:
 

@@ -78,6 +78,79 @@ class EvidenceFlowTests(unittest.TestCase):
         summary_path.write_text(json.dumps(summary), encoding="utf-8")
         self.assertIn("summary attachments must never reference private/raw evidence", verify(self.dep))
 
+    def test_collector_rejects_platform_normalized_or_symlinked_destinations(self):
+        source = self.root / "source.log"
+        source.write_text("failure", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "platform normalization"):
+            collect(self.dep, "terminal", source, label="unsafe.")
+
+        redirected = self.root / "redirected"
+        redirected.mkdir()
+        raw = self.dep / "private" / "raw"
+        raw.rmdir()
+        raw.symlink_to(redirected, target_is_directory=True)
+        with self.assertRaisesRegex(ValueError, "zone"):
+            collect(self.dep, "terminal", source)
+
+    def test_summary_datetime_formats_are_enforced(self):
+        summary_path = self.dep / "summary.yaml"
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        summary["created_at"] = "not-a-date"
+        summary["workflow"]["history"][0]["at"] = "also-not-a-date"
+        summary_path.write_text(json.dumps(summary), encoding="utf-8")
+
+        errors = verify(self.dep)
+        self.assertTrue(any("created_at" in error and "date-time" in error for error in errors), errors)
+        self.assertTrue(any("workflow.history.0.at" in error and "date-time" in error for error in errors), errors)
+
+    def test_lowercase_rfc3339_separators_are_accepted(self):
+        summary_path = self.dep / "summary.yaml"
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        summary["created_at"] = "2026-08-13t10:20:30z"
+        summary["updated_at"] = "2026-08-13t10:20:30z"
+        summary["workflow"]["history"][0]["at"] = "2026-08-13t10:20:30z"
+        summary_path.write_text(json.dumps(summary), encoding="utf-8")
+        errors = verify(self.dep)
+        self.assertFalse(any("date-time" in error for error in errors), errors)
+
+    def test_workflow_history_must_be_exact_nonduplicated_phase_prefix(self):
+        summary_path = self.dep / "summary.yaml"
+        original = json.loads(summary_path.read_text(encoding="utf-8"))
+        cases = (
+            [],
+            [original["workflow"]["history"][0], original["workflow"]["history"][0]],
+            [{"phase": "evidence", "at": original["created_at"]}],
+        )
+        for history in cases:
+            with self.subTest(history=history):
+                summary = json.loads(json.dumps(original))
+                summary["workflow"]["history"] = history
+                summary_path.write_text(json.dumps(summary), encoding="utf-8")
+                errors = verify(self.dep)
+                self.assertTrue(
+                    any("workflow history must be the exact phase prefix" in error for error in errors),
+                    errors,
+                )
+
+    def test_summary_rejects_unknown_root_history_and_attachment_fields(self):
+        summary_path = self.dep / "summary.yaml"
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        summary["unexpected_root"] = True
+        summary["workflow"]["history"][0]["unexpected_history"] = True
+        summary["attachments"] = [
+            {
+                "path": "shareable/artifacts/safe.txt",
+                "sha256": "a" * 64,
+                "unexpected_attachment": True,
+            }
+        ]
+        summary_path.write_text(json.dumps(summary), encoding="utf-8")
+
+        errors = verify(self.dep)
+        self.assertTrue(any("unexpected_root" in error for error in errors), errors)
+        self.assertTrue(any("unexpected_history" in error for error in errors), errors)
+        self.assertTrue(any("unexpected_attachment" in error for error in errors), errors)
+
 
 if __name__ == "__main__":
     unittest.main()

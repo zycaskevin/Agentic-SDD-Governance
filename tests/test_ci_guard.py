@@ -43,7 +43,7 @@ def _write_project(project: Path, contract, workflow: str) -> None:
 GOOD_WORKFLOW = """name: CI
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
   push:
     branches: [main]
 permissions:
@@ -109,6 +109,18 @@ jobs:
             self.assertFalse(report["ok"])
             self.assertIn(
                 "pull-request job second must skip Draft PR runners",
+                "\n".join(report["errors"]),
+            )
+
+    def test_draft_conversion_must_cancel_the_active_pull_request_run(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            workflow = GOOD_WORKFLOW.replace(", converted_to_draft", "")
+            _write_project(project, _contract([sys.executable, "-c", "pass"]), workflow)
+            report = verify_guard(project)
+            self.assertFalse(report["ok"])
+            self.assertIn(
+                "pull_request types must include converted_to_draft",
                 "\n".join(report["errors"]),
             )
 

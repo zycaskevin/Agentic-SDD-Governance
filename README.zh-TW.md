@@ -23,7 +23,7 @@ Agentic SDD Governance（SDG）是一套給自主軟體開發 Agent 使用的「
 Red → Evidence → Fix → Green → Proof
 ```
 
-原始證據只留在本機 `private/raw`。文字經 Local Redaction Gateway 遮罩、二進位檔經人工檢查後，才能進入 `shareable/artifacts`。CLI 只會生成本機 Evidence Block，不會自動把內容貼到 Issue、PR 或外部服務。
+原始證據只留在本機 `private/raw`。原始二進位證據一律不得進入 `shareable/artifacts`；只有經核准的文字摘要或完成遮罩與人工檢查的衍生物才能進入。CLI 只會生成本機 Evidence Block，不會自動把內容貼到 Issue、PR 或外部服務。
 
 ## 適合用在哪裡？
 
@@ -42,15 +42,26 @@ Red → Evidence → Fix → Green → Proof
 目前尚未發布到 PyPI。建議透過 GitHub Release 下載 wheel；Private Repo 必須先登入有權限的 GitHub 帳號：
 
 ```bash
+set -eu
 gh auth login -h github.com
 mkdir -p sdg-release
 gh release download v0.2.0-experimental.3 \
   --repo zycaskevin/Agentic-SDD-Governance \
   --pattern '*.whl' \
+  --pattern 'SHA256SUMS.txt' \
   --dir sdg-release
 
+wheel_count=$(find sdg-release -maxdepth 1 -type f -name '*.whl' | wc -l | tr -d ' ')
+test "$wheel_count" -eq 1
+verified_wheel=$(find sdg-release -maxdepth 1 -type f -name '*.whl' -print -quit)
+case "$verified_wheel" in *-py3-none-any.whl) ;; *) exit 1 ;; esac
+python3 -c 'import sys; raise SystemExit(sys.version_info < (3, 10))'
+(cd sdg-release && rg "  $(basename "$verified_wheel")$" SHA256SUMS.txt > wheel.SHA256SUMS)
+(cd sdg-release && test -s wheel.SHA256SUMS)
+(cd sdg-release && shasum -a 256 -c wheel.SHA256SUMS --strict)
+
 python3 -m venv .venv-sddgov
-.venv-sddgov/bin/python -m pip install sdg-release/*.whl
+.venv-sddgov/bin/python -m pip install "$verified_wheel"
 .venv-sddgov/bin/sddgov --version
 ```
 
@@ -167,6 +178,19 @@ sddgov ci local-gate .
 
 它會檢查 Workflow 是否具備 read-only permissions、同一 PR／ref 的 stale-run cancellation、Draft PR 不配置 Runner，以及每個 Job 的 timeout。它不會替你改 GitHub Billing budget，也不會因省錢而弱化測試。
 
+## 自主執行與 Artifact Integrity
+
+預設狀態是 `CONTINUE`。只要能由 Repo、SDD、Decision／ADR、Tests、CI 或 Tools 決定，就不得詢問產品負責人。完整規格見 [SDG Autonomous Development v1.2](docs/AUTONOMOUS_DEVELOPMENT_V1_2.md)。
+
+SHA-256 保留為 Invisible Infrastructure，由機器產生與驗證：
+
+```bash
+sddgov artifact lock dist/package.whl --release release-X --output release.lock
+sddgov artifact verify dist/package.whl --lock release.lock
+```
+
+Match 會繼續；Mismatch 會自動阻擋該 Artifact 並進入調查，不會要求使用者複製或貼回 Hash。
+
 ## 更新與移除
 
 升級 CLI 後先執行 `doctor`，再審查受管理檔案。只有確認要替換 SDG 管理的內容時才使用 `--force`：
@@ -193,6 +217,7 @@ sddgov uninstall-agent /absolute/path/to/project
 - [Agent 安裝、升級與移除](docs/AGENT_INSTALLATION.md)
 - [Evidence-Driven SDD 設計](docs/EVIDENCE_DRIVEN_SDD.md)
 - [CI Cost Guard](docs/CI_COST_GUARD.md)
+- [SDG Autonomous Development v1.2](docs/AUTONOMOUS_DEVELOPMENT_V1_2.md)
 - [Local Redaction Gateway](redaction/LOCAL_REDACTION_GATEWAY.md)
 - [公開發布檢查清單](docs/PUBLIC_RELEASE_CHECKLIST.zh-TW.md)
 - [Roadmap](docs/ROADMAP.md)

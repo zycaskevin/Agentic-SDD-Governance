@@ -15,4 +15,6 @@ evidence/**/private/raw/
 # agentic-sdd-governance:start
 # Raw Debug Evidence Packages stay local.
 evidence/**/private/raw/
+# Runtime locks are local coordination state.
+.sddgov/*.lock
 # agentic-sdd-governance:end

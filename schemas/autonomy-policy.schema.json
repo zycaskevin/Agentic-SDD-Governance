@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SDG Autonomous Development Policy",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "principle",
+    "default_state",
+    "no_human_escalation_if_machine_verifiable",
+    "approval_budget",
+    "checkpoint",
+    "integrity",
+    "allowed_escalations",
+    "production_deploy"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.2"},
+    "principle": {"const": "AUTONOMY BY DEFAULT. ESCALATION BY EXCEPTION."},
+    "default_state": {"const": "CONTINUE"},
+    "no_human_escalation_if_machine_verifiable": {"const": true},
+    "approval_budget": {
+      "type": "object",
+      "required": ["L0", "L1", "L2", "L3", "milestone_uat"],
+      "properties": {
+        "L0": {"const": 0},
+        "L1": {"const": 0},
+        "L2": {"const": "1_per_independent_decision"},
+        "L3": {"const": "1_per_concrete_operation"},
+        "milestone_uat": {"const": 1}
+      },
+      "additionalProperties": false
+    },
+    "checkpoint": {
+      "type": "object",
+      "required": ["requires_response", "next_state"],
+      "properties": {
+        "requires_response": {"const": false},
+        "next_state": {"const": "CONTINUE"}
+      },
+      "additionalProperties": false
+    },
+    "integrity": {
+      "type": "object",
+      "required": ["algorithm", "machine_generated", "machine_verified", "human_copy_paste_forbidden", "mismatch_state", "mismatch_requires_human_approval"],
+      "properties": {
+        "algorithm": {"const": "sha256"},
+        "machine_generated": {"const": true},
+        "machine_verified": {"const": true},
+        "human_copy_paste_forbidden": {"const": true},
+        "mismatch_state": {"const": "BLOCKED"},
+        "mismatch_requires_human_approval": {"const": false}
+      },
+      "additionalProperties": false
+    },
+    "allowed_escalations": {
+      "type": "array",
+      "minItems": 4,
+      "uniqueItems": true,
+      "items": {"enum": ["unresolved_l2_product_decision", "concrete_l3_operation", "operational_action", "necessary_uat"]}
+    },
+    "production_deploy": {
+      "type": "object",
+      "required": ["l0_pre_authorized", "l1_pre_authorized", "l1_autonomous_with_recorded_baseline_authorization", "l1_requires_recorded_baseline_authorization", "l2_requires_recorded_decision", "l3_requires_fresh_explicit_approval", "required_guardrails"],
+      "properties": {
+        "l0_pre_authorized": {"const": false},
+        "l1_pre_authorized": {"const": false},
+        "l1_autonomous_with_recorded_baseline_authorization": {"const": true},
+        "l1_requires_recorded_baseline_authorization": {"const": true},
+        "l2_requires_recorded_decision": {"const": true},
+        "l3_requires_fresh_explicit_approval": {"const": true},
+        "required_guardrails": {
+          "type": "array",
+          "minItems": 8,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

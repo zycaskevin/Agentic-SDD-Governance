@@ -1,6 +1,16 @@
 # Roadmap
 
-## v0.2.0-experimental.3 — current CI Cost Guard MVP
+## v0.2.0-experimental.5 — current evidence-boundary hardening patch
+
+- SDG Autonomous Development v1.2: default `CONTINUE`, executable escalation classifier, Decision Memory, and strict Decision Packages.
+- Invisible machine-to-machine SHA-256 artifact locking and verification without human copy/paste gates.
+- Recorded-scope Production authorization with rollback, security, schema, Secret, permission, health, and blast-radius guardrails.
+- Deny-by-default browser collection and bounded stack collector examples.
+- Executable JSON Schema validation with enforced RFC 3339 date-time formats.
+- Destination-aware DEP attachment authority and unambiguous L0/L1/L2 regression classification.
+- Precise uninstall retention and raw-evidence cleanup ownership.
+
+## v0.2.0-experimental.4 — CI and installation hardening
 
 - Machine-readable hosted-run budget and local Green Gate commands.
 - Static enforcement for read-only permissions, stale-run cancellation, Draft PR runner avoidance, and job timeouts.
@@ -32,7 +42,7 @@
 - Signed provenance receipts and tamper-evident event telemetry.
 - CI adapters for GitHub/GitLab and protected evidence-policy files.
 - Work Claim TTL and External Action Queue enforcement.
-- Stronger JSON Schema validation with optional dependency.
+- Additional domain-specific JSON Schema formats and cross-document validation.
 
 ## v0.4 — collectors and interoperability
 

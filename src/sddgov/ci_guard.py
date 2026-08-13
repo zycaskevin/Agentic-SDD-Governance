@@ -134,6 +134,14 @@ def _pull_request_has_ready_for_review(text: str) -> bool:
     return bool(match and "ready_for_review" in match.group("body"))
 
 
+def _pull_request_has_converted_to_draft(text: str) -> bool:
+    match = re.search(
+        r"(?ms)^  pull_request:\s*\n(?P<body>(?:^    .*\n?)*)",
+        text,
+    )
+    return bool(match and "converted_to_draft" in match.group("body"))
+
+
 def _inspect_workflow(path: Path, controls: dict[str, Any]) -> tuple[list[str], dict[str, Any]]:
     text = path.read_text(encoding="utf-8")
     jobs = [(name, block) for name, block in _job_blocks(text) if "runs-on:" in block]
@@ -152,6 +160,10 @@ def _inspect_workflow(path: Path, controls: dict[str, Any]) -> tuple[list[str], 
         if not _pull_request_has_ready_for_review(text):
             errors.append(
                 f"{path.name}: pull_request types must include ready_for_review"
+            )
+        if not _pull_request_has_converted_to_draft(text):
+            errors.append(
+                f"{path.name}: pull_request types must include converted_to_draft"
             )
         for name, block in jobs:
             if "github.event.pull_request.draft == false" not in block:

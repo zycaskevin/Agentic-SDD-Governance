@@ -23,3 +23,4 @@ approval_budget:
   l2_per_decision: 1
   l3_per_operation: 1
   milestone_uat: 1
+  enforced_by: policies/autonomy-policy.json

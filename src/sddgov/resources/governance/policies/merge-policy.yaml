@@ -4,6 +4,11 @@ merge_requires:
   - redaction_blockers_zero
   - protected_file_review_when_changed
   - rollback_recorded
+merge_human_approval:
+  L0: forbidden_when_required_checks_pass
+  L1: forbidden_when_required_checks_pass
+  L2: recorded_decision_only
+  L3: fresh_concrete_operation_approval
 prohibited:
   - raw_evidence_attachment
   - acceptance_criteria_weakening

@@ -27,6 +27,33 @@ class RedactionTests(unittest.TestCase):
         self.assertEqual(cleaned, "[REDACTED_PRIVATE_KEY]")
         self.assertEqual(counts["private-key"], 1)
 
+    def test_masks_explicit_password_patient_and_customer_identifiers(self):
+        source = (
+            "password=correct-horse\n"
+            "patient_id=patient-123\n"
+            "customer_identifier: customer-456\n"
+        )
+        cleaned, counts = redact_text(source)
+        self.assertNotIn("correct-horse", cleaned)
+        self.assertNotIn("patient-123", cleaned)
+        self.assertNotIn("customer-456", cleaned)
+        self.assertEqual(counts["password"], 1)
+        self.assertEqual(counts["patient-identifier"], 1)
+        self.assertEqual(counts["customer-identifier"], 1)
+
+    def test_masks_quoted_json_keys_and_escaped_quoted_values(self):
+        source = (
+            r'''{"password":"correct-\\"horse","api_key":"sk-\\"secret",'''
+            r'''"patient_id":"patient-\\"123","customer_identifier":"customer-\\"456"}'''
+        )
+        cleaned, counts = redact_text(source)
+        for fragment in ("correct", "sk-", "patient-", "customer-"):
+            self.assertNotIn(fragment, cleaned)
+        self.assertEqual(counts["password"], 1)
+        self.assertEqual(counts["secret-field"], 1)
+        self.assertEqual(counts["patient-identifier"], 1)
+        self.assertEqual(counts["customer-identifier"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

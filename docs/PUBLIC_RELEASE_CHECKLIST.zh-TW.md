@@ -31,7 +31,7 @@
 - 將 `actions/checkout`、`actions/setup-python` 等 Workflow Action pin 到完整 Commit SHA，降低 mutable tag 供應鏈風險。
 - 公開後立即啟用 GitHub Secret scanning、Push protection、Dependabot alerts 與 Private vulnerability reporting（依 GitHub Plan 可用功能為準）。
 - 建立 Branch ruleset，保護 `main`、要求 Governance check 與 Review。
-- 用未登入 Browser 測試 Repo、Release、ZIP、wheel 與 checksum 下載。
+- 公開前用已授權 CLI 驗證 Repo、Release、ZIP、wheel 與 checksum；未登入 Browser 的公開可見性測試放在 Visibility 變更後執行。
 - 從全新 Temporary directory 安裝 wheel，分別執行 Codex／Hermes `setup-agent` 與 `doctor`。
 - 再次確認 Release asset SHA-256 與 `SHA256SUMS.txt` 一致。
 

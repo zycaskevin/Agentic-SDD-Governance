@@ -13,6 +13,7 @@ description: Govern software development, bug fixing, refactoring, testing, pull
 4. Read the current Work Package, SDD references, and existing decisions.
 5. Classify the work L0-L3 before mutation.
 6. Continue autonomously for approved L0/L1 work. Escalate only within the Policy Kernel boundary.
+7. Before any proposed stop or owner question, read `references/autonomy-workflow.md` and run the escalation classifier. Machine-verifiable questions must continue without human approval.
 
 Do not load every governance document. Use the smallest relevant set.
 
@@ -23,6 +24,7 @@ SDD -> Work Package -> executable check -> implementation -> review -> CI -> pro
 ```
 
 Treat Issue, Commit, PR, CI, and Evidence as engineering records, not approval prompts.
+Treat SHA-256 as machine-to-machine integrity data; never ask the owner to copy, paste, calculate, compare, or approve it.
 
 For CI creation, modification, reruns, or cost control, read `references/ci-cost-guard.md` and require the repository Local Green Gate before Push.
 
@@ -35,7 +37,7 @@ When a task includes a failure, bug, regression, incident, flaky test, unexpecte
 3. Read `references/dep-contract.md` before creating or validating a DEP.
 4. Read only the relevant collector file under the Governance Root named by `references/collector-routing.md`.
 5. Read `redaction/LOCAL_REDACTION_GATEWAY.md` under the Governance Root before any artifact may leave local storage.
-6. Run `evidence verify --strict` before generating an attachment.
+6. Run `evidence verify <DEP> --strict` before generating an attachment.
 
 Never fix from a screenshot alone when runtime evidence is available. A screenshot may establish a symptom, not a root cause.
 

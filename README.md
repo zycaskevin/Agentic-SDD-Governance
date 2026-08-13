@@ -11,6 +11,8 @@ This repository answers four questions:
 3. What evidence is required before a fix or Merge?
 4. How do we measure whether the workflow works?
 
+The v1.2 autonomy contract adds a fifth rule: **machine-verifiable questions never become human approval prompts**. See `docs/AUTONOMOUS_DEVELOPMENT_V1_2.md`.
+
 ## Runtime model
 
 Agents do **not** read the whole repository. Routine work loads:
@@ -35,6 +37,13 @@ Prevent hosted CI from becoming a remote debugging loop:
 ```bash
 sddgov ci verify .
 sddgov ci local-gate .
+```
+
+Generate and verify artifact integrity without human checksum handling:
+
+```bash
+sddgov artifact lock dist/package.whl --release release-X --output release.lock
+sddgov artifact verify dist/package.whl --lock release.lock
 ```
 
 See `docs/CI_COST_GUARD.md` for the tracked budget contract, Local Green Gate, stale-run cancellation, Draft PR behavior, and rerun policy.

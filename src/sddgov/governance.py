@@ -34,6 +34,7 @@ def init_project(root: Path, profile: str) -> list[Path]:
         raise ValueError(f"profile must be one of: {', '.join(PROFILES)}")
     state = root / ".sddgov"
     state.mkdir(parents=True, exist_ok=True)
+    first_initialization = not (state / "project.json").exists()
     defaults = {
         state / "project.json": {
             "schema_version": "1.0", "governance_version": __version__,
@@ -41,6 +42,7 @@ def init_project(root: Path, profile: str) -> list[Path]:
         },
         state / "work-claims.json": {"schema_version": "1.0", "claims": []},
         state / "external-actions.json": {"schema_version": "1.0", "actions": []},
+        state / "decisions.json": {"schema_version": "1.0", "decisions": []},
     }
     created: list[Path] = []
     for path, value in defaults.items():
@@ -51,7 +53,8 @@ def init_project(root: Path, profile: str) -> list[Path]:
     if not events.exists():
         events.write_text("", encoding="utf-8")
         created.append(events)
-    emit_event(root, "governance_initialized", "L0", {"profile": profile})
+    if first_initialization:
+        emit_event(root, "governance_initialized", "L0", {"profile": profile})
     return created
 
 
@@ -117,6 +120,7 @@ def project_status(root: Path) -> dict:
         raise FileNotFoundError(".sddgov/project.json; run sddgov init first")
     claims = _read(state / "work-claims.json", {"claims": []})["claims"]
     actions = _read(state / "external-actions.json", {"actions": []})["actions"]
+    decisions = _read(state / "decisions.json", {"decisions": []})["decisions"]
     current = now()
     active = 0
     expired = 0
@@ -134,5 +138,6 @@ def project_status(root: Path) -> dict:
         "governance_version": project["governance_version"], "profile": project["profile"],
         "active_claims": active, "expired_claims": expired,
         "pending_external_actions": sum(1 for row in actions if row["status"] == "pending"),
+        "recorded_decisions": len(decisions),
         "event_count": event_count,
     }
