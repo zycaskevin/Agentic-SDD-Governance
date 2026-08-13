@@ -278,6 +278,18 @@ class RepositoryContractTests(unittest.TestCase):
             )
         ]
         self.assertEqual(len(verifier_jobs), 1)
+        verifier_steps = [
+            step
+            for step in verifier_jobs[0]["steps"]
+            if "sddgov merge verify" in str(step.get("run", ""))
+        ]
+        self.assertEqual(len(verifier_steps), 1)
+        self.assertIn(
+            "SDDGOV_TRUSTED_REVIEWERS_JSON", verifier_steps[0].get("env", {})
+        )
+        self.assertIn(
+            "SDDGOV_TRUSTED_REVIEWERS_FILE", verifier_steps[0].get("env", {})
+        )
         checkout_steps = [
             step
             for step in verifier_jobs[0]["steps"]

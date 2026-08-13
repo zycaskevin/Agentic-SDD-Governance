@@ -322,6 +322,28 @@ jobs:
             verify_merge(self.root, self.base, run_checks=False)
 
     @patch("sddgov.merge_gate.verify_dep", return_value=[])
+    def test_out_of_band_reviewer_store_bootstraps_empty_base(self, _verify):
+        trusted = (self.root / ".sddgov/trusted-reviewers.json").read_text()
+        (self.root / ".sddgov/trusted-reviewers.json").write_text(
+            json.dumps({"schema_version": "1.0", "reviewers": []})
+        )
+        _run(self.root, "git", "add", ".sddgov/trusted-reviewers.json")
+        _run(self.root, "git", "commit", "-qm", "empty reviewer bootstrap base")
+        self.base = _run(self.root, "git", "rev-parse", "HEAD")
+        (self.root / "core/POLICY_KERNEL.md").write_text("bootstrap change\n")
+        _run(self.root, "git", "add", "core/POLICY_KERNEL.md")
+        _run(self.root, "git", "commit", "-qm", "protected bootstrap change")
+        self._write_gate()
+        with tempfile.TemporaryDirectory() as external:
+            trust_path = Path(external) / "trusted-reviewers.json"
+            trust_path.write_text(trusted)
+            with patch.dict(
+                "os.environ", {"SDDGOV_TRUSTED_REVIEWERS_FILE": str(trust_path)}
+            ):
+                result = verify_merge(self.root, self.base, run_checks=False)
+        self.assertTrue(result["ok"])
+
+    @patch("sddgov.merge_gate.verify_dep", return_value=[])
     def test_arbitrary_rollback_prose_is_rejected(self, _verify):
         (self.root / "evidence/DEP-1/rollback.md").write_text("Rollback unavailable")
         _run(self.root, "git", "add", "evidence/DEP-1/rollback.md")

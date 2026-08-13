@@ -31,4 +31,12 @@ jobs:
       - name: Enforce exact Merge policy
         env:
           SDDGOV_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD^' }}
-        run: sddgov merge verify . --base-ref "$SDDGOV_BASE_REF"
+          SDDGOV_TRUSTED_REVIEWERS_JSON: ${{ vars.SDDGOV_TRUSTED_REVIEWERS_JSON }}
+          SDDGOV_TRUSTED_REVIEWERS_FILE: ${{ runner.temp }}/sddgov-trusted-reviewers.json
+        run: |
+          if [ -n "$SDDGOV_TRUSTED_REVIEWERS_JSON" ]; then
+            printf '%s' "$SDDGOV_TRUSTED_REVIEWERS_JSON" > "$SDDGOV_TRUSTED_REVIEWERS_FILE"
+          else
+            unset SDDGOV_TRUSTED_REVIEWERS_FILE
+          fi
+          sddgov merge verify . --base-ref "$SDDGOV_BASE_REF"

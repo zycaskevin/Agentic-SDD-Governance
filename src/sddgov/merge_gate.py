@@ -238,15 +238,8 @@ def _protected_patterns(root: Path, base_ref: str) -> list[str]:
 
 def _trusted_reviewers(root: Path, base_ref: str) -> dict[str, Any]:
     """Load reviewer authority from the trusted base or an out-of-band file."""
-    try:
-        text = _git(root, "show", f"{base_ref}:.sddgov/trusted-reviewers.json")
-    except ValueError as base_error:
-        external = os.environ.get("SDDGOV_TRUSTED_REVIEWERS_FILE")
-        if not external:
-            raise ValueError(
-                "trusted reviewer store is absent from the trusted base; "
-                "bootstrap requires SDDGOV_TRUSTED_REVIEWERS_FILE"
-            ) from base_error
+    external = os.environ.get("SDDGOV_TRUSTED_REVIEWERS_FILE")
+    if external:
         source = Path(external).expanduser().resolve()
         try:
             source.relative_to(root)
@@ -255,6 +248,13 @@ def _trusted_reviewers(root: Path, base_ref: str) -> dict[str, Any]:
         raise ValueError(
             "out-of-band trusted reviewer store must be outside the repository"
         )
+    try:
+        text = _git(root, "show", f"{base_ref}:.sddgov/trusted-reviewers.json")
+    except ValueError as base_error:
+        raise ValueError(
+            "trusted reviewer store is absent from the trusted base; "
+            "bootstrap requires SDDGOV_TRUSTED_REVIEWERS_FILE"
+        ) from base_error
     try:
         value = json.loads(text)
     except json.JSONDecodeError as exc:
