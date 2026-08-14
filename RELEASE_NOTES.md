@@ -13,19 +13,24 @@ The release also makes the remaining trust boundaries executable: canonical acti
 Download the wheel and `SHA256SUMS.txt` from the GitHub Release, then let the machine verify the wheel before installation:
 
 ```bash
+set -eu
+mkdir -p sdg-release
 gh release download v0.2.0-experimental.6 \
   --repo zycaskevin/Agentic-SDD-Governance \
   --pattern '*.whl' \
   --pattern 'SHA256SUMS.txt' \
   --dir sdg-release
 
+wheel_count=$(find sdg-release -maxdepth 1 -type f -name '*.whl' | wc -l | tr -d ' ')
+test "$wheel_count" -eq 1
 wheel_name=$(find sdg-release -maxdepth 1 -type f -name '*.whl' -print -quit)
 test -n "$wheel_name"
+case "$wheel_name" in *-py3-none-any.whl) ;; *) exit 1 ;; esac
 (cd sdg-release && rg "  $(basename "$wheel_name")$" SHA256SUMS.txt > wheel.SHA256SUMS)
 (cd sdg-release && test -s wheel.SHA256SUMS)
 (cd sdg-release && shasum -a 256 -c wheel.SHA256SUMS --strict)
 python3 -m venv .venv-sddgov
-.venv-sddgov/bin/python -m pip install sdg-release/*.whl
+.venv-sddgov/bin/python -m pip install "$wheel_name"
 .venv-sddgov/bin/sddgov --version
 ```
 
