@@ -26,12 +26,20 @@ test "$wheel_count" -eq 1
 wheel_name=$(find sdg-release -maxdepth 1 -type f -name '*.whl' -print -quit)
 test -n "$wheel_name"
 case "$wheel_name" in *-py3-none-any.whl) ;; *) exit 1 ;; esac
-(cd sdg-release && rg "  $(basename "$wheel_name")$" SHA256SUMS.txt > wheel.SHA256SUMS)
-(cd sdg-release && test -s wheel.SHA256SUMS)
-(cd sdg-release && shasum -a 256 -c wheel.SHA256SUMS --strict)
+wheel_base=$(basename "$wheel_name")
+checksum_count=$(awk -v name="$wheel_base" '$2 == name { count += 1 } END { print count + 0 }' sdg-release/SHA256SUMS.txt)
+test "$checksum_count" -eq 1
+awk -v name="$wheel_base" '$2 == name { print }' \
+  sdg-release/SHA256SUMS.txt > sdg-release/wheel.SHA256SUMS
+if command -v sha256sum >/dev/null 2>&1; then
+  (cd sdg-release && sha256sum --check --strict wheel.SHA256SUMS)
+else
+  (cd sdg-release && shasum -a 256 --check --strict wheel.SHA256SUMS)
+fi
 python3 -m venv .venv-sddgov
 .venv-sddgov/bin/python -m pip install "$wheel_name"
-.venv-sddgov/bin/sddgov --version
+installed_version=$(.venv-sddgov/bin/sddgov --version)
+test "$installed_version" = "0.2.0-experimental.6"
 ```
 
 Install into a Codex or Hermes project:
