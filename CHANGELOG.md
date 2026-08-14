@@ -9,6 +9,7 @@
 - Added executable `sddgov merge verify` enforcement for exact change digest, Local Green, strict DEP, Redaction, Rollback, raw-evidence exclusion, and protected-file independent Review.
 - Added schemas, templates, documentation, and adversarial tests for all three Hard Gates.
 - Added review-bound Merge metadata digests, trusted-base policy/key resolution, structured Rollback validation, and full commit-history raw Evidence scanning.
+- Added `sddgov reviewer bootstrap|export-trust|sign` so an independent Hermes/Codex host can provision owner-only Repo-external key material, register public trust, and sign the exact Merge gate without turning the product owner into a key courier.
 
 ### Security
 
@@ -18,6 +19,7 @@
 - Removed the candidate worktree approver store from L3 authority, required a trusted Base or out-of-band public-key source, and bound Merge reviews to an immutable base SHA.
 - Bound DEP and Rollback content plus the exact reviewed Head into Merge authorization, rejected non-audit post-review commits and protected-path rename bypasses, and made malformed stored expiry timestamps fail closed.
 - Added a GitHub Actions bootstrap path for owner-controlled reviewer public keys without trusting candidate worktree state.
+- Made Reviewer provisioning refuse Repo-local, symlinked, broadly readable, mismatched, or pre-existing key material; signing also refuses dirty worktrees, Builder identity reuse, wrong Base/digest, and non-audit descendants.
 
 ### Changed
 

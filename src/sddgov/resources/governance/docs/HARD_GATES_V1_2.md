@@ -44,6 +44,10 @@ The Review receipt follows `schemas/protected-review-receipt.schema.json` and mu
 
 Protected-path policy is also read from the trusted base revision. If the initial rollout has no usable base-committed reviewer store, bootstrap must provide an out-of-band public-key store outside the repository through `SDDGOV_TRUSTED_REVIEWERS_FILE`; candidate-controlled policy or keys are never accepted as authority. The bundled GitHub workflow materializes that external file from the repository variable `SDDGOV_TRUSTED_REVIEWERS_JSON` in runner temporary storage. Configure this public-key-only variable and the required-check ruleset as a one-time Operational action before converting the bootstrap PR from Draft.
 
+The independent Reviewer performs this bootstrap without asking the product owner for a key. On its separate host and clean checkout it runs `sddgov reviewer bootstrap`, registers the output of `sddgov reviewer export-trust` directly as `SDDGOV_TRUSTED_REVIEWERS_JSON`, completes its independent checks, and runs `sddgov reviewer sign`. The private key remains owner-only and Repo-external; the signed public receipt is the only key-related artifact committed. See the on-demand `references/independent-reviewer.md` module.
+
+An empty `.sddgov/trusted-approvers.json` is not a Merge failure. It is a safe default that prevents future L3 operations until a separate owner-controlled L3 identity is deliberately provisioned.
+
 Raw Evidence is checked across every commit in `base_ref..HEAD`, not only the final tree. Adding and later deleting `private/raw/` data still fails the gate because the sensitive bytes remain in Git history.
 
 ## Remaining trust boundary

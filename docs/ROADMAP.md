@@ -5,6 +5,7 @@
 - Fail-closed canonical action and sensitive-effect classification.
 - Trusted-owner Ed25519 L3 approval receipts with atomic single-use consumption.
 - Executable Merge policy with exact change digest, Local Green, strict DEP, Redaction, Rollback, raw-evidence exclusion, and protected-file independent Review.
+- Machine-executable independent Reviewer bootstrap and signing path validated through a GB10/Hermes Pilot regression.
 
 ## v0.2.0-experimental.5 — autonomous development and evidence-boundary hardening
 

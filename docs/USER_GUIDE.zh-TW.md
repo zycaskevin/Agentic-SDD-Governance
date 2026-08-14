@@ -125,6 +125,8 @@ sddgov doctor /absolute/path/to/project
 
 `SOUL.md` 適合人格、態度與互動風格；專案規則放 `AGENTS.md`，開發 SOP 放 Skill，機器檢查交給 `sddgov`。
 
+如果 Hermes 被指派為獨立 Reviewer，它應在乾淨的新 Clone 中按需讀取 `references/independent-reviewer.md`，並使用 `sddgov reviewer bootstrap` 與 `sddgov reviewer sign`。Reviewer 會在 GB10 自己建立並保管 Repo 外的私鑰，只把公鑰直接登記到 GitHub；不應要求 Arthur 提供、複製或檢查任何金鑰或 Hash。若原工作目錄有不明檔案，應改用新 Clone，不可忽略或擅自刪除。
+
 ## 4. 選擇 Profile
 
 ### `solo-fast`

@@ -17,8 +17,8 @@
 
 ## Scope
 
-- In scope: action classification, signed approval receipt import, atomic L3 consumption, merge verifier, workflow integration, schemas, docs, adapters, packaged resources, and tests.
-- Non-scope: executing Production operations, provisioning owner private keys, changing Billing, deploying, or configuring organization branch protection.
+- In scope: action classification, signed approval receipt import, atomic L3 consumption, merge verifier, workflow integration, independent Reviewer bootstrap/signing CLI, schemas, docs, adapters, packaged resources, and tests.
+- Non-scope: generating or handling an owner/Reviewer private key in the Builder session, executing Production operations, changing Billing, deploying, or configuring organization branch protection.
 - Dependencies: approved v1.2 contract merged in PR #2; Python `cryptography` for Ed25519 verification.
 - Evidence requirement: full DEP, adversarial tests, complete local suite, `validate`, `doctor`, `ci verify`, and Local Green Gate.
 - Verification plan: reproduce each confirmed bypass before implementation; then require the same scenarios to fail closed and all routine paths to stay Green.

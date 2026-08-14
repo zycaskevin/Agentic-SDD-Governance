@@ -22,6 +22,7 @@ class RepositoryContractTests(unittest.TestCase):
         text = "\n".join(lines)
         self.assertIn("references/evidence-workflow.md", text)
         self.assertIn("references/autonomy-workflow.md", text)
+        self.assertIn("references/independent-reviewer.md", text)
         self.assertNotIn("# Evidence-Driven SDD", text)
 
     def test_json_schemas_are_parseable(self):
@@ -48,6 +49,8 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("agentic-sdd-governance", codex)
         self.assertIn("agentic-sdd-governance", hermes)
         self.assertIn("Red -> Evidence -> Fix -> Green -> Proof", codex)
+        self.assertIn("sddgov reviewer bootstrap", codex)
+        self.assertIn("sddgov reviewer bootstrap", hermes)
 
     def test_packaged_hard_gate_assets_match_canonical_sources(self):
         paths = (
@@ -68,6 +71,7 @@ class RepositoryContractTests(unittest.TestCase):
             "templates/TRUSTED_REVIEWERS.json",
             "skill/agentic-sdd-governance/SKILL.md",
             "skill/agentic-sdd-governance/references/autonomy-workflow.md",
+            "skill/agentic-sdd-governance/references/independent-reviewer.md",
         )
         packaged = ROOT / "src/sddgov/resources/governance"
         for relative in paths:
