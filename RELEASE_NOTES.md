@@ -1,32 +1,60 @@
-# v0.2.0-experimental.3 Release Notes
+# v0.2.0-experimental.6 Release Notes
 
 ## Outcome
 
-This release adds CI Cost Guard to the installable Evidence-Driven SDD governance layer. A repository declares its shell-free local Green Gate and bounded GitHub-hosted budget in `.sddgov/ci-cost-guard.json`; the CLI then verifies workflow controls or runs the complete local gate before a Push.
+This release completes the SDG Autonomous Development v1.2 hard-gate implementation while preserving autonomy for routine L0/L1 engineering.
 
-The progressively disclosed Skill now routes CI changes, failures, reruns, and cost questions to a short dedicated module. Existing Policy Kernel, Evidence, installer, and Codex/Hermes discovery behavior remain intact.
+Agents now default to `CONTINUE` for machine-verifiable work, reuse recorded decisions, keep Checkpoints informational, and emit strict `ACTION REQUIRED` packages only for unresolved L2, concrete L3, Operational Action, or Necessary UAT boundaries. SHA-256 remains invisible machine-to-machine integrity infrastructure and is never a human approval token.
 
-The delivery history now includes the canonical GitHub `main` baseline at commit `402517808d22c3daa44811301e96c7964db3dc5a` and preserves its Apache License 2.0 file.
+The release also makes the remaining trust boundaries executable: canonical action classification prevents dangerous authority downgrades, L3 uses trusted Ed25519 receipts with exact binding and atomic single-use consumption, and `sddgov merge verify` enforces Local Green, strict DEP, Redaction, Rollback, raw-evidence exclusion, and independent protected-file Review.
+
+## Install
+
+Download the wheel and `SHA256SUMS.txt` from the GitHub Release, then let the machine verify the wheel before installation:
+
+```bash
+gh release download v0.2.0-experimental.6 \
+  --repo zycaskevin/Agentic-SDD-Governance \
+  --pattern '*.whl' \
+  --pattern 'SHA256SUMS.txt' \
+  --dir sdg-release
+
+wheel_name=$(find sdg-release -maxdepth 1 -type f -name '*.whl' -print -quit)
+test -n "$wheel_name"
+(cd sdg-release && rg "  $(basename "$wheel_name")$" SHA256SUMS.txt > wheel.SHA256SUMS)
+(cd sdg-release && test -s wheel.SHA256SUMS)
+(cd sdg-release && shasum -a 256 -c wheel.SHA256SUMS --strict)
+python3 -m venv .venv-sddgov
+.venv-sddgov/bin/python -m pip install sdg-release/*.whl
+.venv-sddgov/bin/sddgov --version
+```
+
+Install into a Codex or Hermes project:
+
+```bash
+.venv-sddgov/bin/sddgov setup-agent /path/to/project --agent codex --profile team-standard
+.venv-sddgov/bin/sddgov doctor /path/to/project
+
+# Hermes uses the same package and governance core.
+.venv-sddgov/bin/sddgov setup-agent /path/to/project --agent hermes --profile team-standard
+```
 
 ## Verification performed
 
-- `PYTHONPATH=src python3 -m sddgov.cli ci local-gate .`: 27 tests and repository validation passed.
-- Static CI guard verification against Agentic SDD Governance, MyHermes, Vault-Agent-Memory, and Piku: passed.
-- `PYTHONPATH=src python3 -m sddgov.cli validate .`: passed.
-- Skill Creator `quick_validate.py`: passed.
-- `python -m compileall -q src tests`: passed.
-- PEP 517 sdist and wheel build with no runtime dependency downloads: passed.
-- Clean wheel installation into an isolated Python 3.14 environment: passed.
-- Installed CLI smoke: Codex/Hermes setup, doctor, project status, tamper detection, guarded uninstall, and DEP retention: passed.
-- Codex `debug prompt-input` discovered the installed Repo Skill at `.agents/skills/agentic-sdd-governance/SKILL.md` while keeping the full Policy Kernel out of initial context: passed.
-- Leak scan of the shareable smoke artifact for the injected bearer token and email: no match.
+- Complete repository suite: 100 tests passed.
+- `sddgov validate`, `sddgov doctor`, and `sddgov ci verify`: passed.
+- Strict verification for both v1.2 Debug Evidence Packages: passed.
+- Exact Merge Gate, independent Ed25519 Review Receipt, pull-request Governance, and post-Merge `main` Governance: passed.
+- PEP 517 wheel and sdist build plus isolated wheel installation: passed.
+- Clean Codex and Hermes setup plus `doctor`: passed.
+- ZIP, Git bundle, wheel, and sdist machine-generated SHA-256 verification: passed.
 
 ## Important limits
 
+- This remains an experimental pre-release, not a stable or compliance-certified framework.
 - The Local Redaction Gateway is a conservative MVP, not a legal anonymization certification.
-- Screenshots, trace ZIPs, videos, archives, and other binary evidence fail closed until a manually reviewed derivative exists.
-- Included benchmark scores are synthetic fixture checks; no superiority claim is allowed.
-- Codex prompt-input Skill discovery and Hermes file-level installation are verified; a fresh-Agent behavior pilot and Hermes runtime pilot remain roadmap gates.
-- The historical v0.1 attachment could not be retrieved byte-for-byte, and the current GitHub baseline contains only `LICENSE`. See `docs/BASELINE_PROVENANCE.md`.
-- Remote Push, public release, and external claims remain owner actions. This package preserves the repository's existing Apache-2.0 license selection.
-- Billing budgets, self-hosted runners, workflow dispatches, and Production workflows are not changed by CI Cost Guard.
+- Binary evidence remains fail-closed until an approved redacted derivative exists.
+- Benchmark fixtures validate the harness; they do not prove debugging superiority.
+- Hermes installation and the independent Reviewer path are verified; each distinct Hermes host should still run a fresh behavior pilot.
+- The package is distributed through GitHub Release, not PyPI. Private repositories require an authenticated GitHub account with access.
+- This release does not change GitHub Billing, repository visibility, Production infrastructure, credentials, or deployment state.

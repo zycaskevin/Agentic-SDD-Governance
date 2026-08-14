@@ -47,7 +47,7 @@ Red → Evidence → Fix → Green → Proof
 set -eu
 gh auth login -h github.com
 mkdir -p sdg-release
-gh release download v0.2.0-experimental.3 \
+gh release download v0.2.0-experimental.6 \
   --repo zycaskevin/Agentic-SDD-Governance \
   --pattern '*.whl' \
   --pattern 'SHA256SUMS.txt' \
@@ -240,7 +240,7 @@ sddgov uninstall-agent /absolute/path/to/project
 
 ## 發布與授權狀態
 
-- GitHub Release `v0.2.0-experimental.3` 已存在；若 Repo 仍為 Private，未登入或沒有權限的使用者會看到 404。
+- GitHub Release `v0.2.0-experimental.6` 已發布；若 Repo 仍為 Private，未登入或沒有權限的使用者會看到 404。
 - 專案使用 Apache License 2.0，詳見 [LICENSE](LICENSE)。
 - 公開前仍需由 Owner 接受 Git 歷史、作者資訊、Release Notes 與 experimental 風險；詳見 [公開發布檢查清單](docs/PUBLIC_RELEASE_CHECKLIST.zh-TW.md)。
 - 本專案沒有複製 BugEzy 原始碼、資產、Template 或 Schema；來源聲明見 [Baseline Provenance](docs/BASELINE_PROVENANCE.md) 與 [Third-Party Notices](THIRD_PARTY_NOTICES.md)。
