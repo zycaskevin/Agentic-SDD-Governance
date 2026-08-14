@@ -25,4 +25,6 @@ After completing the repository's required bootstrap reads, load only the follow
 For a failure, start or continue a DEP and follow Red -> Evidence -> Fix -> Green -> Proof. Do not ask the owner to approve routine L0/L1 Commit, PR, test, or continuation steps. Do not execute a concrete L3 action without explicit approval.
 
 Default to `CONTINUE`. Before stopping, use the Skill autonomy route and classifier. Do not use a human as a checksum validator, CI runner, Git operator, retry button, or approval gate for reversible L0/L1 work. Sub-agent uncertainty routes to the Main Agent, not directly to the owner.
+
+For an explicitly assigned independent protected-file Review, load `references/independent-reviewer.md`, use a fresh clean checkout, and create the Reviewer identity outside the Repo with `sddgov reviewer bootstrap`. Never ask the owner to provide a Reviewer key.
 <!-- agentic-sdd-governance:end -->

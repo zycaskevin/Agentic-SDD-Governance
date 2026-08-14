@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-SDG-V12-HARD-GATES-001",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--v12-hard-gates-red.txt",
+      "sha256": "976f9e39c85433f719484344f1a08721f4dc6053217531c53c607a972a387147",
+      "collected_at": "2026-08-13T13:27:27Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--v12-hard-gates-red.txt",
+      "sha256": "976f9e39c85433f719484344f1a08721f4dc6053217531c53c607a972a387147",
+      "shareable": true
+    }
+  ]
+}

@@ -14,6 +14,7 @@ description: Govern software development, bug fixing, refactoring, testing, pull
 5. Classify the work L0-L3 before mutation.
 6. Continue autonomously for approved L0/L1 work. Escalate only within the Policy Kernel boundary.
 7. Before any proposed stop or owner question, read `references/autonomy-workflow.md` and run the escalation classifier. Machine-verifiable questions must continue without human approval.
+8. Before Merge, run `sddgov merge verify` against the exact base. Unknown action categories, dangerous risk downgrades, unsigned L3 approval strings, and reused L3 receipts fail closed.
 
 Do not load every governance document. Use the smallest relevant set.
 
@@ -44,6 +45,10 @@ Never fix from a screenshot alone when runtime evidence is available. A screensh
 ## Records
 
 Use `references/engineering-records.md` for Issue, Commit, PR, Changelog, Root Cause, Fix Scope, Regression Evidence, and Rollback fields.
+
+## Independent review route
+
+When explicitly assigned an independent protected-file Review, load `references/independent-reviewer.md`. Work from a fresh clean checkout and use `sddgov reviewer bootstrap|export-trust|sign`; do not ignore an unclean workspace or ask the owner to provide a Reviewer key.
 
 ## Safety
 

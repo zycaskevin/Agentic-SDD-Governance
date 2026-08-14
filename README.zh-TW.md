@@ -6,6 +6,8 @@ Agentic SDD Governance（SDG）是一套給自主軟體開發 Agent 使用的「
 
 > 目前屬於 experimental 版本。它能安裝、驗證與執行，但不應把內建 Benchmark fixture 解讀成已證明優於其他開發流程。
 
+SDG v1.2 Hard Gates 已把三個剩餘信任缺口改為可執行 Gate：未知／危險 Action 不能自稱 L1、L3 只接受可信 Owner 簽章且一次性消耗的 Receipt、Merge 前必須執行 Local Green、DEP、Redaction、Rollback 與 Protected-file Review 驗證。詳見 [`docs/HARD_GATES_V1_2.md`](docs/HARD_GATES_V1_2.md)。
+
 ## 一分鐘理解
 
 日常任務只載入最小必要內容：

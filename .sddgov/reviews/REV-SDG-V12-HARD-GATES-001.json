@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "algorithm": "ed25519",
+  "review": {
+    "review_id": "REV-SDG-V12-HARD-GATES-001",
+    "reviewer_id": "nancy-reviewer",
+    "builder_id": "codex-builder",
+    "change_digest": "bc36fd06c7cc23ae9beeff43d6e7905d0effb2b2513e76b5577deadeaa6b1445",
+    "gate_metadata_digest": "091242193ab497d8c87396ce8db0e6ac4fd49a098bfed2be6b0d205f90e439e0",
+    "verdict": "approved",
+    "issued_at": "2026-08-14T14:11:14Z",
+    "expires_at": "2026-08-14T15:11:14Z",
+    "nonce": "3qZ01Yox2ritr00g2Qsw73k7"
+  },
+  "signature": "DqSjaAp5a5XbinzmK5scN+wtkvBwO6BhwnBy0CzYI5uo1a/NNUWARA8VOF2JkK+xx4T4/G8Gl2Gp0eOXi867BQ=="
+}

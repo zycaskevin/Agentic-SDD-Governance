@@ -13,6 +13,8 @@ This repository answers four questions:
 
 The v1.2 autonomy contract adds a fifth rule: **machine-verifiable questions never become human approval prompts**. See `docs/AUTONOMOUS_DEVELOPMENT_V1_2.md`.
 
+The v1.2 Hard Gates add fail-closed action classification, owner-signed single-use L3 receipts, and an executable Merge verifier. See `docs/HARD_GATES_V1_2.md`.
+
 ## Runtime model
 
 Agents do **not** read the whole repository. Routine work loads:

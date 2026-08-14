@@ -1,0 +1,6 @@
+Baseline commit: 849c2becd9104c65dedd6d84533f8986db02f7e1
+Scenario 1: risk_level L1 plus unknown category delete_production_customer_data returned CONTINUE.
+Scenario 2: caller-provided approved_by text minted an L3 approval without signer verification.
+Scenario 3: the same unconsumed L3 approval evaluated CONTINUE more than once.
+Scenario 4: GitHub workflow did not execute a merge-policy verifier.
+No Production access, credentials, personal data, secrets, or customer records were used.

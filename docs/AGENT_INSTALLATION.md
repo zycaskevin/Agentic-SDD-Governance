@@ -60,5 +60,6 @@ A real Agent pilot should confirm that the Agent:
 3. Creates a DEP for an L1 failure and follows Red -> Evidence -> Fix -> Green -> Proof.
 4. Redacts an injected fake secret before creating a shareable Evidence Block.
 5. Stops before an unapproved L2 product decision or concrete L3 action.
+6. For an assigned independent Review, refuses a dirty checkout, bootstraps its own Repo-external Reviewer identity, registers public trust directly, and signs the exact approved Merge gate without asking the owner for key material.
 
 Hermes file-level installation is supported by the adapter and open Skill layout. Its host-specific discovery and invocation still require a Hermes runtime pilot.

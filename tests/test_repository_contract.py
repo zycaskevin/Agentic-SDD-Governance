@@ -3,6 +3,8 @@ import re
 import unittest
 from pathlib import Path
 
+import yaml
+
 from sddgov.cli import _validate_repo
 
 
@@ -20,6 +22,7 @@ class RepositoryContractTests(unittest.TestCase):
         text = "\n".join(lines)
         self.assertIn("references/evidence-workflow.md", text)
         self.assertIn("references/autonomy-workflow.md", text)
+        self.assertIn("references/independent-reviewer.md", text)
         self.assertNotIn("# Evidence-Driven SDD", text)
 
     def test_json_schemas_are_parseable(self):
@@ -46,6 +49,37 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("agentic-sdd-governance", codex)
         self.assertIn("agentic-sdd-governance", hermes)
         self.assertIn("Red -> Evidence -> Fix -> Green -> Proof", codex)
+        self.assertIn("sddgov reviewer bootstrap", codex)
+        self.assertIn("sddgov reviewer bootstrap", hermes)
+
+    def test_packaged_hard_gate_assets_match_canonical_sources(self):
+        paths = (
+            "docs/HARD_GATES_V1_2.md",
+            "policies/autonomy-policy.json",
+            "policies/protected-files.yaml",
+            "schemas/autonomy-policy.schema.json",
+            "schemas/decision-record.schema.json",
+            "schemas/merge-gate.schema.json",
+            "schemas/operation-approval-receipt.schema.json",
+            "schemas/protected-review-receipt.schema.json",
+            "schemas/trusted-approvers.schema.json",
+            "schemas/trusted-reviewers.schema.json",
+            "templates/MERGE_GATE.json",
+            "templates/OPERATION_APPROVAL_RECEIPT.json",
+            "templates/PROTECTED_REVIEW_RECEIPT.json",
+            "templates/TRUSTED_APPROVERS.json",
+            "templates/TRUSTED_REVIEWERS.json",
+            "skill/agentic-sdd-governance/SKILL.md",
+            "skill/agentic-sdd-governance/references/autonomy-workflow.md",
+            "skill/agentic-sdd-governance/references/independent-reviewer.md",
+        )
+        packaged = ROOT / "src/sddgov/resources/governance"
+        for relative in paths:
+            with self.subTest(path=relative):
+                self.assertEqual(
+                    (ROOT / relative).read_bytes(),
+                    (packaged / relative).read_bytes(),
+                )
 
     def test_codex_adapter_preserves_repository_bootstrap_before_layered_loading(self):
         codex = (ROOT / "adapters/codex/AGENTS.md").read_text(encoding="utf-8")
@@ -210,10 +244,17 @@ class RepositoryContractTests(unittest.TestCase):
         )
         self.assertEqual(policy["default_state"], "CONTINUE")
         self.assertTrue(policy["no_human_escalation_if_machine_verifiable"])
+        self.assertEqual(policy["action_classifier"]["unknown_category_state"], "BLOCKED")
+        self.assertTrue(policy["action_classifier"]["sensitive_effects_require_l3"])
         self.assertEqual(policy["approval_budget"]["L0"], 0)
         self.assertEqual(policy["approval_budget"]["L1"], 0)
         self.assertTrue(policy["integrity"]["human_copy_paste_forbidden"])
         self.assertFalse(policy["integrity"]["mismatch_requires_human_approval"])
+        self.assertFalse(policy["l3_approval_receipts"]["caller_strings_are_authority"])
+        self.assertFalse(
+            policy["l3_approval_receipts"]["candidate_worktree_store_is_authority"]
+        )
+        self.assertTrue(policy["l3_approval_receipts"]["consume_atomically_on_continue"])
         self.assertFalse(policy["production_deploy"]["l0_pre_authorized"])
         self.assertFalse(policy["production_deploy"]["l1_pre_authorized"])
         self.assertTrue(
@@ -229,6 +270,42 @@ class RepositoryContractTests(unittest.TestCase):
         )
         self.assertIn("AUTONOMY BY DEFAULT. ESCALATION BY EXCEPTION.", autonomy)
         self.assertIn("Main Agent", autonomy)
+        workflow = yaml.safe_load(
+            (ROOT / ".github/workflows/governance.yml").read_text(encoding="utf-8")
+        )
+        verifier_jobs = [
+            job
+            for job in workflow["jobs"].values()
+            if any(
+                "sddgov merge verify" in str(step.get("run", ""))
+                for step in job.get("steps", [])
+            )
+        ]
+        self.assertEqual(len(verifier_jobs), 1)
+        verifier_steps = [
+            step
+            for step in verifier_jobs[0]["steps"]
+            if "sddgov merge verify" in str(step.get("run", ""))
+        ]
+        self.assertEqual(len(verifier_steps), 1)
+        self.assertIn(
+            "SDDGOV_TRUSTED_REVIEWERS_JSON", verifier_steps[0].get("env", {})
+        )
+        self.assertIn(
+            "SDDGOV_TRUSTED_REVIEWERS_FILE", verifier_steps[0].get("env", {})
+        )
+        checkout_steps = [
+            step
+            for step in verifier_jobs[0]["steps"]
+            if str(step.get("uses", "")).startswith("actions/checkout@")
+        ]
+        self.assertEqual(len(checkout_steps), 1)
+        self.assertEqual(checkout_steps[0]["with"]["fetch-depth"], 0)
+        self.assertFalse(checkout_steps[0]["with"]["persist-credentials"])
+        self.assertIn("pull_request.head.sha", checkout_steps[0]["with"]["ref"])
+        cli = (ROOT / "src/sddgov/cli.py").read_text(encoding="utf-8")
+        self.assertIn("import-operation-approval", cli)
+        self.assertNotIn('"authorize-operation"', cli)
         all_runtime_text = "\n".join(
             path.read_text(encoding="utf-8")
             for path in (

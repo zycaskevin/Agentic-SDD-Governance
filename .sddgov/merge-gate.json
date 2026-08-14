@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "base_sha": "849c2becd9104c65dedd6d84533f8986db02f7e1",
+  "head_sha": "a710fba3bcc34abf308bdfa320989a69e67b85b2",
+  "risk_level": "L1",
+  "builder_id": "codex-builder",
+  "change_digest": "bc36fd06c7cc23ae9beeff43d6e7905d0effb2b2513e76b5577deadeaa6b1445",
+  "deps": [
+    "evidence/DEP-SDG-V12-HARD-GATES-001",
+    "evidence/DEP-SDG-V12-REVIEWER-BOOTSTRAP-001"
+  ],
+  "rollback_path": "evidence/DEP-SDG-V12-HARD-GATES-001/rollback.md",
+  "protected_file_review": ".sddgov/reviews/REV-SDG-V12-HARD-GATES-001.json"
+}
