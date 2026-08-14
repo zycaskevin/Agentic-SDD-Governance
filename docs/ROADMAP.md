@@ -1,6 +1,6 @@
 # Roadmap
 
-## v0.2.0-experimental.6 — current v1.2 Hard Gates patch
+## v0.2.0-experimental.6 — released 2026-08-15
 
 - Fail-closed canonical action and sensitive-effect classification.
 - Trusted-owner Ed25519 L3 approval receipts with atomic single-use consumption.

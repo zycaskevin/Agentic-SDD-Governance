@@ -1,0 +1,9 @@
+collector=terminal
+source=GitHub Actions governance run [REDACTED_PHONE_OR_NUMBER]
+command=sddgov merge verify . --base-ref 52ccae6a515fb348e07f19815626b80935eb0608
+exit_status=2
+expected=PR #7 gate binds the exact current main base
+observed=[ERROR] merge gate base_sha does not match the trusted exact base
+tracked_gate_base=849c2becd9104c65dedd6d84533f8986db02f7e1
+trusted_base=52ccae6a515fb348e07f19815626b80935eb0608
+head=c[REDACTED_CARD_OR_NUMBER]ca37cfe0524b4a0b34ebca15

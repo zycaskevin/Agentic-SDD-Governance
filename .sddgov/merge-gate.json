@@ -1,14 +1,13 @@
 {
   "schema_version": "1.0",
-  "base_sha": "849c2becd9104c65dedd6d84533f8986db02f7e1",
-  "head_sha": "a710fba3bcc34abf308bdfa320989a69e67b85b2",
-  "risk_level": "L1",
+  "base_sha": "52ccae6a515fb348e07f19815626b80935eb0608",
+  "head_sha": "1c46bf9cac0c51efc78dec93e5448a84b4a8a4a0",
+  "risk_level": "L0",
   "builder_id": "codex-builder",
-  "change_digest": "bc36fd06c7cc23ae9beeff43d6e7905d0effb2b2513e76b5577deadeaa6b1445",
+  "change_digest": "c187ee1e1a635e5721d58e117bab9f390dee7c2e8a46b71e667ce5faf7c51f48",
   "deps": [
-    "evidence/DEP-SDG-V12-HARD-GATES-001",
-    "evidence/DEP-SDG-V12-REVIEWER-BOOTSTRAP-001"
+    "evidence/DEP-SDG-V020-EXP6-RELEASE-001"
   ],
-  "rollback_path": "evidence/DEP-SDG-V12-HARD-GATES-001/rollback.md",
-  "protected_file_review": ".sddgov/reviews/REV-SDG-V12-HARD-GATES-001.json"
+  "rollback_path": "evidence/DEP-SDG-V020-EXP6-RELEASE-001/rollback.md",
+  "protected_file_review": null
 }

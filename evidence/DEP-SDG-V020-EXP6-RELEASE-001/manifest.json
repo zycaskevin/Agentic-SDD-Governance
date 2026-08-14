@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-SDG-V020-EXP6-RELEASE-001",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--artifact-1.txt",
+      "sha256": "e1a0da3e29df80a0194a7c0d249795d6ce3deac30788e4b48cd51a3cd74d82e2",
+      "collected_at": "2026-08-14T16:24:26Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--artifact-1.txt",
+      "sha256": "0b7ae19fe48290f6bb9b7136f552d129fa94aac86bc291f7a78284e627ee9e66",
+      "shareable": true
+    }
+  ]
+}

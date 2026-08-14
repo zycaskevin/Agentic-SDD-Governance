@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0-experimental.6 — Unreleased
+## 0.2.0-experimental.6 — 2026-08-15
 
 ### Added
 
