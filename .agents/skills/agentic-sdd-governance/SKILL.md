@@ -46,6 +46,10 @@ Never fix from a screenshot alone when runtime evidence is available. A screensh
 
 Use `references/engineering-records.md` for Issue, Commit, PR, Changelog, Root Cause, Fix Scope, Regression Evidence, and Rollback fields.
 
+## Independent review route
+
+When explicitly assigned an independent protected-file Review, load `references/independent-reviewer.md`. Work from a fresh clean checkout and use `sddgov reviewer bootstrap|export-trust|sign`; do not ignore an unclean workspace or ask the owner to provide a Reviewer key.
+
 ## Safety
 
 - Keep raw evidence in `private/raw`.

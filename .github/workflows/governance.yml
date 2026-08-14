@@ -36,6 +36,7 @@ jobs:
         run: |
           if [ -n "$SDDGOV_TRUSTED_REVIEWERS_JSON" ]; then
             printf '%s' "$SDDGOV_TRUSTED_REVIEWERS_JSON" > "$SDDGOV_TRUSTED_REVIEWERS_FILE"
+            chmod 600 "$SDDGOV_TRUSTED_REVIEWERS_FILE"
           else
             unset SDDGOV_TRUSTED_REVIEWERS_FILE
           fi

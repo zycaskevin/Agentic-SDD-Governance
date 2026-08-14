@@ -4,7 +4,7 @@ This module closes three trust gaps without adding human approval to routine L0/
 
 ## Fail-closed action classification
 
-`sddgov autonomy evaluate` accepts only canonical categories. Unknown categories return `BLOCKED` with `requires_response: false`; the Agent must classify the action instead of asking the owner to approve uncertainty.
+`sddgov autonomy evaluate` accepts only canonical categories. Every known action request must include an explicit `effects` object, using `{}` when no sensitive effect applies; omission, `null`, unknown flags, and false-valued flags fail closed. Unknown categories return `BLOCKED` with `requires_response: false`; the Agent must classify the action instead of asking the owner to approve uncertainty.
 
 Production data deletion, irreversible migration, Secret change, permission-boundary change, real payment, and high-privilege Production operations always require L3. Routine categories may also declare sensitive effects. Any Production, destructive, irreversible, Secret, permission-boundary, payment, or high-privilege effect prevents an L0/L1 downgrade.
 
@@ -15,7 +15,7 @@ Caller-provided strings are not authority. `decision authorize-operation` and th
 1. An external owner-controlled signer produces an Ed25519 envelope matching `schemas/operation-approval-receipt.schema.json`.
 2. `.sddgov/trusted-approvers.json` is an auditable mirror only. Runtime authority comes from the same file at the immutable `SDDGOV_TRUSTED_BASE_REF`, or from an owner-controlled file outside the repository at `SDDGOV_TRUSTED_APPROVERS_FILE`. The candidate worktree copy is never an authority source.
 3. The Agent runs `sddgov decision import-operation-approval signed-approval.json --path .`.
-4. `sddgov autonomy evaluate request.json --path .` verifies exact operation ID, signer, expiry, nonce, and unused state.
+4. `sddgov autonomy evaluate request.json --path .` re-verifies the stored signed envelope and its digest under the decision lock, then verifies exact operation ID, signer, expiry, nonce, and unused state. Editing `.sddgov/decisions.json` cannot create or expand L3 authority.
 5. The first `CONTINUE` atomically consumes the receipt. Reuse returns `ACTION REQUIRED`; concurrent evaluation permits at most one consumer.
 
 Private signing keys must never enter the repository, chat, DEP, Agent workspace, or CI. Provisioning the trusted Base/out-of-band public-key source or using an owner signing key is an Operational/L3 boundary and is intentionally outside this repository's autonomous workflow.
@@ -42,7 +42,11 @@ Calculate `base_sha`, reviewed `head_sha`, and the executable digest with `sddgo
 
 The Review receipt follows `schemas/protected-review-receipt.schema.json` and must live under `.sddgov/reviews/`. Its signer must be active in the reviewer store from the trusted base revision, the reviewer must differ from the Builder, and the receipt must approve both the exact executable `change_digest` and `gate_metadata_digest` while unexpired. The metadata digest is SHA-256 over canonical JSON containing `schema_version`, `base_sha`, `head_sha`, `risk_level`, `builder_id`, `change_digest`, `deps`, and `rollback_path`; changing the base, reviewed Head, risk, or Evidence requirements after review therefore invalidates the receipt. A Builder-authored `reviewer_id` string is not review authority.
 
-Protected-path policy is also read from the trusted base revision. If the initial rollout has no usable base-committed reviewer store, bootstrap must provide an out-of-band public-key store outside the repository through `SDDGOV_TRUSTED_REVIEWERS_FILE`; candidate-controlled policy or keys are never accepted as authority. The bundled GitHub workflow materializes that external file from the repository variable `SDDGOV_TRUSTED_REVIEWERS_JSON` in runner temporary storage. Configure this public-key-only variable and the required-check ruleset as a one-time Operational action before converting the bootstrap PR from Draft.
+Protected-path policy and an active Reviewer store are read from the trusted base revision first. An external store cannot override active base authority. Only when the initial rollout has no usable base-committed reviewer may bootstrap provide an owner-only, regular, non-linked public-key store outside the repository through `SDDGOV_TRUSTED_REVIEWERS_FILE`; candidate-controlled policy or keys are never accepted as authority. The bundled GitHub workflow materializes that external file with mode `0600` from the repository variable `SDDGOV_TRUSTED_REVIEWERS_JSON` in runner temporary storage. Configure this public-key-only variable and the required-check ruleset as a one-time Operational action before converting the bootstrap PR from Draft.
+
+The independent Reviewer performs this bootstrap without asking the product owner for a key. On its separate host and clean checkout it runs `sddgov reviewer bootstrap`, registers the output of `sddgov reviewer export-trust` directly as `SDDGOV_TRUSTED_REVIEWERS_JSON`, completes its independent checks, and runs `sddgov reviewer sign`. The private key remains owner-only and Repo-external; the signed public receipt is the only key-related artifact committed. See the on-demand `references/independent-reviewer.md` module.
+
+An empty `.sddgov/trusted-approvers.json` is not a Merge failure. It is a safe default that prevents future L3 operations until a separate owner-controlled L3 identity is deliberately provisioned.
 
 Raw Evidence is checked across every commit in `base_ref..HEAD`, not only the final tree. Adding and later deleting `private/raw/` data still fails the gate because the sensitive bytes remain in Git history.
 

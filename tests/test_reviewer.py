@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
@@ -279,6 +280,35 @@ jobs:
                 "REV-1",
                 self.receipt,
                 base_ref=self.base,
+            )
+
+    def test_sign_requires_independently_selected_base_ref(self):
+        with self.assertRaisesRegex(ValueError, "base_ref is required"):
+            sign_protected_review(
+                self.root,
+                "gb10-hermes-reviewer",
+                self.key_path,
+                self.trust_path,
+                "REV-1",
+                self.receipt,
+                approved=True,
+            )
+
+    @patch(
+        "sddgov.reviewer.serialization.load_pem_private_key",
+        side_effect=UnsupportedAlgorithm("unsupported"),
+    )
+    def test_sign_normalizes_unsupported_private_key_algorithm(self, _load):
+        with self.assertRaisesRegex(ValueError, "valid unencrypted PEM"):
+            sign_protected_review(
+                self.root,
+                "gb10-hermes-reviewer",
+                self.key_path,
+                self.trust_path,
+                "REV-1",
+                self.receipt,
+                base_ref=self.base,
+                approved=True,
             )
 
     def test_sign_rejects_broadly_writable_trust_store(self):

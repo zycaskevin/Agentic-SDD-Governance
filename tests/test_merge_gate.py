@@ -337,11 +337,41 @@ jobs:
         with tempfile.TemporaryDirectory() as external:
             trust_path = Path(external) / "trusted-reviewers.json"
             trust_path.write_text(trusted)
+            trust_path.chmod(0o600)
             with patch.dict(
                 "os.environ", {"SDDGOV_TRUSTED_REVIEWERS_FILE": str(trust_path)}
             ):
                 result = verify_merge(self.root, self.base, run_checks=False)
         self.assertTrue(result["ok"])
+
+    @patch("sddgov.merge_gate.verify_dep", return_value=[])
+    def test_external_store_cannot_override_active_base_reviewer(self, _verify):
+        rogue_key = Ed25519PrivateKey.generate()
+        rogue_public = rogue_key.public_key().public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw,
+        )
+        rogue_trust = {
+            "schema_version": "1.0",
+            "reviewers": [{
+                "reviewer_id": "rogue-reviewer",
+                "algorithm": "ed25519",
+                "public_key": base64.b64encode(rogue_public).decode("ascii"),
+                "status": "active",
+            }],
+        }
+        self._write_gate(reviewer_key=rogue_key, reviewer_id="rogue-reviewer")
+        with tempfile.TemporaryDirectory() as external:
+            trust_path = Path(external) / "trusted-reviewers.json"
+            trust_path.write_text(json.dumps(rogue_trust))
+            trust_path.chmod(0o600)
+            with patch.dict(
+                "os.environ", {"SDDGOV_TRUSTED_REVIEWERS_FILE": str(trust_path)}
+            ):
+                with self.assertRaisesRegex(
+                    ValueError, "not a unique active trusted reviewer"
+                ):
+                    verify_merge(self.root, self.base, run_checks=False)
 
     @patch("sddgov.merge_gate.verify_dep", return_value=[])
     def test_arbitrary_rollback_prose_is_rejected(self, _verify):

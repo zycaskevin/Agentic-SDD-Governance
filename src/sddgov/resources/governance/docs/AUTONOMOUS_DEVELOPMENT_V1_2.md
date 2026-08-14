@@ -63,7 +63,7 @@ Production is external state, so an L0 deployment is not pre-authorized. A routi
 
 Missing machine evidence blocks the deployment and triggers investigation, not an approval request. An L2 product-impacting deployment reuses a recorded decision only while its assumptions remain true. Destructive, high-privilege, Secret, permission-boundary, irreversible, or non-recoverable operations remain L3 and require fresh approval.
 
-Unknown action categories and any action declaring Production, destructive, irreversible, Secret, permission-boundary, payment, or high-privilege effects fail closed when labeled L0/L1. The Agent must correct the classification; the mismatch does not become an owner approval prompt.
+Every known action request explicitly supplies `effects`, using `{}` when none apply. Omitted, null, unknown, or false-valued effect classifications fail closed. Unknown action categories and any action declaring Production, destructive, irreversible, Secret, permission-boundary, payment, or high-privilege effects fail closed when labeled L0/L1. The Agent must correct the classification; the mismatch does not become an owner approval prompt.
 
 ## Executable Merge gate
 

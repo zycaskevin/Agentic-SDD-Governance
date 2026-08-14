@@ -17,7 +17,7 @@ from sddgov.autonomy import (
     DEPLOY_GUARDS,
     checkpoint,
     evaluate_deployment,
-    evaluate_escalation,
+    evaluate_escalation as _evaluate_escalation,
     import_operation_approval,
     lock_artifact,
     record_decision,
@@ -26,6 +26,11 @@ from sddgov.autonomy import (
 )
 from sddgov.cli import main
 from sddgov.governance import init_project
+
+
+def evaluate_escalation(root, request):
+    """Keep normal fixtures explicit while reserving omission for its regression test."""
+    return _evaluate_escalation(root, {"effects": {}, **request})
 
 
 def decision_package(risk="L2", decision_id="DEC-NEW"):
@@ -85,6 +90,7 @@ class AutonomyTests(unittest.TestCase):
             ],
         }
         self.trust_path.write_text(json.dumps(trust), encoding="utf-8")
+        self.trust_path.chmod(0o600)
         now = datetime.now(timezone.utc).replace(microsecond=0)
         receipt = {
             "approval_id": approval_id,
@@ -185,6 +191,12 @@ class AutonomyTests(unittest.TestCase):
                         },
                     )
 
+        with self.assertRaisesRegex(ValueError, "effects is required"):
+            _evaluate_escalation(
+                self.root,
+                {"risk_level": "L1", "category": "implementation"},
+            )
+
     def test_duplicate_approver_id_is_rejected_before_key_selection(self):
         path, _ = self._signed_operation_approval()
         trust_path = self.trust_path
@@ -208,6 +220,24 @@ class AutonomyTests(unittest.TestCase):
             },
         ):
             with self.assertRaisesRegex(ValueError, "bootstrap requires"):
+                import_operation_approval(self.root, path)
+
+    def test_external_approver_store_must_be_owner_controlled(self):
+        path, _ = self._signed_operation_approval()
+        self.trust_path.chmod(0o644)
+        with self.assertRaisesRegex(ValueError, "owner-only permissions"):
+            import_operation_approval(self.root, path)
+
+    def test_trusted_base_ref_must_be_an_immutable_full_sha(self):
+        path, _ = self._signed_operation_approval()
+        with patch.dict(
+            "os.environ",
+            {
+                "SDDGOV_TRUSTED_APPROVERS_FILE": "",
+                "SDDGOV_TRUSTED_BASE_REF": "--help",
+            },
+        ):
+            with self.assertRaisesRegex(ValueError, "full 40-character commit SHA"):
                 import_operation_approval(self.root, path)
 
     def test_adversarial_receipt_encodings_fail_closed(self):
@@ -457,6 +487,33 @@ class AutonomyTests(unittest.TestCase):
         with ThreadPoolExecutor(max_workers=2) as executor:
             results = list(executor.map(lambda _: evaluate_once(), range(2)))
         self.assertEqual(sorted(results), ["ACTION_REQUIRED", "CONTINUE"])
+
+    def test_l3_decision_row_tampering_cannot_bypass_signed_receipt(self):
+        receipt, _ = self._signed_operation_approval("APP-TAMPER", "PROD-TAMPER")
+        import_operation_approval(self.root, receipt)
+        decisions_path = self.root / ".sddgov/decisions.json"
+        decisions = json.loads(decisions_path.read_text(encoding="utf-8"))
+        row = next(
+            item for item in decisions["decisions"]
+            if item["decision_id"] == "APP-TAMPER"
+        )
+        row["operation_id"] = "PROD-ATTACKER-CONTROLLED"
+        decisions_path.write_text(json.dumps(decisions), encoding="utf-8")
+        result = evaluate_escalation(
+            self.root,
+            {
+                "risk_level": "L3",
+                "category": "high_risk_operation",
+                "operation_id": "PROD-ATTACKER-CONTROLLED",
+                "approval_id": "APP-TAMPER",
+                "decision_package": decision_package("L3", "APP-TAMPER-NEXT"),
+            },
+        )
+        self.assertEqual(result["state"], "ACTION_REQUIRED")
+        self.assertFalse(
+            json.loads(decisions_path.read_text(encoding="utf-8"))["decisions"][-1]
+            ["consumed_at"]
+        )
 
     def test_l3_receipt_rejects_unknown_signer_expiry_and_replay(self):
         receipt, envelope = self._signed_operation_approval("APP-EDGE", "PROD-EDGE")

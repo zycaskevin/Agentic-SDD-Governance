@@ -15,6 +15,8 @@ from typing import Any, Iterable
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
+from .trust import load_owner_controlled_json, require_full_commit_sha
+
 
 RISK_LEVELS = {"L0", "L1", "L2", "L3"}
 ROUTINE_OPERATIONS = {
@@ -199,26 +201,11 @@ def _parse_time(value: Any, field: str) -> datetime:
 
 
 def _trusted_approver_store(root: Path) -> dict[str, Any]:
-    external = os.environ.get("SDDGOV_TRUSTED_APPROVERS_FILE")
-    if external:
-        source = Path(external).expanduser().resolve()
-        try:
-            source.relative_to(root.resolve())
-        except ValueError:
-            data = _read_json(source)
-        else:
-            raise ValueError(
-                "out-of-band trusted approver store must be outside the repository"
-            )
-    else:
-        base_ref = os.environ.get("SDDGOV_TRUSTED_BASE_REF")
-        if not base_ref:
-            raise ValueError(
-                "trusted approver bootstrap requires SDDGOV_TRUSTED_APPROVERS_FILE "
-                "or SDDGOV_TRUSTED_BASE_REF"
-            )
+    base_ref = os.environ.get("SDDGOV_TRUSTED_BASE_REF")
+    if base_ref:
+        base_sha = require_full_commit_sha(base_ref, "SDDGOV_TRUSTED_BASE_REF")
         completed = subprocess.run(
-            ["git", "show", f"{base_ref}:.sddgov/trusted-approvers.json"],
+            ["git", "show", f"{base_sha}:.sddgov/trusted-approvers.json"],
             cwd=root,
             check=False,
             capture_output=True,
@@ -230,6 +217,24 @@ def _trusted_approver_store(root: Path) -> dict[str, Any]:
             data = json.loads(completed.stdout)
         except json.JSONDecodeError as exc:
             raise ValueError("trusted approver store at trusted base is invalid") from exc
+    else:
+        external = os.environ.get("SDDGOV_TRUSTED_APPROVERS_FILE")
+        if not external:
+            raise ValueError(
+                "trusted approver bootstrap requires SDDGOV_TRUSTED_APPROVERS_FILE "
+                "or SDDGOV_TRUSTED_BASE_REF"
+            )
+        source = Path(external).expanduser().absolute()
+        try:
+            source.resolve().relative_to(root.resolve())
+        except ValueError:
+            data = load_owner_controlled_json(
+                source, "out-of-band trusted approver store"
+            )
+        else:
+            raise ValueError(
+                "out-of-band trusted approver store must be outside the repository"
+            )
     if not isinstance(data, dict):
         raise ValueError("trusted approver store must contain a JSON object")
     return data
@@ -272,9 +277,10 @@ def _trusted_approver(root: Path, approver_id: str) -> dict[str, Any]:
     return approver
 
 
-def import_operation_approval(root: Path, envelope_path: Path) -> dict[str, Any]:
-    """Verify and import one owner-signed, exact, expiring L3 approval receipt."""
-    envelope = _read_json(envelope_path)
+def _verify_operation_envelope(
+    root: Path, envelope: Any
+) -> tuple[dict[str, Any], str]:
+    """Verify one exact, fresh owner-signed L3 approval envelope."""
     if (
         not isinstance(envelope, dict)
         or set(envelope) != {"schema_version", "algorithm", "receipt", "signature"}
@@ -319,6 +325,13 @@ def import_operation_approval(root: Path, envelope_path: Path) -> dict[str, Any]
     except (ValueError, binascii.Error, InvalidSignature) as exc:
         raise ValueError("approval receipt signature verification failed") from exc
     receipt_sha256 = hashlib.sha256(_canonical_receipt(receipt)).hexdigest()
+    return receipt, receipt_sha256
+
+
+def import_operation_approval(root: Path, envelope_path: Path) -> dict[str, Any]:
+    """Verify and import one owner-signed, exact, expiring L3 approval receipt."""
+    envelope = _read_json(envelope_path)
+    receipt, receipt_sha256 = _verify_operation_envelope(root, envelope)
     with _decision_lock(root):
         data = _decision_store(root)
         if any(
@@ -343,6 +356,7 @@ def import_operation_approval(root: Path, envelope_path: Path) -> dict[str, Any]
             "approval_nonce": receipt["nonce"],
             "receipt_sha256": receipt_sha256,
             "signature_algorithm": "ed25519",
+            "approval_envelope": envelope,
         }
         data["decisions"].append(decision)
         _atomic_json(_decisions_path(root), data)
@@ -367,6 +381,25 @@ def _consume_operation_approval(root: Path, approval_id: str, operation_id: str)
             if row.get("consumed_at") is not None:
                 return None
             if not _l3_approval_is_fresh(row, operation_id):
+                return None
+            try:
+                receipt, receipt_sha256 = _verify_operation_envelope(
+                    root, row.get("approval_envelope")
+                )
+            except ValueError:
+                return None
+            signed_fields = {
+                "decision_id": receipt["approval_id"],
+                "summary": receipt["summary"],
+                "scope": receipt["scope"],
+                "operation_id": receipt["operation_id"],
+                "approved_by": receipt["approved_by"],
+                "expires_at": receipt["expires_at"],
+                "approval_nonce": receipt["nonce"],
+                "receipt_sha256": receipt_sha256,
+                "signature_algorithm": "ed25519",
+            }
+            if any(row.get(field) != value for field, value in signed_fields.items()):
                 return None
             row["consumed_at"] = _stamp()
             row["status"] = "completed"
@@ -539,7 +572,9 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
             "reason": "unrecognized_action_category",
             "next_action": "classify_with_canonical_action_category_and_effects",
         }
-    effects = request.get("effects", {})
+    if "effects" not in request:
+        raise ValueError("effects is required and must explicitly classify sensitive effects")
+    effects = request["effects"]
     if not isinstance(effects, dict):
         raise ValueError("effects must be an object of known sensitive flags")
     if any(

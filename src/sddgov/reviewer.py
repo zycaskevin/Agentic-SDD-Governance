@@ -10,13 +10,19 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PrivateKey,
     Ed25519PublicKey,
 )
 
-from .merge_gate import DEFAULT_GATE, change_digest, gate_metadata_digest
+from .merge_gate import (
+    DEFAULT_GATE,
+    change_digest,
+    gate_metadata_digest,
+    only_audit_changes_after_review,
+)
 
 
 def _canonical(value: dict[str, Any]) -> bytes:
@@ -224,25 +230,11 @@ def _load_owner_only_private_key(path: Path) -> Ed25519PrivateKey:
         raise ValueError("private key must not be hard-linked")
     try:
         key = serialization.load_pem_private_key(path.read_bytes(), password=None)
-    except (OSError, ValueError, TypeError) as exc:
+    except (OSError, ValueError, TypeError, UnsupportedAlgorithm) as exc:
         raise ValueError("private key is not a valid unencrypted PEM key") from exc
     if not isinstance(key, Ed25519PrivateKey):
         raise ValueError("private key must be Ed25519")
     return key
-
-
-def _changed_paths(root: Path, start: str, end: str) -> list[str]:
-    lines = _git(root, "diff", "-M", "--name-status", f"{start}...{end}").splitlines()
-    paths: set[str] = set()
-    for line in lines:
-        fields = line.split("\t")
-        if len(fields) < 2:
-            raise ValueError("git diff produced an invalid name-status record")
-        expected = 3 if fields[0].startswith(("R", "C")) else 2
-        if len(fields) != expected:
-            raise ValueError("git diff produced an invalid rename/copy record")
-        paths.update(fields[1:])
-    return sorted(paths)
 
 
 def _review_binding(root: Path, base_ref: str, gate_path: Path) -> dict[str, Any]:
@@ -274,17 +266,7 @@ def _review_binding(root: Path, base_ref: str, gate_path: Path) -> dict[str, Any
     if gate["base_sha"] != base_sha:
         raise ValueError("merge gate base_sha does not match the independently selected base")
     current_head = _git(root, "rev-parse", "HEAD")
-    ancestor = subprocess.run(
-        ["git", "merge-base", "--is-ancestor", gate["head_sha"], current_head],
-        cwd=root,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    if ancestor.returncode != 0 or any(
-        path != ".sddgov/merge-gate.json" and not path.startswith(".sddgov/reviews/")
-        for path in _changed_paths(root, gate["head_sha"], current_head)
-    ):
+    if not only_audit_changes_after_review(root, gate["head_sha"], current_head):
         raise ValueError("merge gate head_sha is not the exact reviewed Head or has non-audit descendants")
     actual_digest = change_digest(root, base_ref)
     if gate["change_digest"] != actual_digest:
@@ -356,11 +338,9 @@ def sign_protected_review(
     if output_path.exists() or output_path.is_symlink():
         raise FileExistsError(f"refusing to overwrite review receipt: {output_path}")
     if base_ref is None:
-        try:
-            gate = json.loads((root / gate_path).read_text(encoding="utf-8"))
-            base_ref = gate["base_sha"]
-        except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
-            raise ValueError("base_ref is required when the merge gate cannot supply base_sha") from exc
+        raise ValueError(
+            "base_ref is required; obtain the exact Pull Request base independently"
+        )
     binding = _review_binding(root, base_ref, gate_path)
     gate = binding["gate"]
     if reviewer_id == gate["builder_id"]:

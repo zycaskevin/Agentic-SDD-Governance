@@ -15,6 +15,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from .ci_guard import run_local_gate
 from .evidence import verify as verify_dep
+from .trust import load_owner_controlled_json
 
 
 DEFAULT_GATE = Path(".sddgov/merge-gate.json")
@@ -237,31 +238,42 @@ def _protected_patterns(root: Path, base_ref: str) -> list[str]:
 
 
 def _trusted_reviewers(root: Path, base_ref: str) -> dict[str, Any]:
-    """Load reviewer authority from the trusted base or an out-of-band file."""
-    external = os.environ.get("SDDGOV_TRUSTED_REVIEWERS_FILE")
-    if external:
-        source = Path(external).expanduser().resolve()
-        try:
-            source.relative_to(root)
-        except ValueError:
-            return _load_json(source, "out-of-band trusted reviewer store")
-        raise ValueError(
-            "out-of-band trusted reviewer store must be outside the repository"
-        )
+    """Prefer base-anchored reviewer authority; use external trust for bootstrap only."""
+    base_store: dict[str, Any] | None = None
     try:
         text = _git(root, "show", f"{base_ref}:.sddgov/trusted-reviewers.json")
-    except ValueError as base_error:
+    except ValueError:
+        base_store = None
+    else:
+        try:
+            value = json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise ValueError("trusted reviewer store at trusted base is invalid") from exc
+        if not isinstance(value, dict):
+            raise ValueError("trusted reviewer store at trusted base must contain a JSON object")
+        base_store = value
+    reviewers = base_store.get("reviewers") if isinstance(base_store, dict) else None
+    has_active = isinstance(reviewers, list) and any(
+        isinstance(record, dict) and record.get("status") == "active"
+        for record in reviewers
+    )
+    if has_active:
+        return base_store
+
+    external = os.environ.get("SDDGOV_TRUSTED_REVIEWERS_FILE")
+    if not external:
         raise ValueError(
-            "trusted reviewer store is absent from the trusted base; "
+            "trusted reviewer store at the trusted base has no active reviewer; "
             "bootstrap requires SDDGOV_TRUSTED_REVIEWERS_FILE"
-        ) from base_error
+        )
+    source = Path(external).expanduser().absolute()
     try:
-        value = json.loads(text)
-    except json.JSONDecodeError as exc:
-        raise ValueError("trusted reviewer store at trusted base is invalid") from exc
-    if not isinstance(value, dict):
-        raise ValueError("trusted reviewer store at trusted base must contain a JSON object")
-    return value
+        source.resolve().relative_to(root)
+    except ValueError:
+        return load_owner_controlled_json(
+            source, "out-of-band trusted reviewer store"
+        )
+    raise ValueError("out-of-band trusted reviewer store must be outside the repository")
 
 
 def _is_protected(path: str, patterns: list[str]) -> bool:
@@ -271,23 +283,27 @@ def _is_protected(path: str, patterns: list[str]) -> bool:
     )
 
 
-def _changed_paths(root: Path, start: str, end: str = "HEAD") -> list[str]:
-    """Return both source and destination paths for rename/copy records."""
-    lines = _git(root, "diff", "-M", "--name-status", f"{start}...{end}").splitlines()
+def changed_paths(root: Path, start: str, end: str = "HEAD") -> list[str]:
+    """Return exact source and destination paths from NUL-delimited Git output."""
+    fields = _git(
+        root, "diff", "-M", "--name-status", "-z", f"{start}...{end}"
+    ).split("\0")
+    if fields and fields[-1] == "":
+        fields.pop()
     paths: set[str] = set()
-    for line in lines:
-        fields = line.split("\t")
-        if len(fields) < 2:
-            raise ValueError("git diff produced an invalid name-status record")
-        status = fields[0]
-        expected = 3 if status.startswith(("R", "C")) else 2
-        if len(fields) != expected:
-            raise ValueError("git diff produced an invalid rename/copy record")
-        paths.update(fields[1:])
+    index = 0
+    while index < len(fields):
+        status = fields[index]
+        width = 3 if status.startswith(("R", "C")) else 2
+        record = fields[index : index + width]
+        if len(record) != width or not status:
+            raise ValueError("git diff produced an invalid NUL name-status record")
+        paths.update(record[1:])
+        index += width
     return sorted(paths)
 
 
-def _only_audit_changes_after_review(
+def only_audit_changes_after_review(
     root: Path, reviewed_head_sha: str, current_head_sha: str
 ) -> bool:
     completed = subprocess.run(
@@ -302,7 +318,7 @@ def _only_audit_changes_after_review(
     allowed = (".sddgov/merge-gate.json", ".sddgov/reviews/")
     return all(
         path == allowed[0] or path.startswith(allowed[1])
-        for path in _changed_paths(root, reviewed_head_sha, current_head_sha)
+        for path in changed_paths(root, reviewed_head_sha, current_head_sha)
     )
 
 
@@ -358,7 +374,7 @@ def verify_merge(
         raise ValueError("merge gate base_sha does not match the trusted exact base")
     if not isinstance(gate.get("head_sha"), str) or not gate["head_sha"].strip():
         raise ValueError("merge gate head_sha is required")
-    if not _only_audit_changes_after_review(root, gate["head_sha"], head_sha):
+    if not only_audit_changes_after_review(root, gate["head_sha"], head_sha):
         raise ValueError(
             "merge gate head_sha is not the exact reviewed Head or has non-audit descendants"
         )
@@ -402,7 +418,7 @@ def verify_merge(
     )
     if raw:
         raise ValueError("raw evidence is tracked by Git: " + ", ".join(raw))
-    changed = _changed_paths(root, base_ref)
+    changed = changed_paths(root, base_ref)
     protected = [
         path
         for path in changed
