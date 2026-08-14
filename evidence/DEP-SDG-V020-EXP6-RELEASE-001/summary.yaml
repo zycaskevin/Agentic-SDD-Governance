@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-SDG-V020-EXP6-RELEASE-001",
+  "issue": "6",
+  "sdd_references": [
+    "docs/ROADMAP.md"
+  ],
+  "risk_level": "L0",
+  "created_at": "2026-08-14T16:22:29Z",
+  "updated_at": "2026-08-14T16:24:26Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-14T16:22:29Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-14T16:24:26Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-14T16:24:26Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-14T16:24:26Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-14T16:24:26Z"
+      }
+    ]
+  },
+  "expected_behavior": "The experimental.6 release-preparation PR is bound to the exact current main base and passes the executable Merge policy without weakening any gate.",
+  "actual_behavior": "GitHub Governance rejected PR #7 because the repository audit metadata still bound the previous PR #5 base SHA instead of the current main base SHA.",
+  "environment": {
+    "commit": "c305972187250098ca37cfe0524b4a0b34ebca15",
+    "branch": "release/v0.2.0-experimental.6",
+    "runtime": "GitHub Actions Python 3.12 and local Python 3.14 on macOS"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}
