@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0",
   "base_sha": "52ccae6a515fb348e07f19815626b80935eb0608",
-  "head_sha": "1175ef630ebfa4fa2c97a7b3a484377ed84a6e15",
+  "head_sha": "c30d994d8e0eb738810fcd8f6565476ce0006c36",
   "risk_level": "L0",
   "builder_id": "codex-builder",
-  "change_digest": "df7219e1b688f82ccd81958ef85002f0f5a57464f54953eb956b904a9a4eafac",
+  "change_digest": "a051212aba60d202cc953aa693932bba0be89147b8d5f80d5dec1595328fc4a4",
   "deps": [
     "evidence/DEP-SDG-V020-EXP6-RELEASE-001"
   ],
