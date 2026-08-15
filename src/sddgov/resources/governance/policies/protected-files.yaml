@@ -12,6 +12,9 @@ protected:
   - templates/
   - redaction/rules.json
   - .github/workflows/
+  - AGENTS.md
+  - .agents/
+  - .agentic-sdd-governance/
   - .sddgov/ci-cost-guard.json
   - src/sddgov/
   - pyproject.toml

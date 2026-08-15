@@ -573,8 +573,12 @@ class AutonomyTests(unittest.TestCase):
                 ),
             },
         )
-        self.assertEqual(result["state"], "ACTION_REQUIRED")
-        self.assertTrue(result["requires_response"])
+        self.assertEqual(result["state"], "BLOCKED")
+        self.assertFalse(result["requires_response"])
+        self.assertEqual(
+            result["reason"],
+            "request_contains_fields_outside_closed_category_schema",
+        )
 
     def test_product_assumption_parent_replacement_fails_closed(self):
         approval_path, _ = self._signed_product_approval("DEC-TOCTOU")
@@ -656,6 +660,35 @@ class AutonomyTests(unittest.TestCase):
             },
         )
         self.assertEqual(stale["state"], "ACTION_REQUIRED")
+
+    def test_l2_product_reuse_rejects_foreign_authority_and_executor_fields(self):
+        approval_path, _ = self._signed_product_approval("DEC-CLOSED-L2")
+        import_product_approval(self.root, approval_path)
+        foreign_fields = (
+            {"approval_id": "APP-FOREIGN"},
+            {"operation_id": "PROD-FOREIGN"},
+            {"operation_payload": operation_payload("PROD-FOREIGN")},
+            {"target": "synthetic:production"},
+            {"parameters": {"mode": "execute"}},
+            {"nested": {"operation_payload": operation_payload("PROD-NESTED")}},
+        )
+        for foreign in foreign_fields:
+            with self.subTest(foreign=tuple(foreign)):
+                result = evaluate_escalation(
+                    self.root,
+                    {
+                        "risk_level": "L2",
+                        "category": "product_decision",
+                        "decision_id": "DEC-CLOSED-L2",
+                        "decision_scope": "MVP data layer",
+                        **foreign,
+                    },
+                )
+                self.assertEqual(result["state"], "BLOCKED")
+                self.assertEqual(
+                    result["reason"],
+                    "request_contains_fields_outside_closed_category_schema",
+                )
 
     def test_l2_and_l3_emit_strict_action_required(self):
         l2 = evaluate_escalation(

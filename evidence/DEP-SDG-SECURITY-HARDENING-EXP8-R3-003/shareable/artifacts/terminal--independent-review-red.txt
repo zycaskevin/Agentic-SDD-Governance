@@ -1,0 +1,5 @@
+Fresh independent review of PR #12 exact candidate d03213a62abb1d5752eea3380d3f75275e069dbf reproduced a P0 authority-envelope bypass.
+
+A valid signed L2 product decision with exact decision ID and scope could be reused while the outer request also carried foreign L3 operation fields. The classifier returned CONTINUE because the closed-envelope check applied only to L0/L1 before L2 decision reuse.
+
+Required invariant: every category and risk level must use one closed request schema before any approval or decision reuse. A product_decision request must reject approval_id, operation_id, operation_payload, target, parameters, nested authority data, and all unknown fields.

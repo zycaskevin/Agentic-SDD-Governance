@@ -1000,6 +1000,58 @@ def _l0_l1_envelope_error(request: dict[str, Any]) -> str | None:
     return None
 
 
+def _closed_category_envelope_error(request: dict[str, Any]) -> str | None:
+    """Reject fields that belong to another authority or executor contract.
+
+    The risk label is caller supplied, so the category schema must be closed before
+    an existing approval is looked up.  In particular, a valid L2 product decision
+    must never turn an embedded L3 operation payload into authorized work.
+    """
+    category = request["category"]
+    allowed = {"risk_level", "category", "effects"}
+    if category == "product_decision":
+        allowed.update(
+            {
+                "decision_id",
+                "decision_scope",
+                "assumptions_sha256",
+                "reopen_condition_triggered",
+                "decision_package",
+            }
+        )
+    elif category in {"high_risk_operation", *HIGH_RISK_CATEGORIES}:
+        allowed.update(
+            {
+                "approval_id",
+                "operation_id",
+                "operation_payload",
+                "decision_package",
+                "machine_verifiable",
+            }
+        )
+    elif category == "operational_action":
+        allowed.update(
+            {
+                "action_owner",
+                "action_ttl_minutes",
+                "decision_package",
+                "unrelated_work_exists",
+            }
+        )
+    elif category == "necessary_uat":
+        allowed.update({"decision_package", "machine_verifiable"})
+    elif category == "uncertainty":
+        allowed.update(
+            {"machine_verifiable", "unrelated_work_exists", "decision_package"}
+        )
+    elif category == "integrity_mismatch":
+        allowed.add("unrelated_work_exists")
+    extra = set(request) - allowed
+    if extra:
+        return "request_contains_fields_outside_closed_category_schema"
+    return None
+
+
 def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
     risk = request.get("risk_level")
     category = request.get("category")
@@ -1050,6 +1102,14 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
             "requires_response": False,
             "reason": envelope_error,
             "next_action": "use_one_closed_typed_executor_contract_or_remove_executable_fields",
+        }
+    category_envelope_error = _closed_category_envelope_error(request)
+    if category_envelope_error:
+        return {
+            "state": "BLOCKED",
+            "requires_response": False,
+            "reason": category_envelope_error,
+            "next_action": "rebuild_request_with_one_exact_category_schema",
         }
     if category == "product_decision" and risk in {"L0", "L1"}:
         return {

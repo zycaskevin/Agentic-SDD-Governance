@@ -1,0 +1,5 @@
+Fresh independent review of PR #12 exact candidate d03213a62abb1d5752eea3380d3f75275e069dbf reproduced a P1 protected-inventory gap.
+
+The Base protected-files policy did not include AGENTS.md, .agents/, or .agentic-sdd-governance/. These are real Agent-loaded governance entrypoints and installed copies, but _is_protected returned false, so their modification would not require a signed independent review receipt.
+
+Required invariant: every Agent-loaded governance copy and bootstrap file is protected by the trusted Base policy. Any change without a valid independent receipt must fail closed at Merge verification.

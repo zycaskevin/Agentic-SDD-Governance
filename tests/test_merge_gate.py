@@ -11,7 +11,13 @@ from unittest.mock import patch
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from sddgov.merge_gate import change_digest, gate_metadata_digest, verify_merge
+from sddgov.merge_gate import (
+    _is_protected,
+    _protected_patterns,
+    change_digest,
+    gate_metadata_digest,
+    verify_merge,
+)
 
 
 def _run(root: Path, *args: str) -> str:
@@ -31,7 +37,12 @@ class MergeGateTests(unittest.TestCase):
         (self.root / "core/POLICY_KERNEL.md").write_text("baseline\n")
         (self.root / "policies").mkdir()
         (self.root / "policies/protected-files.yaml").write_text(
-            "protected:\n  - core/POLICY_KERNEL.md\nrules:\n"
+            "protected:\n"
+            "  - core/POLICY_KERNEL.md\n"
+            "  - AGENTS.md\n"
+            "  - .agents/\n"
+            "  - .agentic-sdd-governance/\n"
+            "rules:\n"
         )
         (self.root / ".sddgov").mkdir()
         self.reviewer_key = Ed25519PrivateKey.generate()
@@ -189,6 +200,16 @@ jobs:
         self._write_gate(review=False)
         with self.assertRaisesRegex(ValueError, "independent review"):
             verify_merge(self.root, self.base, run_checks=False)
+
+    def test_agent_loaded_governance_copies_are_protected_at_the_base(self):
+        patterns = _protected_patterns(self.root, self.base)
+        for path in (
+            "AGENTS.md",
+            ".agents/skills/agentic-sdd-governance/SKILL.md",
+            ".agentic-sdd-governance/core/POLICY_KERNEL.md",
+        ):
+            with self.subTest(path=path):
+                self.assertTrue(_is_protected(path, patterns))
 
     @patch("sddgov.merge_gate.verify_dep", return_value=[])
     def test_tracked_raw_evidence_fails(self, _verify):

@@ -167,6 +167,9 @@ class RepositoryContractTests(unittest.TestCase):
         for required in (
             "src/sddgov/",
             ".github/workflows/",
+            "AGENTS.md",
+            ".agents/",
+            ".agentic-sdd-governance/",
             ".sddgov/ci-cost-guard.json",
             "skill/",
             "adapters/",
