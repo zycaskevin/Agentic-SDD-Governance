@@ -1,13 +1,17 @@
 {
   "schema_version": "1.0",
-  "base_sha": "d03d0a855d32fbfb8b42c29db2f008263de0f806",
-  "head_sha": "a3edea16ff219cb9a6a02bef6c6ac515c7465fe5",
-  "risk_level": "L2",
+  "base_sha": "f44cb5f4897f6c821f817fcf178581b43777163a",
+  "head_sha": "523beb50def4efc4cad06d99a03506a7b750cd1a",
+  "risk_level": "L1",
   "builder_id": "codex-builder",
-  "change_digest": "063d61759c166015b21cf7e8fbcbc38aea85fd49029a37483e17ac01ba79bbd8",
+  "change_digest": "767d428ac0e572d75cc73b26363937b47186d73c9c862edbc62dc924bac102fd",
   "deps": [
-    "evidence/DEP-SDG-SECURITY-HARDENING-001"
+    "evidence/DEP-SDG-SECURITY-HARDENING-EXP8-001",
+    "evidence/DEP-SDG-SECURITY-HARDENING-EXP8-R2-002",
+    "evidence/DEP-SDG-SECURITY-HARDENING-EXP8-R3-003",
+    "evidence/DEP-SDG-SECURITY-HARDENING-EXP8-R3-PROTECTED-004",
+    "evidence/DEP-SDG-SECURITY-HARDENING-EXP8-R4-AUTH-005"
   ],
-  "rollback_path": "evidence/DEP-SDG-SECURITY-HARDENING-001/rollback.md",
-  "protected_file_review": ".sddgov/reviews/REV-SDG-SECURITY-HARDENING-001.json"
+  "rollback_path": "evidence/DEP-SDG-SECURITY-HARDENING-EXP8-R2-002/rollback.md",
+  "protected_file_review": ".sddgov/reviews/REV-SDG-SECURITY-HARDENING-EXP8-005.json"
 }
