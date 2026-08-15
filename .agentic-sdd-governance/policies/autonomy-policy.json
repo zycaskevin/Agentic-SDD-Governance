@@ -55,6 +55,10 @@
     "caller_strings_are_authority": false,
     "bind_complete_operation_payload": true,
     "runtime_context_file": "/etc/sddgov/runtime-context.json",
+    "nonce_broker_sockets": {
+      "darwin": "/private/var/db/sddgov/approval-broker.sock",
+      "linux": "/run/sddgov/approval-broker.sock"
+    },
     "agent_must_be_non_root": true,
     "return_authorized_payload": true,
     "consume_atomically_on_continue": true,

@@ -7,8 +7,9 @@ import hashlib
 import json
 import os
 import re
+import socket
 import stat
-import subprocess
+import sys
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path, PurePosixPath
@@ -92,7 +93,11 @@ DEPLOY_GUARDS = (
     "health_check_pass",
     "blast_radius_within_policy",
 )
-L3_NONCE_BROKER = Path("/usr/local/libexec/sddgov-approval-broker")
+L3_NONCE_BROKER = (
+    Path("/private/var/db/sddgov/approval-broker.sock")
+    if sys.platform == "darwin"
+    else Path("/run/sddgov/approval-broker.sock")
+)
 L3_RUNTIME_CONTEXT_FILE = Path("/etc/sddgov/runtime-context.json")
 
 
@@ -659,7 +664,7 @@ def _consume_operation_approval(
 def _consume_nonce_via_control_plane(
     nonce: str, receipt_sha256: str, operation_payload_sha256: str
 ) -> bool:
-    """Atomically consume an L3 nonce outside every clone, or fail closed."""
+    """Atomically consume an L3 nonce through an independent Unix service."""
     if os.name == "nt" or not hasattr(os, "geteuid") or os.geteuid() == 0:
         return False
     if not L3_NONCE_BROKER.is_absolute():
@@ -682,49 +687,33 @@ def _consume_nonce_via_control_plane(
         return False
     if (
         metadata.st_uid != 0
-        or metadata.st_mode & 0o022
-        or metadata.st_nlink != 1
-        or not stat.S_ISREG(metadata.st_mode)
-        or not metadata.st_mode & 0o111
+        or metadata.st_mode & 0o002
+        or not stat.S_ISSOCK(metadata.st_mode)
     ):
         return False
-    descriptor = -1
+    request = json.dumps(
+        {
+            "action": "consume",
+            "nonce": nonce,
+            "receipt_sha256": receipt_sha256,
+            "operation_payload_sha256": operation_payload_sha256,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8") + b"\n"
     try:
-        descriptor = os.open(
-            L3_NONCE_BROKER,
-            os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0),
-        )
-        current = os.fstat(descriptor)
-        if (
-            (metadata.st_dev, metadata.st_ino) != (current.st_dev, current.st_ino)
-            or current.st_uid != 0
-            or current.st_mode & 0o022
-            or current.st_nlink != 1
-            or not stat.S_ISREG(current.st_mode)
-            or not current.st_mode & 0o111
-        ):
-            return False
-        completed = subprocess.run(
-            [
-                str(L3_NONCE_BROKER),
-                "consume",
-                nonce,
-                receipt_sha256,
-                operation_payload_sha256,
-            ],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=10,
-            executable=f"/dev/fd/{descriptor}",
-            pass_fds=(descriptor,),
-        )
-    except (OSError, subprocess.SubprocessError):
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+            client.settimeout(10)
+            client.connect(str(L3_NONCE_BROKER))
+            client.sendall(request)
+            client.shutdown(socket.SHUT_WR)
+            response = client.recv(64)
+            if client.recv(1):
+                return False
+    except OSError:
         return False
-    finally:
-        if descriptor >= 0:
-            os.close(descriptor)
-    return completed.returncode == 0 and completed.stdout == "CONSUMED\n"
+    return response == b"CONSUMED\n"
 
 
 def _find_decision(root: Path, decision_id: str | None) -> dict[str, Any] | None:

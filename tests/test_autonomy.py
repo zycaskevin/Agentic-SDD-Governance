@@ -3,8 +3,11 @@ import hashlib
 import io
 import json
 import os
+import socket
 import stat
+import sys
 import tempfile
+import threading
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import redirect_stderr
@@ -19,6 +22,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from sddgov.autonomy import (
     ACTION_REQUIRED_FIELDS,
     DEPLOY_GUARDS,
+    L3_NONCE_BROKER,
     checkpoint,
     evaluate_deployment,
     evaluate_escalation as _evaluate_escalation,
@@ -778,26 +782,72 @@ class AutonomyTests(unittest.TestCase):
         with patch("sddgov.autonomy.os.geteuid", return_value=0):
             self.assertFalse(_consume_nonce_via_control_plane("nonce-value-1", "a" * 64, "b" * 64))
 
-    def test_l3_broker_inode_replacement_fails_before_execution(self):
+    def test_l3_broker_path_is_fixed_for_supported_platform(self):
+        expected = (
+            Path("/private/var/db/sddgov/approval-broker.sock")
+            if sys.platform == "darwin"
+            else Path("/run/sddgov/approval-broker.sock")
+        )
+        self.assertEqual(L3_NONCE_BROKER, expected)
+
+    def test_l3_broker_uses_real_platform_unix_socket_protocol(self):
+        broker_path = self.root / "approval-broker.sock"
         directory = SimpleNamespace(
             st_mode=stat.S_IFDIR | 0o755, st_uid=0, st_nlink=1, st_dev=1, st_ino=1
         )
-        before = SimpleNamespace(
-            st_mode=stat.S_IFREG | 0o755, st_uid=0, st_nlink=1, st_dev=1, st_ino=2
+        broker = SimpleNamespace(
+            st_mode=stat.S_IFSOCK | 0o660, st_uid=0, st_nlink=1, st_dev=1, st_ino=2
         )
-        replaced = SimpleNamespace(
-            st_mode=stat.S_IFREG | 0o755, st_uid=0, st_nlink=1, st_dev=1, st_ino=3
+        received = {}
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as server:
+            try:
+                server.bind(str(broker_path))
+            except PermissionError as exc:
+                if exc.errno == 1:
+                    self.skipTest("execution sandbox forbids Unix socket creation")
+                raise
+            server.listen(1)
+
+            def serve_once():
+                connection, _ = server.accept()
+                with connection:
+                    received["request"] = connection.recv(4096)
+                    connection.sendall(b"CONSUMED\n")
+
+            worker = threading.Thread(target=serve_once)
+            worker.start()
+            with (
+                patch("sddgov.autonomy.os.geteuid", return_value=501),
+                patch("sddgov.autonomy.L3_NONCE_BROKER", broker_path),
+                patch(
+                    "pathlib.Path.lstat",
+                    autospec=True,
+                    side_effect=lambda path: broker if path == broker_path else directory,
+                ),
+            ):
+                self.assertTrue(
+                    _consume_nonce_via_control_plane(
+                        "nonce-value-2", "a" * 64, "b" * 64
+                    )
+                )
+            worker.join(timeout=5)
+        self.assertIn(b'"action":"consume"', received["request"])
+
+    def test_l3_broker_symlinked_parent_fails_before_connection(self):
+        linked_parent = SimpleNamespace(
+            st_mode=stat.S_IFLNK | 0o777, st_uid=0, st_nlink=1, st_dev=1, st_ino=1
         )
         with (
             patch("sddgov.autonomy.os.geteuid", return_value=501),
-            patch("pathlib.Path.lstat", autospec=True, side_effect=lambda path: before if str(path).endswith("sddgov-approval-broker") else directory),
-            patch("sddgov.autonomy.os.open", return_value=99),
-            patch("sddgov.autonomy.os.fstat", return_value=replaced),
-            patch("sddgov.autonomy.os.close"),
-            patch("sddgov.autonomy.subprocess.run") as run,
+            patch("pathlib.Path.lstat", autospec=True, return_value=linked_parent),
+            patch("sddgov.autonomy.socket.socket") as socket_factory,
         ):
-            self.assertFalse(_consume_nonce_via_control_plane("nonce-value-2", "a" * 64, "b" * 64))
-        run.assert_not_called()
+            self.assertFalse(
+                _consume_nonce_via_control_plane(
+                    "nonce-value-3", "a" * 64, "b" * 64
+                )
+            )
+        socket_factory.assert_not_called()
 
     def test_operation_payload_cannot_embed_secret_material(self):
         payload = operation_payload("PROD-SECRET")

@@ -13,7 +13,7 @@
 - Made Base Reviewer revocation authoritative so a stale external bootstrap variable cannot reactivate a revoked key.
 - Required the Base Reviewer store itself to match the exact bootstrap contract before any external key is accepted; missing or malformed Base state fails closed.
 - Bound Evidence to Collector identity, immutable source suffix, and detected media type, and retained verified directory descriptors through collection and redaction mutations.
-- Required L3 repository/project/environment to match a separate root-controlled Runtime Context, made outer/inner scope identical, rejected root Agent execution, and pinned the verified Broker inode.
+- Required L3 repository/project/environment to match a separate root-controlled Runtime Context, made outer/inner scope identical, rejected root Agent execution, and moved atomic nonce consumption to a root-provisioned Unix service on fixed macOS/Linux paths.
 - Pinned privileged GitHub Actions to full commit SHAs and hash-locked every Python dependency used by the trusted verifier.
 
 ### Added
