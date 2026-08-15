@@ -358,6 +358,31 @@ class EvidenceFlowTests(unittest.TestCase):
             attach(self.dep, "pr")
         self.assertFalse((outside / "attach-pr.md").exists())
 
+    def test_attach_rejects_atomic_control_document_replacement(self):
+        self._prepare_attachable_dep()
+        alternate = self.root / "alternate-summary.yaml"
+        replacement = json.loads(
+            (self.dep / "summary.yaml").read_text(encoding="utf-8")
+        )
+        replacement["issue"] = "UNVERIFIED-CONTROL-DOCUMENT"
+        alternate.write_text(
+            json.dumps(replacement, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        original = evidence_module._verify_open
+
+        def replace_after_verify(dep, dep_fd, strict, portable):
+            result = original(dep, dep_fd, strict, portable)
+            alternate.replace(self.dep / "summary.yaml")
+            return result
+
+        with (
+            patch("sddgov.evidence._verify_open", side_effect=replace_after_verify),
+            self.assertRaisesRegex(ValueError, "verified control document changed"),
+        ):
+            attach(self.dep, "pr")
+        self.assertFalse((self.dep / "attach-pr.md").exists())
+
     def test_custom_attachment_output_parent_replacement_fails_closed(self):
         self._prepare_attachable_dep()
         output_parent = self.root / "attachment-output"

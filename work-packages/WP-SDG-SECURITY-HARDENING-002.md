@@ -26,7 +26,7 @@
 - Require Base revocation to override stale external Reviewer bootstrap state.
 - Require complete, mutually exclusive raw-to-redacted/blocked associations; block HAR and unknown/binary types from the deterministic text route.
 - Reject symlink side effects, hardlinks, and pathname reopen TOCTOU in Evidence collection/redaction.
-- Bind Collector identity, immutable source suffix, and detected media type; retain verified base/source/DEP/zone/output directory descriptors through DEP creation, final Evidence reads, verification, attachment, and control-document mutation.
+- Bind Collector identity, immutable source suffix, and detected media type; retain verified base/source/DEP/zone/output directory descriptors through DEP creation, final Evidence reads, verification, attachment, and control-document mutation. Attachment output must consume the exact verified control snapshot and reject a same-directory control-file swap.
 - Require a separate root-controlled Runtime Context for L3, reject root Agent execution, use a root-provisioned Unix nonce service on fixed platform paths, and return the exact authorized payload to the executor.
 - Pin privileged GitHub Actions by full commit SHA and install only hash-locked verifier dependencies.
 - Add a synthetic, disposable Muse-compatible pilot with no real user content or external authority.

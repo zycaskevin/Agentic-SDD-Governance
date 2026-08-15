@@ -865,24 +865,36 @@ def _verify_redaction_associations(
     return errors
 
 
-def _verify_open(dep: Path, dep_fd: int, strict: bool, portable: bool) -> list[str]:
+def _verify_open(
+    dep: Path, dep_fd: int, strict: bool, portable: bool
+) -> tuple[list[str], dict | None, dict | None, dict[str, tuple[int, int, int, int]]]:
+    """Verify one immutable-in-memory snapshot of the DEP control documents."""
     errors: list[str] = []
+    control_bytes: dict[str, bytes] = {}
+    control_identities: dict[str, tuple[int, int, int, int]] = {}
     if portable and not strict:
         errors.append("portable verification requires strict mode")
     for name in ("summary.yaml", "manifest.json"):
         try:
-            _read_regular_bytes_at(dep_fd, name, name)
+            document, metadata = _read_regular_bytes_at(dep_fd, name, name)
+            control_bytes[name] = document
+            control_identities[name] = (
+                metadata.st_dev,
+                metadata.st_ino,
+                metadata.st_size,
+                metadata.st_mtime_ns,
+            )
         except FileNotFoundError:
             errors.append(f"missing {name}")
         except ValueError as exc:
             errors.append(str(exc))
     if errors:
-        return errors
+        return errors, None, None, control_identities
     try:
-        summary = _load_at(dep_fd, "summary.yaml")
-        manifest = _load_at(dep_fd, "manifest.json")
+        summary = json.loads(control_bytes["summary.yaml"].decode("utf-8"))
+        manifest = json.loads(control_bytes["manifest.json"].decode("utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-        return [f"invalid machine-readable document: {exc}"]
+        return [f"invalid machine-readable document: {exc}"], None, None, control_identities
     try:
         errors.extend(
             f"summary schema: {error}"
@@ -906,7 +918,7 @@ def _verify_open(dep: Path, dep_fd: int, strict: bool, portable: bool) -> list[s
     phase = summary.get("workflow", {}).get("phase")
     if phase not in PHASES:
         errors.append("invalid workflow phase")
-        return errors
+        return errors, summary, manifest, control_identities
     history = summary.get("workflow", {}).get("history")
     expected_history = list(PHASES[: PHASES.index(phase) + 1])
     actual_history = (
@@ -983,13 +995,33 @@ def _verify_open(dep: Path, dep_fd: int, strict: bool, portable: bool) -> list[s
         registered = shareable_by_path.get(attachment.get("path"))
         if registered is None or registered.get("sha256") != attachment.get("sha256"):
             errors.append("summary attachment is not bound to a matching shareable artifact")
-    return errors
+    return errors, summary, manifest, control_identities
+
+
+def _require_control_snapshot(
+    dep_fd: int, identities: dict[str, tuple[int, int, int, int]]
+) -> None:
+    """Fail closed if a verified DEP control file was replaced before use."""
+    for name in ("summary.yaml", "manifest.json"):
+        try:
+            metadata = os.stat(name, dir_fd=dep_fd, follow_symlinks=False)
+        except OSError as exc:
+            raise ValueError(f"verified control document changed: {name}") from exc
+        observed = (
+            metadata.st_dev,
+            metadata.st_ino,
+            metadata.st_size,
+            metadata.st_mtime_ns,
+        )
+        if not stat.S_ISREG(metadata.st_mode) or observed != identities.get(name):
+            raise ValueError(f"verified control document changed: {name}")
 
 
 def verify(dep: Path, strict: bool = False, portable: bool = False) -> list[str]:
     try:
         with _opened_dep_root(dep) as dep_fd:
-            return _verify_open(dep, dep_fd, strict, portable)
+            errors, _, _, _ = _verify_open(dep, dep_fd, strict, portable)
+            return errors
     except (OSError, ValueError) as exc:
         return [f"Evidence filesystem boundary changed or is unsafe: {exc}"]
 
@@ -998,11 +1030,14 @@ def attach(dep: Path, target: str, output: Path | None = None) -> Path:
     if target not in {"issue", "commit", "pr", "changelog"}:
         raise ValueError("target must be issue, commit, pr, or changelog")
     with _opened_dep_root(dep) as dep_fd:
-        errors = _verify_open(dep, dep_fd, strict=True, portable=False)
+        errors, summary, manifest, identities = _verify_open(
+            dep, dep_fd, strict=True, portable=False
+        )
         if errors:
             raise ValueError("DEP is not attachable: " + "; ".join(errors))
-        summary = _load_at(dep_fd, "summary.yaml")
-        manifest = _load_at(dep_fd, "manifest.json")
+        if summary is None or manifest is None:
+            raise ValueError("DEP verification did not return a control snapshot")
+        _require_control_snapshot(dep_fd, identities)
         lines = [
             f"Evidence: {summary['dep_id']}",
             f"Issue: {summary['issue']}",
