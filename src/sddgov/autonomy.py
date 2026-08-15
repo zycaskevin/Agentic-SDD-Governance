@@ -1185,6 +1185,13 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
                 scope=request.get("decision_scope"),
             )
         ):
+            if "decision_package" in request:
+                return {
+                    "state": "BLOCKED",
+                    "requires_response": False,
+                    "reason": "existing_decision_reuse_must_not_include_decision_package",
+                    "next_action": "remove_the_new_package_or_reopen_one_bounded_product_decision",
+                }
             return _continue("existing_decision_reused_without_duplicate_question")
 
     if risk == "L3" and request.get("approval_id"):

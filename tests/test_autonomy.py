@@ -690,6 +690,28 @@ class AutonomyTests(unittest.TestCase):
                     "request_contains_fields_outside_closed_category_schema",
                 )
 
+    def test_l2_product_reuse_rejects_nested_decision_package(self):
+        approval_path, _ = self._signed_product_approval("DEC-CLOSED-PACKAGE")
+        import_product_approval(self.root, approval_path)
+        package = decision_package("L2", "DEC-FOREIGN-PACKAGE")
+        package["operation_payload"] = operation_payload("PROD-NESTED-PACKAGE")
+        result = evaluate_escalation(
+            self.root,
+            {
+                "risk_level": "L2",
+                "category": "product_decision",
+                "decision_id": "DEC-CLOSED-PACKAGE",
+                "decision_scope": "MVP data layer",
+                "decision_package": package,
+            },
+        )
+        self.assertEqual(result["state"], "BLOCKED")
+        self.assertFalse(result["requires_response"])
+        self.assertEqual(
+            result["reason"],
+            "existing_decision_reuse_must_not_include_decision_package",
+        )
+
     def test_l2_and_l3_emit_strict_action_required(self):
         l2 = evaluate_escalation(
             self.root,
