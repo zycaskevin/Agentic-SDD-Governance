@@ -246,6 +246,18 @@ def _load_at(directory_fd: int, name: str) -> dict:
     return json.loads(raw.decode("utf-8"))
 
 
+def _control_snapshot_digest(control_bytes: dict[str, bytes]) -> str:
+    """Bind an attachment to the exact summary and manifest bytes it verified."""
+    digest = hashlib.sha256(b"SDDGOV-DEP-CONTROL-SNAPSHOT-v1\0")
+    for name in ("summary.yaml", "manifest.json"):
+        document = control_bytes[name]
+        digest.update(name.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(len(document).to_bytes(8, "big"))
+        digest.update(document)
+    return digest.hexdigest()
+
+
 def _write_bytes_at(directory_fd: int, name: str, encoded: bytes, label: str) -> None:
     """Atomically replace one direct child without reopening its parent path."""
     if not name or Path(name).name != name:
@@ -940,7 +952,13 @@ def _verify_redaction_associations(
 
 def _verify_open(
     dep: Path, dep_fd: int, strict: bool, portable: bool
-) -> tuple[list[str], dict | None, dict | None, dict[str, tuple[int, int, int, int]]]:
+) -> tuple[
+    list[str],
+    dict | None,
+    dict | None,
+    dict[str, tuple[int, int, int, int]],
+    str | None,
+]:
     """Verify one immutable-in-memory snapshot of the DEP control documents."""
     errors: list[str] = []
     control_bytes: dict[str, bytes] = {}
@@ -962,12 +980,19 @@ def _verify_open(
         except ValueError as exc:
             errors.append(str(exc))
     if errors:
-        return errors, None, None, control_identities
+        return errors, None, None, control_identities, None
+    snapshot_digest = _control_snapshot_digest(control_bytes)
     try:
         summary = json.loads(control_bytes["summary.yaml"].decode("utf-8"))
         manifest = json.loads(control_bytes["manifest.json"].decode("utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-        return [f"invalid machine-readable document: {exc}"], None, None, control_identities
+        return (
+            [f"invalid machine-readable document: {exc}"],
+            None,
+            None,
+            control_identities,
+            snapshot_digest,
+        )
     try:
         errors.extend(
             f"summary schema: {error}"
@@ -991,7 +1016,7 @@ def _verify_open(
     phase = summary.get("workflow", {}).get("phase")
     if phase not in PHASES:
         errors.append("invalid workflow phase")
-        return errors, summary, manifest, control_identities
+        return errors, summary, manifest, control_identities, snapshot_digest
     history = summary.get("workflow", {}).get("history")
     expected_history = list(PHASES[: PHASES.index(phase) + 1])
     actual_history = (
@@ -1068,7 +1093,7 @@ def _verify_open(
         registered = shareable_by_path.get(attachment.get("path"))
         if registered is None or registered.get("sha256") != attachment.get("sha256"):
             errors.append("summary attachment is not bound to a matching shareable artifact")
-    return errors, summary, manifest, control_identities
+    return errors, summary, manifest, control_identities, snapshot_digest
 
 
 def _require_control_snapshot(
@@ -1093,7 +1118,7 @@ def _require_control_snapshot(
 def verify(dep: Path, strict: bool = False, portable: bool = False) -> list[str]:
     try:
         with _opened_dep_root(dep) as dep_fd:
-            errors, _, _, _ = _verify_open(dep, dep_fd, strict, portable)
+            errors, _, _, _, _ = _verify_open(dep, dep_fd, strict, portable)
             return errors
     except (OSError, ValueError) as exc:
         return [f"Evidence filesystem boundary changed or is unsafe: {exc}"]
@@ -1103,18 +1128,19 @@ def attach(dep: Path, target: str, output: Path | None = None) -> Path:
     if target not in {"issue", "commit", "pr", "changelog"}:
         raise ValueError("target must be issue, commit, pr, or changelog")
     with _opened_dep_root(dep) as dep_fd:
-        errors, summary, manifest, identities = _verify_open(
+        errors, summary, manifest, identities, snapshot_digest = _verify_open(
             dep, dep_fd, strict=True, portable=False
         )
         if errors:
             raise ValueError("DEP is not attachable: " + "; ".join(errors))
-        if summary is None or manifest is None:
+        if summary is None or manifest is None or snapshot_digest is None:
             raise ValueError("DEP verification did not return a control snapshot")
         lines = [
             f"Evidence: {summary['dep_id']}",
             f"Issue: {summary['issue']}",
             f"SDD: {', '.join(summary.get('sdd_references') or ['n/a'])}",
             f"Risk: {summary['risk_level']}",
+            f"Control snapshot SHA-256: `{snapshot_digest}`",
             "Workflow: Red -> Evidence -> Fix -> Green -> Proof",
             "Verified artifacts:",
         ]
@@ -1125,7 +1151,7 @@ def attach(dep: Path, target: str, output: Path | None = None) -> Path:
         lines.extend(["", f"Target: {target}"])
         encoded = ("\n".join(lines) + "\n").encode("utf-8")
         if output is None:
-            name = f"attach-{target}.md"
+            name = f"attach-{target}-{snapshot_digest[:16]}.md"
             _publish_verified_attachment_at(
                 dep_fd, dep_fd, name, encoded, identities
             )

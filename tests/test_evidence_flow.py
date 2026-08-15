@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 import stat
 import tempfile
 import unittest
@@ -44,6 +45,14 @@ class EvidenceFlowTests(unittest.TestCase):
         transition(self.dep, "green")
         self._complete("rollback.md", "Revert the bounded synthetic change and rerun tests.")
         transition(self.dep, "proof")
+
+    def _default_attachment_path(self, dep: Path, target: str = "pr") -> Path:
+        controls = {
+            name: (dep / name).read_bytes()
+            for name in ("summary.yaml", "manifest.json")
+        }
+        digest = evidence_module._control_snapshot_digest(controls)
+        return dep / f"attach-{target}-{digest[:16]}.md"
 
     def test_full_red_to_proof_flow(self):
         self._complete("reproduction.md", "Create item, observe success, refresh, item disappears.")
@@ -356,7 +365,7 @@ class EvidenceFlowTests(unittest.TestCase):
             self.assertRaisesRegex(ValueError, "DEP root changed"),
         ):
             attach(self.dep, "pr")
-        self.assertFalse((outside / "attach-pr.md").exists())
+        self.assertEqual(list(outside.glob("attach-pr-*.md")), [])
 
     def test_attach_rejects_atomic_control_document_replacement(self):
         self._prepare_attachable_dep()
@@ -381,7 +390,7 @@ class EvidenceFlowTests(unittest.TestCase):
             self.assertRaisesRegex(ValueError, "verified control document changed"),
         ):
             attach(self.dep, "pr")
-        self.assertFalse((self.dep / "attach-pr.md").exists())
+        self.assertEqual(list(self.dep.glob("attach-pr-*.md")), [])
 
     def test_default_attachment_preserves_later_writer_when_control_changes(self):
         self._prepare_attachable_dep()
@@ -391,6 +400,7 @@ class EvidenceFlowTests(unittest.TestCase):
         third_party.write_text("preserve later writer\n", encoding="utf-8")
         original = evidence_module._stage_attachment_at
         replaced = False
+        output = self._default_attachment_path(self.dep)
 
         def replace_control(directory_fd, name, data):
             nonlocal replaced
@@ -398,7 +408,7 @@ class EvidenceFlowTests(unittest.TestCase):
             if not replaced:
                 replaced = True
                 alternate.replace(self.dep / "summary.yaml")
-                third_party.replace(self.dep / "attach-pr.md")
+                third_party.replace(output)
             return temporary
 
         with (
@@ -407,7 +417,7 @@ class EvidenceFlowTests(unittest.TestCase):
         ):
             attach(self.dep, "pr")
         self.assertEqual(
-            (self.dep / "attach-pr.md").read_text(encoding="utf-8"),
+            output.read_text(encoding="utf-8"),
             "preserve later writer\n",
         )
 
@@ -460,7 +470,7 @@ class EvidenceFlowTests(unittest.TestCase):
                     output_parent.mkdir()
                     output = output_parent / "pr-evidence.md"
                 else:
-                    output = dep / "attach-pr.md"
+                    output = self._default_attachment_path(dep)
                 later = case_root / "later-writer.md"
                 later.write_text("preserve later writer\n", encoding="utf-8")
                 original = evidence_module._stage_attachment_at
@@ -485,6 +495,45 @@ class EvidenceFlowTests(unittest.TestCase):
                 self.assertEqual(
                     output.read_text(encoding="utf-8"), "preserve later writer\n"
                 )
+
+    def test_link_boundary_control_update_keeps_attachment_generation_bound(self):
+        self._prepare_attachable_dep()
+        old_output = self._default_attachment_path(self.dep)
+        old_digest = old_output.stem.rsplit("-", 1)[-1]
+        replacement = json.loads(
+            (self.dep / "summary.yaml").read_text(encoding="utf-8")
+        )
+        replacement["issue"] = "ISSUE-NEXT-CONTROL-GENERATION"
+        alternate = self.root / "next-summary.yaml"
+        alternate.write_text(
+            json.dumps(replacement, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        original = os.link
+        replaced = False
+
+        def update_at_publish(src, dst, **kwargs):
+            nonlocal replaced
+            if not replaced:
+                replaced = True
+                alternate.replace(self.dep / "summary.yaml")
+            return original(src, dst, **kwargs)
+
+        with patch("sddgov.evidence.os.link", side_effect=update_at_publish):
+            published = attach(self.dep, "pr")
+        self.assertEqual(published, old_output)
+        attachment = published.read_text(encoding="utf-8")
+        self.assertIn(f"Control snapshot SHA-256: `{old_digest}", attachment)
+        self.assertIn("Issue: ISSUE-128", attachment)
+        self.assertNotIn("ISSUE-NEXT-CONTROL-GENERATION", attachment)
+        current_controls = {
+            name: (self.dep / name).read_bytes()
+            for name in ("summary.yaml", "manifest.json")
+        }
+        self.assertNotEqual(
+            evidence_module._control_snapshot_digest(current_controls)[:16],
+            old_digest,
+        )
 
     def test_custom_attachment_publishes_to_an_absent_output(self):
         self._prepare_attachable_dep()
