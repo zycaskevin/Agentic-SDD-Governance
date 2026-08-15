@@ -99,26 +99,11 @@ def _opened_directory_path(path: Path, *, create: bool):
 
 @contextmanager
 def _opened_dep_root(dep: Path):
-    if dep.is_symlink() or not dep.exists() or not dep.is_dir():
-        raise ValueError("DEP root must be an existing non-symlink directory")
-    before = dep.lstat()
-    directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
-    directory_flags |= getattr(os, "O_NOFOLLOW", 0)
-    descriptor = os.open(dep, directory_flags)
     try:
-        opened_root = os.fstat(descriptor)
-        if (before.st_dev, before.st_ino) != (opened_root.st_dev, opened_root.st_ino):
-            raise ValueError("DEP root changed while it was being opened")
-        yield descriptor
-        after = dep.lstat()
-        if (
-            stat.S_ISLNK(after.st_mode)
-            or not stat.S_ISDIR(after.st_mode)
-            or (after.st_dev, after.st_ino) != (opened_root.st_dev, opened_root.st_ino)
-        ):
-            raise ValueError("DEP root changed during the Evidence operation")
-    finally:
-        os.close(descriptor)
+        with _opened_directory_path(dep, create=False) as (_, descriptor):
+            yield descriptor
+    except FileNotFoundError as exc:
+        raise ValueError("DEP root must be an existing safe directory path") from exc
 
 
 @contextmanager
@@ -213,7 +198,11 @@ def _read_regular_bytes_at(directory_fd: int, name: str, label: str) -> tuple[by
     """Read one direct child through a retained directory descriptor."""
     if not name or Path(name).name != name:
         raise ValueError(f"{label} has an invalid filename")
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    flags = (
+        os.O_RDONLY
+        | getattr(os, "O_NONBLOCK", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+    )
     try:
         descriptor = os.open(name, flags, dir_fd=directory_fd)
     except FileNotFoundError:
@@ -256,6 +245,70 @@ def _control_snapshot_digest(control_bytes: dict[str, bytes]) -> str:
         digest.update(len(document).to_bytes(8, "big"))
         digest.update(document)
     return digest.hexdigest()
+
+
+def _capture_artifact_snapshot(
+    dep_fd: int, manifest: dict
+) -> dict[str, tuple[int, int, int, int, str]]:
+    snapshot: dict[str, tuple[int, int, int, int, str]] = {}
+    for kind, zone in (("raw", "private/raw"), ("shareable", "shareable/artifacts")):
+        rows = manifest.get(kind, [])
+        if not isinstance(rows, list):
+            raise ValueError(f"manifest {kind} must be an array")
+        with _opened_zone_at(dep_fd, Path(zone), create=False) as zone_fd:
+            for row in rows:
+                if not isinstance(row, dict):
+                    raise ValueError(f"manifest {kind} row is invalid")
+                path = row.get("path")
+                name = Path(str(path)).name
+                raw, metadata = _read_regular_bytes_at(
+                    zone_fd, name, f"verified artifact {path}"
+                )
+                digest = hashlib.sha256(raw).hexdigest()
+                if len(raw) != row.get("size") or digest != row.get("sha256"):
+                    raise ValueError(f"verified artifact changed: {path}")
+                snapshot[str(path)] = (
+                    metadata.st_dev,
+                    metadata.st_ino,
+                    metadata.st_size,
+                    metadata.st_mtime_ns,
+                    digest,
+                )
+    return snapshot
+
+
+def _require_artifact_snapshot(
+    dep_fd: int, snapshot: dict[str, tuple[int, int, int, int, str]]
+) -> None:
+    grouped: dict[str, list[tuple[str, tuple[int, int, int, int, str]]]] = {
+        "private/raw": [],
+        "shareable/artifacts": [],
+    }
+    for path, identity in snapshot.items():
+        zone = str(PurePosixPath(path).parent)
+        if zone not in grouped:
+            raise ValueError(f"verified artifact path is unsafe: {path}")
+        grouped[zone].append((path, identity))
+    for zone, rows in grouped.items():
+        with _opened_zone_at(dep_fd, Path(zone), create=False) as zone_fd:
+            for path, identity in rows:
+                try:
+                    raw, metadata = _read_regular_bytes_at(
+                        zone_fd,
+                        PurePosixPath(path).name,
+                        f"verified artifact {path}",
+                    )
+                except (OSError, ValueError) as exc:
+                    raise ValueError(f"verified artifact changed: {path}") from exc
+                observed = (
+                    metadata.st_dev,
+                    metadata.st_ino,
+                    metadata.st_size,
+                    metadata.st_mtime_ns,
+                    hashlib.sha256(raw).hexdigest(),
+                )
+                if observed != identity:
+                    raise ValueError(f"verified artifact changed: {path}")
 
 
 def _write_bytes_at(directory_fd: int, name: str, encoded: bytes, label: str) -> None:
@@ -344,7 +397,7 @@ def _stage_attachment_at(output_fd: int, name: str, encoded: bytes) -> str:
             written = os.write(descriptor, view)
             view = view[written:]
         os.fsync(descriptor)
-    except Exception:
+    except BaseException:
         try:
             os.unlink(temporary, dir_fd=output_fd)
         except FileNotFoundError:
@@ -362,11 +415,13 @@ def _publish_verified_attachment_at(
     name: str,
     encoded: bytes,
     control_identities: dict[str, tuple[int, int, int, int]],
+    artifact_identities: dict[str, tuple[int, int, int, int, str]],
 ) -> None:
     """Stage, recheck controls, then publish without clobbering another writer."""
     temporary = _stage_attachment_at(output_fd, name, encoded)
     try:
         _require_control_snapshot(dep_fd, control_identities)
+        _require_artifact_snapshot(dep_fd, artifact_identities)
         os.link(
             temporary,
             name,
@@ -554,9 +609,11 @@ def collect(dep: Path, collector: str, input_path: Path, label: str | None = Non
                     written = os.write(descriptor, view)
                     view = view[written:]
                 os.fsync(descriptor)
+                written_metadata = os.fstat(descriptor)
             finally:
                 os.close(descriptor)
             digest = hashlib.sha256(raw).hexdigest()
+            previous_manifest = json.loads(json.dumps(manifest))
             manifest["raw"].append({
                 "collector": collector,
                 "path": f"private/raw/{filename}",
@@ -567,12 +624,43 @@ def collect(dep: Path, collector: str, input_path: Path, label: str | None = Non
                 "collected_at": utc_now(),
                 "shareable": False,
             })
-            _save_at(dep_fd, "manifest.json", manifest)
+            try:
+                _save_at(dep_fd, "manifest.json", manifest)
+            except BaseException:
+                try:
+                    _save_at(dep_fd, "manifest.json", previous_manifest)
+                except BaseException:
+                    pass
+                try:
+                    current = os.stat(
+                        filename, dir_fd=raw_dir_fd, follow_symlinks=False
+                    )
+                except FileNotFoundError:
+                    current = None
+                if current is not None and (
+                    stat.S_ISREG(current.st_mode)
+                    and (current.st_dev, current.st_ino)
+                    == (written_metadata.st_dev, written_metadata.st_ino)
+                ):
+                    os.unlink(filename, dir_fd=raw_dir_fd)
+                    os.fsync(raw_dir_fd)
+                raise
         return destination
 
 
 def redact(dep: Path) -> dict:
     with _opened_dep_root(dep) as dep_fd:
+        manifest_before, _ = _read_regular_bytes_at(
+            dep_fd, "manifest.json", "machine-readable document manifest.json"
+        )
+        try:
+            report_before, _ = _read_regular_bytes_at(
+                dep_fd,
+                "redaction-report.json",
+                "machine-readable document redaction-report.json",
+            )
+        except FileNotFoundError:
+            report_before = None
         manifest = _load_at(dep_fd, "manifest.json")
         raw_rows = manifest.get("raw", [])
         if not isinstance(raw_rows, list):
@@ -593,42 +681,125 @@ def redact(dep: Path) -> dict:
             ) as shareable_fd:
                 names = sorted(os.listdir(raw_dir_fd))
                 files = [raw_dir / name for name in names]
-                report = redact_files(
-                files,
-                shareable,
-                metadata_by_name=raw_by_name,
-                source_dir_fd=raw_dir_fd,
-                output_dir_fd=shareable_fd,
-                )
-                report["dep_id"] = _load_at(dep_fd, "summary.yaml")["dep_id"]
-                report["generated_at"] = utc_now()
-                observed_raw = {
-                    row["source"]: (row["source_sha256"], row["source_size"])
-                    for row in report["files"]
-                }
-                observed_raw.update(
-                    {
-                        row["file"]: (row["sha256"], row["size"])
-                        for row in report["blocked"]
+                existing_outputs = set(os.listdir(shareable_fd))
+                if existing_outputs:
+                    for existing_name in existing_outputs:
+                        existing_metadata = os.stat(
+                            existing_name,
+                            dir_fd=shareable_fd,
+                            follow_symlinks=False,
+                        )
+                        if stat.S_ISLNK(existing_metadata.st_mode):
+                            raise ValueError(
+                                f"redaction destination must not be a symlink: {existing_name}"
+                            )
+                    raise FileExistsError(
+                        "redaction transaction requires an empty shareable artifact zone"
+                    )
+                written_outputs: dict[str, tuple[int, int]] = {}
+                report_written: tuple[int, int] | None = None
+                manifest_written: tuple[int, int] | None = None
+                try:
+                    report = redact_files(
+                        files,
+                        shareable,
+                        metadata_by_name=raw_by_name,
+                        source_dir_fd=raw_dir_fd,
+                        output_dir_fd=shareable_fd,
+                    )
+                    for row in report["files"]:
+                        name = row["output"]
+                        if name in existing_outputs:
+                            raise FileExistsError(
+                                f"redaction output already existed before transaction: {name}"
+                            )
+                        metadata = os.stat(
+                            name, dir_fd=shareable_fd, follow_symlinks=False
+                        )
+                        written_outputs[name] = (metadata.st_dev, metadata.st_ino)
+                    report["dep_id"] = _load_at(dep_fd, "summary.yaml")["dep_id"]
+                    report["generated_at"] = utc_now()
+                    observed_raw = {
+                        row["source"]: (row["source_sha256"], row["source_size"])
+                        for row in report["files"]
                     }
-                )
-                for name, row in raw_by_name.items():
-                    observed = observed_raw.get(name)
-                    if observed is None:
-                        raise ValueError(f"raw artifact is not covered by redaction: {name}")
-                    row["sha256"], row["size"] = observed
-                manifest["shareable"] = [
-                    {
-                        "path": f"shareable/artifacts/{row['output']}",
-                        "sha256": row["output_sha256"],
-                        "size": row["output_size"],
-                        "shareable": True,
-                    }
-                    for row in report["files"]
-                ]
-                _save_at(dep_fd, "redaction-report.json", report)
-                _save_at(dep_fd, "manifest.json", manifest)
-                return report
+                    observed_raw.update(
+                        {
+                            row["file"]: (row["sha256"], row["size"])
+                            for row in report["blocked"]
+                        }
+                    )
+                    for name, row in raw_by_name.items():
+                        observed = observed_raw.get(name)
+                        if observed is None:
+                            raise ValueError(
+                                f"raw artifact is not covered by redaction: {name}"
+                            )
+                        row["sha256"], row["size"] = observed
+                    manifest["shareable"] = [
+                        {
+                            "path": f"shareable/artifacts/{row['output']}",
+                            "sha256": row["output_sha256"],
+                            "size": row["output_size"],
+                            "shareable": True,
+                        }
+                        for row in report["files"]
+                    ]
+                    _save_at(dep_fd, "redaction-report.json", report)
+                    report_metadata = os.stat(
+                        "redaction-report.json",
+                        dir_fd=dep_fd,
+                        follow_symlinks=False,
+                    )
+                    report_written = (report_metadata.st_dev, report_metadata.st_ino)
+                    _save_at(dep_fd, "manifest.json", manifest)
+                    manifest_metadata = os.stat(
+                        "manifest.json", dir_fd=dep_fd, follow_symlinks=False
+                    )
+                    manifest_written = (
+                        manifest_metadata.st_dev,
+                        manifest_metadata.st_ino,
+                    )
+                    return report
+                except BaseException:
+                    for name, identity in written_outputs.items():
+                        try:
+                            current = os.stat(
+                                name, dir_fd=shareable_fd, follow_symlinks=False
+                            )
+                        except FileNotFoundError:
+                            continue
+                        if (current.st_dev, current.st_ino) == identity:
+                            os.unlink(name, dir_fd=shareable_fd)
+                    if manifest_written is not None:
+                        current = os.stat(
+                            "manifest.json", dir_fd=dep_fd, follow_symlinks=False
+                        )
+                        if (current.st_dev, current.st_ino) == manifest_written:
+                            _write_bytes_at(
+                                dep_fd,
+                                "manifest.json",
+                                manifest_before,
+                                "manifest rollback",
+                            )
+                    if report_written is not None:
+                        current = os.stat(
+                            "redaction-report.json",
+                            dir_fd=dep_fd,
+                            follow_symlinks=False,
+                        )
+                        if (current.st_dev, current.st_ino) == report_written:
+                            if report_before is None:
+                                os.unlink("redaction-report.json", dir_fd=dep_fd)
+                            else:
+                                _write_bytes_at(
+                                    dep_fd,
+                                    "redaction-report.json",
+                                    report_before,
+                                    "redaction report rollback",
+                                )
+                    os.fsync(shareable_fd)
+                    raise
 
 
 def transition(dep: Path, phase: str) -> dict:
@@ -963,6 +1134,11 @@ def _verify_open(
     errors: list[str] = []
     control_bytes: dict[str, bytes] = {}
     control_identities: dict[str, tuple[int, int, int, int]] = {}
+    for name in os.listdir(dep_fd):
+        if (
+            name.startswith(".attach-") and ".pending-" in name
+        ) or name.startswith(".redact-pending-"):
+            errors.append(f"pending attachment transaction residue: {name}")
     if portable and not strict:
         errors.append("portable verification requires strict mode")
     for name in ("summary.yaml", "manifest.json"):
@@ -1135,6 +1311,7 @@ def attach(dep: Path, target: str, output: Path | None = None) -> Path:
             raise ValueError("DEP is not attachable: " + "; ".join(errors))
         if summary is None or manifest is None or snapshot_digest is None:
             raise ValueError("DEP verification did not return a control snapshot")
+        artifact_identities = _capture_artifact_snapshot(dep_fd, manifest)
         lines = [
             f"Evidence: {summary['dep_id']}",
             f"Issue: {summary['issue']}",
@@ -1153,11 +1330,16 @@ def attach(dep: Path, target: str, output: Path | None = None) -> Path:
         if output is None:
             name = f"attach-{target}-{snapshot_digest[:16]}.md"
             _publish_verified_attachment_at(
-                dep_fd, dep_fd, name, encoded, identities
+                dep_fd, dep_fd, name, encoded, identities, artifact_identities
             )
             return dep / name
         with _opened_directory_path(output.parent, create=False) as (_, output_fd):
             _publish_verified_attachment_at(
-                dep_fd, output_fd, output.name, encoded, identities
+                dep_fd,
+                output_fd,
+                output.name,
+                encoded,
+                identities,
+                artifact_identities,
             )
         return output

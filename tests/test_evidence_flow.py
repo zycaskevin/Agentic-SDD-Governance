@@ -137,6 +137,71 @@ class EvidenceFlowTests(unittest.TestCase):
             collect(self.dep, "terminal", source)
         self.assertFalse((redirected / "raw").exists())
 
+    def test_dep_root_rejects_an_intermediate_symlink_component(self):
+        alias = self.root / "evidence-alias"
+        alias.symlink_to(self.root / "evidence", target_is_directory=True)
+        with self.assertRaisesRegex(ValueError, "directory path"):
+            with evidence_module._opened_dep_root(alias / self.dep.name):
+                pass
+
+    def test_regular_file_reader_requests_nonblocking_open(self):
+        source = self.root / "nonblocking-source.log"
+        source.write_text("synthetic evidence\n", encoding="utf-8")
+        original = os.open
+        observed_flags = []
+
+        def inspect_flags(path, flags, *args, **kwargs):
+            if path == source.name:
+                observed_flags.append(flags)
+            return original(path, flags, *args, **kwargs)
+
+        with patch("sddgov.evidence.os.open", side_effect=inspect_flags):
+            evidence_module._read_regular_bytes(source, "collector input")
+        self.assertTrue(observed_flags)
+        self.assertTrue(observed_flags[0] & getattr(os, "O_NONBLOCK", 0))
+
+    def test_collect_failure_removes_unregistered_raw_artifact(self):
+        source = self.root / "transactional-collect.log"
+        source.write_text("synthetic failure\n", encoding="utf-8")
+        original = evidence_module._save_at
+
+        def fail_manifest(directory_fd, name, data):
+            if name == "manifest.json":
+                raise OSError("synthetic manifest failure")
+            return original(directory_fd, name, data)
+
+        with (
+            patch("sddgov.evidence._save_at", side_effect=fail_manifest),
+            self.assertRaisesRegex(OSError, "synthetic manifest failure"),
+        ):
+            collect(self.dep, "terminal", source)
+        manifest = json.loads((self.dep / "manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(manifest["raw"], [])
+        self.assertEqual(list((self.dep / "private/raw").iterdir()), [])
+
+    def test_redact_failure_removes_unregistered_shareable_artifacts(self):
+        source = self.root / "transactional-redact.log"
+        source.write_text("password=synthetic\n", encoding="utf-8")
+        collect(self.dep, "terminal", source)
+        manifest_before = (self.dep / "manifest.json").read_bytes()
+        report_path = self.dep / "redaction-report.json"
+        self.assertFalse(report_path.exists())
+        original = evidence_module._save_at
+
+        def fail_report(directory_fd, name, data):
+            if name == "redaction-report.json":
+                raise OSError("synthetic report failure")
+            return original(directory_fd, name, data)
+
+        with (
+            patch("sddgov.evidence._save_at", side_effect=fail_report),
+            self.assertRaisesRegex(OSError, "synthetic report failure"),
+        ):
+            redact(self.dep)
+        self.assertEqual(list((self.dep / "shareable/artifacts").iterdir()), [])
+        self.assertEqual((self.dep / "manifest.json").read_bytes(), manifest_before)
+        self.assertFalse(report_path.exists())
+
     def test_collector_keeps_verified_dirfd_during_parent_replacement(self):
         source = self.root / "source.log"
         source.write_text("synthetic failure", encoding="utf-8")
@@ -257,7 +322,10 @@ class EvidenceFlowTests(unittest.TestCase):
                         "sddgov.evidence._write_bytes_at",
                         side_effect=replace_parent,
                     ),
-                    self.assertRaisesRegex(ValueError, "DEP root changed|cannot enter"),
+            self.assertRaisesRegex(
+                ValueError,
+                "DEP root changed|directory path changed|cannot enter",
+            ),
                 ):
                     if control_name == "manifest.json":
                         collect(dep, "terminal", source)
@@ -362,7 +430,7 @@ class EvidenceFlowTests(unittest.TestCase):
 
         with (
             patch("sddgov.evidence._verify_open", side_effect=replace_after_verify),
-            self.assertRaisesRegex(ValueError, "DEP root changed"),
+            self.assertRaisesRegex(ValueError, "DEP root changed|directory path changed"),
         ):
             attach(self.dep, "pr")
         self.assertEqual(list(outside.glob("attach-pr-*.md")), [])
@@ -391,6 +459,61 @@ class EvidenceFlowTests(unittest.TestCase):
         ):
             attach(self.dep, "pr")
         self.assertEqual(list(self.dep.glob("attach-pr-*.md")), [])
+
+    def test_attachment_rechecks_verified_artifact_before_publication(self):
+        self._prepare_attachable_dep()
+        artifact = next((self.dep / "shareable/artifacts").iterdir())
+        replacement = self.root / "replacement-artifact.log"
+        replacement.write_text("unverified replacement bytes\n", encoding="utf-8")
+        output = self._default_attachment_path(self.dep)
+        original = evidence_module._stage_attachment_at
+        swapped = False
+
+        def swap_after_stage(directory_fd, name, data):
+            nonlocal swapped
+            temporary = original(directory_fd, name, data)
+            if not swapped:
+                swapped = True
+                replacement.replace(artifact)
+            return temporary
+
+        with (
+            patch("sddgov.evidence._stage_attachment_at", side_effect=swap_after_stage),
+            self.assertRaisesRegex(ValueError, "verified artifact changed"),
+        ):
+            attach(self.dep, "pr")
+        self.assertFalse(output.exists())
+
+    def test_attachment_staging_cleans_up_on_controlled_interruption(self):
+        output_parent = self.root / "interrupted-attachment"
+        output_parent.mkdir()
+        directory_fd = os.open(
+            output_parent,
+            os.O_RDONLY | getattr(os, "O_DIRECTORY", 0),
+        )
+        try:
+            with (
+                patch("sddgov.evidence.os.write", side_effect=KeyboardInterrupt),
+                self.assertRaises(KeyboardInterrupt),
+            ):
+                evidence_module._stage_attachment_at(
+                    directory_fd,
+                    "proof.md",
+                    b"synthetic proof\n",
+                )
+        finally:
+            os.close(directory_fd)
+        self.assertEqual(list(output_parent.glob(".proof.md.pending-*")), [])
+
+    def test_strict_verify_rejects_pending_attachment_residue(self):
+        self._prepare_attachable_dep()
+        pending = self.dep / ".attach-pr-deadbeef.md.pending-interrupted"
+        pending.write_text("incomplete transaction\n", encoding="utf-8")
+        errors = verify(self.dep, strict=True)
+        self.assertTrue(
+            any("pending attachment transaction" in error for error in errors),
+            errors,
+        )
 
     def test_default_attachment_preserves_later_writer_when_control_changes(self):
         self._prepare_attachable_dep()

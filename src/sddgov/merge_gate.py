@@ -5,6 +5,7 @@ import binascii
 import hashlib
 import json
 import os
+import shlex
 import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path, PurePosixPath
@@ -360,10 +361,27 @@ def _real_rollback(path: Path) -> bool:
     if not required.issubset(fields) or fields["rollback_version"] != "1.0":
         return False
     forbidden = ("todo", "replace", "unavailable", "<", ">")
-    return all(
+    if not all(
         fields[key] and not any(token in fields[key].lower() for token in forbidden)
         for key in ("target", "command", "verify")
-    )
+    ):
+        return False
+
+    def meaningful(command: str) -> bool:
+        try:
+            tokens = shlex.split(command, comments=True, posix=True)
+        except ValueError:
+            return False
+        if not tokens:
+            return False
+        executable = Path(tokens[0]).name.lower()
+        if executable in {"true", "false", "echo", "printf", "noop", ":"}:
+            return False
+        if " ".join(tokens).lower() in {"git status", "git diff", "git log"}:
+            return False
+        return True
+
+    return meaningful(fields["command"]) and meaningful(fields["verify"])
 
 
 def verify_merge(

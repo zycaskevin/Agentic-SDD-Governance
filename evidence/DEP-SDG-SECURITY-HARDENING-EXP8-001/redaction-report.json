@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "terminal--experimental-8-red.txt",
+      "output": "terminal--experimental-8-red.txt",
+      "source_sha256": "471cd758b5863ca361a830b328fc7659f3480bdb2ef6fba02a35820e9e3d59e7",
+      "source_size": 1707,
+      "output_sha256": "471cd758b5863ca361a830b328fc7659f3480bdb2ef6fba02a35820e9e3d59e7",
+      "output_size": 1707,
+      "redactions": {}
+    }
+  ],
+  "blocked": [],
+  "totals": {},
+  "dep_id": "DEP-SDG-SECURITY-HARDENING-EXP8-001",
+  "generated_at": "2026-08-15T16:26:28Z"
+}

@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import subprocess
 import time
 from pathlib import Path
 from typing import Any
+
+import yaml
+from yaml.constructor import ConstructorError
 
 
 CONTRACT_PATH = Path(".sddgov/ci-cost-guard.json")
@@ -100,86 +102,152 @@ def _workflow_paths(root: Path) -> list[Path]:
     )
 
 
-def _job_blocks(text: str) -> list[tuple[str, str]]:
-    lines = text.splitlines()
-    try:
-        jobs_index = next(index for index, line in enumerate(lines) if line.strip() == "jobs:" and not line.startswith(" "))
-    except StopIteration:
-        return []
-    starts: list[tuple[int, str]] = []
-    for index in range(jobs_index + 1, len(lines)):
-        match = re.match(r"^  ([A-Za-z0-9_-]+):\s*$", lines[index])
-        if match:
-            starts.append((index, match.group(1)))
-    blocks: list[tuple[str, str]] = []
-    for position, (start, name) in enumerate(starts):
-        end = starts[position + 1][0] if position + 1 < len(starts) else len(lines)
-        blocks.append((name, "\n".join(lines[start:end])))
-    return blocks
+class _UniqueKeyLoader(yaml.SafeLoader):
+    pass
 
 
-def _automatic(text: str) -> bool:
-    return bool(
-        re.search(r"(?m)^  (pull_request|pull_request_target|push|schedule):", text)
-    )
+def _construct_unique_mapping(loader, node, deep=False):
+    mapping = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if key in mapping:
+            raise ConstructorError(
+                "while constructing a mapping",
+                node.start_mark,
+                f"duplicate key: {key}",
+                key_node.start_mark,
+            )
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+    return mapping
 
 
-def _pull_request(text: str) -> bool:
-    return bool(re.search(r"(?m)^  pull_request(?:_target)?:", text))
+_UniqueKeyLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+    _construct_unique_mapping,
+)
 
 
-def _pull_request_has_ready_for_review(text: str) -> bool:
-    match = re.search(
-        r"(?ms)^  pull_request(?:_target)?:\s*\n(?P<body>(?:^    .*\n?)*)",
-        text,
-    )
-    return bool(match and "ready_for_review" in match.group("body"))
+def _workflow_events(document: dict[str, Any]) -> Any:
+    # PyYAML 1.1 resolves the plain key `on` as boolean True.
+    return document.get("on", document.get(True))
 
 
-def _pull_request_has_converted_to_draft(text: str) -> bool:
-    match = re.search(
-        r"(?ms)^  pull_request(?:_target)?:\s*\n(?P<body>(?:^    .*\n?)*)",
-        text,
-    )
-    return bool(match and "converted_to_draft" in match.group("body"))
+def _event_mapping(value: Any) -> dict[str, Any]:
+    if isinstance(value, str):
+        return {value: None}
+    if isinstance(value, list) and all(isinstance(item, str) for item in value):
+        return {item: None for item in value}
+    if isinstance(value, dict):
+        return value
+    return {}
+
+
+def _permission_errors(value: Any, label: str, *, require_contents: bool) -> list[str]:
+    if not isinstance(value, dict):
+        return [f"{label} permissions must be a mapping"]
+    errors = []
+    for key, permission in value.items():
+        if not isinstance(key, str) or permission not in {"read", "none"}:
+            errors.append(f"{label} permissions must not grant write access")
+    if require_contents and value.get("contents") != "read":
+        errors.append(f"{label} permissions must include contents: read")
+    return errors
 
 
 def _inspect_workflow(path: Path, controls: dict[str, Any]) -> tuple[list[str], dict[str, Any]]:
-    text = path.read_text(encoding="utf-8")
-    jobs = [(name, block) for name, block in _job_blocks(text) if "runs-on:" in block]
-    automatic = _automatic(text)
     errors: list[str] = []
-    if controls.get("require_read_only_permissions") and "runs-on:" in text:
-        if not re.search(r"(?ms)^permissions:\s*\n(?:^[ \t].*\n)*?^  contents:\s*read\s*$", text):
-            errors.append(f"{path.name}: default permissions must include contents: read")
-    if automatic and controls.get("require_concurrency") and not re.search(r"(?m)^concurrency:", text):
+    try:
+        document = yaml.load(path.read_text(encoding="utf-8"), Loader=_UniqueKeyLoader)
+    except (OSError, yaml.YAMLError) as exc:
+        return [f"{path.name}: workflow YAML is invalid: {exc}"], {
+            "workflow": path.name,
+            "automatic": False,
+            "hosted_jobs": [],
+        }
+    if not isinstance(document, dict):
+        return [f"{path.name}: workflow must be a YAML mapping"], {
+            "workflow": path.name,
+            "automatic": False,
+            "hosted_jobs": [],
+        }
+    events = _event_mapping(_workflow_events(document))
+    automatic = bool(
+        set(events) & {"pull_request", "pull_request_target", "push", "schedule"}
+    )
+    jobs_value = document.get("jobs")
+    if not isinstance(jobs_value, dict):
+        jobs_value = {}
+        errors.append(f"{path.name}: jobs must be a mapping")
+    jobs = {
+        name: job
+        for name, job in jobs_value.items()
+        if isinstance(name, str) and isinstance(job, dict) and "runs-on" in job
+    }
+    if controls.get("require_read_only_permissions") and jobs:
+        errors.extend(
+            f"{path.name}: {error}"
+            for error in _permission_errors(
+                document.get("permissions"), "default", require_contents=True
+            )
+        )
+        for name, job in jobs.items():
+            if "permissions" in job:
+                errors.extend(
+                    f"{path.name}: {error}"
+                    for error in _permission_errors(
+                        job["permissions"], f"job {name}", require_contents=False
+                    )
+                )
+    concurrency = document.get("concurrency")
+    if automatic and controls.get("require_concurrency") and not isinstance(
+        concurrency, dict
+    ):
         errors.append(f"{path.name}: automatic workflow requires concurrency")
-    if automatic and controls.get("cancel_in_progress") and not re.search(
-        r"(?m)^  cancel-in-progress:\s*true\s*$", text
+    if automatic and controls.get("cancel_in_progress") and (
+        not isinstance(concurrency, dict)
+        or concurrency.get("cancel-in-progress") is not True
     ):
         errors.append(f"{path.name}: automatic workflow must cancel stale runs")
-    if _pull_request(text) and controls.get("skip_draft_pull_requests"):
-        if not _pull_request_has_ready_for_review(text):
-            errors.append(
-                f"{path.name}: pull_request types must include ready_for_review"
-            )
-        if not _pull_request_has_converted_to_draft(text):
-            errors.append(
-                f"{path.name}: pull_request types must include converted_to_draft"
-            )
-        for name, block in jobs:
-            if "github.event.pull_request.draft == false" not in block:
+    pull_request_events = [
+        events[name]
+        for name in ("pull_request", "pull_request_target")
+        if name in events
+    ]
+    if pull_request_events and controls.get("skip_draft_pull_requests"):
+        types: set[str] = set()
+        for config in pull_request_events:
+            if isinstance(config, dict) and isinstance(config.get("types"), list):
+                types.update(
+                    item for item in config["types"] if isinstance(item, str)
+                )
+        for required in ("ready_for_review", "converted_to_draft"):
+            if required not in types:
+                errors.append(
+                    f"{path.name}: pull_request types must include {required}"
+                )
+        for name, job in jobs.items():
+            condition = job.get("if")
+            if not isinstance(condition, str) or (
+                "github.event.pull_request.draft == false" not in condition
+            ):
                 errors.append(
                     f"{path.name}: pull-request job {name} must skip Draft PR runners"
                 )
     if controls.get("require_job_timeouts"):
-        for name, block in jobs:
-            if "timeout-minutes:" not in block:
-                errors.append(f"{path.name}: hosted job {name} requires timeout-minutes")
+        for name, job in jobs.items():
+            timeout = job.get("timeout-minutes")
+            if (
+                not isinstance(timeout, int)
+                or isinstance(timeout, bool)
+                or not 1 <= timeout <= 360
+            ):
+                errors.append(
+                    f"{path.name}: hosted job {name} requires timeout-minutes between 1 and 360"
+                )
     return errors, {
         "workflow": path.name,
         "automatic": automatic,
-        "hosted_jobs": [name for name, _ in jobs],
+        "hosted_jobs": sorted(jobs),
     }
 
 

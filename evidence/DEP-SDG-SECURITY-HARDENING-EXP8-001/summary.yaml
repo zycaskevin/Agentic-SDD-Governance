@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-SDG-SECURITY-HARDENING-EXP8-001",
+  "issue": "11",
+  "sdd_references": [
+    "HARD-GATES-V1.2"
+  ],
+  "risk_level": "L1",
+  "created_at": "2026-08-15T16:18:46Z",
+  "updated_at": "2026-08-15T16:52:06Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-15T16:18:46Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-15T16:26:28Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-15T16:27:54Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-15T16:45:54Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-15T16:52:06Z"
+      }
+    ]
+  },
+  "expected_behavior": "Ambiguous authority, workflow semantics, evidence identity, filesystem type, rollback, and interruption state fail closed without weakening L0/L1 autonomy.",
+  "actual_behavior": "Fifteen defensive regression checks fail on experimental.7, confirming the bounded gaps recorded in Issue #11.",
+  "environment": {
+    "commit": "f44cb5f4897f6c821f817fcf178581b43777163a",
+    "branch": "fix/security-hardening-exp8",
+    "runtime": "macOS; Python 3.14; pytest 9.1.1"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}

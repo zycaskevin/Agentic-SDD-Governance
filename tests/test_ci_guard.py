@@ -124,6 +124,57 @@ jobs:
                 "\n".join(report["errors"]),
             )
 
+    def test_comments_cannot_fake_types_or_hide_job_write_permissions(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            hostile = """name: CI
+on:
+  pull_request:
+    types: [opened, synchronize]
+# ready_for_review converted_to_draft
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - run: true
+"""
+            _write_project(
+                project,
+                _contract([sys.executable, "-c", "pass"]),
+                hostile,
+            )
+            report = verify_guard(project)
+            self.assertFalse(report["ok"])
+            text = "\n".join(report["errors"])
+            self.assertIn("ready_for_review", text)
+            self.assertIn("converted_to_draft", text)
+            self.assertIn("job verify permissions", text)
+
+    def test_duplicate_yaml_keys_fail_closed(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            duplicate = GOOD_WORKFLOW.replace(
+                "permissions:\n  contents: read",
+                "permissions:\n  contents: read\npermissions:\n  contents: write",
+            )
+            _write_project(
+                project,
+                _contract([sys.executable, "-c", "pass"]),
+                duplicate,
+            )
+            report = verify_guard(project)
+            self.assertFalse(report["ok"])
+            self.assertIn("duplicate key", "\n".join(report["errors"]))
+
     def test_contract_rejects_shell_string_and_local_failure(self):
         with tempfile.TemporaryDirectory() as temporary:
             project = Path(temporary)

@@ -6,10 +6,10 @@ protected:
   - policies/
   - tests/
   - redaction/rules.json
-  - .github/workflows/governance.yml
-  - src/sddgov/autonomy.py
-  - src/sddgov/merge_gate.py
-  - src/sddgov/cli.py
+  - .github/workflows/
+  - src/sddgov/
+  - pyproject.toml
+  - requirements-governance.lock
   - .sddgov/trusted-approvers.json
   - .sddgov/trusted-reviewers.json
 rules:

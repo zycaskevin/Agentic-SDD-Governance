@@ -465,6 +465,20 @@ jobs:
         with self.assertRaisesRegex(ValueError, "rollback record"):
             verify_merge(self.root, self.base, run_checks=False)
 
+    @patch("sddgov.merge_gate.verify_dep", return_value=[])
+    def test_noop_rollback_and_verify_commands_are_rejected(self, _verify):
+        (self.root / "evidence/DEP-1/rollback.md").write_text(
+            "rollback_version: 1.0\n"
+            "target: bounded test commit\n"
+            "command: /bin/true\n"
+            "verify: true\n"
+        )
+        _run(self.root, "git", "add", "evidence/DEP-1/rollback.md")
+        _run(self.root, "git", "commit", "-qm", "invalid no-op rollback")
+        self._write_gate()
+        with self.assertRaisesRegex(ValueError, "rollback record"):
+            verify_merge(self.root, self.base, run_checks=False)
+
 
 if __name__ == "__main__":
     unittest.main()
