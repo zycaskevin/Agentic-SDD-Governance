@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
 import os
 import re
 import stat
-import tempfile
+import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from importlib import resources
@@ -35,41 +36,15 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-def _load(path: Path) -> dict:
-    _require_regular_file(path, f"machine-readable document {path.name}")
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
-def _save(path: Path, data: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if path.is_symlink():
-        raise ValueError(f"machine-readable destination must not be a symlink: {path.name}")
-    if path.exists() and not stat.S_ISREG(path.lstat().st_mode):
-        raise ValueError(f"machine-readable destination must be a regular file: {path.name}")
-    encoded = (json.dumps(data, ensure_ascii=False, indent=2) + "\n").encode(
-        "utf-8"
-    )
-    with tempfile.NamedTemporaryFile(
-        mode="wb", dir=path.parent, prefix=f".{path.name}.", delete=False
-    ) as handle:
-        handle.write(encoded)
-        temporary = Path(handle.name)
-    temporary.replace(path)
-
-
 def _resource_dir():
     return resources.files("sddgov").joinpath("resources/dep")
 
 
 @contextmanager
-def _bounded_zone(dep: Path, relative: Path):
-    if relative.is_absolute() or any(part in {"", ".", ".."} for part in relative.parts):
-        raise ValueError(f"evidence zone is not normalized: {relative}")
+def _opened_dep_root(dep: Path):
     if dep.is_symlink() or not dep.exists() or not dep.is_dir():
         raise ValueError("DEP root must be an existing non-symlink directory")
     before = dep.lstat()
-    dep_root = dep.resolve(strict=True)
-    candidate = dep_root.joinpath(*relative.parts)
     directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
     directory_flags |= getattr(os, "O_NOFOLLOW", 0)
     descriptor = os.open(dep, directory_flags)
@@ -77,23 +52,72 @@ def _bounded_zone(dep: Path, relative: Path):
         opened_root = os.fstat(descriptor)
         if (before.st_dev, before.st_ino) != (opened_root.st_dev, opened_root.st_ino):
             raise ValueError("DEP root changed while it was being opened")
+        yield descriptor
+        after = dep.lstat()
+        if (
+            stat.S_ISLNK(after.st_mode)
+            or not stat.S_ISDIR(after.st_mode)
+            or (after.st_dev, after.st_ino) != (opened_root.st_dev, opened_root.st_ino)
+        ):
+            raise ValueError("DEP root changed during the Evidence operation")
+    finally:
+        os.close(descriptor)
+
+
+@contextmanager
+def _opened_zone_at(root_fd: int, relative: Path, *, create: bool = True):
+    if relative.is_absolute() or any(part in {"", ".", ".."} for part in relative.parts):
+        raise ValueError(f"evidence zone is not normalized: {relative}")
+    directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+    directory_flags |= getattr(os, "O_NOFOLLOW", 0)
+    descriptors = [os.dup(root_fd)]
+    components: list[str] = []
+    try:
         for part in relative.parts:
             try:
-                child = os.open(part, directory_flags, dir_fd=descriptor)
+                child = os.open(part, directory_flags, dir_fd=descriptors[-1])
             except FileNotFoundError:
-                os.mkdir(part, dir_fd=descriptor)
-                child = os.open(part, directory_flags, dir_fd=descriptor)
+                if not create:
+                    raise
+                os.mkdir(part, dir_fd=descriptors[-1])
+                child = os.open(part, directory_flags, dir_fd=descriptors[-1])
             except OSError as exc:
                 raise ValueError(f"evidence zone cannot be opened safely: {relative}") from exc
             metadata = os.fstat(child)
             if not stat.S_ISDIR(metadata.st_mode):
                 os.close(child)
                 raise ValueError(f"evidence zone component is not a directory: {relative}")
-            os.close(descriptor)
-            descriptor = child
-        yield candidate, descriptor
+            descriptors.append(child)
+            components.append(part)
+        yield descriptors[-1]
+        for index, part in enumerate(components):
+            try:
+                current = os.stat(
+                    part, dir_fd=descriptors[index], follow_symlinks=False
+                )
+            except OSError as exc:
+                raise ValueError(
+                    f"evidence zone changed during operation: {relative}"
+                ) from exc
+            opened = os.fstat(descriptors[index + 1])
+            if (
+                stat.S_ISLNK(current.st_mode)
+                or not stat.S_ISDIR(current.st_mode)
+                or (current.st_dev, current.st_ino) != (opened.st_dev, opened.st_ino)
+            ):
+                raise ValueError(f"evidence zone changed during operation: {relative}")
     finally:
-        os.close(descriptor)
+        for descriptor in reversed(descriptors):
+            os.close(descriptor)
+
+
+@contextmanager
+def _bounded_zone(dep: Path, relative: Path, *, create: bool = True):
+    dep_root = dep.resolve(strict=True)
+    candidate = dep_root.joinpath(*relative.parts)
+    with _opened_dep_root(dep) as root_fd:
+        with _opened_zone_at(root_fd, relative, create=create) as zone_fd:
+            yield candidate, zone_fd
 
 
 def _bounded_filename(directory: Path, name: str) -> Path:
@@ -149,8 +173,95 @@ def _read_regular_bytes(path: Path, label: str) -> bytes:
         os.close(descriptor)
 
 
-def _sha256_file(path: Path) -> str:
-    return hashlib.sha256(_read_regular_bytes(path, f"artifact {path.name}")).hexdigest()
+def _read_regular_bytes_at(directory_fd: int, name: str, label: str) -> tuple[bytes, os.stat_result]:
+    """Read one direct child through a retained directory descriptor."""
+    if not name or Path(name).name != name:
+        raise ValueError(f"{label} has an invalid filename")
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(name, flags, dir_fd=directory_fd)
+    except FileNotFoundError:
+        raise
+    except OSError as exc:
+        if exc.errno == errno.ELOOP:
+            raise ValueError(f"{label} must not be a symlink") from exc
+        raise ValueError(f"{label} cannot be opened safely: {exc}") from exc
+    try:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode):
+            raise ValueError(f"{label} must be a regular file")
+        if metadata.st_nlink != 1:
+            raise ValueError(f"{label} must not be hard-linked")
+        chunks: list[bytes] = []
+        while True:
+            chunk = os.read(descriptor, 1024 * 1024)
+            if not chunk:
+                break
+            chunks.append(chunk)
+        return b"".join(chunks), metadata
+    finally:
+        os.close(descriptor)
+
+
+def _load_at(directory_fd: int, name: str) -> dict:
+    raw, _ = _read_regular_bytes_at(
+        directory_fd, name, f"machine-readable document {name}"
+    )
+    return json.loads(raw.decode("utf-8"))
+
+
+def _write_bytes_at(directory_fd: int, name: str, encoded: bytes, label: str) -> None:
+    """Atomically replace one direct child without reopening its parent path."""
+    if not name or Path(name).name != name:
+        raise ValueError(f"{label} has an invalid filename")
+    try:
+        current = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+    except FileNotFoundError:
+        current = None
+    if current is not None and stat.S_ISLNK(current.st_mode):
+        raise ValueError(f"{label} must not be a symlink: {name}")
+    if current is not None and (
+        not stat.S_ISREG(current.st_mode) or current.st_nlink != 1
+    ):
+        raise ValueError(
+            f"{label} must be a single-linked regular file: {name}"
+        )
+    temporary = f".{name}.tmp-{uuid.uuid4().hex}"
+    descriptor = -1
+    try:
+        descriptor = os.open(
+            temporary,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+            0o600,
+            dir_fd=directory_fd,
+        )
+        view = memoryview(encoded)
+        while view:
+            written = os.write(descriptor, view)
+            view = view[written:]
+        os.fsync(descriptor)
+        os.close(descriptor)
+        descriptor = -1
+        os.replace(
+            temporary,
+            name,
+            src_dir_fd=directory_fd,
+            dst_dir_fd=directory_fd,
+        )
+        os.fsync(directory_fd)
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+        try:
+            os.unlink(temporary, dir_fd=directory_fd)
+        except FileNotFoundError:
+            pass
+
+
+def _save_at(directory_fd: int, name: str, data: dict) -> None:
+    """Atomically replace one control document through its retained DEP fd."""
+    encoded = (json.dumps(data, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+    _write_bytes_at(directory_fd, name, encoded, "machine-readable destination")
 
 
 def _artifact_media_type(suffix: str, raw: bytes) -> str:
@@ -202,22 +313,25 @@ def _manifest_artifact_path(dep: Path, value: object, zone: str) -> Path:
     return candidate
 
 
-def _actual_zone_files(dep: Path, zone: str) -> tuple[set[str], list[str]]:
-    root = dep / zone
-    if not root.exists():
-        return set(), []
-    if root.is_symlink():
-        return set(), [f"artifact zone must not be a symlink: {zone}"]
+def _actual_zone_files_at(directory_fd: int, zone: str) -> tuple[set[str], list[str]]:
     actual: set[str] = set()
     errors: list[str] = []
-    for path in root.rglob("*"):
-        relative = path.relative_to(dep).as_posix()
-        if path.is_symlink():
-            errors.append(f"artifact path contains a symlink: {relative}")
-        elif path.is_dir():
+    for name in os.listdir(directory_fd):
+        relative = f"{zone}/{name}"
+        if not name or Path(name).name != name:
+            errors.append(f"artifact filename is not normalized: {relative}")
             continue
-        elif not stat.S_ISREG(path.lstat().st_mode):
+        try:
+            metadata = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+        except OSError as exc:
+            errors.append(f"artifact cannot be inspected safely: {relative}: {exc}")
+            continue
+        if stat.S_ISLNK(metadata.st_mode):
+            errors.append(f"artifact path contains a symlink: {relative}")
+        elif not stat.S_ISREG(metadata.st_mode):
             errors.append(f"artifact path is not a regular file: {relative}")
+        elif metadata.st_nlink != 1:
+            errors.append(f"artifact path must not be hard-linked: {relative}")
         else:
             actual.add(relative)
     return actual, errors
@@ -241,10 +355,6 @@ def make_dep(base: Path, issue: str, risk: str, sdd_ref: str | None = None, dep_
     (dep / "private" / "raw").mkdir(parents=True, mode=0o700)
     (dep / "private" / "raw").chmod(0o700)
     (dep / "shareable" / "artifacts").mkdir(parents=True)
-    for item in _resource_dir().iterdir():
-        if item.name == "summary.yaml":
-            continue
-        (dep / item.name).write_bytes(item.read_bytes())
     summary = {
         "$schema": "../../schemas/debug-evidence-package.schema.json",
         "schema_version": "1.0",
@@ -261,8 +371,19 @@ def make_dep(base: Path, issue: str, risk: str, sdd_ref: str | None = None, dep_
         "root_cause_status": "unknown",
         "attachments": [],
     }
-    _save(dep / "summary.yaml", summary)
-    _save(dep / "manifest.json", {"schema_version": "1.0", "dep_id": dep_id, "raw": [], "shareable": []})
+    with _opened_dep_root(dep) as dep_fd:
+        for item in _resource_dir().iterdir():
+            if item.name == "summary.yaml":
+                continue
+            _write_bytes_at(
+                dep_fd, item.name, item.read_bytes(), "DEP template destination"
+            )
+        _save_at(dep_fd, "summary.yaml", summary)
+        _save_at(
+            dep_fd,
+            "manifest.json",
+            {"schema_version": "1.0", "dep_id": dep_id, "raw": [], "shareable": []},
+        )
     return dep
 
 
@@ -270,142 +391,137 @@ def collect(dep: Path, collector: str, input_path: Path, label: str | None = Non
     if collector not in COLLECTORS:
         raise ValueError(f"unsupported collector: {collector}")
     raw = _read_regular_bytes(input_path, "collector input")
-    manifest_path = dep / "manifest.json"
-    _require_regular_file(manifest_path, "Evidence manifest")
-    manifest = _load(manifest_path)
-    ordinal = len(manifest.get("raw", [])) + 1
-    source_suffix = input_path.suffix.lower()
-    default_label = f"artifact-{ordinal}{source_suffix}"
-    requested_label = label or default_label
-    if requested_label.rstrip(" .") != requested_label:
-        raise ValueError("evidence filename is unsafe after platform normalization")
-    safe_label = "".join(
-        c if c.isalnum() or c in "-_." else "-" for c in requested_label
-    )
-    label_suffix = Path(safe_label).suffix.lower()
-    if label_suffix and label_suffix != source_suffix:
-        raise ValueError("evidence label suffix must match the collector input type")
-    if not label_suffix:
-        safe_label += source_suffix
-    filename = f"{collector}--{safe_label}"
-    with _bounded_zone(dep, Path("private/raw")) as (raw_dir, raw_dir_fd):
-        os.fchmod(raw_dir_fd, 0o700)
-        destination = _bounded_filename(raw_dir, filename)
-        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
-        try:
-            descriptor = os.open(filename, flags, 0o600, dir_fd=raw_dir_fd)
-        except FileExistsError as exc:
-            raise FileExistsError(f"Evidence artifact already exists: {filename}") from exc
-        try:
-            view = memoryview(raw)
-            while view:
-                written = os.write(descriptor, view)
-                view = view[written:]
-            os.fsync(descriptor)
-        finally:
-            os.close(descriptor)
-    digest = hashlib.sha256(raw).hexdigest()
-    manifest["raw"].append({
-        "collector": collector,
-        "path": f"private/raw/{filename}",
-        "source_suffix": source_suffix,
-        "media_type": _artifact_media_type(source_suffix, raw),
-        "sha256": digest,
-        "size": len(raw),
-        "collected_at": utc_now(),
-        "shareable": False,
-    })
-    _save(manifest_path, manifest)
-    return destination
+    with _opened_dep_root(dep) as dep_fd:
+        manifest = _load_at(dep_fd, "manifest.json")
+        ordinal = len(manifest.get("raw", [])) + 1
+        source_suffix = input_path.suffix.lower()
+        default_label = f"artifact-{ordinal}{source_suffix}"
+        requested_label = label or default_label
+        if requested_label.rstrip(" .") != requested_label:
+            raise ValueError("evidence filename is unsafe after platform normalization")
+        safe_label = "".join(
+            c if c.isalnum() or c in "-_." else "-" for c in requested_label
+        )
+        label_suffix = Path(safe_label).suffix.lower()
+        if label_suffix and label_suffix != source_suffix:
+            raise ValueError("evidence label suffix must match the collector input type")
+        if not label_suffix:
+            safe_label += source_suffix
+        filename = f"{collector}--{safe_label}"
+        raw_dir = dep.resolve(strict=True) / "private" / "raw"
+        with _opened_zone_at(dep_fd, Path("private/raw"), create=False) as raw_dir_fd:
+            os.fchmod(raw_dir_fd, 0o700)
+            destination = _bounded_filename(raw_dir, filename)
+            flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+            try:
+                descriptor = os.open(filename, flags, 0o600, dir_fd=raw_dir_fd)
+            except FileExistsError as exc:
+                raise FileExistsError(f"Evidence artifact already exists: {filename}") from exc
+            try:
+                view = memoryview(raw)
+                while view:
+                    written = os.write(descriptor, view)
+                    view = view[written:]
+                os.fsync(descriptor)
+            finally:
+                os.close(descriptor)
+            digest = hashlib.sha256(raw).hexdigest()
+            manifest["raw"].append({
+                "collector": collector,
+                "path": f"private/raw/{filename}",
+                "source_suffix": source_suffix,
+                "media_type": _artifact_media_type(source_suffix, raw),
+                "sha256": digest,
+                "size": len(raw),
+                "collected_at": utc_now(),
+                "shareable": False,
+            })
+            _save_at(dep_fd, "manifest.json", manifest)
+        return destination
 
 
 def redact(dep: Path) -> dict:
-    manifest = _load(dep / "manifest.json")
-    raw_rows = manifest.get("raw", [])
-    if not isinstance(raw_rows, list):
-        raise ValueError("Evidence manifest raw must be an array")
-    raw_by_name = {
-        Path(row.get("path", "")).name: row
-        for row in raw_rows
-        if isinstance(row, dict)
-    }
-    if len(raw_by_name) != len(raw_rows):
-        raise ValueError("Evidence manifest contains duplicate or invalid raw paths")
-    with _bounded_zone(dep, Path("private/raw")) as (raw_dir, raw_dir_fd):
-        with _bounded_zone(dep, Path("shareable/artifacts")) as (
-            shareable,
-            shareable_fd,
-        ):
-            names = sorted(os.listdir(raw_dir_fd))
-            files = [raw_dir / name for name in names]
-            report = redact_files(
+    with _opened_dep_root(dep) as dep_fd:
+        manifest = _load_at(dep_fd, "manifest.json")
+        raw_rows = manifest.get("raw", [])
+        if not isinstance(raw_rows, list):
+            raise ValueError("Evidence manifest raw must be an array")
+        raw_by_name = {
+            Path(row.get("path", "")).name: row
+            for row in raw_rows
+            if isinstance(row, dict)
+        }
+        if len(raw_by_name) != len(raw_rows):
+            raise ValueError("Evidence manifest contains duplicate or invalid raw paths")
+        dep_root = dep.resolve(strict=True)
+        raw_dir = dep_root / "private" / "raw"
+        shareable = dep_root / "shareable" / "artifacts"
+        with _opened_zone_at(dep_fd, Path("private/raw"), create=False) as raw_dir_fd:
+            with _opened_zone_at(
+                dep_fd, Path("shareable/artifacts"), create=False
+            ) as shareable_fd:
+                names = sorted(os.listdir(raw_dir_fd))
+                files = [raw_dir / name for name in names]
+                report = redact_files(
                 files,
                 shareable,
                 metadata_by_name=raw_by_name,
                 source_dir_fd=raw_dir_fd,
                 output_dir_fd=shareable_fd,
-            )
-    report["dep_id"] = _load(dep / "summary.yaml")["dep_id"]
-    report["generated_at"] = utc_now()
-    _save(dep / "redaction-report.json", report)
-    observed_raw = {
-        row["source"]: (row["source_sha256"], row["source_size"])
-        for row in report["files"]
-    }
-    observed_raw.update(
-        {
-            row["file"]: (row["sha256"], row["size"])
-            for row in report["blocked"]
-        }
-    )
-    for name, row in raw_by_name.items():
-        observed = observed_raw.get(name)
-        if observed is None:
-            raise ValueError(f"raw artifact is not covered by redaction: {name}")
-        row["sha256"], row["size"] = observed
-    manifest["shareable"] = [
-        {
-            "path": f"shareable/artifacts/{row['output']}",
-            "sha256": row["output_sha256"],
-            "size": row["output_size"],
-            "shareable": True,
-        }
-        for row in report["files"]
-    ]
-    _save(dep / "manifest.json", manifest)
-    return report
+                )
+                report["dep_id"] = _load_at(dep_fd, "summary.yaml")["dep_id"]
+                report["generated_at"] = utc_now()
+                observed_raw = {
+                    row["source"]: (row["source_sha256"], row["source_size"])
+                    for row in report["files"]
+                }
+                observed_raw.update(
+                    {
+                        row["file"]: (row["sha256"], row["size"])
+                        for row in report["blocked"]
+                    }
+                )
+                for name, row in raw_by_name.items():
+                    observed = observed_raw.get(name)
+                    if observed is None:
+                        raise ValueError(f"raw artifact is not covered by redaction: {name}")
+                    row["sha256"], row["size"] = observed
+                manifest["shareable"] = [
+                    {
+                        "path": f"shareable/artifacts/{row['output']}",
+                        "sha256": row["output_sha256"],
+                        "size": row["output_size"],
+                        "shareable": True,
+                    }
+                    for row in report["files"]
+                ]
+                _save_at(dep_fd, "redaction-report.json", report)
+                _save_at(dep_fd, "manifest.json", manifest)
+                return report
 
 
 def transition(dep: Path, phase: str) -> dict:
     if phase not in PHASES:
         raise ValueError(f"phase must be one of: {', '.join(PHASES)}")
-    summary_path = dep / "summary.yaml"
-    summary = _load(summary_path)
-    current = summary["workflow"]["phase"]
-    if PHASES.index(phase) != PHASES.index(current) + 1:
-        raise ValueError(f"transition must advance exactly one phase: {current} -> {phase}")
-    previous = json.loads(json.dumps(summary))
-    summary["workflow"]["phase"] = phase
-    summary["workflow"]["history"].append({"phase": phase, "at": utc_now()})
-    summary["updated_at"] = utc_now()
-    _save(summary_path, summary)
-    errors = verify(dep, strict=False)
-    if errors:
-        _save(summary_path, previous)
-        raise ValueError(f"cannot enter {phase}: " + "; ".join(errors))
-    return summary
-
-
-def _has_real_content(path: Path) -> bool:
-    if not path.is_file():
-        return False
-    text = path.read_text(encoding="utf-8", errors="ignore")
-    meaningful = [line for line in text.splitlines() if line.strip() and not line.lstrip().startswith("#")]
-    return any("TODO" not in line and "<!--" not in line and "-->" not in line for line in meaningful)
+    with _opened_dep_root(dep) as dep_fd:
+        summary = _load_at(dep_fd, "summary.yaml")
+        current = summary["workflow"]["phase"]
+        if PHASES.index(phase) != PHASES.index(current) + 1:
+            raise ValueError(f"transition must advance exactly one phase: {current} -> {phase}")
+        previous = json.loads(json.dumps(summary))
+        summary["workflow"]["phase"] = phase
+        summary["workflow"]["history"].append({"phase": phase, "at": utc_now()})
+        summary["updated_at"] = utc_now()
+        _save_at(dep_fd, "summary.yaml", summary)
+        errors = verify(dep, strict=False)
+        if errors:
+            _save_at(dep_fd, "summary.yaml", previous)
+            raise ValueError(f"cannot enter {phase}: " + "; ".join(errors))
+        return summary
 
 
 def _verify_manifest_artifacts(
-    dep: Path, manifest: dict, *, portable: bool
+    dep: Path, dep_fd: int, manifest: dict, *, portable: bool
 ) -> list[str]:
     errors: list[str] = []
     expected_paths: dict[str, set[str]] = {
@@ -424,87 +540,103 @@ def _verify_manifest_artifacts(
         if not isinstance(rows, list):
             errors.append(f"manifest {kind} must be an array")
             continue
-        for index, row in enumerate(rows):
-            label = f"manifest {kind}[{index}]"
-            if not isinstance(row, dict) or set(row) != row_contracts[kind]:
-                errors.append(f"{label} has an invalid contract")
-                continue
-            if kind == "raw" and row.get("collector") not in COLLECTORS:
-                errors.append(f"{label} has an unsupported collector")
-            if kind == "raw" and (
-                not isinstance(row.get("source_suffix"), str)
-                or row["source_suffix"] != Path(str(row.get("path", ""))).suffix.lower()
-            ):
-                errors.append(f"{label} source_suffix does not match its immutable path")
-            if kind == "raw" and row.get("media_type") not in {
-                "application/har+json",
-                "application/octet-stream",
-                "text/plain; charset=utf-8",
-            }:
-                errors.append(f"{label} media_type is invalid")
-            if kind == "raw" and (
-                not isinstance(row.get("collected_at"), str)
-                or not row["collected_at"].strip()
-            ):
-                errors.append(f"{label} collected_at is invalid")
-            expected_shareable = kind == "shareable"
-            if row.get("shareable") is not expected_shareable:
-                errors.append(f"{label} shareable flag is invalid")
-            if (
-                not isinstance(row.get("size"), int)
-                or isinstance(row.get("size"), bool)
-                or row["size"] < 0
-            ):
-                errors.append(f"{label} size is invalid")
-            if not isinstance(row.get("sha256"), str) or not SHA256_PATTERN.fullmatch(
-                row["sha256"]
-            ):
-                errors.append(f"{label} sha256 is invalid")
-            try:
-                path = _manifest_artifact_path(dep, row.get("path"), zone)
-            except ValueError as exc:
-                errors.append(str(exc))
-                continue
-            relative = path.relative_to(dep).as_posix()
-            if relative in expected_paths[zone]:
-                errors.append(f"duplicate manifest artifact path: {relative}")
-                continue
-            expected_paths[zone].add(relative)
-            if not path.exists():
-                if not (portable and kind == "raw"):
-                    errors.append(f"missing artifact: {relative}")
-                continue
-            try:
-                _require_regular_file(path, f"artifact {relative}")
-            except (ValueError, FileNotFoundError) as exc:
-                errors.append(str(exc))
-                continue
-            if isinstance(row.get("size"), int) and path.stat().st_size != row["size"]:
-                errors.append(f"artifact size mismatch: {relative}")
-            if isinstance(row.get("sha256"), str) and _sha256_file(path) != row["sha256"]:
-                errors.append(f"artifact sha256 mismatch: {relative}")
-            if kind == "raw":
+        zone_fd: int | None = None
+        zone_context = _opened_zone_at(dep_fd, Path(zone), create=False)
+        try:
+            zone_fd = zone_context.__enter__()
+        except FileNotFoundError:
+            if not (portable and kind == "raw"):
+                errors.append(f"missing artifact zone: {zone}")
+        try:
+            for index, row in enumerate(rows):
+                label = f"manifest {kind}[{index}]"
+                if not isinstance(row, dict) or set(row) != row_contracts[kind]:
+                    errors.append(f"{label} has an invalid contract")
+                    continue
+                if kind == "raw" and row.get("collector") not in COLLECTORS:
+                    errors.append(f"{label} has an unsupported collector")
+                if kind == "raw" and (
+                    not isinstance(row.get("source_suffix"), str)
+                    or row["source_suffix"] != Path(str(row.get("path", ""))).suffix.lower()
+                ):
+                    errors.append(f"{label} source_suffix does not match its immutable path")
+                if kind == "raw" and row.get("media_type") not in {
+                    "application/har+json",
+                    "application/octet-stream",
+                    "text/plain; charset=utf-8",
+                }:
+                    errors.append(f"{label} media_type is invalid")
+                if kind == "raw" and (
+                    not isinstance(row.get("collected_at"), str)
+                    or not row["collected_at"].strip()
+                ):
+                    errors.append(f"{label} collected_at is invalid")
+                expected_shareable = kind == "shareable"
+                if row.get("shareable") is not expected_shareable:
+                    errors.append(f"{label} shareable flag is invalid")
+                if (
+                    not isinstance(row.get("size"), int)
+                    or isinstance(row.get("size"), bool)
+                    or row["size"] < 0
+                ):
+                    errors.append(f"{label} size is invalid")
+                if not isinstance(row.get("sha256"), str) or not SHA256_PATTERN.fullmatch(
+                    row["sha256"]
+                ):
+                    errors.append(f"{label} sha256 is invalid")
                 try:
-                    raw_bytes = _read_regular_bytes(path, f"artifact {relative}")
+                    path = _manifest_artifact_path(dep, row.get("path"), zone)
                 except ValueError as exc:
                     errors.append(str(exc))
-                else:
-                    detected = _artifact_media_type(row.get("source_suffix", ""), raw_bytes)
+                    continue
+                relative = path.relative_to(dep).as_posix()
+                if relative in expected_paths[zone]:
+                    errors.append(f"duplicate manifest artifact path: {relative}")
+                    continue
+                expected_paths[zone].add(relative)
+                if zone_fd is None:
+                    if not (portable and kind == "raw"):
+                        errors.append(f"missing artifact: {relative}")
+                    continue
+                try:
+                    artifact, metadata = _read_regular_bytes_at(
+                        zone_fd, path.name, f"artifact {relative}"
+                    )
+                except FileNotFoundError:
+                    if not (portable and kind == "raw"):
+                        errors.append(f"missing artifact: {relative}")
+                    continue
+                except ValueError as exc:
+                    errors.append(str(exc))
+                    continue
+                if isinstance(row.get("size"), int) and metadata.st_size != row["size"]:
+                    errors.append(f"artifact size mismatch: {relative}")
+                if (
+                    isinstance(row.get("sha256"), str)
+                    and hashlib.sha256(artifact).hexdigest() != row["sha256"]
+                ):
+                    errors.append(f"artifact sha256 mismatch: {relative}")
+                if kind == "raw":
+                    detected = _artifact_media_type(row.get("source_suffix", ""), artifact)
                     if row.get("media_type") != detected:
                         errors.append(f"artifact media_type mismatch: {relative}")
-
-    for zone, expected in expected_paths.items():
-        actual, zone_errors = _actual_zone_files(dep, zone)
-        errors.extend(zone_errors)
-        extras = sorted(actual - expected)
-        if extras:
-            errors.append(
-                f"unregistered artifacts in {zone}: " + ", ".join(extras)
-            )
+            if zone_fd is not None:
+                actual, zone_errors = _actual_zone_files_at(zone_fd, zone)
+                errors.extend(zone_errors)
+                extras = sorted(actual - expected_paths[zone])
+                if extras:
+                    errors.append(
+                        f"unregistered artifacts in {zone}: " + ", ".join(extras)
+                    )
+        finally:
+            if zone_fd is not None:
+                zone_context.__exit__(None, None, None)
     return errors
 
 
-def _verify_redaction_associations(dep: Path, manifest: dict, report: dict) -> list[str]:
+def _verify_redaction_associations(
+    dep: Path, dep_fd: int, manifest: dict, report: dict
+) -> list[str]:
     errors: list[str] = []
     required_report = {
         "schema_version", "files", "blocked", "totals", "dep_id", "generated_at"
@@ -601,11 +733,17 @@ def _verify_redaction_associations(dep: Path, manifest: dict, report: dict) -> l
             )
         except (KeyError, ValueError):
             continue
-        if output_path.exists() and output_path.suffix.lower() in TEXT_SUFFIXES:
+        if output_path.suffix.lower() in TEXT_SUFFIXES:
             try:
-                output_text = _read_regular_bytes(
-                    output_path, f"{label} shareable output"
-                ).decode("utf-8")
+                with _opened_zone_at(
+                    dep_fd, Path("shareable/artifacts"), create=False
+                ) as shareable_fd:
+                    output_bytes, _ = _read_regular_bytes_at(
+                        shareable_fd, output_path.name, f"{label} shareable output"
+                    )
+                output_text = output_bytes.decode("utf-8")
+            except FileNotFoundError:
+                continue
             except UnicodeDecodeError:
                 errors.append(f"{label} shareable text is not valid UTF-8")
             except ValueError as exc:
@@ -614,25 +752,30 @@ def _verify_redaction_associations(dep: Path, manifest: dict, report: dict) -> l
                 rescanned_output, _ = redact_text(output_text)
                 if rescanned_output != output_text:
                     errors.append(f"{label} shareable output still matches redaction rules")
-                if raw_path.exists():
-                    try:
-                        raw_text = _read_regular_bytes(
-                            raw_path, f"{label} raw source"
-                        ).decode("utf-8")
-                    except UnicodeDecodeError:
-                        errors.append(f"{label} raw text is not valid UTF-8")
-                    except ValueError as exc:
-                        errors.append(str(exc))
-                    else:
-                        expected_output, expected_redactions = redact_text(raw_text)
-                        if output_text != expected_output:
-                            errors.append(
-                                f"{label} output is not the deterministic redaction of source"
-                            )
-                        if redactions != expected_redactions:
-                            errors.append(
-                                f"{label} redaction counts do not match recalculation"
-                            )
+                try:
+                    with _opened_zone_at(
+                        dep_fd, Path("private/raw"), create=False
+                    ) as raw_fd:
+                        raw_bytes, _ = _read_regular_bytes_at(
+                            raw_fd, raw_path.name, f"{label} raw source"
+                        )
+                    raw_text = raw_bytes.decode("utf-8")
+                except FileNotFoundError:
+                    pass
+                except UnicodeDecodeError:
+                    errors.append(f"{label} raw text is not valid UTF-8")
+                except ValueError as exc:
+                    errors.append(str(exc))
+                else:
+                    expected_output, expected_redactions = redact_text(raw_text)
+                    if output_text != expected_output:
+                        errors.append(
+                            f"{label} output is not the deterministic redaction of source"
+                        )
+                    if redactions != expected_redactions:
+                        errors.append(
+                            f"{label} redaction counts do not match recalculation"
+                        )
     blocked_fields = {"file", "reason", "sha256", "size"}
     for index, row in enumerate(blocked):
         label = f"redaction report blocked[{index}]"
@@ -676,15 +819,13 @@ def _verify_redaction_associations(dep: Path, manifest: dict, report: dict) -> l
     return errors
 
 
-def verify(dep: Path, strict: bool = False, portable: bool = False) -> list[str]:
+def _verify_open(dep: Path, dep_fd: int, strict: bool, portable: bool) -> list[str]:
     errors: list[str] = []
     if portable and not strict:
         errors.append("portable verification requires strict mode")
-    if dep.is_symlink():
-        errors.append("DEP root must not be a symlink")
     for name in ("summary.yaml", "manifest.json"):
         try:
-            _require_regular_file(dep / name, name)
+            _read_regular_bytes_at(dep_fd, name, name)
         except FileNotFoundError:
             errors.append(f"missing {name}")
         except ValueError as exc:
@@ -692,9 +833,9 @@ def verify(dep: Path, strict: bool = False, portable: bool = False) -> list[str]
     if errors:
         return errors
     try:
-        summary = _load(dep / "summary.yaml")
-        manifest = _load(dep / "manifest.json")
-    except (OSError, json.JSONDecodeError) as exc:
+        summary = _load_at(dep_fd, "summary.yaml")
+        manifest = _load_at(dep_fd, "manifest.json")
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         return [f"invalid machine-readable document: {exc}"]
     try:
         errors.extend(
@@ -734,33 +875,49 @@ def verify(dep: Path, strict: bool = False, portable: bool = False) -> list[str]
     if strict and phase != "proof":
         errors.append(f"strict verification requires proof phase, found {phase}")
     for name in REQUIRED_DOCS["proof" if strict else phase]:
-        path = dep / name
         try:
-            _require_regular_file(path, name)
+            document, _ = _read_regular_bytes_at(dep_fd, name, name)
         except FileNotFoundError:
             errors.append(f"missing {name}")
             continue
         except ValueError as exc:
             errors.append(str(exc))
             continue
-        if name.endswith(".md") and not _has_real_content(path):
-            errors.append(f"template not completed: {name}")
+        if name.endswith(".md"):
+            text = document.decode("utf-8", errors="ignore")
+            meaningful = [
+                line
+                for line in text.splitlines()
+                if line.strip() and not line.lstrip().startswith("#")
+            ]
+            if not any(
+                "TODO" not in line and "<!--" not in line and "-->" not in line
+                for line in meaningful
+            ):
+                errors.append(f"template not completed: {name}")
     if PHASES.index(phase) >= PHASES.index("evidence") or strict:
         if not manifest.get("raw"):
             errors.append("no collected evidence")
-        report_path = dep / "redaction-report.json"
-        if report_path.is_file():
-            try:
-                report = _load(report_path)
-            except (OSError, json.JSONDecodeError) as exc:
-                errors.append(f"invalid redaction report: {exc}")
-            else:
-                if report.get("blocked"):
-                    errors.append("redaction report contains blocked artifacts requiring manual review")
-                if not manifest.get("shareable"):
-                    errors.append("no shareable redacted evidence")
-                errors.extend(_verify_redaction_associations(dep, manifest, report))
-        errors.extend(_verify_manifest_artifacts(dep, manifest, portable=portable))
+        try:
+            report = _load_at(dep_fd, "redaction-report.json")
+        except FileNotFoundError:
+            report = None
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+            errors.append(f"invalid redaction report: {exc}")
+            report = None
+        if report is not None:
+            if report.get("blocked"):
+                errors.append("redaction report contains blocked artifacts requiring manual review")
+            if not manifest.get("shareable"):
+                errors.append("no shareable redacted evidence")
+            errors.extend(
+                _verify_redaction_associations(dep, dep_fd, manifest, report)
+            )
+        errors.extend(
+            _verify_manifest_artifacts(
+                dep, dep_fd, manifest, portable=portable
+            )
+        )
     raw_refs = [
         attachment
         for attachment in summary.get("attachments", [])
@@ -783,26 +940,42 @@ def verify(dep: Path, strict: bool = False, portable: bool = False) -> list[str]
     return errors
 
 
+def verify(dep: Path, strict: bool = False, portable: bool = False) -> list[str]:
+    try:
+        with _opened_dep_root(dep) as dep_fd:
+            return _verify_open(dep, dep_fd, strict, portable)
+    except (OSError, ValueError) as exc:
+        return [f"Evidence filesystem boundary changed or is unsafe: {exc}"]
+
+
 def attach(dep: Path, target: str, output: Path | None = None) -> Path:
     if target not in {"issue", "commit", "pr", "changelog"}:
         raise ValueError("target must be issue, commit, pr, or changelog")
     errors = verify(dep, strict=True)
     if errors:
         raise ValueError("DEP is not attachable: " + "; ".join(errors))
-    summary = _load(dep / "summary.yaml")
-    manifest = _load(dep / "manifest.json")
-    lines = [
-        f"Evidence: {summary['dep_id']}",
-        f"Issue: {summary['issue']}",
-        f"SDD: {', '.join(summary.get('sdd_references') or ['n/a'])}",
-        f"Risk: {summary['risk_level']}",
-        "Workflow: Red -> Evidence -> Fix -> Green -> Proof",
-        "Verified artifacts:",
-    ]
-    lines.extend(f"- `{row['path']}` (sha256: `{row['sha256']}`)" for row in manifest.get("shareable", []))
-    lines.extend(["", f"Target: {target}"])
-    output = output or dep / f"attach-{target}.md"
+    with _opened_dep_root(dep) as dep_fd:
+        summary = _load_at(dep_fd, "summary.yaml")
+        manifest = _load_at(dep_fd, "manifest.json")
+        lines = [
+            f"Evidence: {summary['dep_id']}",
+            f"Issue: {summary['issue']}",
+            f"SDD: {', '.join(summary.get('sdd_references') or ['n/a'])}",
+            f"Risk: {summary['risk_level']}",
+            "Workflow: Red -> Evidence -> Fix -> Green -> Proof",
+            "Verified artifacts:",
+        ]
+        lines.extend(
+            f"- `{row['path']}` (sha256: `{row['sha256']}`)"
+            for row in manifest.get("shareable", [])
+        )
+        lines.extend(["", f"Target: {target}"])
+        encoded = ("\n".join(lines) + "\n").encode("utf-8")
+        if output is None:
+            name = f"attach-{target}.md"
+            _write_bytes_at(dep_fd, name, encoded, "attachment output")
+            return dep / name
     if output.is_symlink():
         raise ValueError("attachment output must not be a symlink")
-    output.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    output.write_bytes(encoded)
     return output

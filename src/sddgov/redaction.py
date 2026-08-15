@@ -213,20 +213,3 @@ def redact_files(
         if owned_output_fd:
             os.close(active_output_fd)
     return report
-
-
-def write_report(report: dict, path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if path.is_symlink():
-        raise ValueError("redaction report destination must not be a symlink")
-    if path.exists() and not stat.S_ISREG(path.lstat().st_mode):
-        raise ValueError("redaction report destination must be a regular file")
-    encoded = (json.dumps(report, ensure_ascii=False, indent=2) + "\n").encode(
-        "utf-8"
-    )
-    with tempfile.NamedTemporaryFile(
-        mode="wb", dir=path.parent, prefix=f".{path.name}.", delete=False
-    ) as handle:
-        handle.write(encoded)
-        temporary = Path(handle.name)
-    temporary.replace(path)

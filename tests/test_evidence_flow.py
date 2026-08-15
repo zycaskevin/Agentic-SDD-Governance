@@ -127,7 +127,10 @@ class EvidenceFlowTests(unittest.TestCase):
             raw.symlink_to(outside, target_is_directory=True)
             return result
 
-        with patch("sddgov.evidence._bounded_filename", side_effect=replace_parent):
+        with (
+            patch("sddgov.evidence._bounded_filename", side_effect=replace_parent),
+            self.assertRaisesRegex(ValueError, "changed during operation"),
+        ):
             collect(self.dep, "terminal", source)
         self.assertEqual(list(outside.iterdir()), [])
         self.assertTrue((parked / "terminal--artifact-1.log").is_file())
@@ -147,10 +150,99 @@ class EvidenceFlowTests(unittest.TestCase):
             shareable.symlink_to(outside, target_is_directory=True)
             return original(directory_fd, name, data)
 
-        with patch("sddgov.redaction._write_at", side_effect=replace_parent):
+        with (
+            patch("sddgov.redaction._write_at", side_effect=replace_parent),
+            self.assertRaisesRegex(ValueError, "changed during operation"),
+        ):
             redact(self.dep)
         self.assertEqual(list(outside.iterdir()), [])
         self.assertTrue((parked / "terminal--artifact-1.log").is_file())
+
+    def test_verifier_fails_closed_when_artifact_parent_is_replaced(self):
+        self._complete("reproduction.md", "Synthetic failure is reproducible.")
+        source = self.root / "verify-source.log"
+        source.write_text("password=synthetic\n", encoding="utf-8")
+        collect(self.dep, "terminal", source)
+        redact(self.dep)
+        transition(self.dep, "evidence")
+        shareable = self.dep / "shareable/artifacts"
+        parked = self.dep / "shareable/artifacts-parked"
+        outside = self.root / "verify-outside"
+        outside.mkdir()
+        (outside / "terminal--artifact-1.log").write_text(
+            "forged replacement\n", encoding="utf-8"
+        )
+        original = evidence_module._read_regular_bytes_at
+        replaced = False
+
+        def replace_parent(directory_fd, name, label):
+            nonlocal replaced
+            if not replaced and label.startswith("artifact shareable/artifacts/"):
+                replaced = True
+                shareable.rename(parked)
+                shareable.symlink_to(outside, target_is_directory=True)
+            return original(directory_fd, name, label)
+
+        with patch(
+            "sddgov.evidence._read_regular_bytes_at", side_effect=replace_parent
+        ):
+            errors = verify(self.dep)
+        self.assertTrue(
+            any("filesystem boundary changed" in error for error in errors), errors
+        )
+
+    def test_control_writes_fail_closed_when_dep_parent_is_replaced(self):
+        for control_name in ("manifest.json", "redaction-report.json", "summary.yaml"):
+            with self.subTest(control_name=control_name):
+                case_root = self.root / f"control-{control_name.replace('.', '-')}"
+                dep = make_dep(
+                    case_root / "evidence",
+                    issue="ISSUE-CONTROL-TOCTOU",
+                    risk="L1",
+                    dep_id="DEP-CONTROL-TOCTOU",
+                )
+                source = case_root / "source.log"
+                source.write_text("password=synthetic\n", encoding="utf-8")
+                if control_name != "manifest.json":
+                    collect(dep, "terminal", source)
+                if control_name == "summary.yaml":
+                    (dep / "reproduction.md").write_text(
+                        "# Record\n\nSynthetic failure is reproducible.\n",
+                        encoding="utf-8",
+                    )
+                    redact(dep)
+                parked = case_root / "dep-parked"
+                outside = case_root / "outside"
+                outside.mkdir()
+                sentinel = outside / control_name
+                sentinel.write_text("do not overwrite\n", encoding="utf-8")
+                original = evidence_module._write_bytes_at
+                replaced = False
+
+                def replace_parent(directory_fd, name, data, label):
+                    nonlocal replaced
+                    if not replaced and name == control_name:
+                        replaced = True
+                        dep.rename(parked)
+                        dep.symlink_to(outside, target_is_directory=True)
+                    return original(directory_fd, name, data, label)
+
+                with (
+                    patch(
+                        "sddgov.evidence._write_bytes_at",
+                        side_effect=replace_parent,
+                    ),
+                    self.assertRaisesRegex(ValueError, "DEP root changed|cannot enter"),
+                ):
+                    if control_name == "manifest.json":
+                        collect(dep, "terminal", source)
+                    elif control_name == "redaction-report.json":
+                        redact(dep)
+                    else:
+                        transition(dep, "evidence")
+                self.assertEqual(
+                    sentinel.read_text(encoding="utf-8"), "do not overwrite\n"
+                )
 
     def test_dep_id_cannot_escape_evidence_root(self):
         with self.assertRaisesRegex(ValueError, "DEP ID"):
