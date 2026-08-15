@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "pilot": "synthetic-muse-isolated",
+  "network_used": false,
+  "real_data_used": false,
+  "agent_install_ok": true,
+  "binary_image_fail_closed": true,
+  "text_redaction_ok": true,
+  "strict_dep_ok": true,
+  "portable_dep_ok": true,
+  "symlink_path_escape_duplicate_tests": "covered_by_adversarial_test_suite",
+  "verdict": "PASS"
+}

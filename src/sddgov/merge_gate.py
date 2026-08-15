@@ -7,7 +7,7 @@ import json
 import os
 import subprocess
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from cryptography.exceptions import InvalidSignature
@@ -70,6 +70,29 @@ def _load_json(path: Path, label: str) -> dict[str, Any]:
     return value
 
 
+def _bounded_repository_path(root: Path, relative: Any, label: str) -> Path:
+    if not isinstance(relative, str) or not relative or "\\" in relative:
+        raise ValueError(f"{label} path is invalid")
+    pure = PurePosixPath(relative)
+    if (
+        pure.is_absolute()
+        or str(pure) != relative
+        or any(part in {"", ".", ".."} for part in pure.parts)
+    ):
+        raise ValueError(f"{label} path escapes or is not normalized")
+    current = root
+    for part in pure.parts:
+        current = current / part
+        if current.is_symlink():
+            raise ValueError(f"{label} path contains a symlink")
+    resolved = current.resolve()
+    try:
+        resolved.relative_to(root)
+    except ValueError as exc:
+        raise ValueError(f"{label} path escapes the repository") from exc
+    return resolved
+
+
 def _canonical(value: dict[str, Any]) -> bytes:
     return json.dumps(
         value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
@@ -124,7 +147,7 @@ def _verify_review_receipt(
     metadata_digest: str,
     trust: dict[str, Any],
 ) -> dict[str, Any]:
-    path = (root / relative).resolve()
+    path = _bounded_repository_path(root, relative, "review receipt")
     try:
         path.relative_to(root / ".sddgov" / "reviews")
     except ValueError as exc:
@@ -239,31 +262,32 @@ def _protected_patterns(root: Path, base_ref: str) -> list[str]:
 
 def _trusted_reviewers(root: Path, base_ref: str) -> dict[str, Any]:
     """Prefer base-anchored reviewer authority; use external trust for bootstrap only."""
-    base_store: dict[str, Any] | None = None
     try:
         text = _git(root, "show", f"{base_ref}:.sddgov/trusted-reviewers.json")
-    except ValueError:
-        base_store = None
-    else:
-        try:
-            value = json.loads(text)
-        except json.JSONDecodeError as exc:
-            raise ValueError("trusted reviewer store at trusted base is invalid") from exc
-        if not isinstance(value, dict):
-            raise ValueError("trusted reviewer store at trusted base must contain a JSON object")
-        base_store = value
-    reviewers = base_store.get("reviewers") if isinstance(base_store, dict) else None
-    has_active = isinstance(reviewers, list) and any(
-        isinstance(record, dict) and record.get("status") == "active"
-        for record in reviewers
-    )
-    if has_active:
+    except ValueError as exc:
+        raise ValueError("trusted reviewer store is required at the trusted base") from exc
+    try:
+        value = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ValueError("trusted reviewer store at trusted base is invalid") from exc
+    if (
+        not isinstance(value, dict)
+        or set(value) != {"schema_version", "reviewers"}
+        or value.get("schema_version") != "1.0"
+        or not isinstance(value.get("reviewers"), list)
+    ):
+        raise ValueError("trusted reviewer store at trusted base has an invalid contract")
+    base_store = value
+    reviewers = base_store["reviewers"]
+    if reviewers:
+        # A populated Base store is authoritative even when every key is revoked.
+        # Falling back here would let a stale bootstrap variable resurrect a key.
         return base_store
 
     external = os.environ.get("SDDGOV_TRUSTED_REVIEWERS_FILE")
     if not external:
         raise ValueError(
-            "trusted reviewer store at the trusted base has no active reviewer; "
+            "trusted reviewer store at the trusted base is in initial empty bootstrap; "
             "bootstrap requires SDDGOV_TRUSTED_REVIEWERS_FILE"
         )
     source = Path(external).expanduser().absolute()
@@ -392,19 +416,16 @@ def verify_merge(
         raise ValueError("L1-L3 Merge requires at least one strict DEP")
     dep_errors: list[str] = []
     for relative in deps:
-        dep = (root / relative).resolve()
-        try:
-            dep.relative_to(root)
-        except ValueError as exc:
-            raise ValueError("merge DEP escapes the repository") from exc
-        dep_errors.extend(f"{relative}: {error}" for error in verify_dep(dep, strict=True))
+        dep = _bounded_repository_path(root, relative, "merge DEP")
+        dep_errors.extend(
+            f"{relative}: {error}"
+            for error in verify_dep(dep, strict=True, portable=True)
+        )
     if dep_errors:
         raise ValueError("strict DEP verification failed: " + "; ".join(dep_errors))
-    rollback = (root / str(gate.get("rollback_path", ""))).resolve()
-    try:
-        rollback.relative_to(root)
-    except ValueError as exc:
-        raise ValueError("rollback path escapes the repository") from exc
+    rollback = _bounded_repository_path(
+        root, gate.get("rollback_path"), "rollback"
+    )
     if not _real_rollback(rollback):
         raise ValueError("rollback record is missing or incomplete")
     commits = _git(root, "rev-list", f"{base_ref}..HEAD").splitlines()

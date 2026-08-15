@@ -6,19 +6,23 @@ import fcntl
 import hashlib
 import json
 import os
-import subprocess
+import re
+import socket
+import stat
+import sys
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Iterable
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
-from .trust import load_owner_controlled_json, require_full_commit_sha
+from .trust import load_control_plane_json
 
 
 RISK_LEVELS = {"L0", "L1", "L2", "L3"}
+SHA256_PATTERN = re.compile(r"^[a-f0-9]{64}$")
 ROUTINE_OPERATIONS = {
     "issue",
     "branch",
@@ -89,6 +93,12 @@ DEPLOY_GUARDS = (
     "health_check_pass",
     "blast_radius_within_policy",
 )
+L3_NONCE_BROKER = (
+    Path("/private/var/db/sddgov/approval-broker.sock")
+    if sys.platform == "darwin"
+    else Path("/run/sddgov/approval-broker.sock")
+)
+L3_RUNTIME_CONTEXT_FILE = Path("/etc/sddgov/runtime-context.json")
 
 
 def _now() -> datetime:
@@ -159,33 +169,162 @@ def record_decision(
     basis: str,
     reopen_condition: str,
 ) -> dict[str, Any]:
-    """Record one approved L2 product decision for later deterministic reuse."""
-    if not all(value.strip() for value in (decision_id, summary, scope, basis, reopen_condition)):
-        raise ValueError("decision fields must not be blank")
-    with _decision_lock(root):
-        data = _decision_store(root)
-        if any(row["decision_id"] == decision_id for row in data["decisions"]):
-            raise ValueError(f"decision already recorded: {decision_id}")
-        decision = {
-            "decision_id": decision_id,
-            "risk_level": "L2",
-            "summary": summary,
-            "scope": scope,
-            "basis": basis,
-            "status": "approved",
-            "recorded_at": _stamp(),
-            "reopen_condition": reopen_condition,
-        }
-        data["decisions"].append(decision)
-        _atomic_json(_decisions_path(root), data)
-    return decision
+    """Reject the legacy caller-authorized L2 path."""
+    del root, decision_id, summary, scope, basis, reopen_condition
+    raise ValueError(
+        "a signed owner L2 approval is required; use import-product-approval"
+    )
 
 
 def _canonical_receipt(receipt: dict[str, Any]) -> bytes:
     """Return signing bytes: canonical UTF-8 JSON without ASCII escaping."""
     return json.dumps(
-        receipt, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        receipt,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
     ).encode("utf-8")
+
+
+def _canonical_digest(value: dict[str, Any]) -> str:
+    try:
+        encoded = json.dumps(
+            value,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("canonical payload must contain finite JSON values") from exc
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _verified_assumptions_digest(root: Path, assumptions: Any) -> str:
+    """Recalculate the signed L2 assumptions from current repository bytes."""
+    if not isinstance(assumptions, list) or not assumptions:
+        raise ValueError("product approval assumptions must be a non-empty array")
+    normalized: list[dict[str, str]] = []
+    seen: set[str] = set()
+    root_resolved = root.resolve()
+    for index, row in enumerate(assumptions):
+        if (
+            not isinstance(row, dict)
+            or set(row) != {"path", "sha256"}
+            or not isinstance(row.get("path"), str)
+            or not row["path"].strip()
+            or not isinstance(row.get("sha256"), str)
+            or not SHA256_PATTERN.fullmatch(row["sha256"])
+        ):
+            raise ValueError(f"product approval assumptions[{index}] is invalid")
+        value = row["path"]
+        pure = PurePosixPath(value)
+        if (
+            "\\" in value
+            or pure.is_absolute()
+            or str(pure) != value
+            or any(part in {"", ".", ".."} for part in pure.parts)
+            or value in seen
+        ):
+            raise ValueError(f"product approval assumptions[{index}] path is unsafe")
+        seen.add(value)
+        candidate = root.joinpath(*pure.parts)
+        current = root
+        for part in pure.parts:
+            current = current / part
+            if current.is_symlink():
+                raise ValueError("product approval assumption path contains a symlink")
+        try:
+            candidate.resolve(strict=True).relative_to(root_resolved)
+        except (FileNotFoundError, ValueError) as exc:
+            raise ValueError("product approval assumption artifact is unavailable") from exc
+        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+        try:
+            descriptor = os.open(candidate, flags)
+        except OSError as exc:
+            raise ValueError("product approval assumption cannot be opened safely") from exc
+        try:
+            metadata = os.fstat(descriptor)
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+                raise ValueError("product approval assumption must be a non-linked regular file")
+            digest = hashlib.sha256()
+            while True:
+                chunk = os.read(descriptor, 1024 * 1024)
+                if not chunk:
+                    break
+                digest.update(chunk)
+        finally:
+            os.close(descriptor)
+        if digest.hexdigest() != row["sha256"]:
+            raise ValueError("product approval assumption artifact changed")
+        normalized.append({"path": value, "sha256": row["sha256"]})
+    encoded = json.dumps(
+        normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _validate_operation_payload(payload: Any) -> str:
+    required = {
+        "repository", "project", "environment", "scope",
+        "category", "target", "parameters", "effects",
+    }
+    if not isinstance(payload, dict) or set(payload) != required:
+        raise ValueError("operation_payload has an invalid contract")
+    if payload.get("category") not in HIGH_RISK_CATEGORIES | {"high_risk_operation"}:
+        raise ValueError("operation_payload category is not an L3 operation")
+    if not isinstance(payload.get("target"), str) or not payload["target"].strip():
+        raise ValueError("operation_payload target must not be blank")
+    for field in ("repository", "project", "environment", "scope"):
+        if not isinstance(payload.get(field), str) or not payload[field].strip():
+            raise ValueError(f"operation_payload {field} must not be blank")
+    if not isinstance(payload.get("parameters"), dict):
+        raise ValueError("operation_payload parameters must be an object")
+    sensitive_key = re.compile(r"(?i)(password|secret|token|credential|private[_-]?key)")
+
+    def contains_sensitive_key(value: Any) -> bool:
+        if isinstance(value, dict):
+            return any(
+                sensitive_key.search(str(key)) or contains_sensitive_key(child)
+                for key, child in value.items()
+            )
+        if isinstance(value, list):
+            return any(contains_sensitive_key(child) for child in value)
+        return False
+
+    if contains_sensitive_key(payload["parameters"]):
+        raise ValueError("operation_payload must reference secrets, never contain them")
+    effects = payload.get("effects")
+    if not isinstance(effects, dict) or any(
+        key not in SENSITIVE_EFFECTS or value is not True
+        for key, value in effects.items()
+    ):
+        raise ValueError("operation_payload effects are invalid")
+    return _canonical_digest(payload)
+
+
+def _runtime_context() -> dict[str, str]:
+    data = load_control_plane_json(
+        L3_RUNTIME_CONTEXT_FILE, "L3 runtime context"
+    )
+    required = {"schema_version", "repository", "project", "environment"}
+    if (
+        set(data) != required
+        or data.get("schema_version") != "1.0"
+        or any(
+            not isinstance(data.get(field), str) or not data[field].strip()
+            for field in ("repository", "project", "environment")
+        )
+    ):
+        raise ValueError("L3 runtime context has an invalid contract")
+    return {field: data[field] for field in ("repository", "project", "environment")}
+
+
+def _require_matching_runtime_context(payload: dict[str, Any]) -> None:
+    context = _runtime_context()
+    if any(payload.get(field) != value for field, value in context.items()):
+        raise ValueError("operation payload does not match the trusted runtime context")
 
 
 def _parse_time(value: Any, field: str) -> datetime:
@@ -201,40 +340,22 @@ def _parse_time(value: Any, field: str) -> datetime:
 
 
 def _trusted_approver_store(root: Path) -> dict[str, Any]:
-    base_ref = os.environ.get("SDDGOV_TRUSTED_BASE_REF")
-    if base_ref:
-        base_sha = require_full_commit_sha(base_ref, "SDDGOV_TRUSTED_BASE_REF")
-        completed = subprocess.run(
-            ["git", "show", f"{base_sha}:.sddgov/trusted-approvers.json"],
-            cwd=root,
-            check=False,
-            capture_output=True,
-            text=True,
+    external = os.environ.get("SDDGOV_TRUSTED_APPROVERS_FILE")
+    if not external:
+        raise ValueError(
+            "trusted approver authority requires a separate control-plane file"
         )
-        if completed.returncode != 0:
-            raise ValueError("trusted approver store is absent from the trusted base")
-        try:
-            data = json.loads(completed.stdout)
-        except json.JSONDecodeError as exc:
-            raise ValueError("trusted approver store at trusted base is invalid") from exc
+    source = Path(external).expanduser().absolute()
+    try:
+        source.resolve().relative_to(root.resolve())
+    except ValueError:
+        data = load_control_plane_json(
+            source, "out-of-band trusted approver store"
+        )
     else:
-        external = os.environ.get("SDDGOV_TRUSTED_APPROVERS_FILE")
-        if not external:
-            raise ValueError(
-                "trusted approver bootstrap requires SDDGOV_TRUSTED_APPROVERS_FILE "
-                "or SDDGOV_TRUSTED_BASE_REF"
-            )
-        source = Path(external).expanduser().absolute()
-        try:
-            source.resolve().relative_to(root.resolve())
-        except ValueError:
-            data = load_owner_controlled_json(
-                source, "out-of-band trusted approver store"
-            )
-        else:
-            raise ValueError(
-                "out-of-band trusted approver store must be outside the repository"
-            )
+        raise ValueError(
+            "out-of-band trusted approver store must be outside the repository"
+        )
     if not isinstance(data, dict):
         raise ValueError("trusted approver store must contain a JSON object")
     return data
@@ -277,9 +398,110 @@ def _trusted_approver(root: Path, approver_id: str) -> dict[str, Any]:
     return approver
 
 
-def _verify_operation_envelope(
+def _verify_product_envelope(
     root: Path, envelope: Any
 ) -> tuple[dict[str, Any], str]:
+    """Verify one trusted-owner-signed L2 product decision."""
+    if (
+        not isinstance(envelope, dict)
+        or set(envelope) != {"schema_version", "algorithm", "receipt", "signature"}
+        or envelope.get("schema_version") != "1.0"
+        or envelope.get("algorithm") != "ed25519"
+        or not isinstance(envelope.get("receipt"), dict)
+        or not isinstance(envelope.get("signature"), str)
+    ):
+        raise ValueError("signed product approval has an invalid contract")
+    receipt = envelope["receipt"]
+    required = {
+        "decision_id",
+        "summary",
+        "scope",
+        "assumptions",
+        "assumptions_sha256",
+        "reopen_condition",
+        "approved_by",
+        "issued_at",
+        "expires_at",
+        "nonce",
+    }
+    string_fields = required - {"assumptions"}
+    if set(receipt) != required or any(
+        not isinstance(receipt.get(field), str) or not receipt[field].strip()
+        for field in string_fields
+    ):
+        raise ValueError("product approval receipt payload has an invalid contract")
+    if not SHA256_PATTERN.fullmatch(receipt["assumptions_sha256"]):
+        raise ValueError("product approval assumptions_sha256 is invalid")
+    if _verified_assumptions_digest(root, receipt["assumptions"]) != receipt["assumptions_sha256"]:
+        raise ValueError("product approval assumptions digest does not match artifacts")
+    if len(receipt["nonce"]) < 12:
+        raise ValueError("product approval nonce must contain at least 12 characters")
+    issued_at = _parse_time(receipt["issued_at"], "issued_at")
+    expires_at = _parse_time(receipt["expires_at"], "expires_at")
+    now = _now()
+    if issued_at > now + timedelta(minutes=5):
+        raise ValueError("product approval issued_at is in the future")
+    if expires_at <= now or expires_at <= issued_at:
+        raise ValueError("product approval is expired or has an invalid validity window")
+    if expires_at - issued_at > timedelta(days=366):
+        raise ValueError("product approval validity exceeds 366 days")
+    approver = _trusted_approver(root, receipt["approved_by"])
+    try:
+        public_key = base64.b64decode(approver["public_key"], validate=True)
+        signature = base64.b64decode(envelope["signature"], validate=True)
+        Ed25519PublicKey.from_public_bytes(public_key).verify(
+            signature, _canonical_receipt(receipt)
+        )
+    except (ValueError, binascii.Error, InvalidSignature) as exc:
+        raise ValueError("product approval signature verification failed") from exc
+    return receipt, hashlib.sha256(_canonical_receipt(receipt)).hexdigest()
+
+
+def import_product_approval(root: Path, envelope_path: Path) -> dict[str, Any]:
+    """Verify and import one trusted-owner-signed L2 product decision."""
+    envelope = _read_json(envelope_path)
+    receipt, receipt_sha256 = _verify_product_envelope(root, envelope)
+    with _decision_lock(root):
+        data = _decision_store(root)
+        if any(
+            row["decision_id"] == receipt["decision_id"]
+            or row.get("approval_nonce") == receipt["nonce"]
+            for row in data["decisions"]
+        ):
+            raise ValueError("product approval receipt or nonce was already imported")
+        decision = {
+            "decision_id": receipt["decision_id"],
+            "risk_level": "L2",
+            "summary": receipt["summary"],
+            "scope": receipt["scope"],
+            "basis": "verified owner-signed L2 product approval receipt",
+            "status": "approved",
+            "recorded_at": _stamp(),
+            "reopen_condition": receipt["reopen_condition"],
+            "assumptions_sha256": receipt["assumptions_sha256"],
+            "assumptions": receipt["assumptions"],
+            "approved_by": receipt["approved_by"],
+            "expires_at": receipt["expires_at"],
+            "approval_nonce": receipt["nonce"],
+            "receipt_sha256": receipt_sha256,
+            "signature_algorithm": "ed25519",
+            "approval_envelope": envelope,
+        }
+        data["decisions"].append(decision)
+        _atomic_json(_decisions_path(root), data)
+    return {
+        "decision_id": decision["decision_id"],
+        "approved_by": decision["approved_by"],
+        "expires_at": decision["expires_at"],
+        "assumptions_sha256": decision["assumptions_sha256"],
+        "receipt_sha256": receipt_sha256,
+        "verification": "SIGNATURE_VERIFIED",
+    }
+
+
+def _verify_operation_envelope(
+    root: Path, envelope: Any
+) -> tuple[dict[str, Any], str, str]:
     """Verify one exact, fresh owner-signed L3 approval envelope."""
     if (
         not isinstance(envelope, dict)
@@ -294,6 +516,7 @@ def _verify_operation_envelope(
     required = {
         "approval_id",
         "operation_id",
+        "operation_payload",
         "summary",
         "scope",
         "approved_by",
@@ -301,11 +524,19 @@ def _verify_operation_envelope(
         "expires_at",
         "nonce",
     }
+    string_fields = required - {"operation_payload"}
     if set(receipt) != required or any(
         not isinstance(receipt.get(field), str) or not receipt[field].strip()
-        for field in required
+        for field in string_fields
     ):
         raise ValueError("approval receipt payload has an invalid contract")
+    operation_payload_sha256 = _validate_operation_payload(
+        receipt["operation_payload"]
+    )
+    if receipt["scope"] != receipt["operation_payload"]["scope"]:
+        raise ValueError("approval receipt scope does not match operation payload scope")
+    if len(receipt["nonce"]) < 12:
+        raise ValueError("approval receipt nonce must contain at least 12 characters")
     issued_at = _parse_time(receipt["issued_at"], "issued_at")
     expires_at = _parse_time(receipt["expires_at"], "expires_at")
     now = _now()
@@ -325,13 +556,16 @@ def _verify_operation_envelope(
     except (ValueError, binascii.Error, InvalidSignature) as exc:
         raise ValueError("approval receipt signature verification failed") from exc
     receipt_sha256 = hashlib.sha256(_canonical_receipt(receipt)).hexdigest()
-    return receipt, receipt_sha256
+    return receipt, receipt_sha256, operation_payload_sha256
 
 
 def import_operation_approval(root: Path, envelope_path: Path) -> dict[str, Any]:
     """Verify and import one owner-signed, exact, expiring L3 approval receipt."""
     envelope = _read_json(envelope_path)
-    receipt, receipt_sha256 = _verify_operation_envelope(root, envelope)
+    receipt, receipt_sha256, operation_payload_sha256 = _verify_operation_envelope(
+        root, envelope
+    )
+    _require_matching_runtime_context(receipt["operation_payload"])
     with _decision_lock(root):
         data = _decision_store(root)
         if any(
@@ -355,6 +589,7 @@ def import_operation_approval(root: Path, envelope_path: Path) -> dict[str, Any]
             "consumed_at": None,
             "approval_nonce": receipt["nonce"],
             "receipt_sha256": receipt_sha256,
+            "operation_payload_sha256": operation_payload_sha256,
             "signature_algorithm": "ed25519",
             "approval_envelope": envelope,
         }
@@ -366,11 +601,22 @@ def import_operation_approval(root: Path, envelope_path: Path) -> dict[str, Any]
         "approved_by": decision["approved_by"],
         "expires_at": decision["expires_at"],
         "receipt_sha256": receipt_sha256,
+        "operation_payload_sha256": operation_payload_sha256,
         "verification": "SIGNATURE_VERIFIED",
     }
 
 
-def _consume_operation_approval(root: Path, approval_id: str, operation_id: str) -> dict[str, Any] | None:
+def _consume_operation_approval(
+    root: Path,
+    approval_id: str,
+    operation_id: str,
+    operation_payload: Any,
+) -> dict[str, Any] | None:
+    try:
+        requested_payload_sha256 = _validate_operation_payload(operation_payload)
+        _require_matching_runtime_context(operation_payload)
+    except ValueError:
+        return {"_runtime_context_blocked": True}
     with _decision_lock(root):
         data = _decision_store(root)
         for row in data["decisions"]:
@@ -383,7 +629,7 @@ def _consume_operation_approval(root: Path, approval_id: str, operation_id: str)
             if not _l3_approval_is_fresh(row, operation_id):
                 return None
             try:
-                receipt, receipt_sha256 = _verify_operation_envelope(
+                receipt, receipt_sha256, operation_payload_sha256 = _verify_operation_envelope(
                     root, row.get("approval_envelope")
                 )
             except ValueError:
@@ -397,15 +643,83 @@ def _consume_operation_approval(root: Path, approval_id: str, operation_id: str)
                 "expires_at": receipt["expires_at"],
                 "approval_nonce": receipt["nonce"],
                 "receipt_sha256": receipt_sha256,
+                "operation_payload_sha256": operation_payload_sha256,
                 "signature_algorithm": "ed25519",
             }
             if any(row.get(field) != value for field, value in signed_fields.items()):
                 return None
+            if operation_payload_sha256 != requested_payload_sha256:
+                return None
+            if not _consume_nonce_via_control_plane(
+                receipt["nonce"], receipt_sha256, operation_payload_sha256
+            ):
+                return {"_control_plane_blocked": True}
             row["consumed_at"] = _stamp()
             row["status"] = "completed"
             _atomic_json(_decisions_path(root), data)
             return row
     return None
+
+
+def _consume_nonce_via_control_plane(
+    nonce: str, receipt_sha256: str, operation_payload_sha256: str
+) -> bool:
+    """Atomically consume an L3 nonce through an independent Unix service."""
+    if os.name == "nt" or not hasattr(os, "geteuid") or os.geteuid() == 0:
+        return False
+    if not L3_NONCE_BROKER.is_absolute():
+        return False
+    for parent in reversed(L3_NONCE_BROKER.parents):
+        try:
+            parent_metadata = parent.lstat()
+        except OSError:
+            return False
+        if (
+            stat.S_ISLNK(parent_metadata.st_mode)
+            or not stat.S_ISDIR(parent_metadata.st_mode)
+            or parent_metadata.st_uid != 0
+            or parent_metadata.st_mode & 0o022
+        ):
+            return False
+    try:
+        metadata = L3_NONCE_BROKER.lstat()
+    except OSError:
+        return False
+    if (
+        metadata.st_uid != 0
+        or metadata.st_mode & 0o002
+        or not stat.S_ISSOCK(metadata.st_mode)
+    ):
+        return False
+    request = json.dumps(
+        {
+            "action": "consume",
+            "nonce": nonce,
+            "receipt_sha256": receipt_sha256,
+            "operation_payload_sha256": operation_payload_sha256,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8") + b"\n"
+    expected_response = b"CONSUMED\n"
+    response = bytearray()
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+            client.settimeout(10)
+            client.connect(str(L3_NONCE_BROKER))
+            client.sendall(request)
+            client.shutdown(socket.SHUT_WR)
+            while len(response) <= len(expected_response):
+                chunk = client.recv(len(expected_response) + 1 - len(response))
+                if not chunk:
+                    break
+                response.extend(chunk)
+                if len(response) > len(expected_response):
+                    return False
+    except OSError:
+        return False
+    return bytes(response) == expected_response
 
 
 def _find_decision(root: Path, decision_id: str | None) -> dict[str, Any] | None:
@@ -419,6 +733,43 @@ def _find_decision(root: Path, decision_id: str | None) -> dict[str, Any] | None
         ),
         None,
     )
+
+
+def _l2_approval_matches(
+    root: Path,
+    decision: dict[str, Any],
+    *,
+    scope: Any,
+) -> bool:
+    if (
+        decision.get("risk_level") != "L2"
+        or decision.get("status") != "approved"
+        or not isinstance(scope, str)
+        or not scope.strip()
+    ):
+        return False
+    try:
+        receipt, receipt_sha256 = _verify_product_envelope(
+            root, decision.get("approval_envelope")
+        )
+    except ValueError:
+        return False
+    signed_fields = {
+        "decision_id": receipt["decision_id"],
+        "summary": receipt["summary"],
+        "scope": receipt["scope"],
+        "reopen_condition": receipt["reopen_condition"],
+        "assumptions_sha256": receipt["assumptions_sha256"],
+        "assumptions": receipt["assumptions"],
+        "approved_by": receipt["approved_by"],
+        "expires_at": receipt["expires_at"],
+        "approval_nonce": receipt["nonce"],
+        "receipt_sha256": receipt_sha256,
+        "signature_algorithm": "ed25519",
+    }
+    if any(decision.get(field) != value for field, value in signed_fields.items()):
+        return False
+    return receipt["scope"] == scope
 
 
 def _l3_approval_is_fresh(decision: dict[str, Any], operation_id: str | None) -> bool:
@@ -582,6 +933,22 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
         for key, value in effects.items()
     ):
         raise ValueError("effects must contain only known sensitive flags set to true")
+    if category == "product_decision" and risk in {"L0", "L1"}:
+        return {
+            "state": "BLOCKED",
+            "requires_response": False,
+            "reason": "product_decision_cannot_be_downgraded",
+            "required_risk_levels": ["L2"],
+            "next_action": "reclassify_and_prepare_signed_l2_decision_package",
+        }
+    if category == "high_risk_operation" and risk != "L3":
+        return {
+            "state": "BLOCKED",
+            "requires_response": False,
+            "reason": "high_risk_operation_cannot_be_downgraded",
+            "required_risk_levels": ["L3"],
+            "next_action": "reclassify_and_prepare_exact_l3_decision_package",
+        }
     high_risk = category in HIGH_RISK_CATEGORIES or bool(effects)
     if high_risk and risk != "L3":
         return {
@@ -634,22 +1001,62 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
         recorded = _find_decision(root, decision_id)
         if (
             recorded
-            and recorded.get("risk_level") == "L2"
-            and recorded.get("status") == "approved"
-            and recorded.get("scope") == request.get("decision_scope")
-            and request.get("assumptions_unchanged", True)
-            and not request.get("reopen_condition_triggered", False)
+            and _l2_approval_matches(
+                root,
+                recorded,
+                scope=request.get("decision_scope"),
+            )
         ):
             return _continue("existing_decision_reused_without_duplicate_question")
 
-    if risk == "L3":
+    if risk == "L3" and request.get("approval_id"):
+        operation_payload = request.get("operation_payload")
+        try:
+            _validate_operation_payload(operation_payload)
+        except ValueError as exc:
+            return {
+                "state": "BLOCKED",
+                "requires_response": False,
+                "reason": "exact_operation_payload_required",
+                "next_action": "prepare_canonical_operation_payload",
+                "detail": str(exc),
+            }
+        if (
+            operation_payload["category"] != category
+            or operation_payload["effects"] != effects
+        ):
+            return {
+                "state": "BLOCKED",
+                "requires_response": False,
+                "reason": "operation_payload_does_not_match_request",
+                "next_action": "rebuild_exact_operation_request",
+            }
         approval = _consume_operation_approval(
-            root, request.get("approval_id"), request.get("operation_id")
+            root,
+            request.get("approval_id"),
+            request.get("operation_id"),
+            operation_payload,
         )
         if approval:
+            if approval.get("_runtime_context_blocked"):
+                return {
+                    "state": "BLOCKED",
+                    "requires_response": False,
+                    "reason": "l3_runtime_context_mismatch",
+                    "next_action": "recover_independent_runtime_context_or_reissue_exact_payload",
+                }
+            if approval.get("_control_plane_blocked"):
+                return {
+                    "state": "BLOCKED",
+                    "requires_response": False,
+                    "reason": "l3_external_nonce_ledger_unavailable",
+                    "next_action": "provision_or_recover_independent_l3_control_plane",
+                }
             result = _continue("fresh_l3_operation_approval_verified")
             result["approval_id"] = approval["decision_id"]
             result["operation_id"] = approval["operation_id"]
+            result["authorized_operation_payload"] = approval["approval_envelope"]["receipt"]["operation_payload"]
+            result["operation_payload_sha256"] = approval["operation_payload_sha256"]
             result["approval_consumed"] = True
             return result
 
@@ -768,11 +1175,11 @@ def evaluate_deployment(root: Path, gate: dict[str, Any]) -> dict[str, Any]:
             isinstance(deployment_class, str)
             and bool(deployment_class.strip())
             and baseline is not None
-            and baseline.get("risk_level") == "L2"
-            and baseline.get("status") == "approved"
-            and baseline.get("scope") == f"production_deploy:{deployment_class}"
-            and gate.get("baseline_assumptions_unchanged") is True
-            and gate.get("baseline_reopen_condition_triggered") is not True
+            and _l2_approval_matches(
+                root,
+                baseline,
+                scope=f"production_deploy:{deployment_class}",
+            )
         )
         if not baseline_is_valid:
             return {

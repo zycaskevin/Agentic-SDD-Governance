@@ -27,12 +27,40 @@
     "mismatch_state": "BLOCKED",
     "mismatch_requires_human_approval": false
   },
+  "trusted_verifier": {
+    "pull_request_can_modify_active_verifier": false,
+    "candidate_code_is_executed_by_governance_gate": false,
+    "verifier_source": "exact_base_sha",
+    "pull_request_event": "pull_request_target"
+  },
+  "evidence_verification": {
+    "recalculate_every_artifact": true,
+    "require_size_and_sha256": true,
+    "reject_path_escape": true,
+    "reject_symlinks": true,
+    "reject_duplicate_paths_or_labels": true,
+    "reject_unregistered_artifacts": true
+  },
+  "l2_approval_receipts": {
+    "algorithm": "ed25519",
+    "caller_strings_are_authority": false,
+    "bind_scope_and_assumptions": true,
+    "reopen_state_when_context_changes": "ACTION_REQUIRED"
+  },
   "l3_approval_receipts": {
     "algorithm": "ed25519",
     "auditable_approver_store": ".sddgov/trusted-approvers.json",
-    "authority_sources": ["trusted_base_ref", "out_of_band_file"],
+    "authority_sources": ["root_control_plane_file"],
     "candidate_worktree_store_is_authority": false,
     "caller_strings_are_authority": false,
+    "bind_complete_operation_payload": true,
+    "runtime_context_file": "/etc/sddgov/runtime-context.json",
+    "nonce_broker_sockets": {
+      "darwin": "/private/var/db/sddgov/approval-broker.sock",
+      "linux": "/run/sddgov/approval-broker.sock"
+    },
+    "agent_must_be_non_root": true,
+    "return_authorized_payload": true,
     "consume_atomically_on_continue": true,
     "reuse_state": "ACTION_REQUIRED"
   },

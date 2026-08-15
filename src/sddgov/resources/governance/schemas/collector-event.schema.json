@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Evidence Collector Event",
   "type": "object",
-  "required": ["collector", "path", "sha256", "collected_at", "shareable"],
+  "required": ["collector", "path", "source_suffix", "media_type", "sha256", "size", "collected_at", "shareable"],
   "properties": {
     "collector": {
       "enum": [
@@ -14,7 +14,16 @@
       "type": "string",
       "pattern": "^private/raw/(?:(?!\\.{1,2}(?:/|$))[^/\\\\\\x00-\\x1F\\x7F]*[^/\\\\\\x00-\\x1F\\x7F .]/)*(?!\\.{1,2}$)[^/\\\\\\x00-\\x1F\\x7F]*[^/\\\\\\x00-\\x1F\\x7F .]$"
     },
+    "source_suffix": {"type": "string", "pattern": "^(?:|\\.[a-z0-9]+)$"},
+    "media_type": {
+      "enum": [
+        "application/har+json",
+        "application/octet-stream",
+        "text/plain; charset=utf-8"
+      ]
+    },
     "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "size": {"type": "integer", "minimum": 0},
     "collected_at": {"type": "string", "format": "date-time"},
     "shareable": {"const": false}
   },

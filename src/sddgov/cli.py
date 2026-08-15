@@ -12,6 +12,7 @@ from .autonomy import (
     evaluate_deployment,
     evaluate_escalation,
     import_operation_approval,
+    import_product_approval,
     lock_artifact,
     record_decision,
     verify_artifact,
@@ -26,6 +27,7 @@ from .merge_gate import (
     compute_gate_metadata_digest,
     verify_merge,
 )
+from .pilot import run_synthetic_muse_pilot
 from .reviewer import bootstrap_reviewer, export_trust, sign_protected_review
 from .schema_validation import check_schema, load_schema, validate_instance
 
@@ -57,6 +59,11 @@ def _evidence_parser(subparsers) -> None:
     check = commands.add_parser("verify", help="Verify DEP structure and gates")
     check.add_argument("dep", type=Path)
     check.add_argument("--strict", action="store_true")
+    check.add_argument(
+        "--portable",
+        action="store_true",
+        help="Verify a portable tracked DEP while allowing local-only raw files to be absent",
+    )
 
     link = commands.add_parser("attach", help="Generate a safe local evidence block")
     link.add_argument("dep", type=Path)
@@ -92,13 +99,21 @@ def _autonomy_parsers(subparsers) -> None:
 
     decision = subparsers.add_parser("decision", help="Record and reuse bounded L2/L3 decisions")
     decision_commands = decision.add_subparsers(dest="decision_command", required=True)
-    record = decision_commands.add_parser("record", help="Record one approved L2 decision")
+    record = decision_commands.add_parser(
+        "record", help="Deprecated unsafe L2 path; always fails closed"
+    )
     record.add_argument("decision_id")
     record.add_argument("--summary", required=True)
     record.add_argument("--scope", required=True)
     record.add_argument("--basis", required=True)
     record.add_argument("--reopen-condition", required=True)
     record.add_argument("--path", type=Path, default=Path.cwd())
+    import_product = decision_commands.add_parser(
+        "import-product-approval",
+        help="Verify and import one trusted owner-signed L2 product decision",
+    )
+    import_product.add_argument("receipt", type=Path)
+    import_product.add_argument("--path", type=Path, default=Path.cwd())
     import_approval = decision_commands.add_parser(
         "import-operation-approval",
         help="Verify and import one trusted owner-signed L3 approval receipt",
@@ -142,6 +157,11 @@ def build_parser() -> argparse.ArgumentParser:
     merge_verify.add_argument("path", nargs="?", type=Path, default=Path.cwd())
     merge_verify.add_argument("--base-ref", required=True)
     merge_verify.add_argument("--gate", type=Path, default=DEFAULT_GATE)
+    merge_verify.add_argument(
+        "--skip-local-checks",
+        action="store_true",
+        help="Do not execute candidate-defined Local Green commands (trusted hosted verifier only)",
+    )
     reviewer = sub.add_parser(
         "reviewer", help="Provision and use an independent review identity"
     )
@@ -211,6 +231,12 @@ def build_parser() -> argparse.ArgumentParser:
     cmp = bench_sub.add_parser("compare")
     cmp.add_argument("--screenshot", type=Path, required=True)
     cmp.add_argument("--evidence", type=Path, required=True)
+    pilot = sub.add_parser("pilot", help="Run isolated synthetic adoption pilots")
+    pilot_sub = pilot.add_subparsers(dest="pilot_command", required=True)
+    synthetic_muse = pilot_sub.add_parser(
+        "synthetic-muse", help="Run the offline synthetic Muse/Hermes pilot"
+    )
+    synthetic_muse.add_argument("--output", type=Path)
     validate = sub.add_parser("validate", help="Validate repository governance assets")
     validate.add_argument("path", nargs="?", type=Path, default=Path.cwd())
     return parser
@@ -227,6 +253,7 @@ def _validate_repo(root: Path) -> list[str]:
         "schemas/autonomy-policy.schema.json", "schemas/decision-record.schema.json",
         "schemas/artifact-lock.schema.json", "policies/autonomy-policy.json",
         "schemas/trusted-approvers.schema.json", "schemas/operation-approval-receipt.schema.json",
+        "schemas/product-decision-approval-receipt.schema.json",
         "schemas/trusted-reviewers.schema.json", "schemas/protected-review-receipt.schema.json",
         "schemas/merge-gate.schema.json", "src/sddgov/merge_gate.py",
         "src/sddgov/reviewer.py",
@@ -236,6 +263,7 @@ def _validate_repo(root: Path) -> list[str]:
         "skill/agentic-sdd-governance/references/independent-reviewer.md",
         "docs/EVIDENCE_DRIVEN_SDD.md", "docs/AGENT_INSTALLATION.md", "docs/CI_COST_GUARD.md",
         "docs/AUTONOMOUS_DEVELOPMENT_V1_2.md", "templates/ACTION_REQUIRED.md",
+        "templates/PRODUCT_DECISION_APPROVAL_RECEIPT.json",
         "templates/CI_COST_GUARD.json", "src/sddgov/ci_guard.py",
         "src/sddgov/installer.py",
         "src/sddgov/resources/governance/VERSION",
@@ -299,6 +327,10 @@ def run(args: argparse.Namespace) -> int:
     if args.command == "external-action":
         print(json.dumps(enqueue_external_action(args.path, args.action_id, args.summary, args.risk, args.owner), ensure_ascii=False, indent=2))
         return 0
+    if args.command == "pilot":
+        result = run_synthetic_muse_pilot(args.output)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0 if result["verdict"] == "PASS" else 1
     if args.command == "autonomy":
         request = json.loads(args.request.read_text(encoding="utf-8"))
         if not isinstance(request, dict):
@@ -322,6 +354,8 @@ def run(args: argparse.Namespace) -> int:
                 args.basis,
                 args.reopen_condition,
             )
+        elif args.decision_command == "import-product-approval":
+            result = import_product_approval(args.path, args.receipt)
         else:
             result = import_operation_approval(args.path, args.receipt)
         print(json.dumps(result, ensure_ascii=False, indent=2))
@@ -342,7 +376,12 @@ def run(args: argparse.Namespace) -> int:
         elif args.merge_command == "gate-digest":
             result = compute_gate_metadata_digest(args.path, args.gate)
         else:
-            result = verify_merge(args.path, args.base_ref, args.gate)
+            result = verify_merge(
+                args.path,
+                args.base_ref,
+                args.gate,
+                run_checks=not args.skip_local_checks,
+            )
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0 if result.get("ok", True) else 1
     if args.command == "reviewer":
@@ -394,7 +433,7 @@ def run(args: argparse.Namespace) -> int:
     elif args.evidence_command == "transition":
         print(json.dumps(transition(args.dep, args.phase), ensure_ascii=False, indent=2))
     elif args.evidence_command == "verify":
-        errors = verify(args.dep, args.strict)
+        errors = verify(args.dep, args.strict, args.portable)
         if errors:
             print("\n".join(f"[ERROR] {e}" for e in errors), file=sys.stderr)
             return 1

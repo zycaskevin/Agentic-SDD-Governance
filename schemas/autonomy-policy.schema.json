@@ -11,6 +11,9 @@
     "approval_budget",
     "checkpoint",
     "integrity",
+    "trusted_verifier",
+    "evidence_verification",
+    "l2_approval_receipts",
     "l3_approval_receipts",
     "allowed_escalations",
     "production_deploy"
@@ -64,18 +67,66 @@
       },
       "additionalProperties": false
     },
+    "trusted_verifier": {
+      "type": "object",
+      "required": ["pull_request_can_modify_active_verifier", "candidate_code_is_executed_by_governance_gate", "verifier_source", "pull_request_event"],
+      "properties": {
+        "pull_request_can_modify_active_verifier": {"const": false},
+        "candidate_code_is_executed_by_governance_gate": {"const": false},
+        "verifier_source": {"const": "exact_base_sha"},
+        "pull_request_event": {"const": "pull_request_target"}
+      },
+      "additionalProperties": false
+    },
+    "evidence_verification": {
+      "type": "object",
+      "required": ["recalculate_every_artifact", "require_size_and_sha256", "reject_path_escape", "reject_symlinks", "reject_duplicate_paths_or_labels", "reject_unregistered_artifacts"],
+      "properties": {
+        "recalculate_every_artifact": {"const": true},
+        "require_size_and_sha256": {"const": true},
+        "reject_path_escape": {"const": true},
+        "reject_symlinks": {"const": true},
+        "reject_duplicate_paths_or_labels": {"const": true},
+        "reject_unregistered_artifacts": {"const": true}
+      },
+      "additionalProperties": false
+    },
+    "l2_approval_receipts": {
+      "type": "object",
+      "required": ["algorithm", "caller_strings_are_authority", "bind_scope_and_assumptions", "reopen_state_when_context_changes"],
+      "properties": {
+        "algorithm": {"const": "ed25519"},
+        "caller_strings_are_authority": {"const": false},
+        "bind_scope_and_assumptions": {"const": true},
+        "reopen_state_when_context_changes": {"const": "ACTION_REQUIRED"}
+      },
+      "additionalProperties": false
+    },
     "l3_approval_receipts": {
       "type": "object",
-      "required": ["algorithm", "auditable_approver_store", "authority_sources", "candidate_worktree_store_is_authority", "caller_strings_are_authority", "consume_atomically_on_continue", "reuse_state"],
+      "required": ["algorithm", "auditable_approver_store", "authority_sources", "candidate_worktree_store_is_authority", "caller_strings_are_authority", "bind_complete_operation_payload", "runtime_context_file", "nonce_broker_sockets", "agent_must_be_non_root", "return_authorized_payload", "consume_atomically_on_continue", "reuse_state"],
       "properties": {
         "algorithm": {"const": "ed25519"},
         "auditable_approver_store": {"const": ".sddgov/trusted-approvers.json"},
         "authority_sources": {
           "type": "array",
-          "const": ["trusted_base_ref", "out_of_band_file"]
+          "const": ["root_control_plane_file"]
         },
         "candidate_worktree_store_is_authority": {"const": false},
         "caller_strings_are_authority": {"const": false},
+        "bind_complete_operation_payload": {"const": true},
+        "runtime_context_file": {"const": "/etc/sddgov/runtime-context.json"},
+        "nonce_broker_sockets": {
+          "type": "object",
+          "required": ["darwin", "linux"],
+          "properties": {
+            "darwin": {"const": "/private/var/db/sddgov/approval-broker.sock"},
+            "linux": {"const": "/run/sddgov/approval-broker.sock"}
+          },
+          "additionalProperties": false
+        },
+        "agent_must_be_non_root": {"const": true},
+        "return_authorized_payload": {"const": true},
         "consume_atomically_on_continue": {"const": true},
         "reuse_state": {"const": "ACTION_REQUIRED"}
       },

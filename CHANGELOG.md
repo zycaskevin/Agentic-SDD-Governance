@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.2.0-experimental.7 — 2026-08-15 security hardening candidate
+
+### Security
+
+- Separated the authoritative PR verifier from candidate code: the Base-controlled `pull_request_target` workflow installs the exact Base verifier, treats the candidate checkout only as data, and never executes candidate-defined Local Green commands.
+- Made strict DEP verification reopen and recalculate every available artifact's normalized path, regular-file type, link count, size, and SHA-256; missing, altered, extra, escaped, symlinked, hardlinked, and duplicate artifacts now fail closed.
+- Required every raw artifact to appear exactly once in deterministic `files` or fail-closed `blocked`; unknown/binary suffixes and every HAR are blocked from the generic text redactor.
+- Prevented collector label overwrite, DEP ID path escape, redaction input/output symlink traversal, pre-rejection external directory creation, and pathname-reopen TOCTOU.
+- Replaced caller-authored L2 authority with Owner Ed25519 receipts loaded from a separate-identity trust root and bound to assumption artifact paths whose current bytes are recalculated on every reuse.
+- Bound L3 receipts to repository, project, environment, scope, category, target, non-secret parameters, and sensitive effects; `CONTINUE` now requires a root-owned clone-external atomic nonce broker.
+- Made Base Reviewer revocation authoritative so a stale external bootstrap variable cannot reactivate a revoked key.
+- Required the Base Reviewer store itself to match the exact bootstrap contract before any external key is accepted; missing or malformed Base state fails closed.
+- Bound Evidence to Collector identity, immutable source suffix, and detected media type, and retained verified base/source/DEP/zone/output directory descriptors through DEP creation, collection, redaction, strict verification, attachment, and atomic control-document writes. Attachment generation consumes the exact in-memory summary/manifest snapshot that strict verification checked, records its framed SHA-256 generation digest in both content and default filename, stages before the final control check, and uses atomic no-clobber publish so concurrent control generations cannot contaminate each other or overwrite a later writer.
+- Required L3 repository/project/environment to match a separate root-controlled Runtime Context, made outer/inner scope identical, rejected root Agent execution, and moved atomic nonce consumption to a root-provisioned Unix service on fixed macOS/Linux paths.
+- Pinned privileged GitHub Actions to full commit SHAs and hash-locked every Python dependency used by the trusted verifier.
+
+### Added
+
+- Added L2 product-decision receipt Schema/template, an L3 Runtime Context Schema/template, a hashed Governance dependency lock, and expanded L3/Decision Record contracts.
+- Added adversarial regression tests for Evidence tampering, path boundaries, authority downgrade, receipt tampering/replay, and exact L3 payload mismatch.
+- Added an offline disposable synthetic Muse/Hermes pilot using synthetic relationship text and one generated image; binary sharing fails closed and the reviewed derivative completes full and portable DEP verification.
+
+### Changed
+
+- Added `sddgov evidence verify --portable` for Base-controlled PR verification where local raw bytes are intentionally absent; full local strict verification remains mandatory before attachment.
+- Added `sddgov pilot synthetic-muse` for the bounded isolation pilot.
+- Kept this version experimental: the synthetic pilot does not authorize Production, real Muse data, credentials, or L2/L3 operations.
+
 ## 0.2.0-experimental.6 — 2026-08-15
 
 ### Added

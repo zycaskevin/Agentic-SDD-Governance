@@ -11,13 +11,14 @@ sddgov autonomy evaluate request.json --path .
 sddgov checkpoint --summary "..." --next-work-package WP-002
 sddgov artifact lock dist/package.whl --release release-X --output release.lock
 sddgov artifact verify dist/package.whl --lock release.lock
+sddgov decision import-product-approval signed-product-decision.json --path .
 sddgov decision import-operation-approval signed-approval.json --path .
 sddgov merge verify . --base-ref <exact-base>
 ```
 
 Every known action request must include an explicit `effects` object. Use `{}` only after classification confirms that no Production, destructive, irreversible, Secret, permission-boundary, real-payment, or high-privilege effect applies.
 
-Record an approved L2 decision once in `.sddgov/decisions.json` and reuse it while assumptions remain unchanged. L3 requires a trusted-owner Ed25519 receipt that is fresh, exact, unexpired, and atomically consumed on the first `CONTINUE`; a previous product decision or caller string never authorizes a new L3 operation.
+Import an approved L2 decision only through a separate-identity trust root. The signed receipt lists exact assumption artifacts; SDG recalculates their current bytes on every reuse and never trusts a caller freshness boolean. L3 binds repository, project, environment, scope, category, target, parameters, and effects. Repository/project/environment must match root-controlled `/etc/sddgov/runtime-context.json`, outer and inner scope must match, and the Agent process must be non-root. It reaches `CONTINUE` only after the root-provisioned Unix service at `/private/var/db/sddgov/approval-broker.sock` on macOS or `/run/sddgov/approval-broker.sock` on Linux atomically consumes the signed nonce across clones; callers cannot override this platform path, and the Agent executes only the returned `authorized_operation_payload`. A missing context or Broker is machine-actionable `BLOCKED`, not another approval request. A previous product decision or caller string never authorizes a new L3 operation.
 
 Unknown categories and dangerous L0/L1 downgrades fail closed for machine reclassification. Before Merge, execute the Merge verifier; do not treat `policies/merge-policy.yaml` as self-enforcing documentation.
 

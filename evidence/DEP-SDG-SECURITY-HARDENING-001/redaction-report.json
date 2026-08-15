@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "terminal--security-hardening-red.txt",
+      "output": "terminal--security-hardening-red.txt",
+      "source_sha256": "49946710251893b1d58be496d79fd2cc6ebaeee8383b5896535e5801f9a422a9",
+      "source_size": 1142,
+      "output_sha256": "49946710251893b1d58be496d79fd2cc6ebaeee8383b5896535e5801f9a422a9",
+      "output_size": 1142,
+      "redactions": {}
+    }
+  ],
+  "blocked": [],
+  "totals": {},
+  "dep_id": "DEP-SDG-SECURITY-HARDENING-001",
+  "generated_at": "2026-08-15T09:29:51Z"
+}
