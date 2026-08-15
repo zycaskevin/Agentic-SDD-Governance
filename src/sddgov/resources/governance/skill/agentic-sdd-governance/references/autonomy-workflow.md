@@ -18,7 +18,7 @@ sddgov merge verify . --base-ref <exact-base>
 
 Every known action request must include an explicit `effects` object. Use `{}` only after classification confirms that no Production, destructive, irreversible, Secret, permission-boundary, real-payment, or high-privilege effect applies.
 
-Import an approved L2 decision from a trusted-owner Ed25519 receipt and reuse it only while the signed scope and assumptions SHA-256 remain exact and the reopen condition remains false. L3 requires a trusted-owner Ed25519 receipt bound to the complete canonical operation payload; it must be fresh, exact, unexpired, and is atomically consumed on the first `CONTINUE`. A previous product decision or caller string never authorizes a new L3 operation.
+Import an approved L2 decision only through a separate-identity trust root. The signed receipt lists exact assumption artifacts; SDG recalculates their current bytes on every reuse and never trusts a caller freshness boolean. L3 binds repository, project, environment, scope, category, target, parameters, and effects. It reaches `CONTINUE` only after a root-owned external nonce broker atomically consumes the signed nonce across clones; a missing broker is machine-actionable `BLOCKED`, not another approval request. A previous product decision or caller string never authorizes a new L3 operation.
 
 Unknown categories and dangerous L0/L1 downgrades fail closed for machine reclassification. Before Merge, execute the Merge verifier; do not treat `policies/merge-policy.yaml` as self-enforcing documentation.
 

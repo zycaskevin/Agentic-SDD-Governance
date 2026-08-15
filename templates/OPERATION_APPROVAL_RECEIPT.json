@@ -5,6 +5,10 @@
     "approval_id": "APP-EXACT-OPERATION-001",
     "operation_id": "PROD-OPERATION-001",
     "operation_payload": {
+      "repository": "replace-with-repository-identity",
+      "project": "replace-with-project-identity",
+      "environment": "replace-with-exact-environment",
+      "scope": "replace-with-one-exact-operation-scope",
       "category": "high_risk_operation",
       "target": "replace-with-exact-operation-target",
       "parameters": {"mode": "replace-with-non-secret-exact-parameter"},

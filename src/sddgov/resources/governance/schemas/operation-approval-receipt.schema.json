@@ -15,8 +15,12 @@
         "operation_id": {"type": "string", "minLength": 1},
         "operation_payload": {
           "type": "object",
-          "required": ["category", "target", "parameters", "effects"],
+          "required": ["repository", "project", "environment", "scope", "category", "target", "parameters", "effects"],
           "properties": {
+            "repository": {"type": "string", "minLength": 1},
+            "project": {"type": "string", "minLength": 1},
+            "environment": {"type": "string", "minLength": 1},
+            "scope": {"type": "string", "minLength": 1},
             "category": {
               "enum": [
                 "high_risk_operation",

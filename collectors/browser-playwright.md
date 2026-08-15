@@ -14,7 +14,7 @@ Likely secrets: Authorization or cookie headers, provider/runtime secrets, Supab
 
 ## HAR (`browser-har`)
 
-Prefer a filtered HAR for the affected host and time window. Before any derivative leaves local storage, apply a deny-by-default safe metadata allowlist: retain only the minimum reviewed method, status class, timing, origin, and non-identifying route shape needed for the reproduction. Remove cookies, Authorization, Referer, Set-Cookie, Proxy-Authorization, API-key and custom identity headers, sensitive path segments, query/fragment data, signed URLs, unapproved metadata, and **all request and response bodies**, regardless of apparent content. A HAR is text but may contain encoded binary or deeply nested secrets; inspect the redaction report and manually review it.
+The MVP blocks every HAR from the generic text-redaction route, including apparently body-free JSON. HAR can contain encoded binary or deeply nested secrets, and no signed manual-derivative receipt exists yet. A future dedicated derivative may use a safe metadata allowlist to retain only reviewed method, status class, timing, origin, and non-identifying route shape while removing cookies, Referer, Set-Cookie, Proxy-Authorization, API-key and other headers, query/fragment data, signed URLs, unapproved metadata, and **all request and response bodies**. Until then, keep HAR local and attach a separately written safe text summary instead.
 
 ## Playwright (`playwright-trace`)
 

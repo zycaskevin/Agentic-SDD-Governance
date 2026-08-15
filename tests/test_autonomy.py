@@ -2,6 +2,7 @@ import base64
 import hashlib
 import io
 import json
+import os
 import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor
@@ -54,6 +55,10 @@ def decision_package(risk="L2", decision_id="DEC-NEW"):
 
 def operation_payload(operation_id, category="high_risk_operation", effects=None):
     return {
+        "repository": "zycaskevin/synthetic-repository",
+        "project": "synthetic-project",
+        "environment": "synthetic-production",
+        "scope": f"one exact operation:{operation_id}",
         "category": category,
         "target": f"synthetic:{operation_id}",
         "parameters": {"mode": "synthetic"},
@@ -72,8 +77,19 @@ class AutonomyTests(unittest.TestCase):
         )
         self.trust_environment.start()
         init_project(self.root, "team-standard")
+        self.control_plane_loader = patch(
+            "sddgov.autonomy.load_control_plane_json",
+            side_effect=lambda path, _label: json.loads(Path(path).read_text()),
+        )
+        self.control_plane_loader.start()
+        self.nonce_broker = patch(
+            "sddgov.autonomy._consume_nonce_via_control_plane", return_value=True
+        )
+        self.nonce_broker.start()
 
     def tearDown(self):
+        self.nonce_broker.stop()
+        self.control_plane_loader.stop()
         self.trust_environment.stop()
         self.trust_temporary.cleanup()
         self.temporary.cleanup()
@@ -160,13 +176,27 @@ class AutonomyTests(unittest.TestCase):
         )
         self.trust_path.chmod(0o600)
         now = datetime.now(timezone.utc).replace(microsecond=0)
+        assumption_path = self.root / ".sddgov" / "assumptions" / f"{decision_id}.txt"
+        assumption_path.parent.mkdir(parents=True, exist_ok=True)
+        assumption_path.write_text(assumptions, encoding="utf-8")
+        assumption_rows = [{
+            "path": assumption_path.relative_to(self.root).as_posix(),
+            "sha256": hashlib.sha256(assumptions.encode("utf-8")).hexdigest(),
+        }]
+        assumptions_digest = hashlib.sha256(
+            json.dumps(
+                assumption_rows,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()
         receipt = {
             "decision_id": decision_id,
             "summary": "Owner-approved bounded product decision",
             "scope": scope,
-            "assumptions_sha256": hashlib.sha256(
-                assumptions.encode("utf-8")
-            ).hexdigest(),
+            "assumptions": assumption_rows,
+            "assumptions_sha256": assumptions_digest,
             "reopen_condition": "Reopen when assumptions or scope change",
             "approved_by": approved_by,
             "issued_at": now.isoformat().replace("+00:00", "Z"),
@@ -290,25 +320,28 @@ class AutonomyTests(unittest.TestCase):
                 "SDDGOV_TRUSTED_BASE_REF": "",
             },
         ):
-            with self.assertRaisesRegex(ValueError, "bootstrap requires"):
+            with self.assertRaisesRegex(ValueError, "separate control-plane"):
                 import_operation_approval(self.root, path)
 
-    def test_external_approver_store_must_be_owner_controlled(self):
+    def test_same_uid_external_approver_store_is_not_owner_authority(self):
         path, _ = self._signed_operation_approval()
-        self.trust_path.chmod(0o644)
-        with self.assertRaisesRegex(ValueError, "owner-only permissions"):
-            import_operation_approval(self.root, path)
+        self.control_plane_loader.stop()
+        try:
+            with self.assertRaisesRegex(ValueError, "root-owned"):
+                import_operation_approval(self.root, path)
+        finally:
+            self.control_plane_loader.start()
 
-    def test_trusted_base_ref_must_be_an_immutable_full_sha(self):
+    def test_caller_selected_trusted_base_ref_is_never_authority(self):
         path, _ = self._signed_operation_approval()
         with patch.dict(
             "os.environ",
             {
                 "SDDGOV_TRUSTED_APPROVERS_FILE": "",
-                "SDDGOV_TRUSTED_BASE_REF": "--help",
+                "SDDGOV_TRUSTED_BASE_REF": "a" * 40,
             },
         ):
-            with self.assertRaisesRegex(ValueError, "full 40-character commit SHA"):
+            with self.assertRaisesRegex(ValueError, "separate control-plane"):
                 import_operation_approval(self.root, path)
 
     def test_adversarial_receipt_encodings_fail_closed(self):
@@ -451,7 +484,6 @@ class AutonomyTests(unittest.TestCase):
         self.assertEqual(first["state"], "ACTION_REQUIRED")
         approval_path, approval = self._signed_product_approval()
         imported = import_product_approval(self.root, approval_path)
-        assumptions_sha256 = approval["receipt"]["assumptions_sha256"]
         self.assertEqual(imported["verification"], "SIGNATURE_VERIFIED")
         second = evaluate_escalation(
             self.root,
@@ -460,8 +492,6 @@ class AutonomyTests(unittest.TestCase):
                 "category": "product_decision",
                 "decision_id": "DEC-023",
                 "decision_scope": "MVP data layer",
-                "assumptions_sha256": assumptions_sha256,
-                "reopen_condition_triggered": False,
             },
         )
         self.assertEqual(second["state"], "CONTINUE")
@@ -473,8 +503,6 @@ class AutonomyTests(unittest.TestCase):
                 "category": "product_decision",
                 "decision_id": "DEC-023",
                 "decision_scope": "Production analytics export",
-                "assumptions_sha256": assumptions_sha256,
-                "reopen_condition_triggered": False,
                 "decision_package": decision_package(decision_id="DEC-023-SCOPE"),
             },
         )
@@ -482,6 +510,8 @@ class AutonomyTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "already imported"):
             import_product_approval(self.root, approval_path)
 
+        assumption_path = self.root / approval["receipt"]["assumptions"][0]["path"]
+        assumption_path.write_text("changed baseline", encoding="utf-8")
         stale = evaluate_escalation(
             self.root,
             {
@@ -489,7 +519,7 @@ class AutonomyTests(unittest.TestCase):
                 "category": "product_decision",
                 "decision_id": "DEC-023",
                 "decision_scope": "MVP data layer",
-                "assumptions_sha256": "0" * 64,
+                "assumptions_sha256": approval["receipt"]["assumptions_sha256"],
                 "reopen_condition_triggered": False,
                 "decision_package": decision_package(decision_id="DEC-023-STALE"),
             },
@@ -626,6 +656,52 @@ class AutonomyTests(unittest.TestCase):
 
         request["operation_payload"] = signed_payload
         self.assertEqual(evaluate_escalation(self.root, request)["state"], "CONTINUE")
+
+    def test_l3_never_falls_back_to_clone_local_single_use(self):
+        receipt, _ = self._signed_operation_approval("APP-BROKER", "PROD-BROKER")
+        import_operation_approval(self.root, receipt)
+        request = {
+            "risk_level": "L3",
+            "category": "high_risk_operation",
+            "operation_id": "PROD-BROKER",
+            "approval_id": "APP-BROKER",
+            "operation_payload": operation_payload("PROD-BROKER"),
+            "decision_package": decision_package("L3", "APP-BROKER-NEXT"),
+        }
+        self.nonce_broker.stop()
+        try:
+            with patch("sddgov.autonomy.L3_NONCE_BROKER", self.root / "missing-broker"):
+                result = evaluate_escalation(self.root, request)
+        finally:
+            self.nonce_broker.start()
+        self.assertEqual(result["state"], "BLOCKED")
+        self.assertFalse(result["requires_response"])
+        self.assertEqual(result["reason"], "l3_external_nonce_ledger_unavailable")
+
+    def test_same_uid_fake_l3_broker_is_not_a_control_plane(self):
+        if hasattr(os, "geteuid") and os.geteuid() == 0:
+            self.skipTest("same-UID non-root boundary requires a non-root test user")
+        receipt, _ = self._signed_operation_approval("APP-FAKE", "PROD-FAKE")
+        import_operation_approval(self.root, receipt)
+        fake = self.root / "fake-broker"
+        fake.write_text("#!/bin/sh\nprintf 'CONSUMED\\n'\n", encoding="utf-8")
+        fake.chmod(0o755)
+        request = {
+            "risk_level": "L3",
+            "category": "high_risk_operation",
+            "operation_id": "PROD-FAKE",
+            "approval_id": "APP-FAKE",
+            "operation_payload": operation_payload("PROD-FAKE"),
+            "decision_package": decision_package("L3", "APP-FAKE-NEXT"),
+        }
+        self.nonce_broker.stop()
+        try:
+            with patch("sddgov.autonomy.L3_NONCE_BROKER", fake):
+                result = evaluate_escalation(self.root, request)
+        finally:
+            self.nonce_broker.start()
+        self.assertEqual(result["state"], "BLOCKED")
+        self.assertEqual(result["reason"], "l3_external_nonce_ledger_unavailable")
 
     def test_operation_payload_cannot_embed_secret_material(self):
         payload = operation_payload("PROD-SECRET")
@@ -797,10 +873,6 @@ class AutonomyTests(unittest.TestCase):
                 "risk_level": "L1",
                 "deployment_class": "web_app",
                 "baseline_decision_id": "DEC-DEPLOY-WEB",
-                "baseline_assumptions_sha256": approval["receipt"][
-                    "assumptions_sha256"
-                ],
-                "baseline_reopen_condition_triggered": False,
             }
         )
         allowed = evaluate_deployment(self.root, gate)

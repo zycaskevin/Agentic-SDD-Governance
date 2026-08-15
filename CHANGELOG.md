@@ -5,10 +5,12 @@
 ### Security
 
 - Separated the authoritative PR verifier from candidate code: the Base-controlled `pull_request_target` workflow installs the exact Base verifier, treats the candidate checkout only as data, and never executes candidate-defined Local Green commands.
-- Made strict DEP verification reopen and recalculate every registered artifact's normalized path, regular-file type, size, and SHA-256; missing, altered, extra, escaped, symlinked, and duplicate artifacts now fail closed.
-- Prevented collector label overwrite, DEP ID path escape, redaction input/output symlink traversal, and symlinked machine-control document writes.
-- Replaced caller-authored L2 approval with trusted-owner Ed25519 receipts bound to exact decision scope, assumptions digest, validity, and reopen state.
-- Bound L3 receipts to the complete canonical operation payload, including category, target, non-secret parameters, and sensitive effects, before atomic one-use consumption.
+- Made strict DEP verification reopen and recalculate every available artifact's normalized path, regular-file type, link count, size, and SHA-256; missing, altered, extra, escaped, symlinked, hardlinked, and duplicate artifacts now fail closed.
+- Required every raw artifact to appear exactly once in deterministic `files` or fail-closed `blocked`; unknown/binary suffixes and every HAR are blocked from the generic text redactor.
+- Prevented collector label overwrite, DEP ID path escape, redaction input/output symlink traversal, pre-rejection external directory creation, and pathname-reopen TOCTOU.
+- Replaced caller-authored L2 authority with Owner Ed25519 receipts loaded from a separate-identity trust root and bound to assumption artifact paths whose current bytes are recalculated on every reuse.
+- Bound L3 receipts to repository, project, environment, scope, category, target, non-secret parameters, and sensitive effects; `CONTINUE` now requires a root-owned clone-external atomic nonce broker.
+- Made Base Reviewer revocation authoritative so a stale external bootstrap variable cannot reactivate a revoked key.
 
 ### Added
 

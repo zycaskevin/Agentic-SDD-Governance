@@ -276,17 +276,15 @@ def _trusted_reviewers(root: Path, base_ref: str) -> dict[str, Any]:
             raise ValueError("trusted reviewer store at trusted base must contain a JSON object")
         base_store = value
     reviewers = base_store.get("reviewers") if isinstance(base_store, dict) else None
-    has_active = isinstance(reviewers, list) and any(
-        isinstance(record, dict) and record.get("status") == "active"
-        for record in reviewers
-    )
-    if has_active:
+    if isinstance(reviewers, list) and reviewers:
+        # A populated Base store is authoritative even when every key is revoked.
+        # Falling back here would let a stale bootstrap variable resurrect a key.
         return base_store
 
     external = os.environ.get("SDDGOV_TRUSTED_REVIEWERS_FILE")
     if not external:
         raise ValueError(
-            "trusted reviewer store at the trusted base has no active reviewer; "
+            "trusted reviewer store at the trusted base is in initial empty bootstrap; "
             "bootstrap requires SDDGOV_TRUSTED_REVIEWERS_FILE"
         )
     source = Path(external).expanduser().absolute()

@@ -60,3 +60,51 @@ def load_owner_controlled_json(path: Path, label: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError(f"{label} must contain a JSON object")
     return value
+
+
+def load_control_plane_json(path: Path, label: str) -> dict[str, Any]:
+    """Load authority only from a Unix root-owned, non-writable control-plane file.
+
+    A 0600 file owned by the current user is not an authority boundary when an
+    Agent runs as that same user. Non-POSIX hosts fail closed until an external
+    broker or platform ACL implementation is provided.
+    """
+    if os.name == "nt" or not hasattr(os, "geteuid"):
+        raise ValueError(f"{label} requires an independent control-plane identity")
+    candidate = path.expanduser().absolute()
+    try:
+        before = candidate.lstat()
+    except OSError as exc:
+        raise ValueError(f"{label} is unavailable: {exc}") from exc
+    if stat.S_ISLNK(before.st_mode) or not stat.S_ISREG(before.st_mode):
+        raise ValueError(f"{label} must be a non-symlink regular file")
+    if before.st_uid != 0 or before.st_mode & 0o022:
+        raise ValueError(
+            f"{label} must be root-owned and not writable by group or other"
+        )
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(candidate, flags)
+    except OSError as exc:
+        raise ValueError(f"{label} cannot be opened safely: {exc}") from exc
+    try:
+        current = os.fstat(descriptor)
+        if (before.st_dev, before.st_ino) != (current.st_dev, current.st_ino):
+            raise ValueError(f"{label} changed while it was being opened")
+        if not stat.S_ISREG(current.st_mode) or current.st_nlink != 1:
+            raise ValueError(f"{label} must be a non-linked regular file")
+        if current.st_uid != 0 or current.st_mode & 0o022:
+            raise ValueError(
+                f"{label} must remain root-owned and not writable by group or other"
+            )
+        with os.fdopen(descriptor, "r", encoding="utf-8") as handle:
+            descriptor = -1
+            value = json.load(handle)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"invalid {label}: {exc}") from exc
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+    if not isinstance(value, dict):
+        raise ValueError(f"{label} must contain a JSON object")
+    return value

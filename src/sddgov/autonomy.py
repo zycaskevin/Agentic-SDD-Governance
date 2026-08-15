@@ -7,16 +7,17 @@ import hashlib
 import json
 import os
 import re
+import stat
 import subprocess
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Iterable
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
-from .trust import load_owner_controlled_json, require_full_commit_sha
+from .trust import load_control_plane_json
 
 
 RISK_LEVELS = {"L0", "L1", "L2", "L3"}
@@ -91,6 +92,7 @@ DEPLOY_GUARDS = (
     "health_check_pass",
     "blast_radius_within_policy",
 )
+L3_NONCE_BROKER = Path("/usr/local/libexec/sddgov-approval-broker")
 
 
 def _now() -> datetime:
@@ -193,14 +195,84 @@ def _canonical_digest(value: dict[str, Any]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def _verified_assumptions_digest(root: Path, assumptions: Any) -> str:
+    """Recalculate the signed L2 assumptions from current repository bytes."""
+    if not isinstance(assumptions, list) or not assumptions:
+        raise ValueError("product approval assumptions must be a non-empty array")
+    normalized: list[dict[str, str]] = []
+    seen: set[str] = set()
+    root_resolved = root.resolve()
+    for index, row in enumerate(assumptions):
+        if (
+            not isinstance(row, dict)
+            or set(row) != {"path", "sha256"}
+            or not isinstance(row.get("path"), str)
+            or not row["path"].strip()
+            or not isinstance(row.get("sha256"), str)
+            or not SHA256_PATTERN.fullmatch(row["sha256"])
+        ):
+            raise ValueError(f"product approval assumptions[{index}] is invalid")
+        value = row["path"]
+        pure = PurePosixPath(value)
+        if (
+            "\\" in value
+            or pure.is_absolute()
+            or str(pure) != value
+            or any(part in {"", ".", ".."} for part in pure.parts)
+            or value in seen
+        ):
+            raise ValueError(f"product approval assumptions[{index}] path is unsafe")
+        seen.add(value)
+        candidate = root.joinpath(*pure.parts)
+        current = root
+        for part in pure.parts:
+            current = current / part
+            if current.is_symlink():
+                raise ValueError("product approval assumption path contains a symlink")
+        try:
+            candidate.resolve(strict=True).relative_to(root_resolved)
+        except (FileNotFoundError, ValueError) as exc:
+            raise ValueError("product approval assumption artifact is unavailable") from exc
+        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+        try:
+            descriptor = os.open(candidate, flags)
+        except OSError as exc:
+            raise ValueError("product approval assumption cannot be opened safely") from exc
+        try:
+            metadata = os.fstat(descriptor)
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+                raise ValueError("product approval assumption must be a non-linked regular file")
+            digest = hashlib.sha256()
+            while True:
+                chunk = os.read(descriptor, 1024 * 1024)
+                if not chunk:
+                    break
+                digest.update(chunk)
+        finally:
+            os.close(descriptor)
+        if digest.hexdigest() != row["sha256"]:
+            raise ValueError("product approval assumption artifact changed")
+        normalized.append({"path": value, "sha256": row["sha256"]})
+    encoded = json.dumps(
+        normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def _validate_operation_payload(payload: Any) -> str:
-    required = {"category", "target", "parameters", "effects"}
+    required = {
+        "repository", "project", "environment", "scope",
+        "category", "target", "parameters", "effects",
+    }
     if not isinstance(payload, dict) or set(payload) != required:
         raise ValueError("operation_payload has an invalid contract")
     if payload.get("category") not in HIGH_RISK_CATEGORIES | {"high_risk_operation"}:
         raise ValueError("operation_payload category is not an L3 operation")
     if not isinstance(payload.get("target"), str) or not payload["target"].strip():
         raise ValueError("operation_payload target must not be blank")
+    for field in ("repository", "project", "environment", "scope"):
+        if not isinstance(payload.get(field), str) or not payload[field].strip():
+            raise ValueError(f"operation_payload {field} must not be blank")
     if not isinstance(payload.get("parameters"), dict):
         raise ValueError("operation_payload parameters must be an object")
     sensitive_key = re.compile(r"(?i)(password|secret|token|credential|private[_-]?key)")
@@ -239,40 +311,22 @@ def _parse_time(value: Any, field: str) -> datetime:
 
 
 def _trusted_approver_store(root: Path) -> dict[str, Any]:
-    base_ref = os.environ.get("SDDGOV_TRUSTED_BASE_REF")
-    if base_ref:
-        base_sha = require_full_commit_sha(base_ref, "SDDGOV_TRUSTED_BASE_REF")
-        completed = subprocess.run(
-            ["git", "show", f"{base_sha}:.sddgov/trusted-approvers.json"],
-            cwd=root,
-            check=False,
-            capture_output=True,
-            text=True,
+    external = os.environ.get("SDDGOV_TRUSTED_APPROVERS_FILE")
+    if not external:
+        raise ValueError(
+            "trusted approver authority requires a separate control-plane file"
         )
-        if completed.returncode != 0:
-            raise ValueError("trusted approver store is absent from the trusted base")
-        try:
-            data = json.loads(completed.stdout)
-        except json.JSONDecodeError as exc:
-            raise ValueError("trusted approver store at trusted base is invalid") from exc
+    source = Path(external).expanduser().absolute()
+    try:
+        source.resolve().relative_to(root.resolve())
+    except ValueError:
+        data = load_control_plane_json(
+            source, "out-of-band trusted approver store"
+        )
     else:
-        external = os.environ.get("SDDGOV_TRUSTED_APPROVERS_FILE")
-        if not external:
-            raise ValueError(
-                "trusted approver bootstrap requires SDDGOV_TRUSTED_APPROVERS_FILE "
-                "or SDDGOV_TRUSTED_BASE_REF"
-            )
-        source = Path(external).expanduser().absolute()
-        try:
-            source.resolve().relative_to(root.resolve())
-        except ValueError:
-            data = load_owner_controlled_json(
-                source, "out-of-band trusted approver store"
-            )
-        else:
-            raise ValueError(
-                "out-of-band trusted approver store must be outside the repository"
-            )
+        raise ValueError(
+            "out-of-band trusted approver store must be outside the repository"
+        )
     if not isinstance(data, dict):
         raise ValueError("trusted approver store must contain a JSON object")
     return data
@@ -333,6 +387,7 @@ def _verify_product_envelope(
         "decision_id",
         "summary",
         "scope",
+        "assumptions",
         "assumptions_sha256",
         "reopen_condition",
         "approved_by",
@@ -340,13 +395,16 @@ def _verify_product_envelope(
         "expires_at",
         "nonce",
     }
+    string_fields = required - {"assumptions"}
     if set(receipt) != required or any(
         not isinstance(receipt.get(field), str) or not receipt[field].strip()
-        for field in required
+        for field in string_fields
     ):
         raise ValueError("product approval receipt payload has an invalid contract")
     if not SHA256_PATTERN.fullmatch(receipt["assumptions_sha256"]):
         raise ValueError("product approval assumptions_sha256 is invalid")
+    if _verified_assumptions_digest(root, receipt["assumptions"]) != receipt["assumptions_sha256"]:
+        raise ValueError("product approval assumptions digest does not match artifacts")
     if len(receipt["nonce"]) < 12:
         raise ValueError("product approval nonce must contain at least 12 characters")
     issued_at = _parse_time(receipt["issued_at"], "issued_at")
@@ -392,6 +450,7 @@ def import_product_approval(root: Path, envelope_path: Path) -> dict[str, Any]:
             "recorded_at": _stamp(),
             "reopen_condition": receipt["reopen_condition"],
             "assumptions_sha256": receipt["assumptions_sha256"],
+            "assumptions": receipt["assumptions"],
             "approved_by": receipt["approved_by"],
             "expires_at": receipt["expires_at"],
             "approval_nonce": receipt["nonce"],
@@ -558,11 +617,49 @@ def _consume_operation_approval(
                 return None
             if operation_payload_sha256 != requested_payload_sha256:
                 return None
+            if not _consume_nonce_via_control_plane(
+                receipt["nonce"], receipt_sha256, operation_payload_sha256
+            ):
+                return {"_control_plane_blocked": True}
             row["consumed_at"] = _stamp()
             row["status"] = "completed"
             _atomic_json(_decisions_path(root), data)
             return row
     return None
+
+
+def _consume_nonce_via_control_plane(
+    nonce: str, receipt_sha256: str, operation_payload_sha256: str
+) -> bool:
+    """Atomically consume an L3 nonce outside every clone, or fail closed."""
+    try:
+        metadata = L3_NONCE_BROKER.lstat()
+    except OSError:
+        return False
+    if (
+        metadata.st_uid != 0
+        or metadata.st_mode & 0o022
+        or metadata.st_nlink != 1
+        or not stat.S_ISREG(metadata.st_mode)
+    ):
+        return False
+    try:
+        completed = subprocess.run(
+            [
+                str(L3_NONCE_BROKER),
+                "consume",
+                nonce,
+                receipt_sha256,
+                operation_payload_sha256,
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return completed.returncode == 0 and completed.stdout == "CONSUMED\n"
 
 
 def _find_decision(root: Path, decision_id: str | None) -> dict[str, Any] | None:
@@ -583,17 +680,12 @@ def _l2_approval_matches(
     decision: dict[str, Any],
     *,
     scope: Any,
-    assumptions_sha256: Any,
-    reopen_condition_triggered: Any,
 ) -> bool:
     if (
         decision.get("risk_level") != "L2"
         or decision.get("status") != "approved"
         or not isinstance(scope, str)
         or not scope.strip()
-        or not isinstance(assumptions_sha256, str)
-        or not SHA256_PATTERN.fullmatch(assumptions_sha256)
-        or reopen_condition_triggered is not False
     ):
         return False
     try:
@@ -608,6 +700,7 @@ def _l2_approval_matches(
         "scope": receipt["scope"],
         "reopen_condition": receipt["reopen_condition"],
         "assumptions_sha256": receipt["assumptions_sha256"],
+        "assumptions": receipt["assumptions"],
         "approved_by": receipt["approved_by"],
         "expires_at": receipt["expires_at"],
         "approval_nonce": receipt["nonce"],
@@ -616,7 +709,7 @@ def _l2_approval_matches(
     }
     if any(decision.get(field) != value for field, value in signed_fields.items()):
         return False
-    return receipt["scope"] == scope and receipt["assumptions_sha256"] == assumptions_sha256
+    return receipt["scope"] == scope
 
 
 def _l3_approval_is_fresh(decision: dict[str, Any], operation_id: str | None) -> bool:
@@ -852,8 +945,6 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
                 root,
                 recorded,
                 scope=request.get("decision_scope"),
-                assumptions_sha256=request.get("assumptions_sha256"),
-                reopen_condition_triggered=request.get("reopen_condition_triggered"),
             )
         ):
             return _continue("existing_decision_reused_without_duplicate_question")
@@ -887,6 +978,13 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
             operation_payload,
         )
         if approval:
+            if approval.get("_control_plane_blocked"):
+                return {
+                    "state": "BLOCKED",
+                    "requires_response": False,
+                    "reason": "l3_external_nonce_ledger_unavailable",
+                    "next_action": "provision_or_recover_independent_l3_control_plane",
+                }
             result = _continue("fresh_l3_operation_approval_verified")
             result["approval_id"] = approval["decision_id"]
             result["operation_id"] = approval["operation_id"]
@@ -1012,10 +1110,6 @@ def evaluate_deployment(root: Path, gate: dict[str, Any]) -> dict[str, Any]:
                 root,
                 baseline,
                 scope=f"production_deploy:{deployment_class}",
-                assumptions_sha256=gate.get("baseline_assumptions_sha256"),
-                reopen_condition_triggered=gate.get(
-                    "baseline_reopen_condition_triggered"
-                ),
             )
         )
         if not baseline_is_valid:

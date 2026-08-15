@@ -386,6 +386,33 @@ jobs:
                     verify_merge(self.root, self.base, run_checks=False)
 
     @patch("sddgov.merge_gate.verify_dep", return_value=[])
+    def test_external_store_cannot_resurrect_base_revoked_reviewer(self, _verify):
+        trust_path = self.root / ".sddgov/trusted-reviewers.json"
+        trust = json.loads(trust_path.read_text())
+        trust["reviewers"][0]["status"] = "revoked"
+        trust_path.write_text(json.dumps(trust))
+        _run(self.root, "git", "add", ".sddgov/trusted-reviewers.json")
+        _run(self.root, "git", "commit", "-qm", "revoke reviewer")
+        self.base = _run(self.root, "git", "rev-parse", "HEAD")
+        (self.root / "core/POLICY_KERNEL.md").write_text("post-revocation change\n")
+        _run(self.root, "git", "add", "core/POLICY_KERNEL.md")
+        _run(self.root, "git", "commit", "-qm", "protected change")
+        self._write_gate()
+
+        trust["reviewers"][0]["status"] = "active"
+        with tempfile.TemporaryDirectory() as external:
+            external_path = Path(external) / "trusted-reviewers.json"
+            external_path.write_text(json.dumps(trust))
+            external_path.chmod(0o600)
+            with patch.dict(
+                "os.environ", {"SDDGOV_TRUSTED_REVIEWERS_FILE": str(external_path)}
+            ):
+                with self.assertRaisesRegex(
+                    ValueError, "not a unique active trusted reviewer"
+                ):
+                    verify_merge(self.root, self.base, run_checks=False)
+
+    @patch("sddgov.merge_gate.verify_dep", return_value=[])
     def test_arbitrary_rollback_prose_is_rejected(self, _verify):
         (self.root / "evidence/DEP-1/rollback.md").write_text("Rollback unavailable")
         _run(self.root, "git", "add", "evidence/DEP-1/rollback.md")

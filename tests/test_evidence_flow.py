@@ -107,6 +107,7 @@ class EvidenceFlowTests(unittest.TestCase):
         raw.symlink_to(redirected, target_is_directory=True)
         with self.assertRaisesRegex(ValueError, "zone"):
             collect(self.dep, "terminal", source)
+        self.assertFalse((redirected / "raw").exists())
 
     def test_dep_id_cannot_escape_evidence_root(self):
         with self.assertRaisesRegex(ValueError, "DEP ID"):
@@ -133,6 +134,92 @@ class EvidenceFlowTests(unittest.TestCase):
         with self.assertRaisesRegex(FileExistsError, "already exists"):
             collect(self.dep, "terminal", second, label="same.log")
         self.assertEqual(destination.read_text(encoding="utf-8"), "first evidence\n")
+
+    def test_collector_rejects_hardlinked_source(self):
+        source = self.root / "source.log"
+        linked = self.root / "linked.log"
+        source.write_text("synthetic evidence\n", encoding="utf-8")
+        linked.hardlink_to(source)
+        with self.assertRaisesRegex(ValueError, "hard-linked"):
+            collect(self.dep, "terminal", linked)
+
+    def test_every_raw_artifact_must_be_in_files_or_blocked(self):
+        self._complete("reproduction.md", "Synthetic failure is reproducible.")
+        source = self.root / "source.log"
+        source.write_text("initial synthetic failure\n", encoding="utf-8")
+        collect(self.dep, "terminal", source, label="source.log")
+        redact(self.dep)
+        transition(self.dep, "evidence")
+
+        contradiction = self.dep / "private/raw/terminal--contradiction.log"
+        contradiction.write_text("contradictory synthetic evidence\n", encoding="utf-8")
+        manifest_path = self.dep / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        data = contradiction.read_bytes()
+        manifest["raw"].append({
+            "collector": "terminal",
+            "path": "private/raw/terminal--contradiction.log",
+            "sha256": hashlib.sha256(data).hexdigest(),
+            "size": len(data),
+            "collected_at": manifest["raw"][0]["collected_at"],
+            "shareable": False,
+        })
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        errors = verify(self.dep)
+        self.assertTrue(any("cover every raw artifact" in error for error in errors), errors)
+
+    def test_unknown_extension_cannot_bypass_deterministic_redaction(self):
+        self._complete("reproduction.md", "Synthetic failure is reproducible.")
+        source = self.root / "source.log"
+        source.write_text("synthetic@example.com\n", encoding="utf-8")
+        collect(self.dep, "terminal", source, label="source.log")
+        redact(self.dep)
+        transition(self.dep, "evidence")
+
+        raw_old = self.dep / "private/raw/terminal--source.log"
+        out_old = self.dep / "shareable/artifacts/terminal--source.log"
+        raw_new = raw_old.with_suffix(".bin")
+        out_new = out_old.with_suffix(".bin")
+        raw_old.rename(raw_new)
+        out_old.rename(out_new)
+        exposed = b"synthetic@example.com\n"
+        raw_new.write_bytes(exposed)
+        out_new.write_bytes(exposed)
+        digest = hashlib.sha256(exposed).hexdigest()
+        manifest_path = self.dep / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["raw"][0].update({"path": "private/raw/terminal--source.bin", "sha256": digest, "size": len(exposed)})
+        manifest["shareable"][0].update({"path": "shareable/artifacts/terminal--source.bin", "sha256": digest, "size": len(exposed)})
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        report_path = self.dep / "redaction-report.json"
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        report["files"][0].update({
+            "source": "terminal--source.bin",
+            "output": "terminal--source.bin",
+            "source_sha256": digest,
+            "source_size": len(exposed),
+            "output_sha256": digest,
+            "output_size": len(exposed),
+            "redactions": {},
+        })
+        report["totals"] = {}
+        report_path.write_text(json.dumps(report), encoding="utf-8")
+        errors = verify(self.dep)
+        self.assertTrue(any("not eligible for deterministic redaction" in error for error in errors), errors)
+
+    def test_har_with_body_is_blocked_by_default(self):
+        self._complete("reproduction.md", "Synthetic browser failure is reproducible.")
+        har = self.root / "network.har"
+        har.write_text(
+            json.dumps({"log": {"entries": [{"response": {"content": {"encoding": "base64", "text": "c3ludGhldGljLXNlY3JldA=="}}}]}}),
+            encoding="utf-8",
+        )
+        collect(self.dep, "browser-har", har)
+        report = redact(self.dep)
+        self.assertEqual(report["files"], [])
+        self.assertEqual(report["blocked"][0]["reason"], "har_requires_dedicated_body_stripping")
+        with self.assertRaisesRegex(ValueError, "blocked artifacts"):
+            transition(self.dep, "evidence")
 
     def test_redaction_rejects_per_file_symlinks(self):
         outside_source = self.root / "outside-source.txt"

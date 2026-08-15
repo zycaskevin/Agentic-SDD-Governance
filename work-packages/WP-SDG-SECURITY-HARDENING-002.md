@@ -21,8 +21,11 @@
 - Separate the trusted verifier implementation and workflow definition from candidate PR code.
 - Recalculate every portable Evidence artifact path, type, size, digest, and manifest/report association; verify local raw artifacts when present.
 - Reject DEP path escape, collector/redaction symlinks, unexpected filesystem objects, and duplicate labels or manifest paths.
-- Replace caller-created approved L2 decisions with trusted-owner Ed25519 approval envelopes and explicit reuse freshness inputs.
-- Bind L3 receipts to the complete canonical operation payload, including category, target, parameters, and effects.
+- Replace caller-created L2 authority with a separate-identity trust root and owner-signed artifacts whose current bytes are recalculated on reuse.
+- Bind L3 receipts to repository, project, environment, scope, category, target, parameters, and effects; require a clone-external atomic nonce broker before `CONTINUE`.
+- Require Base revocation to override stale external Reviewer bootstrap state.
+- Require complete, mutually exclusive raw-to-redacted/blocked associations; block HAR and unknown/binary types from the deterministic text route.
+- Reject symlink side effects, hardlinks, and pathname reopen TOCTOU in Evidence collection/redaction.
 - Add a synthetic, disposable Muse-compatible pilot with no real user content or external authority.
 - Update schemas, docs, packaged resources, adapters, version, Changelog, and Roadmap.
 

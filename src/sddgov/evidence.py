@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import stat
 import tempfile
@@ -60,9 +61,32 @@ def _resource_dir():
 
 
 def _bounded_zone(dep: Path, relative: Path) -> Path:
-    dep_root = dep.resolve()
-    candidate = dep / relative
-    candidate.mkdir(parents=True, exist_ok=True)
+    if relative.is_absolute() or any(part in {"", ".", ".."} for part in relative.parts):
+        raise ValueError(f"evidence zone is not normalized: {relative}")
+    if dep.is_symlink() or not dep.exists() or not dep.is_dir():
+        raise ValueError("DEP root must be an existing non-symlink directory")
+    dep_root = dep.resolve(strict=True)
+    candidate = dep.joinpath(*relative.parts)
+    directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+    directory_flags |= getattr(os, "O_NOFOLLOW", 0)
+    descriptor = os.open(dep, directory_flags)
+    try:
+        for part in relative.parts:
+            try:
+                child = os.open(part, directory_flags, dir_fd=descriptor)
+            except FileNotFoundError:
+                os.mkdir(part, dir_fd=descriptor)
+                child = os.open(part, directory_flags, dir_fd=descriptor)
+            except OSError as exc:
+                raise ValueError(f"evidence zone cannot be opened safely: {relative}") from exc
+            metadata = os.fstat(child)
+            if not stat.S_ISDIR(metadata.st_mode):
+                os.close(child)
+                raise ValueError(f"evidence zone component is not a directory: {relative}")
+            os.close(descriptor)
+            descriptor = child
+    finally:
+        os.close(descriptor)
     resolved = candidate.resolve()
     try:
         actual_relative = resolved.relative_to(dep_root)
@@ -89,19 +113,45 @@ def _require_regular_file(path: Path, label: str) -> None:
     if path.is_symlink():
         raise ValueError(f"{label} must not be a symlink")
     try:
-        mode = path.lstat().st_mode
+        metadata = path.lstat()
     except FileNotFoundError as exc:
         raise FileNotFoundError(path) from exc
-    if not stat.S_ISREG(mode):
+    if not stat.S_ISREG(metadata.st_mode):
         raise ValueError(f"{label} must be a regular file")
+    if metadata.st_nlink != 1:
+        raise ValueError(f"{label} must not be hard-linked")
+
+
+def _read_regular_bytes(path: Path, label: str) -> bytes:
+    """Open once without following a final symlink, then validate and read that fd."""
+    if path.is_symlink():
+        raise ValueError(f"{label} must not be a symlink")
+    flags = os.O_RDONLY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as exc:
+        raise ValueError(f"{label} cannot be opened safely: {exc}") from exc
+    try:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode):
+            raise ValueError(f"{label} must be a regular file")
+        if metadata.st_nlink != 1:
+            raise ValueError(f"{label} must not be hard-linked")
+        chunks: list[bytes] = []
+        while True:
+            chunk = os.read(descriptor, 1024 * 1024)
+            if not chunk:
+                break
+            chunks.append(chunk)
+        return b"".join(chunks)
+    finally:
+        os.close(descriptor)
 
 
 def _sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+    return hashlib.sha256(_read_regular_bytes(path, f"artifact {path.name}")).hexdigest()
 
 
 def _manifest_artifact_path(dep: Path, value: object, zone: str) -> Path:
@@ -197,7 +247,7 @@ def make_dep(base: Path, issue: str, risk: str, sdd_ref: str | None = None, dep_
 def collect(dep: Path, collector: str, input_path: Path, label: str | None = None) -> Path:
     if collector not in COLLECTORS:
         raise ValueError(f"unsupported collector: {collector}")
-    _require_regular_file(input_path, "collector input")
+    raw = _read_regular_bytes(input_path, "collector input")
     raw_dir = _bounded_zone(dep, Path("private/raw"))
     raw_dir.chmod(0o700)
     manifest_path = dep / "manifest.json"
@@ -209,7 +259,6 @@ def collect(dep: Path, collector: str, input_path: Path, label: str | None = Non
     destination = _bounded_filename(raw_dir, f"{collector}--{safe_label}")
     if destination.exists() or destination.is_symlink():
         raise FileExistsError(f"Evidence artifact already exists: {destination.name}")
-    raw = input_path.read_bytes()
     with destination.open("xb") as handle:
         handle.write(raw)
     digest = hashlib.sha256(raw).hexdigest()
@@ -385,6 +434,9 @@ def _verify_redaction_associations(dep: Path, manifest: dict, report: dict) -> l
     files = report.get("files")
     if not isinstance(files, list):
         return errors + ["redaction report files must be an array"]
+    blocked = report.get("blocked")
+    if not isinstance(blocked, list):
+        return errors + ["redaction report blocked must be an array"]
     raw_rows = {
         Path(row["path"]).name: row
         for row in manifest.get("raw", [])
@@ -400,6 +452,7 @@ def _verify_redaction_associations(dep: Path, manifest: dict, report: dict) -> l
         "output_sha256", "output_size", "redactions",
     }
     seen_sources: set[str] = set()
+    seen_blocked: set[str] = set()
     seen_outputs: set[str] = set()
     computed_totals: dict[str, int] = {}
     for index, row in enumerate(files):
@@ -424,6 +477,12 @@ def _verify_redaction_associations(dep: Path, manifest: dict, report: dict) -> l
             continue
         seen_sources.add(source)
         seen_outputs.add(output)
+        if Path(source).suffix.lower() not in TEXT_SUFFIXES:
+            errors.append(f"{label} source type is not eligible for deterministic redaction")
+        if Path(output).suffix.lower() not in TEXT_SUFFIXES:
+            errors.append(f"{label} output type is not eligible for deterministic redaction")
+        if Path(source).suffix.lower() != Path(output).suffix.lower():
+            errors.append(f"{label} source and output types do not match")
         raw = raw_rows.get(source)
         shareable = shareable_rows.get(output)
         if raw is None or shareable is None:
@@ -460,18 +519,26 @@ def _verify_redaction_associations(dep: Path, manifest: dict, report: dict) -> l
             continue
         if output_path.exists() and output_path.suffix.lower() in TEXT_SUFFIXES:
             try:
-                output_text = output_path.read_text(encoding="utf-8")
+                output_text = _read_regular_bytes(
+                    output_path, f"{label} shareable output"
+                ).decode("utf-8")
             except UnicodeDecodeError:
                 errors.append(f"{label} shareable text is not valid UTF-8")
+            except ValueError as exc:
+                errors.append(str(exc))
             else:
                 rescanned_output, _ = redact_text(output_text)
                 if rescanned_output != output_text:
                     errors.append(f"{label} shareable output still matches redaction rules")
                 if raw_path.exists():
                     try:
-                        raw_text = raw_path.read_text(encoding="utf-8")
+                        raw_text = _read_regular_bytes(
+                            raw_path, f"{label} raw source"
+                        ).decode("utf-8")
                     except UnicodeDecodeError:
                         errors.append(f"{label} raw text is not valid UTF-8")
+                    except ValueError as exc:
+                        errors.append(str(exc))
                     else:
                         expected_output, expected_redactions = redact_text(raw_text)
                         if output_text != expected_output:
@@ -482,6 +549,37 @@ def _verify_redaction_associations(dep: Path, manifest: dict, report: dict) -> l
                             errors.append(
                                 f"{label} redaction counts do not match recalculation"
                             )
+    blocked_fields = {"file", "reason", "sha256", "size"}
+    for index, row in enumerate(blocked):
+        label = f"redaction report blocked[{index}]"
+        if not isinstance(row, dict) or set(row) != blocked_fields:
+            errors.append(f"{label} has an invalid contract")
+            continue
+        source = row.get("file")
+        if (
+            not isinstance(source, str)
+            or not source
+            or Path(source).name != source
+            or not isinstance(row.get("reason"), str)
+            or not row["reason"].strip()
+        ):
+            errors.append(f"{label} contains an invalid file or reason")
+            continue
+        if source in seen_sources or source in seen_blocked:
+            errors.append(f"{label} duplicates or overlaps a raw association")
+            continue
+        seen_blocked.add(source)
+        raw = raw_rows.get(source)
+        if raw is None:
+            errors.append(f"{label} is not associated with a manifest raw artifact")
+            continue
+        if row.get("sha256") != raw.get("sha256"):
+            errors.append(f"{label} sha256 does not match manifest")
+        if row.get("size") != raw.get("size"):
+            errors.append(f"{label} size does not match manifest")
+
+    if seen_sources | seen_blocked != set(raw_rows):
+        errors.append("redaction report does not cover every raw artifact exactly once")
     if seen_outputs != set(shareable_rows):
         errors.append("redaction report does not cover every shareable artifact")
     if report.get("totals") != computed_totals:

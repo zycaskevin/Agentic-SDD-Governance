@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import stat
 import tempfile
@@ -34,7 +35,7 @@ RULES: tuple[Rule, ...] = (
 
 TEXT_SUFFIXES = {
     ".txt", ".log", ".json", ".jsonl", ".yaml", ".yml", ".xml", ".md",
-    ".har", ".csv", ".tsv", ".html", ".js", ".ts", ".dart", ".sh",
+    ".csv", ".tsv", ".html", ".js", ".ts", ".dart", ".sh",
 }
 
 
@@ -67,11 +68,36 @@ def redact_files(files: Iterable[Path], output_dir: Path) -> dict:
         if not stat.S_ISREG(source_mode):
             raise ValueError(f"redaction source must be a regular file: {source.name}")
         rel_name = source.name
-        raw = source.read_bytes()
+        flags = os.O_RDONLY
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
+        try:
+            descriptor = os.open(source, flags)
+        except OSError as exc:
+            raise ValueError(f"redaction source cannot be opened safely: {source.name}") from exc
+        try:
+            current = os.fstat(descriptor)
+            if not stat.S_ISREG(current.st_mode) or current.st_nlink != 1:
+                raise ValueError(
+                    f"redaction source must be a non-linked regular file: {source.name}"
+                )
+            chunks: list[bytes] = []
+            while True:
+                chunk = os.read(descriptor, 1024 * 1024)
+                if not chunk:
+                    break
+                chunks.append(chunk)
+            raw = b"".join(chunks)
+        finally:
+            os.close(descriptor)
         if source.suffix.lower() not in TEXT_SUFFIXES:
             report["blocked"].append({
                 "file": rel_name,
-                "reason": "binary_requires_manual_visual_redaction",
+                "reason": (
+                    "har_requires_dedicated_body_stripping"
+                    if source.suffix.lower() == ".har"
+                    else "binary_requires_manual_visual_redaction"
+                ),
                 "sha256": sha256_bytes(raw),
                 "size": len(raw),
             })
