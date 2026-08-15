@@ -6,6 +6,7 @@ import json
 import os
 import re
 import stat
+import sys
 import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -38,6 +39,62 @@ def utc_now() -> str:
 
 def _resource_dir():
     return resources.files("sddgov").joinpath("resources/dep")
+
+
+@contextmanager
+def _opened_directory_path(path: Path, *, create: bool):
+    """Walk an absolute directory path without following mutable components."""
+    candidate = path if path.is_absolute() else Path.cwd() / path
+    if sys.platform == "darwin" and candidate.parts[:2] == ("/", "var"):
+        candidate = Path("/private/var").joinpath(*candidate.parts[2:])
+    if any(part in {"", ".", ".."} for part in candidate.parts[1:]):
+        raise ValueError("directory path is not normalized")
+    directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+    directory_flags |= getattr(os, "O_NOFOLLOW", 0)
+    anchor = Path(candidate.anchor or os.sep)
+    descriptors = [os.open(anchor, directory_flags)]
+    components: list[str] = []
+    try:
+        for part in candidate.parts[1:]:
+            try:
+                child = os.open(part, directory_flags, dir_fd=descriptors[-1])
+            except FileNotFoundError:
+                if not create:
+                    raise
+                os.mkdir(part, 0o755, dir_fd=descriptors[-1])
+                child = os.open(part, directory_flags, dir_fd=descriptors[-1])
+            except OSError as exc:
+                raise ValueError(
+                    f"directory path cannot be opened safely: {candidate}"
+                ) from exc
+            metadata = os.fstat(child)
+            if not stat.S_ISDIR(metadata.st_mode):
+                os.close(child)
+                raise ValueError(f"directory path component is unsafe: {candidate}")
+            descriptors.append(child)
+            components.append(part)
+        yield candidate, descriptors[-1]
+        for index, part in enumerate(components):
+            try:
+                current = os.stat(
+                    part, dir_fd=descriptors[index], follow_symlinks=False
+                )
+            except OSError as exc:
+                raise ValueError(
+                    f"directory path changed during operation: {candidate}"
+                ) from exc
+            opened = os.fstat(descriptors[index + 1])
+            if (
+                stat.S_ISLNK(current.st_mode)
+                or not stat.S_ISDIR(current.st_mode)
+                or (current.st_dev, current.st_ino) != (opened.st_dev, opened.st_ino)
+            ):
+                raise ValueError(
+                    f"directory path changed during operation: {candidate}"
+                )
+    finally:
+        for descriptor in reversed(descriptors):
+            os.close(descriptor)
 
 
 @contextmanager
@@ -146,31 +203,10 @@ def _require_regular_file(path: Path, label: str) -> None:
 
 
 def _read_regular_bytes(path: Path, label: str) -> bytes:
-    """Open once without following a final symlink, then validate and read that fd."""
-    if path.is_symlink():
-        raise ValueError(f"{label} must not be a symlink")
-    flags = os.O_RDONLY
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
-    try:
-        descriptor = os.open(path, flags)
-    except OSError as exc:
-        raise ValueError(f"{label} cannot be opened safely: {exc}") from exc
-    try:
-        metadata = os.fstat(descriptor)
-        if not stat.S_ISREG(metadata.st_mode):
-            raise ValueError(f"{label} must be a regular file")
-        if metadata.st_nlink != 1:
-            raise ValueError(f"{label} must not be hard-linked")
-        chunks: list[bytes] = []
-        while True:
-            chunk = os.read(descriptor, 1024 * 1024)
-            if not chunk:
-                break
-            chunks.append(chunk)
-        return b"".join(chunks)
-    finally:
-        os.close(descriptor)
+    """Read a file while retaining and rechecking its complete parent chain."""
+    with _opened_directory_path(path.parent, create=False) as (_, parent_fd):
+        raw, _ = _read_regular_bytes_at(parent_fd, path.name, label)
+        return raw
 
 
 def _read_regular_bytes_at(directory_fd: int, name: str, label: str) -> tuple[bytes, os.stat_result]:
@@ -345,16 +381,6 @@ def make_dep(base: Path, issue: str, risk: str, sdd_ref: str | None = None, dep_
     dep_id = dep_id or f"DEP-{stamp}-{safe_issue}"
     if not DEP_ID_PATTERN.fullmatch(dep_id):
         raise ValueError("DEP ID must match DEP-[A-Za-z0-9._-]+ and cannot contain a path")
-    if base.is_symlink():
-        raise ValueError("Evidence root must not be a symlink")
-    base.mkdir(parents=True, exist_ok=True)
-    base = base.resolve()
-    dep = _bounded_filename(base, dep_id)
-    if dep.exists():
-        raise FileExistsError(f"DEP already exists: {dep}")
-    (dep / "private" / "raw").mkdir(parents=True, mode=0o700)
-    (dep / "private" / "raw").chmod(0o700)
-    (dep / "shareable" / "artifacts").mkdir(parents=True)
     summary = {
         "$schema": "../../schemas/debug-evidence-package.schema.json",
         "schema_version": "1.0",
@@ -371,20 +397,40 @@ def make_dep(base: Path, issue: str, risk: str, sdd_ref: str | None = None, dep_
         "root_cause_status": "unknown",
         "attachments": [],
     }
-    with _opened_dep_root(dep) as dep_fd:
-        for item in _resource_dir().iterdir():
-            if item.name == "summary.yaml":
-                continue
-            _write_bytes_at(
-                dep_fd, item.name, item.read_bytes(), "DEP template destination"
-            )
-        _save_at(dep_fd, "summary.yaml", summary)
-        _save_at(
-            dep_fd,
-            "manifest.json",
-            {"schema_version": "1.0", "dep_id": dep_id, "raw": [], "shareable": []},
-        )
-    return dep
+    with _opened_directory_path(base, create=True) as (safe_base, base_fd):
+        try:
+            os.stat(dep_id, dir_fd=base_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            pass
+        else:
+            raise FileExistsError(f"DEP already exists: {safe_base / dep_id}")
+        with _opened_zone_at(base_fd, Path(dep_id), create=True) as dep_fd:
+            with _opened_zone_at(dep_fd, Path("private/raw"), create=True) as raw_fd:
+                with _opened_zone_at(
+                    dep_fd, Path("shareable/artifacts"), create=True
+                ):
+                    os.fchmod(raw_fd, 0o700)
+                    for item in _resource_dir().iterdir():
+                        if item.name == "summary.yaml":
+                            continue
+                        _write_bytes_at(
+                            dep_fd,
+                            item.name,
+                            item.read_bytes(),
+                            "DEP template destination",
+                        )
+                    _save_at(dep_fd, "summary.yaml", summary)
+                    _save_at(
+                        dep_fd,
+                        "manifest.json",
+                        {
+                            "schema_version": "1.0",
+                            "dep_id": dep_id,
+                            "raw": [],
+                            "shareable": [],
+                        },
+                    )
+        return safe_base / dep_id
 
 
 def collect(dep: Path, collector: str, input_path: Path, label: str | None = None) -> Path:
@@ -951,10 +997,10 @@ def verify(dep: Path, strict: bool = False, portable: bool = False) -> list[str]
 def attach(dep: Path, target: str, output: Path | None = None) -> Path:
     if target not in {"issue", "commit", "pr", "changelog"}:
         raise ValueError("target must be issue, commit, pr, or changelog")
-    errors = verify(dep, strict=True)
-    if errors:
-        raise ValueError("DEP is not attachable: " + "; ".join(errors))
     with _opened_dep_root(dep) as dep_fd:
+        errors = _verify_open(dep, dep_fd, strict=True, portable=False)
+        if errors:
+            raise ValueError("DEP is not attachable: " + "; ".join(errors))
         summary = _load_at(dep_fd, "summary.yaml")
         manifest = _load_at(dep_fd, "manifest.json")
         lines = [
@@ -975,7 +1021,6 @@ def attach(dep: Path, target: str, output: Path | None = None) -> Path:
             name = f"attach-{target}.md"
             _write_bytes_at(dep_fd, name, encoded, "attachment output")
             return dep / name
-    if output.is_symlink():
-        raise ValueError("attachment output must not be a symlink")
-    output.write_bytes(encoded)
+    with _opened_directory_path(output.parent, create=False) as (_, output_fd):
+        _write_bytes_at(output_fd, output.name, encoded, "attachment output")
     return output

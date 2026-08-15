@@ -29,6 +29,22 @@ class EvidenceFlowTests(unittest.TestCase):
     def _complete(self, name: str, text: str) -> None:
         (self.dep / name).write_text(f"# Record\n\n{text}\n", encoding="utf-8")
 
+    def _prepare_attachable_dep(self) -> None:
+        self._complete("reproduction.md", "Synthetic failure is reproducible.")
+        source = self.root / "attach-source.log"
+        source.write_text("password=synthetic\n", encoding="utf-8")
+        collect(self.dep, "terminal", source)
+        redact(self.dep)
+        transition(self.dep, "evidence")
+        self._complete("root-cause-hypothesis.md", "The synthetic source exposes a bounded defect.")
+        self._complete("fix-scope.md", "Only the bounded synthetic path is changed.")
+        transition(self.dep, "fix")
+        self._complete("regression-evidence.md", "The regression suite covers the synthetic defect.")
+        self._complete("verification.md", "The corrected synthetic behavior is green.")
+        transition(self.dep, "green")
+        self._complete("rollback.md", "Revert the bounded synthetic change and rerun tests.")
+        transition(self.dep, "proof")
+
     def test_full_red_to_proof_flow(self):
         self._complete("reproduction.md", "Create item, observe success, refresh, item disappears.")
         log = self.root / "failure.log"
@@ -253,6 +269,125 @@ class EvidenceFlowTests(unittest.TestCase):
                 dep_id="../escaped-dep",
             )
         self.assertFalse((self.root / "escaped-dep").exists())
+
+    def test_make_dep_fails_closed_when_evidence_root_is_replaced(self):
+        case_root = self.root / "make-dep-toctou"
+        case_root.mkdir()
+        evidence_root = case_root / "evidence"
+        parked = case_root / "evidence-parked"
+        outside = case_root / "outside"
+        outside.mkdir()
+        sentinel = outside / "sentinel.txt"
+        sentinel.write_text("untouched\n", encoding="utf-8")
+        original = evidence_module._write_bytes_at
+        replaced = False
+
+        def replace_parent(directory_fd, name, data, label):
+            nonlocal replaced
+            if not replaced:
+                replaced = True
+                evidence_root.rename(parked)
+                evidence_root.symlink_to(outside, target_is_directory=True)
+            return original(directory_fd, name, data, label)
+
+        with (
+            patch(
+                "sddgov.evidence._write_bytes_at", side_effect=replace_parent
+            ),
+            self.assertRaisesRegex(ValueError, "directory path changed"),
+        ):
+            make_dep(
+                evidence_root,
+                issue="ISSUE-MAKE-DEP-TOCTOU",
+                risk="L1",
+                dep_id="DEP-MAKE-DEP-TOCTOU",
+            )
+        self.assertEqual(sentinel.read_text(encoding="utf-8"), "untouched\n")
+        self.assertFalse((outside / "DEP-MAKE-DEP-TOCTOU").exists())
+
+    def test_collector_input_parent_replacement_fails_closed(self):
+        source_parent = self.root / "source-parent"
+        source_parent.mkdir()
+        source = source_parent / "source.log"
+        source.write_text("original synthetic bytes\n", encoding="utf-8")
+        parked = self.root / "source-parent-parked"
+        outside = self.root / "source-outside"
+        outside.mkdir()
+        (outside / "source.log").write_text(
+            "replacement bytes must not be accepted\n", encoding="utf-8"
+        )
+        original = evidence_module._read_regular_bytes_at
+        replaced = False
+
+        def replace_parent(directory_fd, name, label):
+            nonlocal replaced
+            if not replaced and label == "collector input":
+                replaced = True
+                source_parent.rename(parked)
+                source_parent.symlink_to(outside, target_is_directory=True)
+            return original(directory_fd, name, label)
+
+        with (
+            patch(
+                "sddgov.evidence._read_regular_bytes_at", side_effect=replace_parent
+            ),
+            self.assertRaisesRegex(ValueError, "directory path changed"),
+        ):
+            collect(self.dep, "terminal", source)
+        manifest = json.loads((self.dep / "manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(manifest["raw"], [])
+        self.assertEqual(list((self.dep / "private/raw").iterdir()), [])
+
+    def test_attach_verification_and_read_share_one_dep_snapshot(self):
+        self._prepare_attachable_dep()
+        parked = self.root / "attach-dep-parked"
+        outside = self.root / "attach-dep-outside"
+        outside.mkdir()
+        original = evidence_module._verify_open
+
+        def replace_after_verify(dep, dep_fd, strict, portable):
+            errors = original(dep, dep_fd, strict, portable)
+            self.dep.rename(parked)
+            self.dep.symlink_to(outside, target_is_directory=True)
+            return errors
+
+        with (
+            patch("sddgov.evidence._verify_open", side_effect=replace_after_verify),
+            self.assertRaisesRegex(ValueError, "DEP root changed"),
+        ):
+            attach(self.dep, "pr")
+        self.assertFalse((outside / "attach-pr.md").exists())
+
+    def test_custom_attachment_output_parent_replacement_fails_closed(self):
+        self._prepare_attachable_dep()
+        output_parent = self.root / "attachment-output"
+        output_parent.mkdir()
+        output = output_parent / "custom.md"
+        output.write_text("old local value\n", encoding="utf-8")
+        parked = self.root / "attachment-output-parked"
+        outside = self.root / "attachment-output-outside"
+        outside.mkdir()
+        external = outside / "custom.md"
+        external.write_text("do not overwrite\n", encoding="utf-8")
+        original = evidence_module._write_bytes_at
+        replaced = False
+
+        def replace_parent(directory_fd, name, data, label):
+            nonlocal replaced
+            if not replaced and label == "attachment output":
+                replaced = True
+                output_parent.rename(parked)
+                output_parent.symlink_to(outside, target_is_directory=True)
+            return original(directory_fd, name, data, label)
+
+        with (
+            patch(
+                "sddgov.evidence._write_bytes_at", side_effect=replace_parent
+            ),
+            self.assertRaisesRegex(ValueError, "directory path changed"),
+        ):
+            attach(self.dep, "pr", output=output)
+        self.assertEqual(external.read_text(encoding="utf-8"), "do not overwrite\n")
 
     def test_collector_rejects_symlink_source_and_duplicate_label(self):
         first = self.root / "first.log"
