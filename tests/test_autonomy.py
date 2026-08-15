@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import io
 import json
 import tempfile
@@ -19,6 +20,7 @@ from sddgov.autonomy import (
     evaluate_deployment,
     evaluate_escalation as _evaluate_escalation,
     import_operation_approval,
+    import_product_approval,
     lock_artifact,
     record_decision,
     render_action_required,
@@ -50,6 +52,15 @@ def decision_package(risk="L2", decision_id="DEC-NEW"):
     }
 
 
+def operation_payload(operation_id, category="high_risk_operation", effects=None):
+    return {
+        "category": category,
+        "target": f"synthetic:{operation_id}",
+        "parameters": {"mode": "synthetic"},
+        "effects": effects or {},
+    }
+
+
 class AutonomyTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
@@ -72,6 +83,7 @@ class AutonomyTests(unittest.TestCase):
         approval_id="APP-OP-1",
         operation_id="PROD-OP-1",
         approved_by="product-owner",
+        payload=None,
     ):
         private_key = Ed25519PrivateKey.generate()
         public_key = private_key.public_key().public_bytes(
@@ -95,6 +107,7 @@ class AutonomyTests(unittest.TestCase):
         receipt = {
             "approval_id": approval_id,
             "operation_id": operation_id,
+            "operation_payload": payload or operation_payload(operation_id),
             "summary": "Run one exact Production operation",
             "scope": "One exact operation only",
             "approved_by": approved_by,
@@ -114,6 +127,64 @@ class AutonomyTests(unittest.TestCase):
             "signature": base64.b64encode(private_key.sign(canonical)).decode("ascii"),
         }
         path = self.root / "signed-approval.json"
+        path.write_text(json.dumps(envelope), encoding="utf-8")
+        return path, envelope
+
+    def _signed_product_approval(
+        self,
+        decision_id="DEC-023",
+        scope="MVP data layer",
+        assumptions="mvp-assumptions-v1",
+        approved_by="product-owner",
+    ):
+        private_key = Ed25519PrivateKey.generate()
+        public_key = private_key.public_key().public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw,
+        )
+        self.trust_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "approvers": [
+                        {
+                            "approver_id": approved_by,
+                            "algorithm": "ed25519",
+                            "public_key": base64.b64encode(public_key).decode("ascii"),
+                            "status": "active",
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        self.trust_path.chmod(0o600)
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        receipt = {
+            "decision_id": decision_id,
+            "summary": "Owner-approved bounded product decision",
+            "scope": scope,
+            "assumptions_sha256": hashlib.sha256(
+                assumptions.encode("utf-8")
+            ).hexdigest(),
+            "reopen_condition": "Reopen when assumptions or scope change",
+            "approved_by": approved_by,
+            "issued_at": now.isoformat().replace("+00:00", "Z"),
+            "expires_at": (now + timedelta(days=30)).isoformat().replace(
+                "+00:00", "Z"
+            ),
+            "nonce": f"nonce-{decision_id}-{assumptions}",
+        }
+        canonical = json.dumps(
+            receipt, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+        envelope = {
+            "schema_version": "1.0",
+            "algorithm": "ed25519",
+            "receipt": receipt,
+            "signature": base64.b64encode(private_key.sign(canonical)).decode("ascii"),
+        }
+        path = self.root / f"signed-product-{decision_id}.json"
         path.write_text(json.dumps(envelope), encoding="utf-8")
         return path, envelope
 
@@ -294,6 +365,7 @@ class AutonomyTests(unittest.TestCase):
                 "category": "high_risk_operation",
                 "operation_id": "PROD-NAIVE",
                 "approval_id": "APP-NAIVE",
+                "operation_payload": operation_payload("PROD-NAIVE"),
                 "decision_package": decision_package("L3", "APP-NAIVE-NEXT"),
             },
         )
@@ -333,6 +405,39 @@ class AutonomyTests(unittest.TestCase):
                 },
             )
 
+    def test_product_and_high_risk_categories_cannot_be_caller_downgraded(self):
+        product = evaluate_escalation(
+            self.root,
+            {"risk_level": "L1", "category": "product_decision"},
+        )
+        self.assertEqual(product["state"], "BLOCKED")
+        self.assertEqual(product["required_risk_levels"], ["L2"])
+
+        operation = evaluate_escalation(
+            self.root,
+            {"risk_level": "L1", "category": "high_risk_operation"},
+        )
+        self.assertEqual(operation["state"], "BLOCKED")
+        self.assertEqual(operation["required_risk_levels"], ["L3"])
+
+    def test_unsigned_l2_decision_cannot_be_recorded_as_approved(self):
+        with self.assertRaisesRegex(ValueError, "signed.*L2"):
+            record_decision(
+                self.root,
+                "DEC-UNSIGNED",
+                "Unsigned product decision",
+                "product:contract",
+                "caller assertion",
+                "reopen when assumptions change",
+            )
+
+    def test_l2_owner_receipt_tampering_fails_closed(self):
+        path, envelope = self._signed_product_approval("DEC-TAMPERED")
+        envelope["receipt"]["scope"] = "expanded product scope"
+        path.write_text(json.dumps(envelope), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "signature"):
+            import_product_approval(self.root, path)
+
     def test_decision_log_prevents_duplicate_l2_questions(self):
         first = evaluate_escalation(
             self.root,
@@ -344,14 +449,10 @@ class AutonomyTests(unittest.TestCase):
             },
         )
         self.assertEqual(first["state"], "ACTION_REQUIRED")
-        record_decision(
-            self.root,
-            "DEC-023",
-            "Supabase approved for MVP",
-            "MVP data layer",
-            "Approved SDD baseline",
-            "Reopen only when privacy, vendor, or product boundary changes",
-        )
+        approval_path, approval = self._signed_product_approval()
+        imported = import_product_approval(self.root, approval_path)
+        assumptions_sha256 = approval["receipt"]["assumptions_sha256"]
+        self.assertEqual(imported["verification"], "SIGNATURE_VERIFIED")
         second = evaluate_escalation(
             self.root,
             {
@@ -359,7 +460,8 @@ class AutonomyTests(unittest.TestCase):
                 "category": "product_decision",
                 "decision_id": "DEC-023",
                 "decision_scope": "MVP data layer",
-                "assumptions_unchanged": True,
+                "assumptions_sha256": assumptions_sha256,
+                "reopen_condition_triggered": False,
             },
         )
         self.assertEqual(second["state"], "CONTINUE")
@@ -371,14 +473,28 @@ class AutonomyTests(unittest.TestCase):
                 "category": "product_decision",
                 "decision_id": "DEC-023",
                 "decision_scope": "Production analytics export",
+                "assumptions_sha256": assumptions_sha256,
+                "reopen_condition_triggered": False,
                 "decision_package": decision_package(decision_id="DEC-023-SCOPE"),
             },
         )
         self.assertEqual(changed_scope["state"], "ACTION_REQUIRED")
-        with self.assertRaisesRegex(ValueError, "already recorded"):
-            record_decision(
-                self.root, "DEC-023", "duplicate", "scope", "basis", "condition"
-            )
+        with self.assertRaisesRegex(ValueError, "already imported"):
+            import_product_approval(self.root, approval_path)
+
+        stale = evaluate_escalation(
+            self.root,
+            {
+                "risk_level": "L2",
+                "category": "product_decision",
+                "decision_id": "DEC-023",
+                "decision_scope": "MVP data layer",
+                "assumptions_sha256": "0" * 64,
+                "reopen_condition_triggered": False,
+                "decision_package": decision_package(decision_id="DEC-023-STALE"),
+            },
+        )
+        self.assertEqual(stale["state"], "ACTION_REQUIRED")
 
     def test_l2_and_l3_emit_strict_action_required(self):
         l2 = evaluate_escalation(
@@ -420,19 +536,16 @@ class AutonomyTests(unittest.TestCase):
             )
 
     def test_l3_requires_fresh_exact_one_use_approval(self):
-        record_decision(
-            self.root,
-            "DEC-ARCH",
-            "Architecture approved",
-            "Architecture only",
-            "Baseline",
-            "Boundary change",
+        product_path, _ = self._signed_product_approval(
+            "DEC-ARCH", "Architecture only", "architecture-baseline-v1"
         )
+        import_product_approval(self.root, product_path)
         request = {
             "risk_level": "L3",
             "category": "high_risk_operation",
             "operation_id": "PROD-OP-1",
             "approval_id": "DEC-ARCH",
+            "operation_payload": operation_payload("PROD-OP-1"),
             "decision_package": decision_package("L3", "APP-OP-1"),
         }
         self.assertEqual(evaluate_escalation(self.root, request)["state"], "ACTION_REQUIRED")
@@ -447,7 +560,7 @@ class AutonomyTests(unittest.TestCase):
         routine_claim["category"] = "commit"
         self.assertEqual(
             evaluate_escalation(self.root, routine_claim)["state"],
-            "ACTION_REQUIRED",
+            "BLOCKED",
         )
 
         receipt, _ = self._signed_operation_approval()
@@ -478,6 +591,7 @@ class AutonomyTests(unittest.TestCase):
             "category": "high_risk_operation",
             "operation_id": "PROD-CONCURRENT",
             "approval_id": "APP-CONCURRENT",
+            "operation_payload": operation_payload("PROD-CONCURRENT"),
             "decision_package": decision_package("L3", "APP-CONCURRENT-NEXT"),
         }
 
@@ -487,6 +601,42 @@ class AutonomyTests(unittest.TestCase):
         with ThreadPoolExecutor(max_workers=2) as executor:
             results = list(executor.map(lambda _: evaluate_once(), range(2)))
         self.assertEqual(sorted(results), ["ACTION_REQUIRED", "CONTINUE"])
+
+    def test_l3_approval_is_bound_to_the_complete_operation_payload(self):
+        signed_payload = operation_payload("PROD-PAYLOAD")
+        receipt, _ = self._signed_operation_approval(
+            "APP-PAYLOAD", "PROD-PAYLOAD", payload=signed_payload
+        )
+        import_operation_approval(self.root, receipt)
+        changed_payload = json.loads(json.dumps(signed_payload))
+        changed_payload["parameters"]["mode"] = "different-target-mode"
+        request = {
+            "risk_level": "L3",
+            "category": "high_risk_operation",
+            "operation_id": "PROD-PAYLOAD",
+            "approval_id": "APP-PAYLOAD",
+            "operation_payload": changed_payload,
+            "decision_package": decision_package("L3", "APP-PAYLOAD-NEXT"),
+        }
+        self.assertEqual(evaluate_escalation(self.root, request)["state"], "ACTION_REQUIRED")
+        decisions = json.loads(
+            (self.root / ".sddgov/decisions.json").read_text(encoding="utf-8")
+        )
+        self.assertIsNone(decisions["decisions"][-1]["consumed_at"])
+
+        request["operation_payload"] = signed_payload
+        self.assertEqual(evaluate_escalation(self.root, request)["state"], "CONTINUE")
+
+    def test_operation_payload_cannot_embed_secret_material(self):
+        payload = operation_payload("PROD-SECRET")
+        payload["parameters"] = {
+            "deployment": {"credentials": {"api_token": "must-not-be-stored"}}
+        }
+        receipt, _ = self._signed_operation_approval(
+            "APP-SECRET", "PROD-SECRET", payload=payload
+        )
+        with self.assertRaisesRegex(ValueError, "reference secrets"):
+            import_operation_approval(self.root, receipt)
 
     def test_l3_decision_row_tampering_cannot_bypass_signed_receipt(self):
         receipt, _ = self._signed_operation_approval("APP-TAMPER", "PROD-TAMPER")
@@ -506,6 +656,9 @@ class AutonomyTests(unittest.TestCase):
                 "category": "high_risk_operation",
                 "operation_id": "PROD-ATTACKER-CONTROLLED",
                 "approval_id": "APP-TAMPER",
+                "operation_payload": operation_payload(
+                    "PROD-ATTACKER-CONTROLLED"
+                ),
                 "decision_package": decision_package("L3", "APP-TAMPER-NEXT"),
             },
         )
@@ -557,10 +710,9 @@ class AutonomyTests(unittest.TestCase):
     def test_malformed_decision_store_fails_closed(self):
         decisions = self.root / ".sddgov" / "decisions.json"
         decisions.write_text('{"schema_version":"1.0","decisions":"bad"}\n')
+        approval_path, _ = self._signed_product_approval("DEC-FAIL")
         with self.assertRaisesRegex(ValueError, "invalid contract"):
-            record_decision(
-                self.root, "DEC-FAIL", "summary", "scope", "basis", "condition"
-            )
+            import_product_approval(self.root, approval_path)
 
     def test_blocked_operational_action_does_not_stop_unrelated_work(self):
         result = evaluate_escalation(
@@ -633,21 +785,22 @@ class AutonomyTests(unittest.TestCase):
         self.assertFalse(result["requires_response"])
 
     def test_routine_production_deploy_requires_every_machine_guard(self):
-        record_decision(
-            self.root,
+        approval_path, approval = self._signed_product_approval(
             "DEC-DEPLOY-WEB",
-            "Routine reversible web Production promotion approved",
             "production_deploy:web_app",
-            "Approved release baseline",
-            "Reopen on product, permission, secret, data, rollback, or blast-radius change",
+            "approved-release-baseline-v1",
         )
+        import_product_approval(self.root, approval_path)
         gate = {name: True for name in DEPLOY_GUARDS}
         gate.update(
             {
                 "risk_level": "L1",
                 "deployment_class": "web_app",
                 "baseline_decision_id": "DEC-DEPLOY-WEB",
-                "baseline_assumptions_unchanged": True,
+                "baseline_assumptions_sha256": approval["receipt"][
+                    "assumptions_sha256"
+                ],
+                "baseline_reopen_condition_triggered": False,
             }
         )
         allowed = evaluate_deployment(self.root, gate)

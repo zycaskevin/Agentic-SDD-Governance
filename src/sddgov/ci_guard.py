@@ -119,16 +119,18 @@ def _job_blocks(text: str) -> list[tuple[str, str]]:
 
 
 def _automatic(text: str) -> bool:
-    return bool(re.search(r"(?m)^  (pull_request|push|schedule):", text))
+    return bool(
+        re.search(r"(?m)^  (pull_request|pull_request_target|push|schedule):", text)
+    )
 
 
 def _pull_request(text: str) -> bool:
-    return bool(re.search(r"(?m)^  pull_request:", text))
+    return bool(re.search(r"(?m)^  pull_request(?:_target)?:", text))
 
 
 def _pull_request_has_ready_for_review(text: str) -> bool:
     match = re.search(
-        r"(?ms)^  pull_request:\s*\n(?P<body>(?:^    .*\n?)*)",
+        r"(?ms)^  pull_request(?:_target)?:\s*\n(?P<body>(?:^    .*\n?)*)",
         text,
     )
     return bool(match and "ready_for_review" in match.group("body"))
@@ -136,7 +138,7 @@ def _pull_request_has_ready_for_review(text: str) -> bool:
 
 def _pull_request_has_converted_to_draft(text: str) -> bool:
     match = re.search(
-        r"(?ms)^  pull_request:\s*\n(?P<body>(?:^    .*\n?)*)",
+        r"(?ms)^  pull_request(?:_target)?:\s*\n(?P<body>(?:^    .*\n?)*)",
         text,
     )
     return bool(match and "converted_to_draft" in match.group("body"))

@@ -20,5 +20,7 @@ collector output
 4. Treat screenshots, HAR archives with binary bodies, Playwright traces, videos, database dumps, and crash archives as blocked until manually reviewed.
 5. Do not weaken redaction to make `verify` pass. Replace the artifact with a safe derivative or document why it cannot be shared.
 6. L2/L3 evidence that contains production, medical, payment, or authentication data stays local unless a specifically authorized destination and minimum disclosure are recorded.
+7. Reject symlinked input, output, DEP zones, and control files. Reject path escape and duplicate destinations; never follow a link to read or overwrite a file outside the DEP.
+8. Redaction writes through a same-directory temporary file and atomic replacement. Verification must then recompute output size and SHA-256 and match the exact source-to-output association.
 
 The built-in redactor is a conservative MVP. It reduces accidental disclosure; it does not certify that a package is legally anonymized.

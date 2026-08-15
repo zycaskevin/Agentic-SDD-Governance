@@ -4,6 +4,12 @@
   "receipt": {
     "approval_id": "APP-EXACT-OPERATION-001",
     "operation_id": "PROD-OPERATION-001",
+    "operation_payload": {
+      "category": "high_risk_operation",
+      "target": "replace-with-exact-operation-target",
+      "parameters": {"mode": "replace-with-non-secret-exact-parameter"},
+      "effects": {"production": true}
+    },
     "summary": "One exact high-risk operation",
     "scope": "One operation and destination only",
     "approved_by": "replace-with-owner-id",

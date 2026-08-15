@@ -11,13 +11,14 @@ sddgov autonomy evaluate request.json --path .
 sddgov checkpoint --summary "..." --next-work-package WP-002
 sddgov artifact lock dist/package.whl --release release-X --output release.lock
 sddgov artifact verify dist/package.whl --lock release.lock
+sddgov decision import-product-approval signed-product-decision.json --path .
 sddgov decision import-operation-approval signed-approval.json --path .
 sddgov merge verify . --base-ref <exact-base>
 ```
 
 Every known action request must include an explicit `effects` object. Use `{}` only after classification confirms that no Production, destructive, irreversible, Secret, permission-boundary, real-payment, or high-privilege effect applies.
 
-Record an approved L2 decision once in `.sddgov/decisions.json` and reuse it while assumptions remain unchanged. L3 requires a trusted-owner Ed25519 receipt that is fresh, exact, unexpired, and atomically consumed on the first `CONTINUE`; a previous product decision or caller string never authorizes a new L3 operation.
+Import an approved L2 decision from a trusted-owner Ed25519 receipt and reuse it only while the signed scope and assumptions SHA-256 remain exact and the reopen condition remains false. L3 requires a trusted-owner Ed25519 receipt bound to the complete canonical operation payload; it must be fresh, exact, unexpired, and is atomically consumed on the first `CONTINUE`. A previous product decision or caller string never authorizes a new L3 operation.
 
 Unknown categories and dangerous L0/L1 downgrades fail closed for machine reclassification. Before Merge, execute the Merge verifier; do not treat `policies/merge-policy.yaml` as self-enforcing documentation.
 

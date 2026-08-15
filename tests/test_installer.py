@@ -231,7 +231,7 @@ class InstallerTests(unittest.TestCase):
                 events[-1]["payload"]["previous_governance_version"],
                 "0.2.0-experimental.3",
             )
-            self.assertEqual(events[-1]["payload"]["governance_version"], "0.2.0-experimental.6")
+            self.assertEqual(events[-1]["payload"]["governance_version"], "0.2.0-experimental.7")
 
     def test_packaged_install_assets_match_canonical_sources(self):
         for relative, content in _resource_files().items():

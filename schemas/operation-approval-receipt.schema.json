@@ -9,10 +9,37 @@
     "algorithm": {"const": "ed25519"},
     "receipt": {
       "type": "object",
-      "required": ["approval_id", "operation_id", "summary", "scope", "approved_by", "issued_at", "expires_at", "nonce"],
+      "required": ["approval_id", "operation_id", "operation_payload", "summary", "scope", "approved_by", "issued_at", "expires_at", "nonce"],
       "properties": {
         "approval_id": {"type": "string", "minLength": 1},
         "operation_id": {"type": "string", "minLength": 1},
+        "operation_payload": {
+          "type": "object",
+          "required": ["category", "target", "parameters", "effects"],
+          "properties": {
+            "category": {
+              "enum": [
+                "high_risk_operation",
+                "production_data_deletion",
+                "irreversible_migration",
+                "secret_change",
+                "permission_boundary_change",
+                "real_payment",
+                "high_privilege_production_operation"
+              ]
+            },
+            "target": {"type": "string", "minLength": 1},
+            "parameters": {"type": "object"},
+            "effects": {
+              "type": "object",
+              "propertyNames": {
+                "enum": ["production", "destructive", "irreversible", "secret_change", "permission_boundary_change", "real_payment", "high_privilege"]
+              },
+              "additionalProperties": {"const": true}
+            }
+          },
+          "additionalProperties": false
+        },
         "summary": {"type": "string", "minLength": 1},
         "scope": {"type": "string", "minLength": 1},
         "approved_by": {"type": "string", "minLength": 1},

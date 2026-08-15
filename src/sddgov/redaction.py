@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import stat
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
@@ -51,9 +53,19 @@ def redact_text(text: str) -> tuple[str, dict[str, int]]:
 
 
 def redact_files(files: Iterable[Path], output_dir: Path) -> dict:
+    if output_dir.is_symlink():
+        raise ValueError("redaction output directory must not be a symlink")
     output_dir.mkdir(parents=True, exist_ok=True)
     report = {"schema_version": "1.0", "files": [], "blocked": [], "totals": {}}
     for source in files:
+        if source.is_symlink():
+            raise ValueError(f"redaction source must not be a symlink: {source.name}")
+        try:
+            source_mode = source.lstat().st_mode
+        except FileNotFoundError as exc:
+            raise ValueError(f"redaction source disappeared: {source.name}") from exc
+        if not stat.S_ISREG(source_mode):
+            raise ValueError(f"redaction source must be a regular file: {source.name}")
         rel_name = source.name
         raw = source.read_bytes()
         if source.suffix.lower() not in TEXT_SUFFIXES:
@@ -61,6 +73,7 @@ def redact_files(files: Iterable[Path], output_dir: Path) -> dict:
                 "file": rel_name,
                 "reason": "binary_requires_manual_visual_redaction",
                 "sha256": sha256_bytes(raw),
+                "size": len(raw),
             })
             continue
         try:
@@ -70,22 +83,48 @@ def redact_files(files: Iterable[Path], output_dir: Path) -> dict:
                 "file": rel_name,
                 "reason": "non_utf8_requires_manual_review",
                 "sha256": sha256_bytes(raw),
+                "size": len(raw),
             })
             continue
         cleaned, counts = redact_text(text)
         destination = output_dir / rel_name
-        destination.write_text(cleaned, encoding="utf-8")
+        if destination.is_symlink():
+            raise ValueError(f"redaction destination must not be a symlink: {rel_name}")
+        if destination.exists() and not stat.S_ISREG(destination.lstat().st_mode):
+            raise ValueError(f"redaction destination must be a regular file: {rel_name}")
+        encoded = cleaned.encode("utf-8")
+        with tempfile.NamedTemporaryFile(
+            mode="wb", dir=output_dir, prefix=f".{rel_name}.", delete=False
+        ) as handle:
+            handle.write(encoded)
+            temporary = Path(handle.name)
+        temporary.replace(destination)
         for key, value in counts.items():
             report["totals"][key] = report["totals"].get(key, 0) + value
         report["files"].append({
             "source": rel_name,
             "output": rel_name,
             "source_sha256": sha256_bytes(raw),
-            "output_sha256": sha256_bytes(cleaned.encode("utf-8")),
+            "source_size": len(raw),
+            "output_sha256": sha256_bytes(encoded),
+            "output_size": len(encoded),
             "redactions": counts,
         })
     return report
 
 
 def write_report(report: dict, path: Path) -> None:
-    path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.is_symlink():
+        raise ValueError("redaction report destination must not be a symlink")
+    if path.exists() and not stat.S_ISREG(path.lstat().st_mode):
+        raise ValueError("redaction report destination must be a regular file")
+    encoded = (json.dumps(report, ensure_ascii=False, indent=2) + "\n").encode(
+        "utf-8"
+    )
+    with tempfile.NamedTemporaryFile(
+        mode="wb", dir=path.parent, prefix=f".{path.name}.", delete=False
+    ) as handle:
+        handle.write(encoded)
+        temporary = Path(handle.name)
+    temporary.replace(path)

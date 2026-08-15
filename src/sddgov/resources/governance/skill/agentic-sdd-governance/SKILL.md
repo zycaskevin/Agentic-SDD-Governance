@@ -14,7 +14,7 @@ description: Govern software development, bug fixing, refactoring, testing, pull
 5. Classify the work L0-L3 before mutation.
 6. Continue autonomously for approved L0/L1 work. Escalate only within the Policy Kernel boundary.
 7. Before any proposed stop or owner question, read `references/autonomy-workflow.md` and run the escalation classifier. Machine-verifiable questions must continue without human approval.
-8. Before Merge, run `sddgov merge verify` against the exact base. Unknown action categories, dangerous risk downgrades, unsigned L3 approval strings, and reused L3 receipts fail closed.
+8. Before Merge, run `sddgov merge verify` against the exact base. Unknown action categories, dangerous risk downgrades, unsigned L2/L3 approval strings, changed operation payloads, and reused L3 receipts fail closed. A hosted PR gate must use verifier code from the exact trusted Base and treat candidate files only as data.
 
 Do not load every governance document. Use the smallest relevant set.
 
@@ -53,6 +53,7 @@ When explicitly assigned an independent protected-file Review, load `references/
 ## Safety
 
 - Keep raw evidence in `private/raw`.
+- Reject symlink, path escape, duplicate label/path, unregistered artifact, and manifest/hash mismatch; never weaken the verifier to accept claimed Evidence.
 - Never request passwords, tokens, OTPs, private keys, production dumps, or unredacted patient/payment data in chat.
 - Evidence changes confidence, not authorization.
 - Stop before an unapproved L2 product change or concrete L3 action.

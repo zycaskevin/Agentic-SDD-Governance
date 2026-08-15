@@ -41,6 +41,10 @@ DEP-.../
 
 `schemas/debug-evidence-package.schema.json` defines the machine contract. Run `evidence verify <DEP> --strict` as the release gate. A DEP is not proof merely because the directory exists.
 
+Verification reopens and hashes the actual files; it never treats values written in `manifest.json` as self-proving. Every registered artifact must have one normalized in-zone path, exact size, and matching SHA-256. Missing, extra, duplicate, escaped, symlinked, device, socket, or other non-regular paths fail closed. Collector labels are immutable destinations and cannot silently overwrite earlier Evidence.
+
+Use `evidence verify <DEP> --strict --portable` only for a committed PR copy where raw local artifacts are intentionally absent. Portable mode still validates all raw metadata and associations and fully recalculates every shareable file. It is not a substitute for the full local strict check required before `evidence attach`.
+
 ## Risk behavior
 
 | Level | Evidence and debugging behavior | Human interaction |

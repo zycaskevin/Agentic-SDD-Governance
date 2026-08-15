@@ -1,4 +1,4 @@
-version: "0.2.0-experimental.5"
+version: "0.2.0-experimental.7"
 runtime_load_set:
   - core/POLICY_KERNEL.md
   - selected_project_profile
@@ -14,6 +14,11 @@ invariants:
   no_human_escalation_if_machine_verifiable: true
   sha256_human_copy_paste_forbidden: true
   subagent_direct_owner_escalation: false
+  pull_request_controls_active_verifier: false
+  evidence_artifacts_recalculated: true
+  symlink_and_path_escape_allowed: false
+  l2_requires_owner_signature: true
+  l3_binds_complete_operation_payload: true
 interruptions:
   allowed:
     - unresolved_l2_product_decision

@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.2.0-experimental.7 — 2026-08-15 security hardening candidate
+
+### Security
+
+- Separated the authoritative PR verifier from candidate code: the Base-controlled `pull_request_target` workflow installs the exact Base verifier, treats the candidate checkout only as data, and never executes candidate-defined Local Green commands.
+- Made strict DEP verification reopen and recalculate every registered artifact's normalized path, regular-file type, size, and SHA-256; missing, altered, extra, escaped, symlinked, and duplicate artifacts now fail closed.
+- Prevented collector label overwrite, DEP ID path escape, redaction input/output symlink traversal, and symlinked machine-control document writes.
+- Replaced caller-authored L2 approval with trusted-owner Ed25519 receipts bound to exact decision scope, assumptions digest, validity, and reopen state.
+- Bound L3 receipts to the complete canonical operation payload, including category, target, non-secret parameters, and sensitive effects, before atomic one-use consumption.
+
+### Added
+
+- Added L2 product-decision receipt Schema/template and expanded L3/Decision Record contracts.
+- Added adversarial regression tests for Evidence tampering, path boundaries, authority downgrade, receipt tampering/replay, and exact L3 payload mismatch.
+- Added an offline disposable synthetic Muse/Hermes pilot using synthetic relationship text and one generated image; binary sharing fails closed and the reviewed derivative completes full and portable DEP verification.
+
+### Changed
+
+- Added `sddgov evidence verify --portable` for Base-controlled PR verification where local raw bytes are intentionally absent; full local strict verification remains mandatory before attachment.
+- Added `sddgov pilot synthetic-muse` for the bounded isolation pilot.
+- Kept this version experimental: the synthetic pilot does not authorize Production, real Muse data, credentials, or L2/L3 operations.
+
 ## 0.2.0-experimental.6 — 2026-08-15
 
 ### Added

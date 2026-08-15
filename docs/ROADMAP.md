@@ -1,5 +1,13 @@
 # Roadmap
 
+## v0.2.0-experimental.7 — security hardening candidate
+
+- Base-controlled trusted verifier separated from candidate PR code and candidate-defined commands.
+- Full Evidence artifact recomputation plus fail-closed path, symlink, duplicate, missing, extra, and tamper checks.
+- Trusted-owner signed L2 product decisions and complete canonical L3 operation-payload binding.
+- Offline synthetic Muse/Hermes clone pilot with synthetic text, one generated image, binary fail-closed behavior, and full/portable DEP proof.
+- Remaining before release: exact-Head independent Review, Merge Gate receipt, hosted Base-workflow transition check, and independently downloaded artifact smoke test.
+
 ## v0.2.0-experimental.6 — released 2026-08-15
 
 - Fail-closed canonical action and sensitive-effect classification.

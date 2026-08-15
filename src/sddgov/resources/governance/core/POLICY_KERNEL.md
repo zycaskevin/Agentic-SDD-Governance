@@ -16,6 +16,9 @@ Read this file at the start of governed development. Load detailed modules only 
 12. SHA-256 is machine-generated and machine-verified integrity infrastructure. Never ask a human to copy, paste, calculate, or approve a digest.
 13. Before stopping, run the escalation classifier. Only unresolved L2, concrete L3, Operational Action, or Necessary UAT may emit the strict `ACTION REQUIRED` Decision Package.
 14. A Main Agent absorbs sub-agent uncertainty. L0/L1 technical questions never pass directly from a sub-agent to the product owner.
+15. A PR never supplies the verifier that judges that same PR. Hosted governance loads verifier code and trust policy from the exact trusted Base and treats the candidate checkout only as untrusted data.
+16. DEP verification recomputes every registered artifact's size and SHA-256 and rejects missing, extra, duplicate, escaped, non-regular, or symlinked paths. A manifest assertion is not proof by itself.
+17. L2 approval requires a trusted-owner Ed25519 receipt bound to exact scope and assumptions. L3 approval additionally binds the complete canonical operation payload and is consumed once.
 
 Runtime load set:
 

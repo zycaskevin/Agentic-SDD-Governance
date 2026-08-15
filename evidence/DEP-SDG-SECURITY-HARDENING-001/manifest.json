@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-SDG-SECURITY-HARDENING-001",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--security-hardening-red.txt",
+      "sha256": "49946710251893b1d58be496d79fd2cc6ebaeee8383b5896535e5801f9a422a9",
+      "collected_at": "2026-08-15T09:08:13Z",
+      "shareable": false,
+      "size": 1142
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--security-hardening-red.txt",
+      "sha256": "49946710251893b1d58be496d79fd2cc6ebaeee8383b5896535e5801f9a422a9",
+      "size": 1142,
+      "shareable": true
+    }
+  ]
+}

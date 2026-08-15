@@ -61,11 +61,13 @@ class RepositoryContractTests(unittest.TestCase):
             "schemas/decision-record.schema.json",
             "schemas/merge-gate.schema.json",
             "schemas/operation-approval-receipt.schema.json",
+            "schemas/product-decision-approval-receipt.schema.json",
             "schemas/protected-review-receipt.schema.json",
             "schemas/trusted-approvers.schema.json",
             "schemas/trusted-reviewers.schema.json",
             "templates/MERGE_GATE.json",
             "templates/OPERATION_APPROVAL_RECEIPT.json",
+            "templates/PRODUCT_DECISION_APPROVAL_RECEIPT.json",
             "templates/PROTECTED_REVIEW_RECEIPT.json",
             "templates/TRUSTED_APPROVERS.json",
             "templates/TRUSTED_REVIEWERS.json",
@@ -277,7 +279,7 @@ class RepositoryContractTests(unittest.TestCase):
             job
             for job in workflow["jobs"].values()
             if any(
-                "sddgov merge verify" in str(step.get("run", ""))
+                "merge verify" in str(step.get("run", ""))
                 for step in job.get("steps", [])
             )
         ]
@@ -285,7 +287,7 @@ class RepositoryContractTests(unittest.TestCase):
         verifier_steps = [
             step
             for step in verifier_jobs[0]["steps"]
-            if "sddgov merge verify" in str(step.get("run", ""))
+            if "merge verify" in str(step.get("run", ""))
         ]
         self.assertEqual(len(verifier_steps), 1)
         self.assertIn(
@@ -299,11 +301,19 @@ class RepositoryContractTests(unittest.TestCase):
             for step in verifier_jobs[0]["steps"]
             if str(step.get("uses", "")).startswith("actions/checkout@")
         ]
-        self.assertEqual(len(checkout_steps), 1)
-        self.assertEqual(checkout_steps[0]["with"]["fetch-depth"], 0)
-        self.assertFalse(checkout_steps[0]["with"]["persist-credentials"])
-        self.assertIn("pull_request.head.sha", checkout_steps[0]["with"]["ref"])
+        self.assertEqual(len(checkout_steps), 2)
+        by_path = {step["with"]["path"]: step for step in checkout_steps}
+        self.assertEqual(set(by_path), {"candidate", "trusted-verifier"})
+        self.assertEqual(by_path["candidate"]["with"]["fetch-depth"], 0)
+        self.assertFalse(by_path["candidate"]["with"]["persist-credentials"])
+        self.assertIn(
+            "pull_request.head.sha", by_path["candidate"]["with"]["ref"]
+        )
+        self.assertIn(
+            "pull_request.base.sha", by_path["trusted-verifier"]["with"]["ref"]
+        )
         cli = (ROOT / "src/sddgov/cli.py").read_text(encoding="utf-8")
+        self.assertIn("import-product-approval", cli)
         self.assertIn("import-operation-approval", cli)
         self.assertNotIn('"authorize-operation"', cli)
         all_runtime_text = "\n".join(
@@ -318,6 +328,21 @@ class RepositoryContractTests(unittest.TestCase):
         ).lower()
         self.assertNotIn("paste sha-256 to approve", all_runtime_text)
         self.assertNotIn("貼回 sha-256", all_runtime_text)
+
+    def test_pull_request_gate_uses_base_trusted_verifier(self):
+        workflow = (ROOT / ".github/workflows/governance.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("pull_request_target:", workflow)
+        self.assertIn("path: candidate", workflow)
+        self.assertIn("path: trusted-verifier", workflow)
+        self.assertIn("github.event.pull_request.base.sha", workflow)
+        self.assertIn("github.event.pull_request.head.sha", workflow)
+        self.assertIn("PYTHONPATH", workflow)
+        self.assertIn("trusted-verifier/src", workflow)
+        self.assertIn("--skip-local-checks", workflow)
+        self.assertIn("core.hooksPath=/dev/null", workflow)
+        self.assertNotIn("python -m pip install -e .", workflow)
 
 
 if __name__ == "__main__":

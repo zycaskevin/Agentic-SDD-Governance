@@ -256,6 +256,18 @@ jobs:
         self.assertNotEqual(before, change_digest(self.root, self.base))
 
     @patch("sddgov.merge_gate.verify_dep", return_value=[])
+    def test_merge_dep_path_rejects_symlink_components(self, _verify):
+        dep = self.root / "evidence/DEP-1"
+        real_dep = self.root / "evidence/real-dep"
+        dep.rename(real_dep)
+        dep.symlink_to(real_dep.name, target_is_directory=True)
+        _run(self.root, "git", "add", "-A")
+        _run(self.root, "git", "commit", "-qm", "attempt DEP symlink indirection")
+        self._write_gate()
+        with self.assertRaisesRegex(ValueError, "merge DEP path contains a symlink"):
+            verify_merge(self.root, self.base, run_checks=False)
+
+    @patch("sddgov.merge_gate.verify_dep", return_value=[])
     def test_candidate_policy_cannot_unprotect_base_paths(self, _verify):
         (self.root / "policies/protected-files.yaml").write_text(
             "protected:\n  - harmless.txt\nrules:\n"

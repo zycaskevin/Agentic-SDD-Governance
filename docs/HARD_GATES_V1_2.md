@@ -8,14 +8,18 @@ This module closes three trust gaps without adding human approval to routine L0/
 
 Production data deletion, irreversible migration, Secret change, permission-boundary change, real payment, and high-privilege Production operations always require L3. Routine categories may also declare sensitive effects. Any Production, destructive, irreversible, Secret, permission-boundary, payment, or high-privilege effect prevents an L0/L1 downgrade.
 
-## Trusted L3 approval receipts
+## Trusted L2 and L3 approval receipts
 
-Caller-provided strings are not authority. `decision authorize-operation` and the separate consume command are removed. An L3 operation uses this sequence:
+Caller-provided strings are not authority. A product owner signs L2 and L3 receipts outside the repository; only the public key is trusted by SDG.
+
+For L2, the receipt follows `schemas/product-decision-approval-receipt.schema.json` and binds the decision ID, exact scope, assumptions SHA-256, reopen condition, owner identity, validity window, and nonce. Import it with `sddgov decision import-product-approval`. Reuse succeeds only when the requested scope and assumptions digest still match and the reopen condition is explicitly false. `decision record` is a deprecated fail-closed command and cannot create approval.
+
+An L3 operation uses this sequence:
 
 1. An external owner-controlled signer produces an Ed25519 envelope matching `schemas/operation-approval-receipt.schema.json`.
 2. `.sddgov/trusted-approvers.json` is an auditable mirror only. Runtime authority comes from the same file at the immutable `SDDGOV_TRUSTED_BASE_REF`, or from an owner-controlled file outside the repository at `SDDGOV_TRUSTED_APPROVERS_FILE`. The candidate worktree copy is never an authority source.
 3. The Agent runs `sddgov decision import-operation-approval signed-approval.json --path .`.
-4. `sddgov autonomy evaluate request.json --path .` re-verifies the stored signed envelope and its digest under the decision lock, then verifies exact operation ID, signer, expiry, nonce, and unused state. Editing `.sddgov/decisions.json` cannot create or expand L3 authority.
+4. The signed receipt includes `operation_payload`: exact category, target, non-secret parameters, and sensitive-effect flags. `sddgov autonomy evaluate request.json --path .` re-verifies the stored signed envelope and its digest under the decision lock, then compares the canonical payload SHA-256, operation ID, signer, expiry, nonce, and unused state. Editing `.sddgov/decisions.json` cannot create or expand L3 authority.
 5. The first `CONTINUE` atomically consumes the receipt. Reuse returns `ACTION REQUIRED`; concurrent evaluation permits at most one consumer.
 
 Private signing keys must never enter the repository, chat, DEP, Agent workspace, or CI. Provisioning the trusted Base/out-of-band public-key source or using an owner signing key is an Operational/L3 boundary and is intentionally outside this repository's autonomous workflow.
@@ -34,7 +38,9 @@ Both approval and review signatures use these canonical signing bytes: serialize
 - structured rollback record with `rollback_version`, explicit `target`, executable `command`, and `verify` fields;
 - trusted-reviewer Ed25519 receipt when a protected path changed.
 
-The GitHub Governance workflow fetches full history and runs this command for non-Draft PRs and `main` pushes. Configure it as a required check in repository rulesets; a workflow file alone cannot prevent an administrator from bypassing GitHub controls.
+The GitHub Governance workflow uses `pull_request_target`, so GitHub loads the workflow from the trusted Base rather than the PR. It checks out the candidate under `candidate/` as untrusted data and the exact Base under `trusted-verifier/`, installs only the Base verifier, and runs it with `PYTHONPATH` pinned to `trusted-verifier/src`. Hosted verification passes `--skip-local-checks`, because candidate-defined Local Green commands would execute untrusted PR code; those checks belong in a separate least-privilege workflow. No candidate script, build hook, or test command runs inside this privileged governance job.
+
+Configure the Governance result as a required check in repository rulesets; a workflow file alone cannot prevent an administrator from bypassing GitHub controls. The first hardening PR is still judged by the previously installed Base workflow, so it also requires fresh independent review before Merge. Later PRs receive the separated verifier automatically.
 
 The Merge gate follows `schemas/merge-gate.schema.json`. `change_digest` excludes only `.sddgov/merge-gate.json` and `.sddgov/reviews/`. DEP and Rollback content remains inside the digest, so it cannot change after review. The recorded `head_sha` is the exact reviewed commit; current HEAD may descend from it only through commits whose paths are limited to those two audit-receipt locations.
 
@@ -49,6 +55,10 @@ The independent Reviewer performs this bootstrap without asking the product owne
 An empty `.sddgov/trusted-approvers.json` is not a Merge failure. It is a safe default that prevents future L3 operations until a separate owner-controlled L3 identity is deliberately provisioned.
 
 Raw Evidence is checked across every commit in `base_ref..HEAD`, not only the final tree. Adding and later deleting `private/raw/` data still fails the gate because the sensitive bytes remain in Git history.
+
+## Evidence integrity recomputation
+
+Strict DEP verification does not trust `manifest.json` assertions. It reopens every registered artifact and recomputes normalized path, file type, byte size, and SHA-256. It rejects missing files, unregistered extras, duplicate manifest paths, duplicate collector destinations, path escape, symlinked DEP zones/files/control documents, and altered redaction associations. Portable PR verification may omit local `private/raw` bytes, but it still validates the raw manifest contract and recomputes every shareable artifact; full local strict verification must recompute both zones before attachment.
 
 ## Remaining trust boundary
 
