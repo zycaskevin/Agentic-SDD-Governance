@@ -5,7 +5,7 @@ import binascii
 import hashlib
 import json
 import os
-import shlex
+import re
 import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path, PurePosixPath
@@ -347,41 +347,41 @@ def only_audit_changes_after_review(
     )
 
 
-def _real_rollback(path: Path) -> bool:
-    if not path.is_file():
-        return False
+def _real_rollback(text: str) -> bool:
+    """Validate declarative rollback bytes loaded from the immutable candidate commit."""
     fields: dict[str, str] = {}
-    for raw in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+    for raw in text.splitlines():
         line = raw.strip()
         if not line or line.startswith("#") or ":" not in line:
             continue
         key, value = line.split(":", 1)
         fields[key.strip().lower()] = value.strip().strip("`")
-    required = {"rollback_version", "target", "command", "verify"}
-    if not required.issubset(fields) or fields["rollback_version"] != "1.0":
+    required = {
+        "rollback_version",
+        "target",
+        "rollback_action",
+        "rollback_ref",
+        "verify_action",
+        "verify_module",
+    }
+    if not required.issubset(fields) or fields["rollback_version"] != "2.0":
         return False
-    forbidden = ("todo", "replace", "unavailable", "<", ">")
-    if not all(
-        fields[key] and not any(token in fields[key].lower() for token in forbidden)
-        for key in ("target", "command", "verify")
+    if set(fields) & {"command", "verify", "shell", "script"}:
+        return False
+    target = fields["target"]
+    if (
+        not target
+        or len(target) > 240
+        or any(token in target.lower() for token in ("todo", "unavailable", "<", ">"))
     ):
         return False
-
-    def meaningful(command: str) -> bool:
-        try:
-            tokens = shlex.split(command, comments=True, posix=True)
-        except ValueError:
-            return False
-        if not tokens:
-            return False
-        executable = Path(tokens[0]).name.lower()
-        if executable in {"true", "false", "echo", "printf", "noop", ":"}:
-            return False
-        if " ".join(tokens).lower() in {"git status", "git diff", "git log"}:
-            return False
-        return True
-
-    return meaningful(fields["command"]) and meaningful(fields["verify"])
+    if fields["rollback_action"] != "git_revert":
+        return False
+    if not re.fullmatch(r"(?:HEAD|[0-9a-f]{7,40})", fields["rollback_ref"]):
+        return False
+    if fields["verify_action"] != "python_module":
+        return False
+    return fields["verify_module"] in {"pytest", "unittest"}
 
 
 def verify_merge(
@@ -441,10 +441,13 @@ def verify_merge(
         )
     if dep_errors:
         raise ValueError("strict DEP verification failed: " + "; ".join(dep_errors))
-    rollback = _bounded_repository_path(
-        root, gate.get("rollback_path"), "rollback"
-    )
-    if not _real_rollback(rollback):
+    rollback_relative = gate.get("rollback_path")
+    _bounded_repository_path(root, rollback_relative, "rollback")
+    try:
+        rollback_text = _git(root, "show", f"{head_sha}:{rollback_relative}")
+    except ValueError as exc:
+        raise ValueError("rollback record is missing or incomplete") from exc
+    if not _real_rollback(rollback_text):
         raise ValueError("rollback record is missing or incomplete")
     commits = _git(root, "rev-list", f"{base_ref}..HEAD").splitlines()
     raw = sorted(

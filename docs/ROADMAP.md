@@ -7,7 +7,8 @@
 - Parsed CI workflow semantics with duplicate-key and job-permission rejection.
 - Evidence artifact-generation recheck, intermediate-symlink/FIFO rejection, pending-transaction visibility, and bounded collect/redact recovery.
 - Durable deduplicated Operational Action state, meaningful Rollback validation, complete protected-source inventory, provider-token redaction, and patched hash-locked cryptography.
-- Remaining before release: complete Green/Proof DEP, fresh-wheel Codex/Hermes doctor, offline synthetic Muse pilot, exact independent review with P0=0/P1=0, trusted Merge receipt, hosted Base-workflow proof, and freshly downloaded asset verification.
+- Local Green/Proof is complete for both experimental.8 DEPs, including Python 3.11/3.14 test runs, package build, fresh-wheel Codex/Hermes doctor, and an offline synthetic Muse pilot.
+- Remaining before release: exact independent review with P0=0/P1=0, trusted Merge receipt, hosted Base-workflow proof, owner release authorization, and freshly downloaded asset verification.
 
 ## v0.2.0-experimental.7 — security hardening candidate
 

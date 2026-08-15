@@ -323,25 +323,39 @@ class AutonomyTests(unittest.TestCase):
                 {"risk_level": "L1", "category": "implementation"},
             )
 
-    def test_sensitive_target_or_parameters_cannot_hide_empty_effects(self):
-        disguised = evaluate_escalation(
+    def test_low_risk_actions_reject_free_text_and_nested_executable_intent(self):
+        cases = (
+            {"target": "customer database live"},
+            {"parameters": {"environmentName": "production"}},
+            {"parameters": {"nested": {"operation": "delete"}}},
+            {"parameters": {"credentialReference": "owner-vault-entry"}},
+        )
+        for executable_fields in cases:
+            with self.subTest(executable_fields=executable_fields):
+                disguised = evaluate_escalation(
+                    self.root,
+                    {
+                        "risk_level": "L1",
+                        "category": "implementation",
+                        **executable_fields,
+                    },
+                )
+                self.assertEqual(disguised["state"], "BLOCKED")
+                self.assertEqual(
+                    disguised["reason"],
+                    "low_risk_action_requires_closed_typed_executor_contract",
+                )
+
+        ambiguous = evaluate_escalation(
             self.root,
             {
                 "risk_level": "L1",
-                "category": "implementation",
-                "target": "production/customer-database",
-                "parameters": {
-                    "environment": "production",
-                    "operation": "delete",
-                    "permission_boundary_change": True,
-                },
+                "category": "uncertainty",
+                "machine_verifiable": True,
+                "details": {"nested": "effectful request"},
             },
         )
-        self.assertEqual(disguised["state"], "BLOCKED")
-        self.assertEqual(disguised["reason"], "action_contract_conflicts_with_effects")
-        self.assertIn("production", disguised["required_effects"])
-        self.assertIn("destructive", disguised["required_effects"])
-        self.assertIn("permission_boundary_change", disguised["required_effects"])
+        self.assertEqual(ambiguous["state"], "BLOCKED")
 
         hidden_l3_payload = evaluate_escalation(
             self.root,

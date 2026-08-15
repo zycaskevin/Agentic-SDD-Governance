@@ -80,7 +80,12 @@ def _open_directory(path: Path, label: str) -> int:
     return descriptor
 
 
-def _write_at(directory_fd: int, name: str, data: bytes) -> None:
+def _write_at(
+    directory_fd: int,
+    name: str,
+    data: bytes,
+    published_outputs: dict[str, tuple[int, int]] | None = None,
+) -> None:
     try:
         existing = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
     except FileNotFoundError:
@@ -107,6 +112,10 @@ def _write_at(directory_fd: int, name: str, data: bytes) -> None:
             src_dir_fd=directory_fd,
             dst_dir_fd=directory_fd,
         )
+        published = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+        if published_outputs is not None:
+            published_outputs[name] = (published.st_dev, published.st_ino)
+        os.fsync(directory_fd)
     finally:
         if descriptor >= 0:
             os.close(descriptor)
@@ -123,6 +132,7 @@ def redact_files(
     metadata_by_name: dict[str, dict[str, str]] | None = None,
     source_dir_fd: int | None = None,
     output_dir_fd: int | None = None,
+    published_outputs: dict[str, tuple[int, int]] | None = None,
 ) -> dict:
     if output_dir.is_symlink():
         raise ValueError("redaction output directory must not be a symlink")
@@ -147,7 +157,11 @@ def redact_files(
             )
             if active_source_fd is None:
                 raise ValueError(f"redaction source directory is unavailable: {rel_name}")
-            flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+            flags = (
+                os.O_RDONLY
+                | getattr(os, "O_NONBLOCK", 0)
+                | getattr(os, "O_NOFOLLOW", 0)
+            )
             try:
                 before = os.stat(rel_name, dir_fd=active_source_fd, follow_symlinks=False)
             except FileNotFoundError as exc:
@@ -211,7 +225,7 @@ def redact_files(
                 continue
             cleaned, counts = redact_text(text)
             encoded = cleaned.encode("utf-8")
-            _write_at(active_output_fd, rel_name, encoded)
+            _write_at(active_output_fd, rel_name, encoded, published_outputs)
             for key, value in counts.items():
                 report["totals"][key] = report["totals"].get(key, 0) + value
             report["files"].append({

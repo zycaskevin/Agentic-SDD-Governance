@@ -10,6 +10,6 @@ Before Push:
 4. Batch the bounded Work Package into one reviewable revision.
 5. Do not rerun the same revision unless Evidence proves a transient failure.
 
-`sddgov ci verify` parses workflow YAML as data. Comments or quoted examples do not satisfy a guard, duplicate keys fail closed, workflow/job permissions are evaluated structurally, and draft skipping, concurrency, event filters, and timeout limits must be present in executable fields.
+`sddgov ci verify` reads the contract and workflow tree through retained non-symlink directory descriptors, accepts only single-linked regular YAML files, and parses YAML 1.2 data with duplicate-key rejection. Comments or quoted examples do not satisfy a guard; Draft skipping must be the exact required condition rather than one branch of an always-true expression; runners, concurrency groups, permissions, event filters, and timeouts are validated structurally.
 
 Use the DEP debugging route for a non-transient CI failure. CI optimization is L1 only while acceptance criteria and required proof remain unchanged. Billing, paid runners, and self-hosted runner installation remain L3 external actions.

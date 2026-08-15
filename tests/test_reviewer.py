@@ -149,10 +149,12 @@ jobs:
         rollback = self.root / "evidence/DEP-1/rollback.md"
         rollback.parent.mkdir(parents=True)
         rollback.write_text(
-            "rollback_version: 1.0\n"
+            "rollback_version: 2.0\n"
             "target: bounded reviewer test\n"
-            "command: git revert HEAD\n"
-            "verify: python -m unittest\n"
+            "rollback_action: git_revert\n"
+            "rollback_ref: HEAD\n"
+            "verify_action: python_module\n"
+            "verify_module: unittest\n"
         )
         _run(self.root, "git", "add", ".")
         _run(self.root, "git", "commit", "-qm", "harden")

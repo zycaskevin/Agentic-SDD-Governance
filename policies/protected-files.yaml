@@ -5,8 +5,14 @@ protected:
   - schemas/
   - policies/
   - tests/
+  - skill/
+  - adapters/
+  - collectors/
+  - redaction/
+  - templates/
   - redaction/rules.json
   - .github/workflows/
+  - .sddgov/ci-cost-guard.json
   - src/sddgov/
   - pyproject.toml
   - requirements-governance.lock

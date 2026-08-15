@@ -974,38 +974,30 @@ def _continue(reason: str, next_action: str = "continue") -> dict[str, Any]:
     }
 
 
-def _inferred_sensitive_effects(request: dict[str, Any]) -> set[str]:
-    inferred: set[str] = set()
-    target = request.get("target")
-    if target is not None and (not isinstance(target, str) or not target.strip()):
-        raise ValueError("target must be a non-empty string when provided")
-    parameters = request.get("parameters", {})
-    if not isinstance(parameters, dict):
-        raise ValueError("parameters must be an object when provided")
-    target_text = target.lower() if isinstance(target, str) else ""
-    environment = str(parameters.get("environment", "")).strip().lower()
-    if environment in {"production", "prod", "live"} or re.search(
-        r"(?:^|[-_/.:])(production|prod|live)(?:$|[-_/.:])", target_text
-    ):
-        inferred.add("production")
-    operation = str(
-        parameters.get("operation", parameters.get("action", ""))
-    ).strip().lower()
-    if operation in {"delete", "drop", "truncate", "destroy", "purge", "erase"}:
-        inferred.add("destructive")
-    for effect in SENSITIVE_EFFECTS:
-        if parameters.get(effect) is True:
-            inferred.add(effect)
-    if any(
-        key in parameters
-        and parameters.get(key) is not None
-        and parameters.get(key) is not False
-        and parameters.get(key) != ""
-        and parameters.get(key) != []
-        for key in ("credential", "credentials", "secret", "secrets", "private_key")
-    ):
-        inferred.add("secret_change")
-    return inferred
+def _l0_l1_envelope_error(request: dict[str, Any]) -> str | None:
+    """Return an error for a low-risk envelope that could encode an executable action.
+
+    Free text and arbitrary nested parameters are never evidence that an action is
+    low risk. Concrete targets and parameters belong to a separately typed executor
+    contract; this classifier only pre-authorizes authority-free engineering records.
+    """
+    category = request["category"]
+    allowed = {"risk_level", "category", "effects"}
+    if category == "integrity_mismatch":
+        allowed.add("unrelated_work_exists")
+    elif category == "uncertainty":
+        allowed.update({"machine_verifiable", "unrelated_work_exists"})
+    elif category in {"operational_action", "necessary_uat"}:
+        return None
+    extra = set(request) - allowed
+    if extra:
+        return "low_risk_action_requires_closed_typed_executor_contract"
+    if request.get("effects") != {}:
+        return None
+    for field in ("machine_verifiable", "unrelated_work_exists"):
+        if field in request and not isinstance(request[field], bool):
+            return "low_risk_action_boolean_field_is_invalid"
+    return None
 
 
 def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
@@ -1049,15 +1041,15 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
             "reason": "authority_bearing_fields_not_allowed_for_routine_action",
             "next_action": "rebuild_request_with_one_exact_authority_class",
         }
-    inferred_effects = _inferred_sensitive_effects(request)
-    missing_effects = sorted(inferred_effects - set(effects))
-    if missing_effects:
+    envelope_error = (
+        _l0_l1_envelope_error(request) if risk in {"L0", "L1"} else None
+    )
+    if envelope_error:
         return {
             "state": "BLOCKED",
             "requires_response": False,
-            "reason": "action_contract_conflicts_with_effects",
-            "required_effects": missing_effects,
-            "next_action": "reclassify_from_exact_target_parameters_and_effects",
+            "reason": envelope_error,
+            "next_action": "use_one_closed_typed_executor_contract_or_remove_executable_fields",
         }
     if category == "product_decision" and risk in {"L0", "L1"}:
         return {

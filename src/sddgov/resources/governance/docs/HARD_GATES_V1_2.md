@@ -35,10 +35,12 @@ Both approval and review signatures use these canonical signing bytes: serialize
 - repository Local Green Gate;
 - strict Proof-phase DEP for L1-L3;
 - zero Redaction blockers and no tracked `private/raw` Evidence;
-- structured rollback record with `rollback_version`, explicit `target`, executable `command`, and `verify` fields;
+- structured rollback v2 record with explicit `target`, allowlisted `rollback_action` + `rollback_ref`, and allowlisted `verify_action` + `verify_module` fields; free-form shell commands, wrappers, and observational no-ops are rejected;
 - trusted-reviewer Ed25519 receipt when a protected path changed.
 
 The GitHub Governance workflow uses `pull_request_target`, so GitHub loads the workflow from the trusted Base rather than the PR. It checks out the candidate under `candidate/` as untrusted data and the exact Base under `trusted-verifier/`, installs only hash-locked dependencies from `requirements-governance.lock`, and runs it with `PYTHONPATH` pinned to `trusted-verifier/src`. Every external Action is pinned to a full commit SHA. Hosted verification passes `--skip-local-checks`, because candidate-defined Local Green commands would execute untrusted PR code; those checks belong in a separate least-privilege workflow. No candidate script, build hook, or test command runs inside this privileged governance job.
+
+The accepted rollback v2 fields are `rollback_action: git_revert`, `rollback_ref: HEAD` or a 7–40 character lowercase commit SHA, `verify_action: python_module`, and `verify_module: pytest` or `unittest`. These values describe a bounded action; the verifier never executes free-form Markdown or shell text.
 
 Configure the Governance result as a required check in repository rulesets; a workflow file alone cannot prevent an administrator from bypassing GitHub controls. The first hardening PR is still judged by the previously installed Base workflow, so it also requires fresh independent review before Merge. Later PRs receive the separated verifier automatically.
 

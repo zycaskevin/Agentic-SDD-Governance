@@ -4,17 +4,17 @@
 
 ### Security
 
-- Reject contradictory authority-bearing fields before the L0/L1 routine shortcut, infer declared sensitive effects from canonical target/parameters, and prevent product L2 receipts from authorizing Operational Action or Necessary UAT categories.
+- Restrict autonomous L0/L1 classification to a closed, targetless, parameterless engineering envelope; concrete execution must use a separately typed contract, and product L2 receipts cannot authorize Operational Action or Necessary UAT categories.
 - Constrain L2 reopen behavior to the machine-readable `scope_or_assumptions_change` contract and retain non-symlink repository directory descriptors while recalculating assumption artifacts.
-- Replace CI workflow regex checks with duplicate-key-rejecting YAML semantic validation for triggers, permissions, concurrency, Draft handling, and bounded job timeouts.
+- Replace CI workflow regex checks with YAML 1.2 duplicate-key-rejecting semantic validation for triggers, exact non-bypassable Draft conditions, valid runners, concurrency, permissions, and bounded job timeouts; read every workflow through retained non-symlink directory descriptors.
 - Recheck the exact verified Evidence artifact generation immediately before attachment publication; reject intermediate symlinks, nonblocking-open non-regular inputs, pending attachment residue, and interrupted staging.
-- Clean up unregistered collect/redact outputs on bounded write failure, reject no-op rollback/verification commands, and protect the complete trusted source/workflow/dependency surface.
+- Use generation-bound no-clobber control publication, clean only transaction-owned collect/redact outputs on failure, preserve later writers, replace free-form rollback shell strings with an allowlisted declarative v2 contract, and protect the complete trusted source/workflow/dependency surface.
 - Persist one owner-, scope-, TTL-, and digest-bound Operational Action record so repeated calls do not emit duplicate prompts.
 - Add known provider-credential detectors while preserving clean zero-match text, and upgrade the trusted verifier dependency line to hash-locked `cryptography==50.0.0`.
 
 ### Evidence
 
-- Added `DEP-SDG-SECURITY-HARDENING-EXP8-001` and permanent defensive regression tests for Issue #11.
+- Added `DEP-SDG-SECURITY-HARDENING-EXP8-001`, second-round `DEP-SDG-SECURITY-HARDENING-EXP8-R2-002`, and permanent defensive regression tests for Issue #11.
 - This entry records implemented local work only; independent review, exact Merge verification, GitHub-hosted proof, and release publication remain separate gates.
 
 ## 0.2.0-experimental.7 — 2026-08-15 security hardening candidate

@@ -167,6 +167,9 @@ class RepositoryContractTests(unittest.TestCase):
         for required in (
             "src/sddgov/",
             ".github/workflows/",
+            ".sddgov/ci-cost-guard.json",
+            "skill/",
+            "adapters/",
             "pyproject.toml",
             "requirements-governance.lock",
         ):

@@ -107,10 +107,12 @@ jobs:
         rollback.parent.mkdir(parents=True)
         rollback.write_text(
             "# Rollback\n\n"
-            "rollback_version: 1.0\n"
+            "rollback_version: 2.0\n"
             "target: bounded test commit\n"
-            "command: git revert HEAD\n"
-            "verify: python -m unittest\n"
+            "rollback_action: git_revert\n"
+            "rollback_ref: HEAD\n"
+            "verify_action: python_module\n"
+            "verify_module: unittest\n"
         )
         _run(self.root, "git", "add", ".")
         _run(self.root, "git", "commit", "-qm", "harden")
@@ -468,10 +470,13 @@ jobs:
     @patch("sddgov.merge_gate.verify_dep", return_value=[])
     def test_noop_rollback_and_verify_commands_are_rejected(self, _verify):
         (self.root / "evidence/DEP-1/rollback.md").write_text(
-            "rollback_version: 1.0\n"
+            "rollback_version: 2.0\n"
             "target: bounded test commit\n"
-            "command: /bin/true\n"
-            "verify: true\n"
+            "rollback_action: shell_wrapper\n"
+            "rollback_ref: HEAD\n"
+            "verify_action: observation\n"
+            "verify_module: status\n"
+            "command: sh -c 'git status'\n"
         )
         _run(self.root, "git", "add", "evidence/DEP-1/rollback.md")
         _run(self.root, "git", "commit", "-qm", "invalid no-op rollback")
