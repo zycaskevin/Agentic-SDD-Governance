@@ -702,18 +702,24 @@ def _consume_nonce_via_control_plane(
         sort_keys=True,
         separators=(",", ":"),
     ).encode("utf-8") + b"\n"
+    expected_response = b"CONSUMED\n"
+    response = bytearray()
     try:
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
             client.settimeout(10)
             client.connect(str(L3_NONCE_BROKER))
             client.sendall(request)
             client.shutdown(socket.SHUT_WR)
-            response = client.recv(64)
-            if client.recv(1):
-                return False
+            while len(response) <= len(expected_response):
+                chunk = client.recv(len(expected_response) + 1 - len(response))
+                if not chunk:
+                    break
+                response.extend(chunk)
+                if len(response) > len(expected_response):
+                    return False
     except OSError:
         return False
-    return response == b"CONSUMED\n"
+    return bytes(response) == expected_response
 
 
 def _find_decision(root: Path, decision_id: str | None) -> dict[str, Any] | None:

@@ -3,7 +3,7 @@
   "governance_version": "0.2.0-experimental.7",
   "agent": "codex",
   "profile": "team-standard",
-  "installed_at": "2026-08-15T11:10:42Z",
+  "installed_at": "2026-08-15T11:19:01Z",
   "managed_files": {
     ".agentic-sdd-governance/VERSION": "624190b4f652ec37993780a3260aab0091c9827f7853fc8b04fe65d9c56ed179",
     ".agentic-sdd-governance/collectors/INTERFACE.md": "590055022bab5d99a1944dcccdff030c678574dcf3fbded9471ae86a4898653a",
@@ -16,7 +16,7 @@
     ".agentic-sdd-governance/docs/AUTONOMOUS_DEVELOPMENT_V1_2.md": "98c15f7c5021b0b788c6ac2d7b2053bff67c658244d906f227aab898eb7250d5",
     ".agentic-sdd-governance/docs/CI_COST_GUARD.md": "4c50c147354df772b8b7c934a6d9a0c9922e2880730df5c5950020eb96a564ca",
     ".agentic-sdd-governance/docs/EVIDENCE_DRIVEN_SDD.md": "42488986c65a8cb54c20dd72baaca3f712814328ce6bba3924c7cf8d15500e6f",
-    ".agentic-sdd-governance/docs/HARD_GATES_V1_2.md": "3cee35c235e9ce5138227abec8bf5a2e8e9596c0cdcc24c62dcaecf6f593c442",
+    ".agentic-sdd-governance/docs/HARD_GATES_V1_2.md": "47d0b5c4d6e12ede48f3775daadfcf9fc90cea90c84afca83ba29ead2bbe435c",
     ".agentic-sdd-governance/policies/autonomy-policy.json": "a08a3267fc9d8881d9a2cc2d1314d7ee2f200e4dd0b29db55e2fdc87389030a7",
     ".agentic-sdd-governance/policies/ci-cost-guard.yaml": "91f33cc83c9face254cec8fff0563645b54259bb87547609057032773891d744",
     ".agentic-sdd-governance/policies/escalation-policy.yaml": "697862d23b79a66944488b50b6d48e6b5db8aa4031e237f7ed15c3e13ca16c35",

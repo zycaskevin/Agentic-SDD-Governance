@@ -14,7 +14,7 @@ from contextlib import redirect_stderr
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -812,7 +812,9 @@ class AutonomyTests(unittest.TestCase):
                 connection, _ = server.accept()
                 with connection:
                     received["request"] = connection.recv(4096)
-                    connection.sendall(b"CONSUMED\n")
+                    connection.sendall(b"CON")
+                    threading.Event().wait(0.05)
+                    connection.sendall(b"SUMED\n")
 
             worker = threading.Thread(target=serve_once)
             worker.start()
@@ -832,6 +834,27 @@ class AutonomyTests(unittest.TestCase):
                 )
             worker.join(timeout=5)
         self.assertIn(b'"action":"consume"', received["request"])
+
+    def test_l3_broker_rejects_extra_response_bytes(self):
+        directory = SimpleNamespace(st_mode=stat.S_IFDIR | 0o755, st_uid=0)
+        broker = SimpleNamespace(st_mode=stat.S_IFSOCK | 0o660, st_uid=0)
+        client = MagicMock()
+        client.__enter__.return_value = client
+        client.recv.side_effect = [b"CONSUMED\n", b"X"]
+        with (
+            patch("sddgov.autonomy.os.geteuid", return_value=501),
+            patch(
+                "pathlib.Path.lstat",
+                autospec=True,
+                side_effect=lambda path: broker if path == L3_NONCE_BROKER else directory,
+            ),
+            patch("sddgov.autonomy.socket.socket", return_value=client),
+        ):
+            self.assertFalse(
+                _consume_nonce_via_control_plane(
+                    "nonce-value-extra", "a" * 64, "b" * 64
+                )
+            )
 
     def test_l3_broker_symlinked_parent_fails_before_connection(self):
         linked_parent = SimpleNamespace(

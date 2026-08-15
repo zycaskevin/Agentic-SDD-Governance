@@ -3,14 +3,14 @@
 ## Regression test added or strengthened
 
 - `tests/test_evidence_flow.py`: artifact mutation/deletion, complete raw/report coverage, Collector/media binding, unknown-extension/HAR disguise, traversal DEP ID, retained-dirfd parent replacement, hardlinks, symlinked source/destination/control files, duplicate collector label, and malformed Evidence contracts.
-- `tests/test_autonomy.py`: category downgrade denial, same-UID/self-commit/root-Agent trust rejection, signed L2 import with byte-recalculated assumptions, signed L3 Runtime Context/scope/payload mismatch, secret-bearing parameters, real macOS Unix Broker protocol plus fixed-platform and fail-closed parent checks, tampering, and expiry.
+- `tests/test_autonomy.py`: category downgrade denial, same-UID/self-commit/root-Agent trust rejection, signed L2 import with byte-recalculated assumptions, signed L3 Runtime Context/scope/payload mismatch, secret-bearing parameters, fragmented real macOS Unix Broker protocol, extra-byte denial, fixed-platform and fail-closed parent checks, tampering, and expiry.
 - `tests/test_merge_gate.py`: missing/malformed Base bootstrap state fails closed and Base revocation remains authoritative over stale external keys.
 - `tests/test_repository_contract.py`: separate candidate/Base checkouts, `pull_request_target`, Base `PYTHONPATH`, full-SHA Action pins, hash-locked dependencies, and no candidate editable install.
 - `tests/test_synthetic_muse_pilot.py`: fresh Hermes install plus offline synthetic text/single-image pilot.
 
 ## Related tests executed
 
-- `python -m pytest -q` — 132/132 passed on macOS outside the restricted sandbox, including the real Unix-socket protocol test.
+- `python -m pytest -q` — 133/133 passed on macOS outside the restricted sandbox, including fragmented real Unix-socket protocol and extra-byte denial.
 - `python -m sddgov.cli validate .` — PASS.
 - `python -m sddgov.cli ci verify .` — PASS.
 - `python -m compileall -q src tests` — PASS.
@@ -19,5 +19,5 @@
 
 ## Unaffected paths sampled
 
-- Existing L0/L1 autonomous routing, Checkpoint behavior, artifact integrity, Reviewer bootstrap/signing, Merge digest, CI Cost Guard, install/doctor/uninstall, redaction rules, benchmark harness, adapters, and packaged-resource parity all passed in the same 132-test suite.
+- Existing L0/L1 autonomous routing, Checkpoint behavior, artifact integrity, Reviewer bootstrap/signing, Merge digest, CI Cost Guard, install/doctor/uninstall, redaction rules, benchmark harness, adapters, and packaged-resource parity all passed in the same 133-test suite.
 - The released experimental.6 wheel was used only as the Red baseline in disposable synthetic directories.
