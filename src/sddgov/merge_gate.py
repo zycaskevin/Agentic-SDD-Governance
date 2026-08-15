@@ -262,21 +262,24 @@ def _protected_patterns(root: Path, base_ref: str) -> list[str]:
 
 def _trusted_reviewers(root: Path, base_ref: str) -> dict[str, Any]:
     """Prefer base-anchored reviewer authority; use external trust for bootstrap only."""
-    base_store: dict[str, Any] | None = None
     try:
         text = _git(root, "show", f"{base_ref}:.sddgov/trusted-reviewers.json")
-    except ValueError:
-        base_store = None
-    else:
-        try:
-            value = json.loads(text)
-        except json.JSONDecodeError as exc:
-            raise ValueError("trusted reviewer store at trusted base is invalid") from exc
-        if not isinstance(value, dict):
-            raise ValueError("trusted reviewer store at trusted base must contain a JSON object")
-        base_store = value
-    reviewers = base_store.get("reviewers") if isinstance(base_store, dict) else None
-    if isinstance(reviewers, list) and reviewers:
+    except ValueError as exc:
+        raise ValueError("trusted reviewer store is required at the trusted base") from exc
+    try:
+        value = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ValueError("trusted reviewer store at trusted base is invalid") from exc
+    if (
+        not isinstance(value, dict)
+        or set(value) != {"schema_version", "reviewers"}
+        or value.get("schema_version") != "1.0"
+        or not isinstance(value.get("reviewers"), list)
+    ):
+        raise ValueError("trusted reviewer store at trusted base has an invalid contract")
+    base_store = value
+    reviewers = base_store["reviewers"]
+    if reviewers:
         # A populated Base store is authoritative even when every key is revoked.
         # Falling back here would let a stale bootstrap variable resurrect a key.
         return base_store

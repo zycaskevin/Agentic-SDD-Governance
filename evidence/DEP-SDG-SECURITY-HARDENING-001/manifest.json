@@ -5,6 +5,8 @@
     {
       "collector": "terminal",
       "path": "private/raw/terminal--security-hardening-red.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
       "sha256": "49946710251893b1d58be496d79fd2cc6ebaeee8383b5896535e5801f9a422a9",
       "collected_at": "2026-08-15T09:08:13Z",
       "shareable": false,

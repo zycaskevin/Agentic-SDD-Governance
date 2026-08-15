@@ -15,7 +15,7 @@
       "effects": {"production": true}
     },
     "summary": "One exact high-risk operation",
-    "scope": "One operation and destination only",
+    "scope": "replace-with-one-exact-operation-scope",
     "approved_by": "replace-with-owner-id",
     "issued_at": "REPLACE_WITH_CURRENT_TIME_RFC3339",
     "expires_at": "REPLACE_WITH_EXPIRY_TIME_RFC3339",

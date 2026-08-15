@@ -14,7 +14,7 @@ Likely secrets: Authorization or cookie headers, provider/runtime secrets, Supab
 
 ## HAR (`browser-har`)
 
-The MVP blocks every HAR from the generic text-redaction route, including apparently body-free JSON. HAR can contain encoded binary or deeply nested secrets, and no signed manual-derivative receipt exists yet. A future dedicated derivative may use a safe metadata allowlist to retain only reviewed method, status class, timing, origin, and non-identifying route shape while removing cookies, Referer, Set-Cookie, Proxy-Authorization, API-key and other headers, query/fragment data, signed URLs, unapproved metadata, and **all request and response bodies**. Until then, keep HAR local and attach a separately written safe text summary instead.
+The MVP blocks every HAR from the generic text-redaction route, including apparently body-free JSON. The block is bound to both the `browser-har` Collector identity and detected HAR structure, so renaming the input or supplying a text label cannot make it shareable. HAR can contain encoded binary or deeply nested secrets, and no signed manual-derivative receipt exists yet. A future dedicated derivative may use a safe metadata allowlist to retain only reviewed method, status class, timing, origin, and non-identifying route shape while removing cookies, Referer, Set-Cookie, Proxy-Authorization, API-key and other headers, query/fragment data, signed URLs, unapproved metadata, and **all request and response bodies**. Until then, keep HAR local and attach a separately written safe text summary instead.
 
 ## Playwright (`playwright-trace`)
 

@@ -71,6 +71,10 @@ def load_control_plane_json(path: Path, label: str) -> dict[str, Any]:
     """
     if os.name == "nt" or not hasattr(os, "geteuid"):
         raise ValueError(f"{label} requires an independent control-plane identity")
+    if os.geteuid() == 0:
+        raise ValueError(
+            f"{label} cannot establish a separate identity while the Agent runs as root"
+        )
     candidate = path.expanduser().absolute()
     try:
         before = candidate.lstat()

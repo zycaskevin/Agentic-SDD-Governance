@@ -3,8 +3,9 @@
 ## v0.2.0-experimental.7 — security hardening candidate
 
 - Base-controlled trusted verifier separated from candidate PR code and candidate-defined commands.
-- Full Evidence artifact recomputation plus complete raw/report associations and fail-closed path, symlink, hardlink, duplicate, missing, extra, content-type, HAR, and tamper checks.
-- Separate-identity L2 trust roots, byte-recalculated assumption artifacts, complete canonical L3 operation-payload binding, and a required clone-external nonce broker.
+- Full Evidence artifact recomputation plus complete raw/report associations, Collector/media-type binding, retained directory descriptors, and fail-closed path, symlink, hardlink, duplicate, missing, extra, content-type, HAR, and tamper checks.
+- Separate-identity L2 trust roots, byte-recalculated assumption artifacts, root-controlled L3 Runtime Context, complete canonical operation-payload binding, and a descriptor-pinned clone-external nonce broker.
+- Full-SHA-pinned Actions and hash-locked trusted-verifier dependencies.
 - Authoritative Base Reviewer revocation that cannot be bypassed by stale bootstrap state.
 - Offline synthetic Muse/Hermes clone pilot with synthetic text, one generated image, binary fail-closed behavior, and full/portable DEP proof.
 - Remaining before release: exact-Head independent Review, Merge Gate receipt, hosted Base-workflow transition check, and independently downloaded artifact smoke test.

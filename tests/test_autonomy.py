@@ -3,12 +3,14 @@ import hashlib
 import io
 import json
 import os
+import stat
 import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import redirect_stderr
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from cryptography.hazmat.primitives import serialization
@@ -26,7 +28,9 @@ from sddgov.autonomy import (
     record_decision,
     render_action_required,
     verify_artifact,
+    _consume_nonce_via_control_plane,
 )
+from sddgov.trust import load_control_plane_json
 from sddgov.cli import main
 from sddgov.governance import init_project
 
@@ -72,6 +76,20 @@ class AutonomyTests(unittest.TestCase):
         self.trust_temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)
         self.trust_path = Path(self.trust_temporary.name) / "trusted-approvers.json"
+        self.runtime_context_path = Path(self.trust_temporary.name) / "runtime-context.json"
+        self.runtime_context_path.write_text(
+            json.dumps({
+                "schema_version": "1.0",
+                "repository": "zycaskevin/synthetic-repository",
+                "project": "synthetic-project",
+                "environment": "synthetic-production",
+            }),
+            encoding="utf-8",
+        )
+        self.runtime_context = patch(
+            "sddgov.autonomy.L3_RUNTIME_CONTEXT_FILE", self.runtime_context_path
+        )
+        self.runtime_context.start()
         self.trust_environment = patch.dict(
             "os.environ", {"SDDGOV_TRUSTED_APPROVERS_FILE": str(self.trust_path)}
         )
@@ -90,6 +108,7 @@ class AutonomyTests(unittest.TestCase):
     def tearDown(self):
         self.nonce_broker.stop()
         self.control_plane_loader.stop()
+        self.runtime_context.stop()
         self.trust_environment.stop()
         self.trust_temporary.cleanup()
         self.temporary.cleanup()
@@ -120,12 +139,13 @@ class AutonomyTests(unittest.TestCase):
         self.trust_path.write_text(json.dumps(trust), encoding="utf-8")
         self.trust_path.chmod(0o600)
         now = datetime.now(timezone.utc).replace(microsecond=0)
+        exact_payload = payload or operation_payload(operation_id)
         receipt = {
             "approval_id": approval_id,
             "operation_id": operation_id,
-            "operation_payload": payload or operation_payload(operation_id),
+            "operation_payload": exact_payload,
             "summary": "Run one exact Production operation",
-            "scope": "One exact operation only",
+            "scope": exact_payload["scope"],
             "approved_by": approved_by,
             "issued_at": now.isoformat().replace("+00:00", "Z"),
             "expires_at": (now + timedelta(minutes=30)).isoformat().replace(
@@ -331,6 +351,11 @@ class AutonomyTests(unittest.TestCase):
                 import_operation_approval(self.root, path)
         finally:
             self.control_plane_loader.start()
+
+    def test_root_agent_cannot_treat_root_owned_file_as_separate_authority(self):
+        with patch("sddgov.trust.os.geteuid", return_value=0):
+            with self.assertRaisesRegex(ValueError, "Agent runs as root"):
+                load_control_plane_json(self.trust_path, "test authority")
 
     def test_caller_selected_trusted_base_ref_is_never_authority(self):
         path, _ = self._signed_operation_approval()
@@ -655,7 +680,53 @@ class AutonomyTests(unittest.TestCase):
         self.assertIsNone(decisions["decisions"][-1]["consumed_at"])
 
         request["operation_payload"] = signed_payload
-        self.assertEqual(evaluate_escalation(self.root, request)["state"], "CONTINUE")
+        result = evaluate_escalation(self.root, request)
+        self.assertEqual(result["state"], "CONTINUE")
+        self.assertEqual(result["authorized_operation_payload"], signed_payload)
+
+    def test_l3_runtime_context_mismatch_blocks_before_nonce_consumption(self):
+        payload = operation_payload("PROD-CONTEXT")
+        receipt, _ = self._signed_operation_approval(
+            "APP-CONTEXT", "PROD-CONTEXT", payload=payload
+        )
+        import_operation_approval(self.root, receipt)
+        self.runtime_context_path.write_text(
+            json.dumps({
+                "schema_version": "1.0",
+                "repository": "zycaskevin/different-repository",
+                "project": "synthetic-project",
+                "environment": "synthetic-production",
+            }),
+            encoding="utf-8",
+        )
+        request = {
+            "risk_level": "L3",
+            "category": "high_risk_operation",
+            "operation_id": "PROD-CONTEXT",
+            "approval_id": "APP-CONTEXT",
+            "operation_payload": payload,
+            "decision_package": decision_package("L3", "APP-CONTEXT-NEXT"),
+        }
+        result = evaluate_escalation(self.root, request)
+        self.assertEqual(result["state"], "BLOCKED")
+        self.assertEqual(result["reason"], "l3_runtime_context_mismatch")
+        decisions = json.loads(
+            (self.root / ".sddgov/decisions.json").read_text(encoding="utf-8")
+        )
+        self.assertIsNone(decisions["decisions"][-1]["consumed_at"])
+
+    def test_l3_outer_scope_must_equal_signed_payload_scope(self):
+        path, envelope = self._signed_operation_approval("APP-SCOPE", "PROD-SCOPE")
+        envelope["receipt"]["scope"] = "different scope"
+        private_key = Ed25519PrivateKey.generate()
+        # The mismatch is rejected before signer trust is relevant.
+        canonical = json.dumps(
+            envelope["receipt"], ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+        envelope["signature"] = base64.b64encode(private_key.sign(canonical)).decode("ascii")
+        path.write_text(json.dumps(envelope), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "scope does not match"):
+            import_operation_approval(self.root, path)
 
     def test_l3_never_falls_back_to_clone_local_single_use(self):
         receipt, _ = self._signed_operation_approval("APP-BROKER", "PROD-BROKER")
@@ -702,6 +773,31 @@ class AutonomyTests(unittest.TestCase):
             self.nonce_broker.start()
         self.assertEqual(result["state"], "BLOCKED")
         self.assertEqual(result["reason"], "l3_external_nonce_ledger_unavailable")
+
+    def test_root_agent_cannot_consume_l3_broker_nonce(self):
+        with patch("sddgov.autonomy.os.geteuid", return_value=0):
+            self.assertFalse(_consume_nonce_via_control_plane("nonce-value-1", "a" * 64, "b" * 64))
+
+    def test_l3_broker_inode_replacement_fails_before_execution(self):
+        directory = SimpleNamespace(
+            st_mode=stat.S_IFDIR | 0o755, st_uid=0, st_nlink=1, st_dev=1, st_ino=1
+        )
+        before = SimpleNamespace(
+            st_mode=stat.S_IFREG | 0o755, st_uid=0, st_nlink=1, st_dev=1, st_ino=2
+        )
+        replaced = SimpleNamespace(
+            st_mode=stat.S_IFREG | 0o755, st_uid=0, st_nlink=1, st_dev=1, st_ino=3
+        )
+        with (
+            patch("sddgov.autonomy.os.geteuid", return_value=501),
+            patch("pathlib.Path.lstat", autospec=True, side_effect=lambda path: before if str(path).endswith("sddgov-approval-broker") else directory),
+            patch("sddgov.autonomy.os.open", return_value=99),
+            patch("sddgov.autonomy.os.fstat", return_value=replaced),
+            patch("sddgov.autonomy.os.close"),
+            patch("sddgov.autonomy.subprocess.run") as run,
+        ):
+            self.assertFalse(_consume_nonce_via_control_plane("nonce-value-2", "a" * 64, "b" * 64))
+        run.assert_not_called()
 
     def test_operation_payload_cannot_embed_secret_material(self):
         payload = operation_payload("PROD-SECRET")

@@ -104,17 +104,20 @@
     },
     "l3_approval_receipts": {
       "type": "object",
-      "required": ["algorithm", "auditable_approver_store", "authority_sources", "candidate_worktree_store_is_authority", "caller_strings_are_authority", "bind_complete_operation_payload", "consume_atomically_on_continue", "reuse_state"],
+      "required": ["algorithm", "auditable_approver_store", "authority_sources", "candidate_worktree_store_is_authority", "caller_strings_are_authority", "bind_complete_operation_payload", "runtime_context_file", "agent_must_be_non_root", "return_authorized_payload", "consume_atomically_on_continue", "reuse_state"],
       "properties": {
         "algorithm": {"const": "ed25519"},
         "auditable_approver_store": {"const": ".sddgov/trusted-approvers.json"},
         "authority_sources": {
           "type": "array",
-          "const": ["trusted_base_ref", "out_of_band_file"]
+          "const": ["root_control_plane_file"]
         },
         "candidate_worktree_store_is_authority": {"const": false},
         "caller_strings_are_authority": {"const": false},
         "bind_complete_operation_payload": {"const": true},
+        "runtime_context_file": {"const": "/etc/sddgov/runtime-context.json"},
+        "agent_must_be_non_root": {"const": true},
+        "return_authorized_payload": {"const": true},
         "consume_atomically_on_continue": {"const": true},
         "reuse_state": {"const": "ACTION_REQUIRED"}
       },

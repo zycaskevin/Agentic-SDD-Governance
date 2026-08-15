@@ -11,10 +11,14 @@
 - Replaced caller-authored L2 authority with Owner Ed25519 receipts loaded from a separate-identity trust root and bound to assumption artifact paths whose current bytes are recalculated on every reuse.
 - Bound L3 receipts to repository, project, environment, scope, category, target, non-secret parameters, and sensitive effects; `CONTINUE` now requires a root-owned clone-external atomic nonce broker.
 - Made Base Reviewer revocation authoritative so a stale external bootstrap variable cannot reactivate a revoked key.
+- Required the Base Reviewer store itself to match the exact bootstrap contract before any external key is accepted; missing or malformed Base state fails closed.
+- Bound Evidence to Collector identity, immutable source suffix, and detected media type, and retained verified directory descriptors through collection and redaction mutations.
+- Required L3 repository/project/environment to match a separate root-controlled Runtime Context, made outer/inner scope identical, rejected root Agent execution, and pinned the verified Broker inode.
+- Pinned privileged GitHub Actions to full commit SHAs and hash-locked every Python dependency used by the trusted verifier.
 
 ### Added
 
-- Added L2 product-decision receipt Schema/template and expanded L3/Decision Record contracts.
+- Added L2 product-decision receipt Schema/template, an L3 Runtime Context Schema/template, a hashed Governance dependency lock, and expanded L3/Decision Record contracts.
 - Added adversarial regression tests for Evidence tampering, path boundaries, authority downgrade, receipt tampering/replay, and exact L3 payload mismatch.
 - Added an offline disposable synthetic Muse/Hermes pilot using synthetic relationship text and one generated image; binary sharing fails closed and the reviewed derivative completes full and portable DEP verification.
 

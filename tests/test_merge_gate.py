@@ -357,6 +357,50 @@ jobs:
         self.assertTrue(result["ok"])
 
     @patch("sddgov.merge_gate.verify_dep", return_value=[])
+    def test_external_store_cannot_bootstrap_invalid_base_contract(self, _verify):
+        trusted = (self.root / ".sddgov/trusted-reviewers.json").read_text()
+        (self.root / ".sddgov/trusted-reviewers.json").write_text(
+            json.dumps({"schema_version": "tampered", "reviewers": []})
+        )
+        _run(self.root, "git", "add", ".sddgov/trusted-reviewers.json")
+        _run(self.root, "git", "commit", "-qm", "invalid reviewer bootstrap base")
+        self.base = _run(self.root, "git", "rev-parse", "HEAD")
+        (self.root / "core/POLICY_KERNEL.md").write_text("bootstrap change\n")
+        _run(self.root, "git", "add", "core/POLICY_KERNEL.md")
+        _run(self.root, "git", "commit", "-qm", "protected bootstrap change")
+        self._write_gate()
+        with tempfile.TemporaryDirectory() as external:
+            trust_path = Path(external) / "trusted-reviewers.json"
+            trust_path.write_text(trusted)
+            trust_path.chmod(0o600)
+            with patch.dict(
+                "os.environ", {"SDDGOV_TRUSTED_REVIEWERS_FILE": str(trust_path)}
+            ):
+                with self.assertRaisesRegex(ValueError, "invalid contract"):
+                    verify_merge(self.root, self.base, run_checks=False)
+
+    @patch("sddgov.merge_gate.verify_dep", return_value=[])
+    def test_external_store_cannot_bootstrap_missing_base_store(self, _verify):
+        trusted = (self.root / ".sddgov/trusted-reviewers.json").read_text()
+        (self.root / ".sddgov/trusted-reviewers.json").unlink()
+        _run(self.root, "git", "add", ".sddgov/trusted-reviewers.json")
+        _run(self.root, "git", "commit", "-qm", "missing reviewer bootstrap base")
+        self.base = _run(self.root, "git", "rev-parse", "HEAD")
+        (self.root / "core/POLICY_KERNEL.md").write_text("bootstrap change\n")
+        _run(self.root, "git", "add", "core/POLICY_KERNEL.md")
+        _run(self.root, "git", "commit", "-qm", "protected bootstrap change")
+        self._write_gate()
+        with tempfile.TemporaryDirectory() as external:
+            trust_path = Path(external) / "trusted-reviewers.json"
+            trust_path.write_text(trusted)
+            trust_path.chmod(0o600)
+            with patch.dict(
+                "os.environ", {"SDDGOV_TRUSTED_REVIEWERS_FILE": str(trust_path)}
+            ):
+                with self.assertRaisesRegex(ValueError, "required at the trusted base"):
+                    verify_merge(self.root, self.base, run_checks=False)
+
+    @patch("sddgov.merge_gate.verify_dep", return_value=[])
     def test_external_store_cannot_override_active_base_reviewer(self, _verify):
         rogue_key = Ed25519PrivateKey.generate()
         rogue_public = rogue_key.public_key().public_bytes(

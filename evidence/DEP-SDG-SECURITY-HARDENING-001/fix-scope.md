@@ -2,7 +2,7 @@
 
 ## Smallest sufficient change
 
-Move PR verification to a base-controlled `pull_request_target` workflow; make Evidence paths, complete report associations, link state, and content eligibility executable contracts; require a separate-identity L2 trust source plus artifact-byte freshness; bind L3 to complete context and an external nonce broker; and make Base Reviewer revocation authoritative.
+Move PR verification to a base-controlled `pull_request_target` workflow with pinned Actions and hash-locked dependencies; make Evidence paths, complete report associations, Collector/media identity, retained directory descriptors, link state, and content eligibility executable contracts; require a separate-identity L2 trust source plus artifact-byte freshness; bind L3 to a root-controlled Runtime Context and descriptor-pinned external nonce broker; and make Base Reviewer state fail closed.
 
 ## Files or components in scope
 

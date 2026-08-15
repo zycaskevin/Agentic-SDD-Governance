@@ -61,12 +61,14 @@ class RepositoryContractTests(unittest.TestCase):
             "schemas/decision-record.schema.json",
             "schemas/merge-gate.schema.json",
             "schemas/operation-approval-receipt.schema.json",
+            "schemas/runtime-context.schema.json",
             "schemas/product-decision-approval-receipt.schema.json",
             "schemas/protected-review-receipt.schema.json",
             "schemas/trusted-approvers.schema.json",
             "schemas/trusted-reviewers.schema.json",
             "templates/MERGE_GATE.json",
             "templates/OPERATION_APPROVAL_RECEIPT.json",
+            "templates/L3_RUNTIME_CONTEXT.json",
             "templates/PRODUCT_DECISION_APPROVAL_RECEIPT.json",
             "templates/PROTECTED_REVIEW_RECEIPT.json",
             "templates/TRUSTED_APPROVERS.json",
@@ -342,6 +344,16 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("trusted-verifier/src", workflow)
         self.assertIn("--skip-local-checks", workflow)
         self.assertIn("core.hooksPath=/dev/null", workflow)
+        uses = re.findall(r"uses:\s*([^\s#]+)", workflow)
+        self.assertTrue(uses)
+        self.assertTrue(
+            all(re.fullmatch(r"[^@\s]+@[0-9a-f]{40}", value) for value in uses),
+            uses,
+        )
+        self.assertIn("--require-hashes", workflow)
+        self.assertIn("requirements-governance.lock", workflow)
+        lock = (ROOT / "requirements-governance.lock").read_text(encoding="utf-8")
+        self.assertIn("--hash=sha256:", lock)
         self.assertNotIn("python -m pip install -e .", workflow)
 
 

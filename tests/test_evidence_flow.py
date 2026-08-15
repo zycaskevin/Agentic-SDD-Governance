@@ -4,7 +4,10 @@ import stat
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
+import sddgov.evidence as evidence_module
+import sddgov.redaction as redaction_module
 from sddgov.evidence import attach, collect, make_dep, redact, transition, verify
 
 
@@ -108,6 +111,46 @@ class EvidenceFlowTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "zone"):
             collect(self.dep, "terminal", source)
         self.assertFalse((redirected / "raw").exists())
+
+    def test_collector_keeps_verified_dirfd_during_parent_replacement(self):
+        source = self.root / "source.log"
+        source.write_text("synthetic failure", encoding="utf-8")
+        raw = self.dep / "private/raw"
+        parked = self.dep / "private/raw-parked"
+        outside = self.root / "outside"
+        outside.mkdir()
+        original = evidence_module._bounded_filename
+
+        def replace_parent(directory, name):
+            result = original(directory, name)
+            raw.rename(parked)
+            raw.symlink_to(outside, target_is_directory=True)
+            return result
+
+        with patch("sddgov.evidence._bounded_filename", side_effect=replace_parent):
+            collect(self.dep, "terminal", source)
+        self.assertEqual(list(outside.iterdir()), [])
+        self.assertTrue((parked / "terminal--artifact-1.log").is_file())
+
+    def test_redaction_keeps_verified_output_dirfd_during_parent_replacement(self):
+        source = self.root / "source.log"
+        source.write_text("password=synthetic", encoding="utf-8")
+        collect(self.dep, "terminal", source)
+        shareable = self.dep / "shareable/artifacts"
+        parked = self.dep / "shareable/artifacts-parked"
+        outside = self.root / "outside-output"
+        outside.mkdir()
+        original = redaction_module._write_at
+
+        def replace_parent(directory_fd, name, data):
+            shareable.rename(parked)
+            shareable.symlink_to(outside, target_is_directory=True)
+            return original(directory_fd, name, data)
+
+        with patch("sddgov.redaction._write_at", side_effect=replace_parent):
+            redact(self.dep)
+        self.assertEqual(list(outside.iterdir()), [])
+        self.assertTrue((parked / "terminal--artifact-1.log").is_file())
 
     def test_dep_id_cannot_escape_evidence_root(self):
         with self.assertRaisesRegex(ValueError, "DEP ID"):
@@ -218,6 +261,31 @@ class EvidenceFlowTests(unittest.TestCase):
         report = redact(self.dep)
         self.assertEqual(report["files"], [])
         self.assertEqual(report["blocked"][0]["reason"], "har_requires_dedicated_body_stripping")
+
+    def test_browser_har_collector_cannot_hide_behind_text_label(self):
+        source = self.root / "network.har"
+        source.write_text(
+            json.dumps({"log": {"entries": [{"response": {"content": {"text": "c2VjcmV0"}}}]}}),
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(ValueError, "suffix must match"):
+            collect(self.dep, "browser-har", source, label="network.txt")
+
+        collected = collect(self.dep, "browser-har", source, label="network.har")
+        disguised = collected.with_suffix(".txt")
+        collected.rename(disguised)
+        manifest_path = self.dep / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["raw"][0]["path"] = "private/raw/browser-har--network.txt"
+        manifest["raw"][0]["source_suffix"] = ".txt"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+        report = redact(self.dep)
+        self.assertEqual(report["files"], [])
+        self.assertEqual(
+            report["blocked"][0]["reason"],
+            "har_requires_dedicated_body_stripping",
+        )
         with self.assertRaisesRegex(ValueError, "blocked artifacts"):
             transition(self.dep, "evidence")
 

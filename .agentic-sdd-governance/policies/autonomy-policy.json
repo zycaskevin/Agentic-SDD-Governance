@@ -50,10 +50,13 @@
   "l3_approval_receipts": {
     "algorithm": "ed25519",
     "auditable_approver_store": ".sddgov/trusted-approvers.json",
-    "authority_sources": ["trusted_base_ref", "out_of_band_file"],
+    "authority_sources": ["root_control_plane_file"],
     "candidate_worktree_store_is_authority": false,
     "caller_strings_are_authority": false,
     "bind_complete_operation_payload": true,
+    "runtime_context_file": "/etc/sddgov/runtime-context.json",
+    "agent_must_be_non_root": true,
+    "return_authorized_payload": true,
     "consume_atomically_on_continue": true,
     "reuse_state": "ACTION_REQUIRED"
   },

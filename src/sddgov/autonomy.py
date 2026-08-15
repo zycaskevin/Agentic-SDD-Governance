@@ -93,6 +93,7 @@ DEPLOY_GUARDS = (
     "blast_radius_within_policy",
 )
 L3_NONCE_BROKER = Path("/usr/local/libexec/sddgov-approval-broker")
+L3_RUNTIME_CONTEXT_FILE = Path("/etc/sddgov/runtime-context.json")
 
 
 def _now() -> datetime:
@@ -296,6 +297,29 @@ def _validate_operation_payload(payload: Any) -> str:
     ):
         raise ValueError("operation_payload effects are invalid")
     return _canonical_digest(payload)
+
+
+def _runtime_context() -> dict[str, str]:
+    data = load_control_plane_json(
+        L3_RUNTIME_CONTEXT_FILE, "L3 runtime context"
+    )
+    required = {"schema_version", "repository", "project", "environment"}
+    if (
+        set(data) != required
+        or data.get("schema_version") != "1.0"
+        or any(
+            not isinstance(data.get(field), str) or not data[field].strip()
+            for field in ("repository", "project", "environment")
+        )
+    ):
+        raise ValueError("L3 runtime context has an invalid contract")
+    return {field: data[field] for field in ("repository", "project", "environment")}
+
+
+def _require_matching_runtime_context(payload: dict[str, Any]) -> None:
+    context = _runtime_context()
+    if any(payload.get(field) != value for field, value in context.items()):
+        raise ValueError("operation payload does not match the trusted runtime context")
 
 
 def _parse_time(value: Any, field: str) -> datetime:
@@ -504,6 +528,8 @@ def _verify_operation_envelope(
     operation_payload_sha256 = _validate_operation_payload(
         receipt["operation_payload"]
     )
+    if receipt["scope"] != receipt["operation_payload"]["scope"]:
+        raise ValueError("approval receipt scope does not match operation payload scope")
     if len(receipt["nonce"]) < 12:
         raise ValueError("approval receipt nonce must contain at least 12 characters")
     issued_at = _parse_time(receipt["issued_at"], "issued_at")
@@ -534,6 +560,7 @@ def import_operation_approval(root: Path, envelope_path: Path) -> dict[str, Any]
     receipt, receipt_sha256, operation_payload_sha256 = _verify_operation_envelope(
         root, envelope
     )
+    _require_matching_runtime_context(receipt["operation_payload"])
     with _decision_lock(root):
         data = _decision_store(root)
         if any(
@@ -582,8 +609,9 @@ def _consume_operation_approval(
 ) -> dict[str, Any] | None:
     try:
         requested_payload_sha256 = _validate_operation_payload(operation_payload)
+        _require_matching_runtime_context(operation_payload)
     except ValueError:
-        return None
+        return {"_runtime_context_blocked": True}
     with _decision_lock(root):
         data = _decision_store(root)
         for row in data["decisions"]:
@@ -632,6 +660,22 @@ def _consume_nonce_via_control_plane(
     nonce: str, receipt_sha256: str, operation_payload_sha256: str
 ) -> bool:
     """Atomically consume an L3 nonce outside every clone, or fail closed."""
+    if os.name == "nt" or not hasattr(os, "geteuid") or os.geteuid() == 0:
+        return False
+    if not L3_NONCE_BROKER.is_absolute():
+        return False
+    for parent in reversed(L3_NONCE_BROKER.parents):
+        try:
+            parent_metadata = parent.lstat()
+        except OSError:
+            return False
+        if (
+            stat.S_ISLNK(parent_metadata.st_mode)
+            or not stat.S_ISDIR(parent_metadata.st_mode)
+            or parent_metadata.st_uid != 0
+            or parent_metadata.st_mode & 0o022
+        ):
+            return False
     try:
         metadata = L3_NONCE_BROKER.lstat()
     except OSError:
@@ -641,9 +685,25 @@ def _consume_nonce_via_control_plane(
         or metadata.st_mode & 0o022
         or metadata.st_nlink != 1
         or not stat.S_ISREG(metadata.st_mode)
+        or not metadata.st_mode & 0o111
     ):
         return False
+    descriptor = -1
     try:
+        descriptor = os.open(
+            L3_NONCE_BROKER,
+            os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0),
+        )
+        current = os.fstat(descriptor)
+        if (
+            (metadata.st_dev, metadata.st_ino) != (current.st_dev, current.st_ino)
+            or current.st_uid != 0
+            or current.st_mode & 0o022
+            or current.st_nlink != 1
+            or not stat.S_ISREG(current.st_mode)
+            or not current.st_mode & 0o111
+        ):
+            return False
         completed = subprocess.run(
             [
                 str(L3_NONCE_BROKER),
@@ -656,9 +716,14 @@ def _consume_nonce_via_control_plane(
             capture_output=True,
             text=True,
             timeout=10,
+            executable=f"/dev/fd/{descriptor}",
+            pass_fds=(descriptor,),
         )
     except (OSError, subprocess.SubprocessError):
         return False
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
     return completed.returncode == 0 and completed.stdout == "CONSUMED\n"
 
 
@@ -978,6 +1043,13 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
             operation_payload,
         )
         if approval:
+            if approval.get("_runtime_context_blocked"):
+                return {
+                    "state": "BLOCKED",
+                    "requires_response": False,
+                    "reason": "l3_runtime_context_mismatch",
+                    "next_action": "recover_independent_runtime_context_or_reissue_exact_payload",
+                }
             if approval.get("_control_plane_blocked"):
                 return {
                     "state": "BLOCKED",
@@ -988,6 +1060,8 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
             result = _continue("fresh_l3_operation_approval_verified")
             result["approval_id"] = approval["decision_id"]
             result["operation_id"] = approval["operation_id"]
+            result["authorized_operation_payload"] = approval["approval_envelope"]["receipt"]["operation_payload"]
+            result["operation_payload_sha256"] = approval["operation_payload_sha256"]
             result["approval_consumed"] = True
             return result
 

@@ -7,10 +7,10 @@ The security claims fail when verifier, Owner authority, freshness, one-use stat
 ## Supporting evidence
 
 - The workflow checks out and installs the PR head before invoking the Merge verifier.
-- Strict DEP verification did not require every raw row to be represented in the Redaction Report, and suffix-controlled `.bin`/HAR routes bypassed intended content rules.
+- Strict DEP verification did not require every raw row to be represented in the Redaction Report, and label/suffix-controlled `.bin`/HAR routes bypassed intended content rules.
 - DEP creation accepts an unsanitized caller-provided ID; collection and redaction permit existing per-file links or names.
 - Same-UID `0600` files and caller-selected commits were accepted as Owner authority; L2 freshness trusted caller-provided digests/booleans.
-- L3 local state could be replayed in another clone, and Reviewer bootstrap could reactivate a key revoked by Base.
+- L3 local state could be replayed in another clone, signed runtime labels were not compared with a separate execution context, and malformed Base Reviewer state could fall back to bootstrap authority.
 
 ## Contradicting evidence
 
