@@ -300,49 +300,77 @@ def _save_at(directory_fd: int, name: str, data: dict) -> None:
     _write_bytes_at(directory_fd, name, encoded, "machine-readable destination")
 
 
-def _attachment_write_transaction(
+def _stage_attachment_at(output_fd: int, name: str, encoded: bytes) -> str:
+    """Stage attachment bytes without mutating the destination directory entry."""
+    if not name or Path(name).name != name:
+        raise ValueError("attachment output has an invalid filename")
+    try:
+        current = os.stat(name, dir_fd=output_fd, follow_symlinks=False)
+    except FileNotFoundError:
+        current = None
+    if current is not None and (
+        stat.S_ISLNK(current.st_mode)
+        or not stat.S_ISREG(current.st_mode)
+        or current.st_nlink != 1
+    ):
+        raise ValueError(
+            f"attachment output must be a single-linked regular file: {name}"
+        )
+    if current is not None:
+        raise FileExistsError(f"attachment output already exists: {name}")
+    temporary = f".{name}.pending-{uuid.uuid4().hex}"
+    descriptor = -1
+    try:
+        descriptor = os.open(
+            temporary,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+            0o600,
+            dir_fd=output_fd,
+        )
+        view = memoryview(encoded)
+        while view:
+            written = os.write(descriptor, view)
+            view = view[written:]
+        os.fsync(descriptor)
+    except Exception:
+        try:
+            os.unlink(temporary, dir_fd=output_fd)
+        except FileNotFoundError:
+            pass
+        raise
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+    return temporary
+
+
+def _publish_verified_attachment_at(
     dep_fd: int,
     output_fd: int,
     name: str,
     encoded: bytes,
     control_identities: dict[str, tuple[int, int, int, int]],
 ) -> None:
-    """Write an attachment and roll it back if verified controls changed."""
-    try:
-        previous, _ = _read_regular_bytes_at(
-            output_fd, name, "existing attachment output"
-        )
-    except FileNotFoundError:
-        previous = None
-
-    _require_control_snapshot(dep_fd, control_identities)
-    _write_bytes_at(output_fd, name, encoded, "attachment output")
-    written = os.stat(name, dir_fd=output_fd, follow_symlinks=False)
-    written_identity = (written.st_dev, written.st_ino)
+    """Stage, recheck controls, then publish without clobbering another writer."""
+    temporary = _stage_attachment_at(output_fd, name, encoded)
     try:
         _require_control_snapshot(dep_fd, control_identities)
-    except ValueError:
-        try:
-            current = os.stat(name, dir_fd=output_fd, follow_symlinks=False)
-        except OSError as exc:
-            raise ValueError(
-                "attachment output changed before rollback could be verified"
-            ) from exc
-        if (current.st_dev, current.st_ino) != written_identity:
-            raise ValueError(
-                "attachment output changed before rollback could be applied"
-            )
-        if previous is None:
-            os.unlink(name, dir_fd=output_fd)
-            os.fsync(output_fd)
-        else:
-            _write_bytes_at(
-                output_fd,
-                name,
-                previous,
-                "attachment output rollback",
-            )
-        raise
+        os.link(
+            temporary,
+            name,
+            src_dir_fd=output_fd,
+            dst_dir_fd=output_fd,
+            follow_symlinks=False,
+        )
+        os.unlink(temporary, dir_fd=output_fd)
+        temporary = ""
+        os.fsync(output_fd)
+    finally:
+        if temporary:
+            try:
+                os.unlink(temporary, dir_fd=output_fd)
+            except FileNotFoundError:
+                pass
 
 
 def _artifact_media_type(suffix: str, raw: bytes) -> str:
@@ -1098,12 +1126,12 @@ def attach(dep: Path, target: str, output: Path | None = None) -> Path:
         encoded = ("\n".join(lines) + "\n").encode("utf-8")
         if output is None:
             name = f"attach-{target}.md"
-            _attachment_write_transaction(
+            _publish_verified_attachment_at(
                 dep_fd, dep_fd, name, encoded, identities
             )
             return dep / name
         with _opened_directory_path(output.parent, create=False) as (_, output_fd):
-            _attachment_write_transaction(
+            _publish_verified_attachment_at(
                 dep_fd, output_fd, output.name, encoded, identities
             )
         return output

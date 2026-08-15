@@ -383,77 +383,141 @@ class EvidenceFlowTests(unittest.TestCase):
             attach(self.dep, "pr")
         self.assertFalse((self.dep / "attach-pr.md").exists())
 
-    def test_default_attachment_rolls_back_control_swap_at_write_boundary(self):
+    def test_default_attachment_preserves_later_writer_when_control_changes(self):
         self._prepare_attachable_dep()
         alternate = self.root / "default-boundary-summary.yaml"
         alternate.write_bytes((self.dep / "summary.yaml").read_bytes())
-        original = evidence_module._write_bytes_at
+        third_party = self.root / "default-later-writer.md"
+        third_party.write_text("preserve later writer\n", encoding="utf-8")
+        original = evidence_module._stage_attachment_at
         replaced = False
 
-        def replace_control(directory_fd, name, data, label):
+        def replace_control(directory_fd, name, data):
             nonlocal replaced
-            if not replaced and label == "attachment output":
+            temporary = original(directory_fd, name, data)
+            if not replaced:
                 replaced = True
                 alternate.replace(self.dep / "summary.yaml")
-            return original(directory_fd, name, data, label)
+                third_party.replace(self.dep / "attach-pr.md")
+            return temporary
 
         with (
-            patch("sddgov.evidence._write_bytes_at", side_effect=replace_control),
+            patch("sddgov.evidence._stage_attachment_at", side_effect=replace_control),
             self.assertRaisesRegex(ValueError, "verified control document changed"),
         ):
             attach(self.dep, "pr")
-        self.assertFalse((self.dep / "attach-pr.md").exists())
+        self.assertEqual(
+            (self.dep / "attach-pr.md").read_text(encoding="utf-8"),
+            "preserve later writer\n",
+        )
 
-    def test_custom_attachment_restores_output_after_write_boundary_swap(self):
+    def test_custom_attachment_preserves_later_writer_when_control_changes(self):
         self._prepare_attachable_dep()
         alternate = self.root / "custom-boundary-summary.yaml"
         alternate.write_bytes((self.dep / "summary.yaml").read_bytes())
         output_parent = self.root / "custom-boundary-output"
         output_parent.mkdir()
         output = output_parent / "pr-evidence.md"
-        output.write_text("preserve this output\n", encoding="utf-8")
-        original = evidence_module._write_bytes_at
+        later = self.root / "custom-later-writer.md"
+        later.write_text("preserve later writer\n", encoding="utf-8")
+        original = evidence_module._stage_attachment_at
         replaced = False
 
-        def replace_control(directory_fd, name, data, label):
+        def replace_control(directory_fd, name, data):
             nonlocal replaced
-            if not replaced and label == "attachment output":
+            temporary = original(directory_fd, name, data)
+            if not replaced:
                 replaced = True
                 alternate.replace(self.dep / "summary.yaml")
-            return original(directory_fd, name, data, label)
+                later.replace(output)
+            return temporary
 
         with (
-            patch("sddgov.evidence._write_bytes_at", side_effect=replace_control),
+            patch("sddgov.evidence._stage_attachment_at", side_effect=replace_control),
             self.assertRaisesRegex(ValueError, "verified control document changed"),
         ):
             attach(self.dep, "pr", output=output)
-        self.assertEqual(output.read_text(encoding="utf-8"), "preserve this output\n")
+        self.assertEqual(output.read_text(encoding="utf-8"), "preserve later writer\n")
+
+    def test_attachment_publish_never_clobbers_a_later_writer(self):
+        for custom in (False, True):
+            with self.subTest(custom=custom):
+                case_root = self.root / f"later-writer-{custom}"
+                dep = make_dep(
+                    case_root / "evidence",
+                    issue="ISSUE-ATTACH-LATER-WRITER",
+                    risk="L1",
+                    dep_id="DEP-ATTACH-LATER-WRITER",
+                )
+                original_dep = self.dep
+                self.dep = dep
+                try:
+                    self._prepare_attachable_dep()
+                finally:
+                    self.dep = original_dep
+                if custom:
+                    output_parent = case_root / "custom-output"
+                    output_parent.mkdir()
+                    output = output_parent / "pr-evidence.md"
+                else:
+                    output = dep / "attach-pr.md"
+                later = case_root / "later-writer.md"
+                later.write_text("preserve later writer\n", encoding="utf-8")
+                original = evidence_module._stage_attachment_at
+                inserted = False
+
+                def insert_after_stage(directory_fd, name, data):
+                    nonlocal inserted
+                    temporary = original(directory_fd, name, data)
+                    if not inserted:
+                        inserted = True
+                        later.replace(output)
+                    return temporary
+
+                with (
+                    patch(
+                        "sddgov.evidence._stage_attachment_at",
+                        side_effect=insert_after_stage,
+                    ),
+                    self.assertRaises(FileExistsError),
+                ):
+                    attach(dep, "pr", output=output if custom else None)
+                self.assertEqual(
+                    output.read_text(encoding="utf-8"), "preserve later writer\n"
+                )
+
+    def test_custom_attachment_publishes_to_an_absent_output(self):
+        self._prepare_attachable_dep()
+        output_parent = self.root / "normal-custom-output"
+        output_parent.mkdir()
+        output = output_parent / "pr-evidence.md"
+        self.assertEqual(attach(self.dep, "pr", output=output), output)
+        self.assertIn("Evidence: DEP-TEST-128", output.read_text(encoding="utf-8"))
 
     def test_custom_attachment_output_parent_replacement_fails_closed(self):
         self._prepare_attachable_dep()
         output_parent = self.root / "attachment-output"
         output_parent.mkdir()
         output = output_parent / "custom.md"
-        output.write_text("old local value\n", encoding="utf-8")
         parked = self.root / "attachment-output-parked"
         outside = self.root / "attachment-output-outside"
         outside.mkdir()
         external = outside / "custom.md"
         external.write_text("do not overwrite\n", encoding="utf-8")
-        original = evidence_module._write_bytes_at
+        original = evidence_module._stage_attachment_at
         replaced = False
 
-        def replace_parent(directory_fd, name, data, label):
+        def replace_parent(directory_fd, name, data):
             nonlocal replaced
-            if not replaced and label == "attachment output":
+            if not replaced:
                 replaced = True
                 output_parent.rename(parked)
                 output_parent.symlink_to(outside, target_is_directory=True)
-            return original(directory_fd, name, data, label)
+            return original(directory_fd, name, data)
 
         with (
             patch(
-                "sddgov.evidence._write_bytes_at", side_effect=replace_parent
+                "sddgov.evidence._stage_attachment_at", side_effect=replace_parent
             ),
             self.assertRaisesRegex(ValueError, "directory path changed"),
         ):
