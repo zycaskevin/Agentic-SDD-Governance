@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0",
   "base_sha": "d03d0a855d32fbfb8b42c29db2f008263de0f806",
-  "head_sha": "3081c9ec8abb9702b42b9aa3cdaebe51fb80af6a",
+  "head_sha": "646f63ce555e1a9e354e8dcba1d81aa455b9cd0d",
   "risk_level": "L2",
   "builder_id": "codex-builder",
-  "change_digest": "91f8c25cf18ef85196bc1a0cfb54550ef106f29dc22d3b85c5a90dec2f761c58",
+  "change_digest": "e23b3dd21c658dea9340d8caaefaee42b786248fcba3408cfe37a9fd04ff4588",
   "deps": [
     "evidence/DEP-SDG-SECURITY-HARDENING-001"
   ],
