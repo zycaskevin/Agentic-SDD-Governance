@@ -300,6 +300,51 @@ def _save_at(directory_fd: int, name: str, data: dict) -> None:
     _write_bytes_at(directory_fd, name, encoded, "machine-readable destination")
 
 
+def _attachment_write_transaction(
+    dep_fd: int,
+    output_fd: int,
+    name: str,
+    encoded: bytes,
+    control_identities: dict[str, tuple[int, int, int, int]],
+) -> None:
+    """Write an attachment and roll it back if verified controls changed."""
+    try:
+        previous, _ = _read_regular_bytes_at(
+            output_fd, name, "existing attachment output"
+        )
+    except FileNotFoundError:
+        previous = None
+
+    _require_control_snapshot(dep_fd, control_identities)
+    _write_bytes_at(output_fd, name, encoded, "attachment output")
+    written = os.stat(name, dir_fd=output_fd, follow_symlinks=False)
+    written_identity = (written.st_dev, written.st_ino)
+    try:
+        _require_control_snapshot(dep_fd, control_identities)
+    except ValueError:
+        try:
+            current = os.stat(name, dir_fd=output_fd, follow_symlinks=False)
+        except OSError as exc:
+            raise ValueError(
+                "attachment output changed before rollback could be verified"
+            ) from exc
+        if (current.st_dev, current.st_ino) != written_identity:
+            raise ValueError(
+                "attachment output changed before rollback could be applied"
+            )
+        if previous is None:
+            os.unlink(name, dir_fd=output_fd)
+            os.fsync(output_fd)
+        else:
+            _write_bytes_at(
+                output_fd,
+                name,
+                previous,
+                "attachment output rollback",
+            )
+        raise
+
+
 def _artifact_media_type(suffix: str, raw: bytes) -> str:
     normalized = suffix.lower()
     if normalized == ".har":
@@ -1037,7 +1082,6 @@ def attach(dep: Path, target: str, output: Path | None = None) -> Path:
             raise ValueError("DEP is not attachable: " + "; ".join(errors))
         if summary is None or manifest is None:
             raise ValueError("DEP verification did not return a control snapshot")
-        _require_control_snapshot(dep_fd, identities)
         lines = [
             f"Evidence: {summary['dep_id']}",
             f"Issue: {summary['issue']}",
@@ -1054,8 +1098,12 @@ def attach(dep: Path, target: str, output: Path | None = None) -> Path:
         encoded = ("\n".join(lines) + "\n").encode("utf-8")
         if output is None:
             name = f"attach-{target}.md"
-            _write_bytes_at(dep_fd, name, encoded, "attachment output")
+            _attachment_write_transaction(
+                dep_fd, dep_fd, name, encoded, identities
+            )
             return dep / name
-    with _opened_directory_path(output.parent, create=False) as (_, output_fd):
-        _write_bytes_at(output_fd, output.name, encoded, "attachment output")
-    return output
+        with _opened_directory_path(output.parent, create=False) as (_, output_fd):
+            _attachment_write_transaction(
+                dep_fd, output_fd, output.name, encoded, identities
+            )
+        return output

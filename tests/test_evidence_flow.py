@@ -383,6 +383,52 @@ class EvidenceFlowTests(unittest.TestCase):
             attach(self.dep, "pr")
         self.assertFalse((self.dep / "attach-pr.md").exists())
 
+    def test_default_attachment_rolls_back_control_swap_at_write_boundary(self):
+        self._prepare_attachable_dep()
+        alternate = self.root / "default-boundary-summary.yaml"
+        alternate.write_bytes((self.dep / "summary.yaml").read_bytes())
+        original = evidence_module._write_bytes_at
+        replaced = False
+
+        def replace_control(directory_fd, name, data, label):
+            nonlocal replaced
+            if not replaced and label == "attachment output":
+                replaced = True
+                alternate.replace(self.dep / "summary.yaml")
+            return original(directory_fd, name, data, label)
+
+        with (
+            patch("sddgov.evidence._write_bytes_at", side_effect=replace_control),
+            self.assertRaisesRegex(ValueError, "verified control document changed"),
+        ):
+            attach(self.dep, "pr")
+        self.assertFalse((self.dep / "attach-pr.md").exists())
+
+    def test_custom_attachment_restores_output_after_write_boundary_swap(self):
+        self._prepare_attachable_dep()
+        alternate = self.root / "custom-boundary-summary.yaml"
+        alternate.write_bytes((self.dep / "summary.yaml").read_bytes())
+        output_parent = self.root / "custom-boundary-output"
+        output_parent.mkdir()
+        output = output_parent / "pr-evidence.md"
+        output.write_text("preserve this output\n", encoding="utf-8")
+        original = evidence_module._write_bytes_at
+        replaced = False
+
+        def replace_control(directory_fd, name, data, label):
+            nonlocal replaced
+            if not replaced and label == "attachment output":
+                replaced = True
+                alternate.replace(self.dep / "summary.yaml")
+            return original(directory_fd, name, data, label)
+
+        with (
+            patch("sddgov.evidence._write_bytes_at", side_effect=replace_control),
+            self.assertRaisesRegex(ValueError, "verified control document changed"),
+        ):
+            attach(self.dep, "pr", output=output)
+        self.assertEqual(output.read_text(encoding="utf-8"), "preserve this output\n")
+
     def test_custom_attachment_output_parent_replacement_fails_closed(self):
         self._prepare_attachable_dep()
         output_parent = self.root / "attachment-output"
