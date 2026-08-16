@@ -2,7 +2,7 @@
 
 ## Green command and result
 
-- `PYTHONPATH=src python3 -m unittest discover -s tests -v`: PASS, 201/201.
+- `PYTHONPATH=src python3 -m unittest discover -s tests -v`: PASS, 205/205.
 - `PYTHONPATH=src python3 -m sddgov.cli validate .`: PASS.
 - `PYTHONPATH=src python3 -m sddgov.cli ci verify .`: PASS; `post_merge_verification` is `manual_only` and no automatic `push` event remains.
 - `PYTHONPATH=src python3 -m sddgov.cli doctor .`: PASS, 64 managed files.

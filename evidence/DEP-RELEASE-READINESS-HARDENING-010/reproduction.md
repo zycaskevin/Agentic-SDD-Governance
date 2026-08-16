@@ -16,7 +16,7 @@ Reverting PR #14 implementation commit `fd691a7a069fbaa0f5d5f17886524a29f1ba17a4
 4. Compare the non-Evidence/non-audit tree with Base `6a90ad84e8ed141241d3ca972b5ab91251429671`; confirm it matches.
 5. Run Doctor again; confirm exit 1 and `.sddgov version does not match install manifest`.
 6. Read GitHub run metadata for `31931408005` and `31931428520`; confirm the first is `pull_request_target` and the second is `push`, both successful.
-7. Compare the observed count of two with `.sddgov/ci-cost-guard.json` value `max_runs_per_work_package: 1`.
+7. Require the observed count of two to exceed `.sddgov/ci-cost-guard.json` value `max_runs_per_work_package: 1`; fail the reproduction otherwise.
 
 ## Environment and preconditions
 
