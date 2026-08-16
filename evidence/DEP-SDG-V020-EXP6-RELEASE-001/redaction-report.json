@@ -5,7 +5,9 @@
       "source": "terminal--artifact-1.txt",
       "output": "terminal--artifact-1.txt",
       "source_sha256": "e1a0da3e29df80a0194a7c0d249795d6ce3deac30788e4b48cd51a3cd74d82e2",
+      "source_size": 452,
       "output_sha256": "0b7ae19fe48290f6bb9b7136f552d129fa94aac86bc291f7a78284e627ee9e66",
+      "output_size": 477,
       "redactions": {
         "phone": 1,
         "card-like": 1

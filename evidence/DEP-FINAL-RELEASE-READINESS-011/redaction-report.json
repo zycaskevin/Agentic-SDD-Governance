@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "terminal--final-release-audit-red.txt",
+      "output": "terminal--final-release-audit-red.txt",
+      "source_sha256": "fb6ce0f5a3fb14031ece17dfd9553ab2c36e106cb96c315fec3022f5a250a47b",
+      "source_size": 1674,
+      "output_sha256": "fb6ce0f5a3fb14031ece17dfd9553ab2c36e106cb96c315fec3022f5a250a47b",
+      "output_size": 1674,
+      "redactions": {}
+    }
+  ],
+  "blocked": [],
+  "totals": {},
+  "dep_id": "DEP-FINAL-RELEASE-READINESS-011",
+  "generated_at": "2026-08-16T09:28:10Z"
+}

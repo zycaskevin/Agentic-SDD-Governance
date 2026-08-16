@@ -1,0 +1,52 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-FINAL-RELEASE-READINESS-011",
+  "issue": "18",
+  "sdd_references": [
+    "docs/AUTONOMOUS_DEVELOPMENT_V1_2.md"
+  ],
+  "risk_level": "L1",
+  "created_at": "2026-08-16T09:27:44Z",
+  "updated_at": "2026-08-16T09:29:34Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-16T09:27:44Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-16T09:29:34Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-16T09:29:34Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-16T09:29:34Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-16T09:29:34Z"
+      }
+    ]
+  },
+  "expected_behavior": "Machine-verifiable state controls the process; owner escalation is exact, durable, signed, and emitted once; trusted first-consumer and portable Proof verification remain satisfiable without Candidate authority.",
+  "actual_behavior": "The baseline had false-success exit codes, incomplete package binding, repeated UAT, no signed terminal action state, a first-consumer dead end, three legacy portable Proof failures, and an unstructured CI exemption error.",
+  "environment": {
+    "commit": "eb9b64913cf9bbc3fc632a9dce6593c35b8646e3",
+    "branch": "fix/final-release-readiness-exp8",
+    "runtime": "macOS arm64; Python 3.12; synthetic local evidence; no Production data"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": [
+    {
+      "path": "shareable/artifacts/terminal--final-release-audit-red.txt",
+      "sha256": "fb6ce0f5a3fb14031ece17dfd9553ab2c36e106cb96c315fec3022f5a250a47b",
+      "collector": "terminal"
+    }
+  ]
+}
