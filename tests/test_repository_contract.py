@@ -6,6 +6,8 @@ from pathlib import Path
 import yaml
 
 from sddgov.cli import _validate_repo
+from sddgov.evidence import verify as verify_dep
+from sddgov.installer import doctor
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -59,6 +61,7 @@ class RepositoryContractTests(unittest.TestCase):
 
     def test_packaged_hard_gate_assets_match_canonical_sources(self):
         paths = (
+            "docs/AUTONOMOUS_DEVELOPMENT_V1_2.md",
             "docs/CI_COST_GUARD.md",
             "docs/HARD_GATES_V1_2.md",
             "policies/autonomy-policy.json",
@@ -66,6 +69,7 @@ class RepositoryContractTests(unittest.TestCase):
             "schemas/autonomy-policy.schema.json",
             "schemas/ci-cost-guard.schema.json",
             "schemas/decision-record.schema.json",
+            "schemas/external-action-resolution-receipt.schema.json",
             "schemas/merge-gate.schema.json",
             "schemas/operation-approval-receipt.schema.json",
             "schemas/runtime-context.schema.json",
@@ -74,6 +78,7 @@ class RepositoryContractTests(unittest.TestCase):
             "schemas/trusted-approvers.schema.json",
             "schemas/trusted-reviewers.schema.json",
             "templates/MERGE_GATE.json",
+            "templates/EXTERNAL_ACTION_RESOLUTION_RECEIPT.json",
             "templates/CI_COST_GUARD.json",
             "templates/OPERATION_APPROVAL_RECEIPT.json",
             "templates/L3_RUNTIME_CONTEXT.json",
@@ -93,6 +98,48 @@ class RepositoryContractTests(unittest.TestCase):
                     (ROOT / relative).read_bytes(),
                     (packaged / relative).read_bytes(),
                 )
+
+    def test_current_repo_installed_governance_is_healthy_and_current(self):
+        report = doctor(ROOT)
+        self.assertTrue(report["ok"], report)
+        self.assertEqual(report["managed_file_count"], 66)
+
+        triples = (
+            (
+                "docs/AUTONOMOUS_DEVELOPMENT_V1_2.md",
+                ".agentic-sdd-governance/docs/AUTONOMOUS_DEVELOPMENT_V1_2.md",
+            ),
+            (
+                "docs/HARD_GATES_V1_2.md",
+                ".agentic-sdd-governance/docs/HARD_GATES_V1_2.md",
+            ),
+            (
+                "policies/autonomy-policy.json",
+                ".agentic-sdd-governance/policies/autonomy-policy.json",
+            ),
+            (
+                "schemas/autonomy-policy.schema.json",
+                ".agentic-sdd-governance/schemas/autonomy-policy.schema.json",
+            ),
+            (
+                "schemas/external-action-resolution-receipt.schema.json",
+                ".agentic-sdd-governance/schemas/external-action-resolution-receipt.schema.json",
+            ),
+            (
+                "templates/EXTERNAL_ACTION_RESOLUTION_RECEIPT.json",
+                ".agentic-sdd-governance/templates/EXTERNAL_ACTION_RESOLUTION_RECEIPT.json",
+            ),
+            (
+                "skill/agentic-sdd-governance/references/autonomy-workflow.md",
+                ".agents/skills/agentic-sdd-governance/references/autonomy-workflow.md",
+            ),
+        )
+        packaged = ROOT / "src/sddgov/resources/governance"
+        for canonical_relative, installed_relative in triples:
+            with self.subTest(path=canonical_relative):
+                canonical = (ROOT / canonical_relative).read_bytes()
+                self.assertEqual(canonical, (packaged / canonical_relative).read_bytes())
+                self.assertEqual(canonical, (ROOT / installed_relative).read_bytes())
 
     def test_codex_adapter_preserves_repository_bootstrap_before_layered_loading(self):
         codex = (ROOT / "adapters/codex/AGENTS.md").read_text(encoding="utf-8")
@@ -177,8 +224,10 @@ class RepositoryContractTests(unittest.TestCase):
             "src/sddgov/",
             ".github/workflows/",
             "AGENTS.md",
+            ".gitignore",
             ".agents/",
             ".agentic-sdd-governance/",
+            ".sddgov/project.json",
             ".sddgov/ci-cost-guard.json",
             "skill/",
             "adapters/",
@@ -187,6 +236,20 @@ class RepositoryContractTests(unittest.TestCase):
         ):
             with self.subTest(required=required):
                 self.assertIn(required, protected)
+
+    def test_every_tracked_proof_dep_is_portable_strict(self):
+        failures = {}
+        for dep in sorted((ROOT / "evidence").glob("DEP-*")):
+            summary = dep / "summary.yaml"
+            if not summary.is_file():
+                continue
+            document = json.loads(summary.read_text(encoding="utf-8"))
+            if document.get("workflow", {}).get("phase") != "proof":
+                continue
+            errors = verify_dep(dep, strict=True, portable=True)
+            if errors:
+                failures[dep.name] = errors
+        self.assertEqual(failures, {})
 
     def test_experimental_8_uses_patched_cryptography_line(self):
         pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")

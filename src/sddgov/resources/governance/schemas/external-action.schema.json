@@ -8,13 +8,17 @@
     "summary": {"type": "string", "minLength": 1},
     "risk_level": {"enum": ["L1", "L2", "L3"]},
     "owner": {"type": "string", "minLength": 1},
-    "action_class": {"const": "operational_action"},
+    "action_class": {"enum": ["operational_action", "necessary_uat"]},
     "scope": {"type": "string", "minLength": 1},
-    "status": {"enum": ["pending", "approved", "completed", "cancelled"]},
+    "status": {"enum": ["pending", "completed", "cancelled", "expired"]},
     "created_at": {"type": "string", "format": "date-time"},
     "expires_at": {"type": "string", "format": "date-time"},
     "request_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
-    "authorization_scope": {"const": "one concrete action only"}
+    "authorization_scope": {"const": "one concrete action only"},
+    "resolved_at": {"oneOf": [{"type": "null"}, {"type": "string", "format": "date-time"}]},
+    "resolution_receipt_sha256": {"oneOf": [{"type": "null"}, {"type": "string", "pattern": "^[a-f0-9]{64}$"}]},
+    "resolution_evidence_sha256": {"oneOf": [{"type": "null"}, {"type": "string", "pattern": "^[a-f0-9]{64}$"}]},
+    "resolution_envelope": {"oneOf": [{"type": "null"}, {"type": "object"}]}
   },
   "additionalProperties": false
 }
