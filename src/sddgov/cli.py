@@ -11,6 +11,7 @@ from .autonomy import (
     checkpoint,
     evaluate_deployment,
     evaluate_escalation,
+    import_external_action_resolution,
     import_operation_approval,
     import_product_approval,
     lock_artifact,
@@ -220,14 +221,33 @@ def build_parser() -> argparse.ArgumentParser:
     event.add_argument("--risk", choices=("L0", "L1", "L2", "L3"), required=True)
     event.add_argument("--payload", default="{}", help="JSON object")
     event.add_argument("--path", type=Path, default=Path.cwd())
-    external = sub.add_parser("external-action", help="Queue one bounded owner action")
-    external.add_argument("action_id")
-    external.add_argument("--summary", required=True)
-    external.add_argument("--risk", choices=("L1", "L2", "L3"), required=True)
-    external.add_argument("--owner", required=True)
-    external.add_argument("--scope", required=True)
-    external.add_argument("--ttl-minutes", type=int, default=1440)
-    external.add_argument("--path", type=Path, default=Path.cwd())
+    external = sub.add_parser(
+        "external-action", help="Queue or resolve one bounded owner action"
+    )
+    external_commands = external.add_subparsers(
+        dest="external_action_command", required=True
+    )
+    external_queue = external_commands.add_parser(
+        "queue", help="Queue one bounded Operational Action or Necessary UAT"
+    )
+    external_queue.add_argument("action_id")
+    external_queue.add_argument("--summary", required=True)
+    external_queue.add_argument("--risk", choices=("L1", "L2", "L3"), required=True)
+    external_queue.add_argument("--owner", required=True)
+    external_queue.add_argument("--scope", required=True)
+    external_queue.add_argument(
+        "--class",
+        dest="action_class",
+        choices=("operational_action", "necessary_uat"),
+        default="operational_action",
+    )
+    external_queue.add_argument("--ttl-minutes", type=int, default=1440)
+    external_queue.add_argument("--path", type=Path, default=Path.cwd())
+    external_resolve = external_commands.add_parser(
+        "resolve", help="Import one trusted owner-signed terminal resolution"
+    )
+    external_resolve.add_argument("receipt", type=Path)
+    external_resolve.add_argument("--path", type=Path, default=Path.cwd())
     bench = sub.add_parser("benchmark", help="Compare paired debugging run results")
     bench_sub = bench.add_subparsers(dest="benchmark_command", required=True)
     cmp = bench_sub.add_parser("compare")
@@ -251,7 +271,9 @@ def _validate_repo(root: Path) -> list[str]:
         "schemas/debug-evidence-package.schema.json", "schemas/collector-event.schema.json",
         "schemas/objective-contract.schema.json",
         "schemas/governance-event.schema.json", "schemas/work-claim.schema.json",
-        "schemas/external-action.schema.json", "policies/protected-files.yaml",
+        "schemas/external-action.schema.json",
+        "schemas/external-action-resolution-receipt.schema.json",
+        "policies/protected-files.yaml",
         "schemas/autonomy-policy.schema.json", "schemas/decision-record.schema.json",
         "schemas/artifact-lock.schema.json", "policies/autonomy-policy.json",
         "schemas/trusted-approvers.schema.json", "schemas/operation-approval-receipt.schema.json",
@@ -265,6 +287,7 @@ def _validate_repo(root: Path) -> list[str]:
         "skill/agentic-sdd-governance/references/independent-reviewer.md",
         "docs/EVIDENCE_DRIVEN_SDD.md", "docs/AGENT_INSTALLATION.md", "docs/CI_COST_GUARD.md",
         "docs/AUTONOMOUS_DEVELOPMENT_V1_2.md", "templates/ACTION_REQUIRED.md",
+        "templates/EXTERNAL_ACTION_RESOLUTION_RECEIPT.json",
         "templates/PRODUCT_DECISION_APPROVAL_RECEIPT.json",
         "templates/CI_COST_GUARD.json", "src/sddgov/ci_guard.py",
         "src/sddgov/installer.py",
@@ -327,22 +350,20 @@ def run(args: argparse.Namespace) -> int:
         print(json.dumps(emit_event(args.path, args.event_type, args.risk, payload), ensure_ascii=False, indent=2))
         return 0
     if args.command == "external-action":
-        print(
-            json.dumps(
-                enqueue_external_action(
-                    args.path,
-                    args.action_id,
-                    args.summary,
-                    args.risk,
-                    args.owner,
-                    scope=args.scope,
-                    ttl_minutes=args.ttl_minutes,
-                    action_class="operational_action",
-                ),
-                ensure_ascii=False,
-                indent=2,
+        if args.external_action_command == "queue":
+            result = enqueue_external_action(
+                args.path,
+                args.action_id,
+                args.summary,
+                args.risk,
+                args.owner,
+                scope=args.scope,
+                ttl_minutes=args.ttl_minutes,
+                action_class=args.action_class,
             )
-        )
+        else:
+            result = import_external_action_resolution(args.path, args.receipt)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
     if args.command == "pilot":
         result = run_synthetic_muse_pilot(args.output)
@@ -352,8 +373,13 @@ def run(args: argparse.Namespace) -> int:
         request = json.loads(args.request.read_text(encoding="utf-8"))
         if not isinstance(request, dict):
             raise ValueError("autonomy request must be a JSON object")
-        print(json.dumps(evaluate_escalation(args.path, request), ensure_ascii=False, indent=2))
-        return 0
+        result = evaluate_escalation(args.path, request)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        if result.get("state") == "CONTINUE":
+            return 0
+        if result.get("state") == "ACTION_REQUIRED":
+            return 2
+        return 1
     if args.command == "artifact":
         if args.artifact_command == "lock":
             result = lock_artifact(args.artifact, args.release, args.output)

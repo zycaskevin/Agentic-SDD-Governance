@@ -8,6 +8,8 @@ Use:
 
 ```bash
 sddgov autonomy evaluate request.json --path .
+sddgov external-action queue ACTION-001 --class operational_action --summary "..." --risk L3 --owner Arthur --scope "..." --path .
+sddgov external-action resolve signed-resolution.json --path .
 sddgov checkpoint --summary "..." --next-work-package WP-002
 sddgov artifact lock dist/package.whl --release release-X --output release.lock
 sddgov artifact verify dist/package.whl --lock release.lock
@@ -24,7 +26,11 @@ Import an approved L2 decision only through a separate-identity trust root. The 
 
 Unknown categories and dangerous L0/L1 downgrades fail closed for machine reclassification. Before Merge, execute the Merge verifier; do not treat `policies/merge-policy.yaml` as self-enforcing documentation.
 
-Operational Actions and Necessary UAT cannot reuse a generic Product Decision receipt. Persist an Operational Action with a stable owner, exact scope, request digest, and expiry through `sddgov external-action`; repeating the same bounded request must reuse the durable record rather than emit another owner prompt. Unrelated Work Packages continue while the action is pending.
+`sddgov autonomy evaluate` is also a machine contract: `CONTINUE` exits `0`, `BLOCKED` exits `1`, and `ACTION_REQUIRED` exits `2`. Automation must not treat a JSON `BLOCKED` or `ACTION_REQUIRED` result as shell success.
+
+Every `ACTION REQUIRED` package is bound to the outer request before it can be shown: category-to-risk, Decision or Action ID, exact scope, and, for L3, the complete validated operation payload must match. A malformed or mismatched package is machine-actionable `BLOCKED`, not a new owner question.
+
+Operational Actions and Necessary UAT cannot reuse a generic Product Decision receipt. Persist both classes with a stable owner, exact scope, request digest, and expiry through `sddgov external-action queue`; repeating the same bounded request reuses the durable record rather than emitting another owner prompt. A machine-verifiable UAT continues without a prompt. Only a trusted owner-signed `sddgov external-action resolve` receipt may move a pending record to `completed` or `cancelled`; expiry is deterministic. A completed record continues, while cancelled or expired state blocks only that action. Unrelated Work Packages continue while any action is pending.
 
 For Production, L0 is invalid. A routine reversible L1 deploy is autonomous only with recorded Baseline authorization and every guard in `policies/autonomy-policy.json`. Missing evidence blocks and triggers investigation; it does not become an approval request by itself.
 

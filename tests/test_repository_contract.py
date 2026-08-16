@@ -6,6 +6,7 @@ from pathlib import Path
 import yaml
 
 from sddgov.cli import _validate_repo
+from sddgov.evidence import verify as verify_dep
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -66,6 +67,7 @@ class RepositoryContractTests(unittest.TestCase):
             "schemas/autonomy-policy.schema.json",
             "schemas/ci-cost-guard.schema.json",
             "schemas/decision-record.schema.json",
+            "schemas/external-action-resolution-receipt.schema.json",
             "schemas/merge-gate.schema.json",
             "schemas/operation-approval-receipt.schema.json",
             "schemas/runtime-context.schema.json",
@@ -74,6 +76,7 @@ class RepositoryContractTests(unittest.TestCase):
             "schemas/trusted-approvers.schema.json",
             "schemas/trusted-reviewers.schema.json",
             "templates/MERGE_GATE.json",
+            "templates/EXTERNAL_ACTION_RESOLUTION_RECEIPT.json",
             "templates/CI_COST_GUARD.json",
             "templates/OPERATION_APPROVAL_RECEIPT.json",
             "templates/L3_RUNTIME_CONTEXT.json",
@@ -177,8 +180,10 @@ class RepositoryContractTests(unittest.TestCase):
             "src/sddgov/",
             ".github/workflows/",
             "AGENTS.md",
+            ".gitignore",
             ".agents/",
             ".agentic-sdd-governance/",
+            ".sddgov/project.json",
             ".sddgov/ci-cost-guard.json",
             "skill/",
             "adapters/",
@@ -187,6 +192,20 @@ class RepositoryContractTests(unittest.TestCase):
         ):
             with self.subTest(required=required):
                 self.assertIn(required, protected)
+
+    def test_every_tracked_proof_dep_is_portable_strict(self):
+        failures = {}
+        for dep in sorted((ROOT / "evidence").glob("DEP-*")):
+            summary = dep / "summary.yaml"
+            if not summary.is_file():
+                continue
+            document = json.loads(summary.read_text(encoding="utf-8"))
+            if document.get("workflow", {}).get("phase") != "proof":
+                continue
+            errors = verify_dep(dep, strict=True, portable=True)
+            if errors:
+                failures[dep.name] = errors
+        self.assertEqual(failures, {})
 
     def test_experimental_8_uses_patched_cryptography_line(self):
         pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")

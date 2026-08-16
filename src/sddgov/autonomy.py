@@ -18,7 +18,7 @@ from typing import Any, Iterable
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
-from .governance import enqueue_external_action
+from .governance import enqueue_external_action, resolve_external_action
 from .trust import load_control_plane_json
 
 
@@ -564,6 +564,109 @@ def import_product_approval(root: Path, envelope_path: Path) -> dict[str, Any]:
     }
 
 
+def _verify_external_action_resolution_envelope(
+    root: Path, envelope: Any, *, require_fresh: bool
+) -> tuple[dict[str, str], str]:
+    """Verify one exact owner-signed terminal action assertion.
+
+    Freshness is required while importing.  Once imported, the signature is
+    rechecked on every reuse without expiring the historical completion: the
+    receipt is bound to one immutable action ID, owner, scope, and request
+    digest, so it cannot authorize a later action generation.
+    """
+    if (
+        not isinstance(envelope, dict)
+        or set(envelope) != {"schema_version", "algorithm", "receipt", "signature"}
+        or envelope.get("schema_version") != "1.0"
+        or envelope.get("algorithm") != "ed25519"
+        or not isinstance(envelope.get("receipt"), dict)
+        or not isinstance(envelope.get("signature"), str)
+    ):
+        raise ValueError("external action resolution has an invalid contract")
+    receipt = envelope["receipt"]
+    required = {
+        "resolution_id",
+        "action_id",
+        "action_class",
+        "owner",
+        "scope",
+        "request_sha256",
+        "status",
+        "evidence_sha256",
+        "resolved_at",
+        "expires_at",
+        "nonce",
+    }
+    if set(receipt) != required or any(
+        not isinstance(receipt.get(field), str) or not receipt[field].strip()
+        for field in required
+    ):
+        raise ValueError("external action resolution payload has an invalid contract")
+    if receipt["action_class"] not in {"operational_action", "necessary_uat"}:
+        raise ValueError("external action resolution class is invalid")
+    if receipt["status"] not in {"completed", "cancelled"}:
+        raise ValueError("external action resolution status is invalid")
+    if not SHA256_PATTERN.fullmatch(receipt["request_sha256"]):
+        raise ValueError("external action resolution request_sha256 is invalid")
+    if not SHA256_PATTERN.fullmatch(receipt["evidence_sha256"]):
+        raise ValueError("external action resolution evidence_sha256 is invalid")
+    if len(receipt["nonce"]) < 12:
+        raise ValueError("external action resolution nonce must contain at least 12 characters")
+    resolved_at = _parse_time(receipt["resolved_at"], "resolved_at")
+    expires_at = _parse_time(receipt["expires_at"], "expires_at")
+    current = _now()
+    if resolved_at > current + timedelta(minutes=5):
+        raise ValueError("external action resolution resolved_at is in the future")
+    if expires_at <= resolved_at:
+        raise ValueError("external action resolution is expired or invalid")
+    if require_fresh and expires_at <= current:
+        raise ValueError("external action resolution is expired or invalid")
+    if expires_at - resolved_at > timedelta(days=7):
+        raise ValueError("external action resolution validity exceeds seven days")
+    approver = _trusted_approver(root, receipt["owner"])
+    try:
+        public_key = base64.b64decode(approver["public_key"], validate=True)
+        signature = base64.b64decode(envelope["signature"], validate=True)
+        Ed25519PublicKey.from_public_bytes(public_key).verify(
+            signature, _canonical_receipt(receipt)
+        )
+    except (ValueError, binascii.Error, InvalidSignature) as exc:
+        raise ValueError("external action resolution signature verification failed") from exc
+    receipt_sha256 = hashlib.sha256(_canonical_receipt(receipt)).hexdigest()
+    return receipt, receipt_sha256
+
+
+def import_external_action_resolution(
+    root: Path, envelope_path: Path
+) -> dict[str, Any]:
+    """Verify an owner-signed completion/cancellation and resolve one exact action."""
+    envelope = _read_json(envelope_path)
+    receipt, receipt_sha256 = _verify_external_action_resolution_envelope(
+        root, envelope, require_fresh=True
+    )
+    resolved = resolve_external_action(
+        root,
+        action_id=receipt["action_id"],
+        action_class=receipt["action_class"],
+        owner=receipt["owner"],
+        scope=receipt["scope"],
+        request_sha256=receipt["request_sha256"],
+        status=receipt["status"],
+        resolved_at=receipt["resolved_at"],
+        resolution_receipt_sha256=receipt_sha256,
+        resolution_evidence_sha256=receipt["evidence_sha256"],
+        resolution_envelope=envelope,
+    )
+    return {
+        "action_id": resolved["action_id"],
+        "action_class": resolved["action_class"],
+        "status": resolved["status"],
+        "state_changed": resolved["state_changed"],
+        "receipt_sha256": receipt_sha256,
+        "verification": "SIGNATURE_VERIFIED",
+    }
+
+
 def _verify_operation_envelope(
     root: Path, envelope: Any
 ) -> tuple[dict[str, Any], str, str]:
@@ -870,6 +973,7 @@ def build_action_required(
     why: str,
     impact_if_no_decision: str,
     scope_of_approval: str,
+    operation_payload: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if risk_level not in {"L2", "L3", "Operational", "UAT"}:
         raise ValueError("ACTION REQUIRED risk must be L2, L3, Operational, or UAT")
@@ -890,6 +994,10 @@ def build_action_required(
         labels.append(option["label"])
     if recommended not in labels:
         raise ValueError("recommended must name one provided option")
+    if risk_level == "L3":
+        _validate_operation_payload(operation_payload)
+    elif operation_payload is not None:
+        raise ValueError("only an L3 ACTION REQUIRED may contain operation_payload")
     package = {
         "heading": "ACTION REQUIRED",
         "decision_id": decision_id,
@@ -902,6 +1010,8 @@ def build_action_required(
         "impact_if_no_decision": impact_if_no_decision,
         "scope_of_approval": scope_of_approval,
     }
+    if operation_payload is not None:
+        package["operation_payload"] = operation_payload
     missing = [
         field
         for field in ACTION_REQUIRED_FIELDS
@@ -950,6 +1060,22 @@ def render_action_required(package: dict[str, Any]) -> str:
             package["scope_of_approval"],
         ]
     )
+    if package.get("risk_level") == "L3":
+        payload = package.get("operation_payload")
+        _validate_operation_payload(payload)
+        lines.extend(
+            [
+                "",
+                "Exact operation payload:",
+                json.dumps(
+                    payload,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    allow_nan=False,
+                ),
+            ]
+        )
     return "\n".join(lines) + "\n"
 
 
@@ -1017,6 +1143,7 @@ def _closed_category_envelope_error(request: dict[str, Any]) -> str | None:
                 "assumptions_sha256",
                 "reopen_condition_triggered",
                 "decision_package",
+                "unrelated_work_exists",
             }
         )
     elif category in {"high_risk_operation", *HIGH_RISK_CATEGORIES}:
@@ -1027,19 +1154,32 @@ def _closed_category_envelope_error(request: dict[str, Any]) -> str | None:
                 "operation_payload",
                 "decision_package",
                 "machine_verifiable",
+                "unrelated_work_exists",
             }
         )
     elif category == "operational_action":
         allowed.update(
             {
+                "action_id",
                 "action_owner",
+                "action_scope",
                 "action_ttl_minutes",
                 "decision_package",
                 "unrelated_work_exists",
             }
         )
     elif category == "necessary_uat":
-        allowed.update({"decision_package", "machine_verifiable"})
+        allowed.update(
+            {
+                "uat_id",
+                "uat_owner",
+                "uat_scope",
+                "uat_ttl_minutes",
+                "decision_package",
+                "machine_verifiable",
+                "unrelated_work_exists",
+            }
+        )
     elif category == "uncertainty":
         allowed.update(
             {"machine_verifiable", "unrelated_work_exists", "decision_package"}
@@ -1049,6 +1189,63 @@ def _closed_category_envelope_error(request: dict[str, Any]) -> str | None:
     extra = set(request) - allowed
     if extra:
         return "request_contains_fields_outside_closed_category_schema"
+    return None
+
+
+def _action_required_binding_error(
+    request: dict[str, Any], package: dict[str, Any]
+) -> str | None:
+    """Bind the displayed decision to the exact outer authority request."""
+    category = request["category"]
+    risk = request["risk_level"]
+    if category == "product_decision":
+        expected_risk = "L2"
+        identity = request.get("decision_id")
+        scope = request.get("decision_scope")
+    elif category in HIGH_RISK_CATEGORIES | {"high_risk_operation"}:
+        expected_risk = "L3"
+        identity = request.get("approval_id")
+        if package.get("risk_level") != expected_risk:
+            return "action_required_risk_does_not_match_request"
+        payload = request.get("operation_payload")
+        if not isinstance(payload, dict):
+            return "l3_prompt_requires_exact_operation_payload"
+        try:
+            _validate_operation_payload(payload)
+        except ValueError:
+            return "l3_prompt_requires_exact_operation_payload"
+        if (
+            payload.get("category") != category
+            or payload.get("effects") != request.get("effects")
+        ):
+            return "l3_prompt_payload_does_not_match_request"
+        if package.get("operation_payload") != payload:
+            return "l3_prompt_package_payload_does_not_match_request"
+        if not isinstance(request.get("operation_id"), str) or not request["operation_id"].strip():
+            return "l3_prompt_requires_operation_id"
+        scope = payload.get("scope")
+    elif category == "operational_action":
+        expected_risk = "Operational"
+        identity = request.get("action_id")
+        scope = request.get("action_scope")
+    elif category == "necessary_uat":
+        expected_risk = "UAT"
+        identity = request.get("uat_id")
+        scope = request.get("uat_scope")
+    else:
+        expected_risk = risk
+        identity = package.get("decision_id")
+        scope = package.get("scope_of_approval")
+    if package.get("risk_level") != expected_risk:
+        return "action_required_risk_does_not_match_request"
+    if not isinstance(identity, str) or not identity.strip():
+        return "action_required_outer_identity_is_required"
+    if package.get("decision_id") != identity:
+        return "action_required_identity_does_not_match_request"
+    if not isinstance(scope, str) or not scope.strip():
+        return "action_required_outer_scope_is_required"
+    if package.get("scope_of_approval") != scope:
+        return "action_required_scope_does_not_match_request"
     return None
 
 
@@ -1153,6 +1350,11 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
             ),
         }
         return result
+    if category == "necessary_uat" and request.get("machine_verifiable") is True:
+        return _continue(
+            "necessary_uat_is_machine_verifiable",
+            "verify_with_tests_tools_or_runtime_evidence",
+        )
     if (
         not forced_human_category
         and category in ROUTINE_OPERATIONS
@@ -1244,47 +1446,125 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
             result["operation_payload_sha256"] = approval["operation_payload_sha256"]
             result["approval_consumed"] = True
             return result
+        if any(
+            row.get("decision_id") == request.get("approval_id")
+            for row in _decision_store(root)["decisions"]
+        ):
+            return {
+                "state": "BLOCKED",
+                "requires_response": False,
+                "reason": "l3_approval_is_unavailable_expired_or_consumed",
+                "next_action": "prepare_a_new_exact_operation_approval_id",
+            }
 
     package_input = request.get("decision_package")
     if not isinstance(package_input, dict):
         raise ValueError("a genuine escalation requires a strict decision_package")
-    package = build_action_required(**package_input)
+    try:
+        package = build_action_required(**package_input)
+    except TypeError:
+        return {
+            "state": "BLOCKED",
+            "requires_response": False,
+            "reason": "decision_package_has_an_invalid_contract",
+            "next_action": "rebuild_one_strict_decision_package",
+        }
+    binding_error = _action_required_binding_error(request, package)
+    if binding_error:
+        return {
+            "state": "BLOCKED",
+            "requires_response": False,
+            "reason": binding_error,
+            "next_action": "bind_the_package_to_the_exact_outer_request",
+        }
     external_action = None
-    if category == "operational_action":
-        owner = request.get("action_owner")
+    if category in {"operational_action", "necessary_uat"}:
+        if category == "operational_action":
+            action_id = request.get("action_id")
+            owner = request.get("action_owner")
+            scope = request.get("action_scope")
+            ttl_minutes = request.get("action_ttl_minutes", 1440)
+        else:
+            action_id = request.get("uat_id")
+            owner = request.get("uat_owner")
+            scope = request.get("uat_scope")
+            ttl_minutes = request.get("uat_ttl_minutes", 1440)
         if not isinstance(owner, str) or not owner.strip():
             return {
                 "state": "BLOCKED",
                 "requires_response": False,
-                "reason": "operational_action_owner_is_required",
+                "reason": f"{category}_owner_is_required",
                 "next_action": "bind_one_owner_and_bounded_scope_before_prompting",
             }
         try:
             external_action = enqueue_external_action(
                 root,
-                package["decision_id"],
+                action_id,
                 package["why_human_input_is_required"],
                 risk,
                 owner,
-                scope=package["scope_of_approval"],
-                ttl_minutes=request.get("action_ttl_minutes", 1440),
-                action_class="operational_action",
+                scope=scope,
+                ttl_minutes=ttl_minutes,
+                action_class=category,
             )
         except ValueError as exc:
             return {
                 "state": "BLOCKED",
                 "requires_response": False,
-                "reason": "operational_action_state_is_invalid",
+                "reason": f"{category}_state_is_invalid",
                 "detail": str(exc),
                 "next_action": "repair_or_reissue_the_bounded_external_action",
             }
         if not external_action["external_action_created"]:
+            if external_action["status"] == "completed":
+                try:
+                    resolution, receipt_sha256 = (
+                        _verify_external_action_resolution_envelope(
+                            root,
+                            external_action.get("resolution_envelope"),
+                            require_fresh=False,
+                        )
+                    )
+                except ValueError:
+                    return {
+                        "state": "BLOCKED",
+                        "requires_response": False,
+                        "reason": f"{category}_resolution_is_untrusted",
+                        "next_action": "import_one_exact_owner_signed_resolution_receipt",
+                    }
+                if (
+                    resolution.get("action_id") != external_action.get("action_id")
+                    or resolution.get("action_class") != external_action.get("action_class")
+                    or resolution.get("owner") != external_action.get("owner")
+                    or resolution.get("scope") != external_action.get("scope")
+                    or resolution.get("request_sha256")
+                    != external_action.get("request_sha256")
+                    or resolution.get("status") != "completed"
+                    or receipt_sha256
+                    != external_action.get("resolution_receipt_sha256")
+                ):
+                    return {
+                        "state": "BLOCKED",
+                        "requires_response": False,
+                        "reason": f"{category}_resolution_is_untrusted",
+                        "next_action": "import_one_exact_owner_signed_resolution_receipt",
+                    }
+                return _continue(f"{category}_already_completed")
+            if external_action["status"] in {"cancelled", "expired"}:
+                return {
+                    "state": "BLOCKED",
+                    "requires_response": False,
+                    "reason": f"{category}_{external_action['status']}",
+                    "external_action_created": False,
+                    "action_id": external_action["action_id"],
+                    "next_action": "issue_a_new_bounded_request_only_if_the_need_still_exists",
+                }
             return {
                 "state": (
                     "CONTINUE" if request.get("unrelated_work_exists") else "BLOCKED"
                 ),
                 "requires_response": False,
-                "reason": "operational_action_already_pending",
+                "reason": f"{category}_already_pending",
                 "external_action_created": False,
                 "action_id": external_action["action_id"],
                 "next_action": (
@@ -1293,15 +1573,25 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
                     else "wait_for_existing_bounded_owner_action"
                 ),
             }
-    if category == "operational_action" and request.get("unrelated_work_exists"):
+    if category in {"operational_action", "necessary_uat"} and request.get("unrelated_work_exists"):
         return {
             "state": "CONTINUE",
             "requires_response": False,
-            "reason": "operational_action_blocks_only_dependent_work",
+            "reason": f"{category}_blocks_only_dependent_work",
             "next_action": "queue_action_required_and_continue_unrelated_work",
             "action_required": package,
             "external_action_created": True,
             "action_id": external_action["action_id"],
+        }
+    if category not in {"operational_action", "necessary_uat"} and request.get(
+        "unrelated_work_exists"
+    ):
+        return {
+            "state": "CONTINUE",
+            "requires_response": False,
+            "reason": "human_decision_blocks_only_dependent_work",
+            "next_action": "surface_action_required_and_continue_unrelated_work",
+            "action_required": package,
         }
     result = {
         "state": "ACTION_REQUIRED",
