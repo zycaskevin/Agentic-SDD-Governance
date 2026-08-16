@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-SDG-SECURITY-HARDENING-EXP8-R5-CI-BRIDGE-006",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--hosted-verifier-red.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "4750a3f570eb5fd9c98a1e616fd03e923e521239ff383032d343d37cf08bd1d9",
+      "size": 654,
+      "collected_at": "2026-08-16T01:21:37Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--hosted-verifier-red.txt",
+      "sha256": "ba51439865a906fec2deb139aaab7d1de3a74eaebf47e82825619d3437e956e2",
+      "size": 669,
+      "shareable": true
+    }
+  ]
+}

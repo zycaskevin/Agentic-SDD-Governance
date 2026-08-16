@@ -42,6 +42,8 @@ The GitHub Governance workflow uses `pull_request_target`, so GitHub loads the w
 
 The accepted rollback v2 fields are `rollback_action: git_revert`, `rollback_ref: HEAD` or a 7–40 character lowercase commit SHA, `verify_action: python_module`, and `verify_module: pytest` or `unittest`. These values describe a bounded action; the verifier never executes free-form Markdown or shell text.
 
+During the trusted-verifier v1-to-v2 bootstrap only, the parser also recognizes one exact legacy record: `rollback_version: 1.0`, a bounded `target`, `command: git revert --no-edit HEAD`, and `verify: python -m pytest`. The field set and values must match exactly; duplicates, additional fields, wrappers, chaining, alternate commands, and placeholders fail closed. The verifier treats these strings as data and never executes them. New rollback records use v2.
+
 Configure the Governance result as a required check in repository rulesets; a workflow file alone cannot prevent an administrator from bypassing GitHub controls. The first hardening PR is still judged by the previously installed Base workflow, so it also requires fresh independent review before Merge. Later PRs receive the separated verifier automatically.
 
 The Merge gate follows `schemas/merge-gate.schema.json`. `change_digest` excludes only `.sddgov/merge-gate.json` and `.sddgov/reviews/`. DEP and Rollback content remains inside the digest, so it cannot change after review. The recorded `head_sha` is the exact reviewed commit; current HEAD may descend from it only through commits whose paths are limited to those two audit-receipt locations.

@@ -14,6 +14,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from sddgov.merge_gate import (
     _is_protected,
     _protected_patterns,
+    _real_rollback,
     change_digest,
     gate_metadata_digest,
     verify_merge,
@@ -504,6 +505,46 @@ jobs:
         self._write_gate()
         with self.assertRaisesRegex(ValueError, "rollback record"):
             verify_merge(self.root, self.base, run_checks=False)
+
+    def test_legacy_v1_bridge_is_an_exact_non_executable_allowlist(self):
+        valid = (
+            "# Rollback\n\n"
+            "rollback_version: 1.0\n"
+            "target: bounded verifier migration bridge\n"
+            "command: git revert --no-edit HEAD\n"
+            "verify: python -m pytest\n\n"
+            "## Trigger\n\nOnly after a failed migration.\n"
+        )
+        self.assertTrue(_real_rollback(valid))
+        invalid_variants = (
+            valid.replace("git revert --no-edit HEAD", "sh -c 'git revert --no-edit HEAD'"),
+            valid.replace("git revert --no-edit HEAD", "git status"),
+            valid.replace("git revert --no-edit HEAD", "git revert --no-edit HEAD && true"),
+            valid.replace("python -m pytest", "python -m unittest"),
+            valid.replace("verify: python -m pytest", "verify: python -m pytest\nverify: true"),
+            valid.replace("verify: python -m pytest", "verify: python -m pytest\nshell: bash"),
+            valid.replace("bounded verifier migration bridge", "TODO"),
+        )
+        for rollback in invalid_variants:
+            with self.subTest(rollback=rollback):
+                self.assertFalse(_real_rollback(rollback))
+
+    @patch("sddgov.merge_gate.verify_dep", return_value=[])
+    def test_exact_legacy_v1_bridge_passes_full_merge_verification(self, _verify):
+        rollback = self.root / "evidence/DEP-1/rollback.md"
+        rollback.write_text(
+            "# Rollback\n\n"
+            "rollback_version: 1.0\n"
+            "target: bounded trusted-verifier migration\n"
+            "command: git revert --no-edit HEAD\n"
+            "verify: python -m pytest\n\n"
+            "## Trigger\n\nOnly for the reviewed bootstrap transition.\n"
+        )
+        _run(self.root, "git", "add", "evidence/DEP-1/rollback.md")
+        _run(self.root, "git", "commit", "-qm", "bridge rollback contract")
+        self._write_gate()
+        result = verify_merge(self.root, self.base, run_checks=False)
+        self.assertEqual(result["state"], "MERGE_READY")
 
 
 if __name__ == "__main__":

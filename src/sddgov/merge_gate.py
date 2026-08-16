@@ -348,15 +348,41 @@ def only_audit_changes_after_review(
 
 
 def _real_rollback(text: str) -> bool:
-    """Validate declarative rollback bytes loaded from the immutable candidate commit."""
+    """Validate rollback bytes loaded from the immutable candidate commit.
+
+    Declarative v2 is the normal contract.  One exact legacy v1 form remains as a
+    migration bridge for a trusted Base verifier that predates v2; it is an
+    allowlist, not a shell parser, and no value from the document is executed.
+    """
     fields: dict[str, str] = {}
     for raw in text.splitlines():
         line = raw.strip()
-        if not line or line.startswith("#") or ":" not in line:
+        if line.startswith("## "):
+            break
+        if not line or line.startswith("#"):
             continue
+        if ":" not in line:
+            return False
         key, value = line.split(":", 1)
-        fields[key.strip().lower()] = value.strip().strip("`")
-    required = {
+        key = key.strip().lower()
+        if not key or key in fields:
+            return False
+        fields[key] = value.strip().strip("`")
+    target = fields.get("target", "")
+    if (
+        not target
+        or len(target) > 240
+        or any(token in target.lower() for token in ("todo", "unavailable", "<", ">"))
+    ):
+        return False
+    version = fields.get("rollback_version")
+    if version == "1.0":
+        return (
+            set(fields) == {"rollback_version", "target", "command", "verify"}
+            and fields["command"] == "git revert --no-edit HEAD"
+            and fields["verify"] == "python -m pytest"
+        )
+    required_v2 = {
         "rollback_version",
         "target",
         "rollback_action",
@@ -364,16 +390,7 @@ def _real_rollback(text: str) -> bool:
         "verify_action",
         "verify_module",
     }
-    if not required.issubset(fields) or fields["rollback_version"] != "2.0":
-        return False
-    if set(fields) & {"command", "verify", "shell", "script"}:
-        return False
-    target = fields["target"]
-    if (
-        not target
-        or len(target) > 240
-        or any(token in target.lower() for token in ("todo", "unavailable", "<", ">"))
-    ):
+    if set(fields) != required_v2 or version != "2.0":
         return False
     if fields["rollback_action"] != "git_revert":
         return False

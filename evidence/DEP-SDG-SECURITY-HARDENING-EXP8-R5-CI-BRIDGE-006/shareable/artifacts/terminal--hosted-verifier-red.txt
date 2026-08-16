@@ -1,0 +1,15 @@
+Hosted verification Red evidence
+
+Repository: zycaskevin/Agentic-SDD-Governance
+Pull request: 12
+Exact head: 57aadaf94d27c158fbcc85c7f489e6a4a705002f
+Workflow run: [REDACTED_PHONE_OR_NUMBER]
+Job: verify
+Failed step: Enforce exact Merge policy
+Duration: 14 seconds
+Exit code: 2
+Relevant output: [ERROR] rollback record is missing or incomplete
+
+Successful prerequisites: untrusted candidate checkout as data, trusted Base verifier checkout, trusted dependency installation, and exact Base fetch.
+
+Root distinction to test: trusted Base f44cb5f validates rollback v1, while the candidate exact Merge Gate selects a declarative rollback v2 record. No rerun was triggered.

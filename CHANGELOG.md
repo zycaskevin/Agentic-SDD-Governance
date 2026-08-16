@@ -9,6 +9,7 @@
 - Replace CI workflow regex checks with YAML 1.2 duplicate-key-rejecting semantic validation for triggers, exact non-bypassable Draft conditions, valid runners, concurrency, permissions, and bounded job timeouts; read every workflow through retained non-symlink directory descriptors.
 - Recheck the exact verified Evidence artifact generation immediately before attachment publication; reject intermediate symlinks, nonblocking-open non-regular inputs, pending attachment residue, and interrupted staging.
 - Use generation-bound no-clobber control publication, clean only transaction-owned collect/redact outputs on failure, preserve later writers, replace free-form rollback shell strings with an allowlisted declarative v2 contract, and protect the complete trusted source/workflow/dependency surface including Agent-loaded installed governance copies.
+- Add a non-executing, exact-field legacy rollback v1 compatibility bridge so the experimental.7 trusted Base can validate the v2 migration PR; wrappers, chaining, alternate commands, duplicates, extra fields, and placeholders remain rejected, and all new records use declarative v2.
 - Persist one owner-, scope-, TTL-, and digest-bound Operational Action record so repeated calls do not emit duplicate prompts.
 - Add known provider-credential detectors while preserving clean zero-match text, and upgrade the trusted verifier dependency line to hash-locked `cryptography==50.0.0`.
 
