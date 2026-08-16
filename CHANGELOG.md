@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0-experimental.8 — 2026-08-16 security hardening (unreleased)
+## 0.2.0-experimental.8 — 2026-08-16 security hardening
 
 ### Security
 

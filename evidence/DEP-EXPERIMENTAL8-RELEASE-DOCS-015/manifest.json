@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-EXPERIMENTAL8-RELEASE-DOCS-015",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--release-docs-red.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "0fa02e5493545aa3ac400420a719dc5c6c1e8ba0a6b7e84b6c102f194ae0303b",
+      "size": 1344,
+      "collected_at": "2026-08-16T11:55:33Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--release-docs-red.txt",
+      "sha256": "2fcf34f6e0adf188b7f8c0de11b912a6bad767cb852b7f336ffdcf5fa286fc17",
+      "size": 1392,
+      "shareable": true
+    }
+  ]
+}
