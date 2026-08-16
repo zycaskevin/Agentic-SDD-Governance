@@ -7,6 +7,8 @@
 - `PYTHONPATH=src python3 -m sddgov.cli ci verify .`: PASS; `post_merge_verification` is `manual_only` and no automatic `push` event remains.
 - `PYTHONPATH=src python3 -m sddgov.cli doctor .`: PASS, 64 managed files.
 - The historical PR #14 rollback drill: PASS after deterministic managed-governance reconciliation; Doctor and the declared `unittest` module return Green.
+- Candidate static rollback for atomic implementation `a0082496255bab3765161b913ae7b67928107236`: PASS; the inverse is conflict-free and restores the exact Base outside Evidence/audit paths.
+- Candidate runtime rollback post-condition at Evidence Head `42d4b2467c00287513267d6877bdeb3b8adab8d4`: PASS; reconciliation, Doctor, and the declared `unittest` module return Green.
 - Wheel and sdist build: PASS.
 - Fresh dependency-resolved wheel install and `pip check`: PASS; `cryptography 50.0.0` satisfies the patched dependency line.
 - Fresh Codex and Hermes setup plus Doctor: PASS, 64 managed files each.
