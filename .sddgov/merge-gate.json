@@ -1,13 +1,15 @@
 {
   "schema_version": "1.0",
-  "base_sha": "ce08f48c5d7c4232e9c0154dabb3b43c63b920c1",
-  "head_sha": "b2d169745c78947d66fa0ac6ae9612fb5406a987",
+  "base_sha": "a5c27e306373829eee966222c3915f5a822b190c",
+  "head_sha": "7acd94679d50e4fa96be2b9d713295a2b41ac6b9",
   "risk_level": "L1",
   "builder_id": "codex-builder",
-  "change_digest": "a08e56d092721e8fc54fe4faa65449f8dd6c7d3acb1128c9307e0566f217913d",
+  "change_digest": "b8893c11671ecc7ce416643b0459b6f9008ef433adcbf956f38262e9db6dadfb",
   "deps": [
-    "evidence/DEP-RELEASE-READINESS-HARDENING-010"
+    "evidence/DEP-FINAL-RELEASE-READINESS-011",
+    "evidence/DEP-FINAL-RELEASE-READINESS-R2-012",
+    "evidence/DEP-FINAL-RELEASE-READINESS-R3-013"
   ],
-  "rollback_path": "evidence/DEP-RELEASE-READINESS-HARDENING-010/rollback.md",
-  "protected_file_review": ".sddgov/reviews/REV-RELEASE-READINESS-HARDENING-010.json"
+  "rollback_path": "evidence/DEP-FINAL-RELEASE-READINESS-R3-013/rollback.md",
+  "protected_file_review": ".sddgov/reviews/REV-FINAL-RELEASE-READINESS-EXP8-013.json"
 }
