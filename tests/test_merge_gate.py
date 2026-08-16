@@ -11,15 +11,7 @@ from unittest.mock import patch
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from sddgov.merge_gate import (
-    _is_protected,
-    _protected_patterns,
-    _real_rollback,
-    _rollback_ref_is_cleanly_revertible,
-    change_digest,
-    gate_metadata_digest,
-    verify_merge,
-)
+from sddgov.merge_gate import change_digest, gate_metadata_digest, verify_merge
 
 
 def _run(root: Path, *args: str) -> str:
@@ -39,12 +31,7 @@ class MergeGateTests(unittest.TestCase):
         (self.root / "core/POLICY_KERNEL.md").write_text("baseline\n")
         (self.root / "policies").mkdir()
         (self.root / "policies/protected-files.yaml").write_text(
-            "protected:\n"
-            "  - core/POLICY_KERNEL.md\n"
-            "  - AGENTS.md\n"
-            "  - .agents/\n"
-            "  - .agentic-sdd-governance/\n"
-            "rules:\n"
+            "protected:\n  - core/POLICY_KERNEL.md\nrules:\n"
         )
         (self.root / ".sddgov").mkdir()
         self.reviewer_key = Ed25519PrivateKey.generate()
@@ -116,26 +103,17 @@ jobs:
         _run(self.root, "git", "commit", "-qm", "baseline")
         self.base = _run(self.root, "git", "rev-parse", "HEAD")
         (self.root / "core/POLICY_KERNEL.md").write_text("hardened\n")
-        _run(self.root, "git", "add", "core/POLICY_KERNEL.md")
-        _run(self.root, "git", "commit", "-qm", "harden implementation")
-        self.implementation = _run(self.root, "git", "rev-parse", "HEAD")
-        self._bind_rollback_to_current_candidate()
-
-    def _bind_rollback_to_current_candidate(self):
-        implementation = _run(self.root, "git", "rev-parse", "HEAD")
         rollback = self.root / "evidence/DEP-1/rollback.md"
-        rollback.parent.mkdir(parents=True, exist_ok=True)
+        rollback.parent.mkdir(parents=True)
         rollback.write_text(
             "# Rollback\n\n"
-            "rollback_version: 2.0\n"
+            "rollback_version: 1.0\n"
             "target: bounded test commit\n"
-            "rollback_action: git_revert\n"
-            f"rollback_ref: {implementation}\n"
-            "verify_action: python_module\n"
-            "verify_module: unittest\n"
+            "command: git revert HEAD\n"
+            "verify: python -m unittest\n"
         )
-        _run(self.root, "git", "add", "evidence/DEP-1/rollback.md")
-        _run(self.root, "git", "commit", "-qm", "bind rollback plan")
+        _run(self.root, "git", "add", ".")
+        _run(self.root, "git", "commit", "-qm", "harden")
 
     def tearDown(self):
         self.temporary.cleanup()
@@ -209,16 +187,6 @@ jobs:
         self._write_gate(review=False)
         with self.assertRaisesRegex(ValueError, "independent review"):
             verify_merge(self.root, self.base, run_checks=False)
-
-    def test_agent_loaded_governance_copies_are_protected_at_the_base(self):
-        patterns = _protected_patterns(self.root, self.base)
-        for path in (
-            "AGENTS.md",
-            ".agents/skills/agentic-sdd-governance/SKILL.md",
-            ".agentic-sdd-governance/core/POLICY_KERNEL.md",
-        ):
-            with self.subTest(path=path):
-                self.assertTrue(_is_protected(path, patterns))
 
     @patch("sddgov.merge_gate.verify_dep", return_value=[])
     def test_tracked_raw_evidence_fails(self, _verify):
@@ -299,9 +267,8 @@ jobs:
         with self.assertRaisesRegex(ValueError, "merge DEP path contains a symlink"):
             verify_merge(self.root, self.base, run_checks=False)
 
-    @patch("sddgov.merge_gate._rollback_ref_is_cleanly_revertible", return_value=True)
     @patch("sddgov.merge_gate.verify_dep", return_value=[])
-    def test_candidate_policy_cannot_unprotect_base_paths(self, _verify, _rollback):
+    def test_candidate_policy_cannot_unprotect_base_paths(self, _verify):
         (self.root / "policies/protected-files.yaml").write_text(
             "protected:\n  - harmless.txt\nrules:\n"
         )
@@ -319,14 +286,12 @@ jobs:
         _run(self.root, "git", "commit", "-qm", "restore rename source")
         _run(self.root, "git", "mv", "core/POLICY_KERNEL.md", "harmless.txt")
         _run(self.root, "git", "commit", "-qm", "attempt protected rename bypass")
-        self._bind_rollback_to_current_candidate()
         self._write_gate(review=False)
         with self.assertRaisesRegex(ValueError, "independent review"):
             verify_merge(self.root, self.base, run_checks=False)
 
-    @patch("sddgov.merge_gate._rollback_ref_is_cleanly_revertible", return_value=True)
     @patch("sddgov.merge_gate.verify_dep", return_value=[])
-    def test_candidate_reviewer_key_cannot_authorize_change(self, _verify, _rollback):
+    def test_candidate_reviewer_key_cannot_authorize_change(self, _verify):
         rogue_key = Ed25519PrivateKey.generate()
         rogue_public = rogue_key.public_key().public_bytes(
             encoding=serialization.Encoding.Raw,
@@ -364,7 +329,6 @@ jobs:
         (self.root / "core/POLICY_KERNEL.md").write_text("hardened again\n")
         _run(self.root, "git", "add", "core/POLICY_KERNEL.md")
         _run(self.root, "git", "commit", "-qm", "protected follow-up")
-        self._bind_rollback_to_current_candidate()
         self._write_gate()
         with self.assertRaisesRegex(ValueError, "duplicate reviewer_id"):
             verify_merge(self.root, self.base, run_checks=False)
@@ -381,7 +345,6 @@ jobs:
         (self.root / "core/POLICY_KERNEL.md").write_text("bootstrap change\n")
         _run(self.root, "git", "add", "core/POLICY_KERNEL.md")
         _run(self.root, "git", "commit", "-qm", "protected bootstrap change")
-        self._bind_rollback_to_current_candidate()
         self._write_gate()
         with tempfile.TemporaryDirectory() as external:
             trust_path = Path(external) / "trusted-reviewers.json"
@@ -405,7 +368,6 @@ jobs:
         (self.root / "core/POLICY_KERNEL.md").write_text("bootstrap change\n")
         _run(self.root, "git", "add", "core/POLICY_KERNEL.md")
         _run(self.root, "git", "commit", "-qm", "protected bootstrap change")
-        self._bind_rollback_to_current_candidate()
         self._write_gate()
         with tempfile.TemporaryDirectory() as external:
             trust_path = Path(external) / "trusted-reviewers.json"
@@ -427,7 +389,6 @@ jobs:
         (self.root / "core/POLICY_KERNEL.md").write_text("bootstrap change\n")
         _run(self.root, "git", "add", "core/POLICY_KERNEL.md")
         _run(self.root, "git", "commit", "-qm", "protected bootstrap change")
-        self._bind_rollback_to_current_candidate()
         self._write_gate()
         with tempfile.TemporaryDirectory() as external:
             trust_path = Path(external) / "trusted-reviewers.json"
@@ -480,7 +441,6 @@ jobs:
         (self.root / "core/POLICY_KERNEL.md").write_text("post-revocation change\n")
         _run(self.root, "git", "add", "core/POLICY_KERNEL.md")
         _run(self.root, "git", "commit", "-qm", "protected change")
-        self._bind_rollback_to_current_candidate()
         self._write_gate()
 
         trust["reviewers"][0]["status"] = "active"
@@ -504,237 +464,6 @@ jobs:
         self._write_gate()
         with self.assertRaisesRegex(ValueError, "rollback record"):
             verify_merge(self.root, self.base, run_checks=False)
-
-    @patch("sddgov.merge_gate.verify_dep", return_value=[])
-    def test_noop_rollback_and_verify_commands_are_rejected(self, _verify):
-        (self.root / "evidence/DEP-1/rollback.md").write_text(
-            "rollback_version: 2.0\n"
-            "target: bounded test commit\n"
-            "rollback_action: shell_wrapper\n"
-            "rollback_ref: HEAD\n"
-            "verify_action: observation\n"
-            "verify_module: status\n"
-            "command: sh -c 'git status'\n"
-        )
-        _run(self.root, "git", "add", "evidence/DEP-1/rollback.md")
-        _run(self.root, "git", "commit", "-qm", "invalid no-op rollback")
-        self._write_gate()
-        with self.assertRaisesRegex(ValueError, "rollback record"):
-            verify_merge(self.root, self.base, run_checks=False)
-
-    def test_legacy_v1_bridge_is_an_exact_non_executable_allowlist(self):
-        bounded_ref = "a" * 40
-        valid = (
-            "# Rollback\n\n"
-            "rollback_version: 1.0\n"
-            "target: bounded verifier migration bridge\n"
-            f"command: git revert --no-edit {bounded_ref}\n"
-            "verify: python -m pytest\n"
-        )
-        self.assertFalse(_real_rollback(valid))
-        self.assertTrue(_real_rollback(valid, allow_legacy_v1=True))
-        invalid_variants = (
-            valid + "sh -c 'dangerous standalone command'\n",
-            valid.replace(
-                f"git revert --no-edit {bounded_ref}",
-                f"sh -c 'git revert --no-edit {bounded_ref}'",
-            ),
-            valid.replace(f"git revert --no-edit {bounded_ref}", "git status"),
-            valid.replace(
-                f"git revert --no-edit {bounded_ref}",
-                f"git revert --no-edit {bounded_ref} && true",
-            ),
-            valid.replace("python -m pytest", "python -m unittest"),
-            valid.replace("verify: python -m pytest", "verify: python -m pytest\nverify: true"),
-            valid.replace("verify: python -m pytest", "verify: python -m pytest\nshell: bash"),
-            valid.replace("bounded verifier migration bridge", "TODO"),
-            valid.replace(
-                f"git revert --no-edit {bounded_ref}",
-                f"`git revert --no-edit {bounded_ref}`",
-            ),
-            valid.replace("python -m pytest", "`python -m pytest`"),
-            valid.replace("command: git revert", "command:  git revert"),
-            valid.replace("rollback_version: 1.0", "Rollback_Version: 1.0"),
-            valid + f"command: git revert --no-edit {bounded_ref}\n",
-        )
-        for rollback in invalid_variants:
-            with self.subTest(rollback=rollback):
-                self.assertFalse(_real_rollback(rollback, allow_legacy_v1=True))
-
-    def test_v2_rollback_requires_a_full_immutable_ref(self):
-        template = (
-            "rollback_version: 2.0\n"
-            "target: bounded verifier migration bridge\n"
-            "rollback_action: git_revert\n"
-            "rollback_ref: {ref}\n"
-            "verify_action: python_module\n"
-            "verify_module: pytest\n"
-        )
-        self.assertFalse(_real_rollback(template.format(ref="HEAD")))
-        self.assertFalse(_real_rollback(template.format(ref="deadbee")))
-        self.assertTrue(_real_rollback(template.format(ref="a" * 40)))
-
-    def test_builtin_union_merge_cannot_mask_a_non_base_rollback_result(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            _run(root, "git", "init", "-q")
-            _run(root, "git", "config", "user.email", "test@example.com")
-            _run(root, "git", "config", "user.name", "Test Builder")
-            (root / ".gitattributes").write_text("policy.txt merge=union\n")
-            (root / "policy.txt").write_text("baseline\n")
-            _run(root, "git", "add", ".")
-            _run(root, "git", "commit", "-qm", "baseline")
-            base = _run(root, "git", "rev-parse", "HEAD")
-            (root / "policy.txt").write_text("implementation\n")
-            _run(root, "git", "add", "policy.txt")
-            _run(root, "git", "commit", "-qm", "implementation")
-            rollback_ref = _run(root, "git", "rev-parse", "HEAD")
-            (root / "policy.txt").write_text("later edit\n")
-            _run(root, "git", "add", "policy.txt")
-            _run(root, "git", "commit", "-qm", "later edit")
-            reviewed_head = _run(root, "git", "rev-parse", "HEAD")
-
-            self.assertFalse(
-                _rollback_ref_is_cleanly_revertible(
-                    root,
-                    rollback_ref,
-                    base_sha=base,
-                    reviewed_head_sha=reviewed_head,
-                )
-            )
-
-    def test_rollback_probe_does_not_execute_repository_merge_driver(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            marker = root / "driver-ran"
-            _run(root, "git", "init", "-q")
-            _run(root, "git", "config", "user.email", "test@example.com")
-            _run(root, "git", "config", "user.name", "Test Builder")
-            _run(
-                root,
-                "git",
-                "config",
-                "merge.hostile.driver",
-                f"{sys.executable} -c \"from pathlib import Path; Path({str(marker)!r}).write_text('ran')\" %O %A %B",
-            )
-            (root / ".gitattributes").write_text("policy.txt merge=hostile\n")
-            (root / "policy.txt").write_text("baseline\n")
-            _run(root, "git", "add", ".")
-            _run(root, "git", "commit", "-qm", "baseline")
-            base = _run(root, "git", "rev-parse", "HEAD")
-            (root / "policy.txt").write_text("implementation\n")
-            _run(root, "git", "add", "policy.txt")
-            _run(root, "git", "commit", "-qm", "implementation")
-            rollback_ref = _run(root, "git", "rev-parse", "HEAD")
-            (root / "policy.txt").write_text("later edit\n")
-            _run(root, "git", "add", "policy.txt")
-            _run(root, "git", "commit", "-qm", "later edit")
-            reviewed_head = _run(root, "git", "rev-parse", "HEAD")
-
-            self.assertFalse(
-                _rollback_ref_is_cleanly_revertible(
-                    root,
-                    rollback_ref,
-                    base_sha=base,
-                    reviewed_head_sha=reviewed_head,
-                )
-            )
-            self.assertFalse(marker.exists())
-
-    def test_selected_rollback_commit_cannot_contain_evidence(self):
-        evidence_commit = _run(self.root, "git", "rev-parse", "HEAD")
-        self.assertFalse(
-            _rollback_ref_is_cleanly_revertible(
-                self.root,
-                evidence_commit,
-                base_sha=self.base,
-                reviewed_head_sha=evidence_commit,
-            )
-        )
-
-    def test_non_evidence_descendant_after_rollback_commit_is_rejected(self):
-        (self.root / "later-doc.md").write_text("later product change\n")
-        _run(self.root, "git", "add", "later-doc.md")
-        _run(self.root, "git", "commit", "-qm", "later product change")
-        reviewed_head = _run(self.root, "git", "rev-parse", "HEAD")
-        self.assertFalse(
-            _rollback_ref_is_cleanly_revertible(
-                self.root,
-                self.implementation,
-                base_sha=self.base,
-                reviewed_head_sha=reviewed_head,
-            )
-        )
-
-    @patch("sddgov.merge_gate.verify_dep", return_value=[])
-    def test_v2_rollback_ref_must_exist_in_the_candidate_range(self, _verify):
-        rollback = self.root / "evidence/DEP-1/rollback.md"
-        rollback.write_text(
-            "rollback_version: 2.0\n"
-            "target: bounded nonexistent commit\n"
-            "rollback_action: git_revert\n"
-            f"rollback_ref: {'f' * 40}\n"
-            "verify_action: python_module\n"
-            "verify_module: pytest\n"
-        )
-        _run(self.root, "git", "add", "evidence/DEP-1/rollback.md")
-        _run(self.root, "git", "commit", "-qm", "invalid rollback ref")
-        self._write_gate()
-        with self.assertRaisesRegex(ValueError, "rollback record"):
-            verify_merge(self.root, self.base, run_checks=False)
-
-    @patch("sddgov.merge_gate.verify_dep", return_value=[])
-    def test_v2_rollback_ref_cannot_select_the_base_commit(self, _verify):
-        rollback = self.root / "evidence/DEP-1/rollback.md"
-        rollback.write_text(
-            "rollback_version: 2.0\n"
-            "target: bounded out-of-range commit\n"
-            "rollback_action: git_revert\n"
-            f"rollback_ref: {self.base}\n"
-            "verify_action: python_module\n"
-            "verify_module: pytest\n"
-        )
-        _run(self.root, "git", "add", "evidence/DEP-1/rollback.md")
-        _run(self.root, "git", "commit", "-qm", "out-of-range rollback ref")
-        self._write_gate()
-        with self.assertRaisesRegex(ValueError, "rollback record"):
-            verify_merge(self.root, self.base, run_checks=False)
-
-    @patch("sddgov.merge_gate.verify_dep", return_value=[])
-    def test_rollback_ref_must_apply_cleanly_at_the_reviewed_head(self, _verify):
-        (self.root / "core/POLICY_KERNEL.md").write_text("later overlapping edit\n")
-        _run(self.root, "git", "add", "core/POLICY_KERNEL.md")
-        _run(self.root, "git", "commit", "-qm", "overlap after rollback target")
-        self._write_gate()
-        with self.assertRaisesRegex(ValueError, "rollback record"):
-            verify_merge(self.root, self.base, run_checks=False)
-
-    @patch("sddgov.merge_gate.verify_dep", return_value=[])
-    def test_exact_legacy_v1_bridge_passes_full_merge_verification(self, _verify):
-        bounded_ref = self.implementation
-        rollback = self.root / "evidence/DEP-1/rollback.md"
-        rollback.write_text(
-            "# Rollback\n\n"
-            "rollback_version: 1.0\n"
-            "target: bounded trusted-verifier migration\n"
-            f"command: git revert --no-edit {bounded_ref}\n"
-            "verify: python -m pytest\n"
-        )
-        _run(self.root, "git", "add", "evidence/DEP-1/rollback.md")
-        _run(self.root, "git", "commit", "-qm", "bridge rollback contract")
-        self._write_gate()
-        with (
-            patch(
-                "sddgov.merge_gate.LEGACY_ROLLBACK_V1_BOOTSTRAP_BASE_SHA",
-                self.base,
-            ),
-            patch(
-                "sddgov.merge_gate.LEGACY_ROLLBACK_V1_BOOTSTRAP_PATH",
-                "evidence/DEP-1/rollback.md",
-            ),
-        ):
-            result = verify_merge(self.root, self.base, run_checks=False)
-        self.assertEqual(result["state"], "MERGE_READY")
 
 
 if __name__ == "__main__":

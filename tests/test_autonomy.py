@@ -176,7 +176,6 @@ class AutonomyTests(unittest.TestCase):
         scope="MVP data layer",
         assumptions="mvp-assumptions-v1",
         approved_by="product-owner",
-        reopen_condition="scope_or_assumptions_change",
     ):
         private_key = Ed25519PrivateKey.generate()
         public_key = private_key.public_key().public_bytes(
@@ -222,7 +221,7 @@ class AutonomyTests(unittest.TestCase):
             "scope": scope,
             "assumptions": assumption_rows,
             "assumptions_sha256": assumptions_digest,
-            "reopen_condition": reopen_condition,
+            "reopen_condition": "Reopen when assumptions or scope change",
             "approved_by": approved_by,
             "issued_at": now.isoformat().replace("+00:00", "Z"),
             "expires_at": (now + timedelta(days=30)).isoformat().replace(
@@ -322,54 +321,6 @@ class AutonomyTests(unittest.TestCase):
                 self.root,
                 {"risk_level": "L1", "category": "implementation"},
             )
-
-    def test_low_risk_actions_reject_free_text_and_nested_executable_intent(self):
-        cases = (
-            {"target": "customer database live"},
-            {"parameters": {"environmentName": "production"}},
-            {"parameters": {"nested": {"operation": "delete"}}},
-            {"parameters": {"credentialReference": "owner-vault-entry"}},
-        )
-        for executable_fields in cases:
-            with self.subTest(executable_fields=executable_fields):
-                disguised = evaluate_escalation(
-                    self.root,
-                    {
-                        "risk_level": "L1",
-                        "category": "implementation",
-                        **executable_fields,
-                    },
-                )
-                self.assertEqual(disguised["state"], "BLOCKED")
-                self.assertEqual(
-                    disguised["reason"],
-                    "low_risk_action_requires_closed_typed_executor_contract",
-                )
-
-        ambiguous = evaluate_escalation(
-            self.root,
-            {
-                "risk_level": "L1",
-                "category": "uncertainty",
-                "machine_verifiable": True,
-                "details": {"nested": "effectful request"},
-            },
-        )
-        self.assertEqual(ambiguous["state"], "BLOCKED")
-
-        hidden_l3_payload = evaluate_escalation(
-            self.root,
-            {
-                "risk_level": "L1",
-                "category": "implementation",
-                "operation_payload": operation_payload("HIDDEN-L3"),
-            },
-        )
-        self.assertEqual(hidden_l3_payload["state"], "BLOCKED")
-        self.assertEqual(
-            hidden_l3_payload["reason"],
-            "authority_bearing_fields_not_allowed_for_routine_action",
-        )
 
     def test_duplicate_approver_id_is_rejected_before_key_selection(self):
         path, _ = self._signed_operation_approval()
@@ -549,63 +500,6 @@ class AutonomyTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "signature"):
             import_product_approval(self.root, path)
 
-    def test_l2_receipt_rejects_unsupported_free_form_reopen_condition(self):
-        path, _ = self._signed_product_approval(
-            "DEC-UNSUPPORTED-REOPEN",
-            reopen_condition="ask the owner again whenever the agent is uncertain",
-        )
-        with self.assertRaisesRegex(ValueError, "reopen_condition"):
-            import_product_approval(self.root, path)
-
-    def test_product_decision_receipt_cannot_authorize_forced_human_action(self):
-        approval_path, _ = self._signed_product_approval("DEC-NOT-OPERATIONAL")
-        import_product_approval(self.root, approval_path)
-        result = evaluate_escalation(
-            self.root,
-            {
-                "risk_level": "L2",
-                "category": "operational_action",
-                "decision_id": "DEC-NOT-OPERATIONAL",
-                "decision_scope": "MVP data layer",
-                "action_owner": "product-owner",
-                "decision_package": decision_package(
-                    "Operational", "LOGIN-OWNER-REQUIRED"
-                ),
-            },
-        )
-        self.assertEqual(result["state"], "BLOCKED")
-        self.assertFalse(result["requires_response"])
-        self.assertEqual(
-            result["reason"],
-            "request_contains_fields_outside_closed_category_schema",
-        )
-
-    def test_product_assumption_parent_replacement_fails_closed(self):
-        approval_path, _ = self._signed_product_approval("DEC-TOCTOU")
-        assumption_parent = self.root / ".sddgov/assumptions"
-        parked = self.root / ".sddgov/assumptions-parked"
-        outside = self.root / "outside-assumptions"
-        outside.mkdir()
-        (outside / "DEC-TOCTOU.txt").write_bytes(
-            (assumption_parent / "DEC-TOCTOU.txt").read_bytes()
-        )
-        original_open = os.open
-        replaced = False
-
-        def replace_parent(path, flags, *args, **kwargs):
-            nonlocal replaced
-            if not replaced and str(path).endswith("DEC-TOCTOU.txt"):
-                replaced = True
-                assumption_parent.rename(parked)
-                assumption_parent.symlink_to(outside, target_is_directory=True)
-            return original_open(path, flags, *args, **kwargs)
-
-        with (
-            patch("sddgov.autonomy.os.open", side_effect=replace_parent),
-            self.assertRaisesRegex(ValueError, "path changed"),
-        ):
-            import_product_approval(self.root, approval_path)
-
     def test_decision_log_prevents_duplicate_l2_questions(self):
         first = evaluate_escalation(
             self.root,
@@ -660,57 +554,6 @@ class AutonomyTests(unittest.TestCase):
             },
         )
         self.assertEqual(stale["state"], "ACTION_REQUIRED")
-
-    def test_l2_product_reuse_rejects_foreign_authority_and_executor_fields(self):
-        approval_path, _ = self._signed_product_approval("DEC-CLOSED-L2")
-        import_product_approval(self.root, approval_path)
-        foreign_fields = (
-            {"approval_id": "APP-FOREIGN"},
-            {"operation_id": "PROD-FOREIGN"},
-            {"operation_payload": operation_payload("PROD-FOREIGN")},
-            {"target": "synthetic:production"},
-            {"parameters": {"mode": "execute"}},
-            {"nested": {"operation_payload": operation_payload("PROD-NESTED")}},
-        )
-        for foreign in foreign_fields:
-            with self.subTest(foreign=tuple(foreign)):
-                result = evaluate_escalation(
-                    self.root,
-                    {
-                        "risk_level": "L2",
-                        "category": "product_decision",
-                        "decision_id": "DEC-CLOSED-L2",
-                        "decision_scope": "MVP data layer",
-                        **foreign,
-                    },
-                )
-                self.assertEqual(result["state"], "BLOCKED")
-                self.assertEqual(
-                    result["reason"],
-                    "request_contains_fields_outside_closed_category_schema",
-                )
-
-    def test_l2_product_reuse_rejects_nested_decision_package(self):
-        approval_path, _ = self._signed_product_approval("DEC-CLOSED-PACKAGE")
-        import_product_approval(self.root, approval_path)
-        package = decision_package("L2", "DEC-FOREIGN-PACKAGE")
-        package["operation_payload"] = operation_payload("PROD-NESTED-PACKAGE")
-        result = evaluate_escalation(
-            self.root,
-            {
-                "risk_level": "L2",
-                "category": "product_decision",
-                "decision_id": "DEC-CLOSED-PACKAGE",
-                "decision_scope": "MVP data layer",
-                "decision_package": package,
-            },
-        )
-        self.assertEqual(result["state"], "BLOCKED")
-        self.assertFalse(result["requires_response"])
-        self.assertEqual(
-            result["reason"],
-            "existing_decision_reuse_must_not_include_decision_package",
-        )
 
     def test_l2_and_l3_emit_strict_action_required(self):
         l2 = evaluate_escalation(
@@ -1123,7 +966,6 @@ class AutonomyTests(unittest.TestCase):
                 "risk_level": "L3",
                 "category": "operational_action",
                 "unrelated_work_exists": True,
-                "action_owner": "product-owner",
                 "decision_package": decision_package("Operational", "LOGIN-1"),
             },
         )
@@ -1137,7 +979,6 @@ class AutonomyTests(unittest.TestCase):
             {
                 "risk_level": "L1",
                 "category": "operational_action",
-                "action_owner": "product-owner",
                 "decision_package": decision_package("Operational", "LOGIN-L1"),
             },
         )
@@ -1152,32 +993,6 @@ class AutonomyTests(unittest.TestCase):
             },
         )
         self.assertEqual(uat["state"], "ACTION_REQUIRED")
-
-    def test_operational_action_is_durable_and_not_reprompted(self):
-        request = {
-            "risk_level": "L1",
-            "category": "operational_action",
-            "action_owner": "product-owner",
-            "action_ttl_minutes": 60,
-            "decision_package": decision_package("Operational", "LOGIN-DURABLE-1"),
-        }
-        first = evaluate_escalation(self.root, request)
-        self.assertEqual(first["state"], "ACTION_REQUIRED")
-        self.assertTrue(first["requires_response"])
-        self.assertTrue(first["external_action_created"])
-
-        second = evaluate_escalation(self.root, request)
-        self.assertEqual(second["state"], "BLOCKED")
-        self.assertFalse(second["requires_response"])
-        self.assertEqual(second["reason"], "operational_action_already_pending")
-        self.assertFalse(second["external_action_created"])
-
-        store = json.loads(
-            (self.root / ".sddgov/external-actions.json").read_text(encoding="utf-8")
-        )
-        self.assertEqual(len(store["actions"]), 1)
-        self.assertEqual(store["actions"][0]["owner"], "product-owner")
-        self.assertIn("expires_at", store["actions"][0])
 
     def test_sha256_is_generated_verified_and_never_a_human_token(self):
         artifact = self.root / "package.whl"

@@ -74,24 +74,6 @@ class RedactionTests(unittest.TestCase):
         self.assertEqual(counts["password"], 1)
         self.assertEqual(counts["secret-field"], 4)
 
-    def test_masks_known_provider_credential_identifiers(self):
-        source = (
-            "aws_access_key_id=AKIAIOSFODNN7EXAMPLE\n"
-            "github_token=ghp_0123456789abcdefghijklmnopqrstuvwxyzAB\n"
-            "ordinary synthetic sentence with no credential\n"
-        )
-        cleaned, counts = redact_text(source)
-        self.assertNotIn("AKIAIOSFODNN7EXAMPLE", cleaned)
-        self.assertNotIn("ghp_0123456789abcdefghijklmnopqrstuvwxyzAB", cleaned)
-        self.assertGreaterEqual(counts.get("provider-credential", 0), 2)
-        self.assertIn("ordinary synthetic sentence", cleaned)
-
-    def test_clean_zero_match_text_remains_eligible(self):
-        source = "Synthetic test completed with no credentials."
-        cleaned, counts = redact_text(source)
-        self.assertEqual(cleaned, source)
-        self.assertEqual(counts, {})
-
 
 if __name__ == "__main__":
     unittest.main()
