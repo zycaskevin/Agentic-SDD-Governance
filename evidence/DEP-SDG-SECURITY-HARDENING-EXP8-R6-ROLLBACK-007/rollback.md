@@ -3,7 +3,7 @@
 rollback_version: 2.0
 target: bounded experimental.8 rollback validator hardening
 rollback_action: git_revert
-rollback_ref: 576b49aa6b94d9fad2ff6be9ff7983d18a76abd2
+rollback_ref: d7e16f2e5695f6fba28c262daf8e6819dd0c0c35
 verify_action: python_module
 verify_module: pytest
 

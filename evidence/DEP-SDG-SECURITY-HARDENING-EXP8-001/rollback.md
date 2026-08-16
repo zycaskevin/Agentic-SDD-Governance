@@ -2,7 +2,7 @@
 
 rollback_version: 1.0
 target: bounded experimental.8 security-hardening change
-command: git revert --no-edit 576b49aa6b94d9fad2ff6be9ff7983d18a76abd2
+command: git revert --no-edit d7e16f2e5695f6fba28c262daf8e6819dd0c0c35
 verify: python -m pytest
 
 ## Trigger
