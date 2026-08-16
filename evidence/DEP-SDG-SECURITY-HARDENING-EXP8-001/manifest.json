@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-SDG-SECURITY-HARDENING-EXP8-001",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--experimental-8-red.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "471cd758b5863ca361a830b328fc7659f3480bdb2ef6fba02a35820e9e3d59e7",
+      "size": 1707,
+      "collected_at": "2026-08-15T16:26:27Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--experimental-8-red.txt",
+      "sha256": "471cd758b5863ca361a830b328fc7659f3480bdb2ef6fba02a35820e9e3d59e7",
+      "size": 1707,
+      "shareable": true
+    }
+  ]
+}

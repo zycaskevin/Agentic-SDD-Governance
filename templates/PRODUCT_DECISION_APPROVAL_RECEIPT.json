@@ -10,7 +10,7 @@
       "sha256": "replace-with-sha256-of-exact-artifact-bytes"
     }],
     "assumptions_sha256": "replace-with-sha256-of-canonical-assumptions-array",
-    "reopen_condition": "Reopen when scope or assumptions change",
+    "reopen_condition": "scope_or_assumptions_change",
     "approved_by": "replace-with-owner-id",
     "issued_at": "REPLACE_WITH_CURRENT_TIME_RFC3339",
     "expires_at": "REPLACE_WITH_EXPIRY_TIME_RFC3339",

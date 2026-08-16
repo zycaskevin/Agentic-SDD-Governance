@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-SDG-SECURITY-HARDENING-EXP8-R6-ROLLBACK-007",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--rollback-hostile-red.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "01deada9fac7baa67ea87fc8094cc1472305112710b5f8c271a980ca79e12354",
+      "size": 945,
+      "collected_at": "2026-08-16T02:56:22Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--rollback-hostile-red.txt",
+      "sha256": "01deada9fac7baa67ea87fc8094cc1472305112710b5f8c271a980ca79e12354",
+      "size": 945,
+      "shareable": true
+    }
+  ]
+}

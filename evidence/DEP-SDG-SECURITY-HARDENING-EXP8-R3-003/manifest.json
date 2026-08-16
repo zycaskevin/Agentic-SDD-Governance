@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-SDG-SECURITY-HARDENING-EXP8-R3-003",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--independent-review-red.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "c65251f3f7694885a317e7a55ca5a40b4b5593f56afc5dc31b033e18ea2f5935",
+      "size": 678,
+      "collected_at": "2026-08-15T18:03:25Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--independent-review-red.txt",
+      "sha256": "c65251f3f7694885a317e7a55ca5a40b4b5593f56afc5dc31b033e18ea2f5935",
+      "size": 678,
+      "shareable": true
+    }
+  ]
+}

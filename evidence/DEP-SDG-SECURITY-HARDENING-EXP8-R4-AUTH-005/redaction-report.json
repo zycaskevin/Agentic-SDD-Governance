@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "terminal--independent-review-red.txt",
+      "output": "terminal--independent-review-red.txt",
+      "source_sha256": "00388dfad92a51f7110dc85ad0cf03028e8698a55b6f2f3fa2907254bd3f8d9b",
+      "source_size": 632,
+      "output_sha256": "b0285c2b17142e989f0041ec48eaa80b66372525b55825fc38acc829ff50db70",
+      "output_size": 643,
+      "redactions": {
+        "card-like": 1
+      }
+    }
+  ],
+  "blocked": [],
+  "totals": {
+    "card-like": 1
+  },
+  "dep_id": "DEP-SDG-SECURITY-HARDENING-EXP8-R4-AUTH-005",
+  "generated_at": "2026-08-15T18:20:29Z"
+}

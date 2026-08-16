@@ -159,6 +159,34 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertEqual(actions["patient-identifier"], "mask")
         self.assertEqual(actions["customer-identifier"], "mask")
 
+    def test_security_critical_sources_and_dependency_inputs_are_protected(self):
+        policy = yaml.safe_load(
+            (ROOT / "policies/protected-files.yaml").read_text(encoding="utf-8")
+        )
+        protected = set(policy["protected"])
+        for required in (
+            "src/sddgov/",
+            ".github/workflows/",
+            "AGENTS.md",
+            ".agents/",
+            ".agentic-sdd-governance/",
+            ".sddgov/ci-cost-guard.json",
+            "skill/",
+            "adapters/",
+            "pyproject.toml",
+            "requirements-governance.lock",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, protected)
+
+    def test_experimental_8_uses_patched_cryptography_line(self):
+        pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+        lock = (ROOT / "requirements-governance.lock").read_text(encoding="utf-8")
+        self.assertIn('version = "0.2.0.dev8"', pyproject)
+        self.assertIn('cryptography>=50,<51', pyproject)
+        self.assertIn("cryptography==50.0.0", lock)
+        self.assertNotIn("cryptography==46.0.7", lock)
+
     def test_collector_playbooks_preserve_safe_reproduction_context(self):
         browser = (ROOT / "collectors/browser-playwright.md").read_text(encoding="utf-8")
         terminal = (ROOT / "collectors/terminal-git.md").read_text(encoding="utf-8")

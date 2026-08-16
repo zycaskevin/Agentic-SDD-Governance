@@ -1,0 +1,14 @@
+PR #12 independent review at candidate b323b832d56a35138172e7f51b76abcbda1d7fe7: FAIL.
+
+P0: free-text sensitive-intent heuristics can miss semantically equivalent Production, destructive, credential, or nested effectful requests and allow routine L1 CONTINUE.
+
+P1 findings:
+- CI draft condition accepts an always-true wrapper; runner, concurrency, and semantic duplicate-key contracts are incomplete.
+- CI workflow path can follow intermediate symlinks outside the repository.
+- Redaction can block on a manifest-covered FIFO.
+- Collect, redact, and transition rollback are not generation-bound and may leave residue or overwrite later writers.
+- Attachment final check trusts spoofable metadata instead of recomputing exact control and artifact bytes.
+- Rollback validation accepts non-remediating wrappers and observational commands.
+- Protected-source inventory omits the CI cost contract and canonical Agent instruction sources.
+
+No review receipt was signed. No trust update, merge, release, Production data, credentials, or real Muse data was used.

@@ -1,0 +1,24 @@
+command=PYTHONPATH=src /private/tmp/sdg-pr10-review-fkTh2c/venv/bin/python -m pytest -q tests/test_autonomy.py tests/test_ci_guard.py tests/test_evidence_flow.py tests/test_governance.py tests/test_merge_gate.py tests/test_redaction.py tests/test_repository_contract.py
+exit_status=1
+runtime=Python 3.14 test runner with pytest 9.1.1 and cryptography 46.0.7
+baseline=v0.2.0-experimental.7 f44cb5f4897f6c821f817fcf178581b43777163a
+branch=fix/security-hardening-exp8
+
+15 defensive regression tests failed as expected on the experimental.7 baseline:
+- unsupported free-form L2 reopen condition was accepted
+- operational action state was not persisted or deduplicated
+- L2 assumption parent replacement was not detected
+- a generic product decision receipt authorized a forced-human operational action
+- sensitive target/parameters and an authority-bearing operation payload could be hidden behind an L1 routine category
+- CI comments and job-level write permissions bypassed the string-only guard
+- attachment publication did not recheck the verified artifact generation
+- collect failure left an unregistered raw artifact
+- intermediate DEP parent symlink was accepted
+- redact failure left an unregistered shareable artifact
+- regular-file input was opened without O_NONBLOCK
+- external action queue had no durable scope/TTL/deduplication contract
+- /bin/true and true were accepted as rollback and verification
+- a known GitHub provider-token form remained unredacted
+- security-critical source/dependency paths were not protected and the dependency/version remained experimental.7
+
+No Production operation, real Muse data, credential, external network action, or destructive repository mutation was used.

@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-SDG-SECURITY-HARDENING-EXP8-R3-PROTECTED-004",
+  "issue": "11",
+  "sdd_references": [
+    "HARD-GATES-V1.2"
+  ],
+  "risk_level": "L1",
+  "created_at": "2026-08-15T18:08:17Z",
+  "updated_at": "2026-08-15T18:09:23Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-15T18:08:17Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-15T18:09:23Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-15T18:09:23Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-15T18:09:23Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-15T18:09:23Z"
+      }
+    ]
+  },
+  "expected_behavior": "Every Agent-loaded governance bootstrap and installed copy is protected by trusted Base policy and requires a signed independent review when changed.",
+  "actual_behavior": "At exact candidate d03213a, AGENTS.md, .agents/, and .agentic-sdd-governance/ were not protected even though Agents load governance from those paths.",
+  "environment": {
+    "commit": "d03213a62abb1d5752eea3380d3f75275e069dbf",
+    "branch": "fix/security-hardening-exp8",
+    "runtime": "macOS; Python 3.11/3.12/3.14; fresh independent protected-inventory review"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}

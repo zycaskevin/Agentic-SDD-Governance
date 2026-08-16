@@ -28,7 +28,7 @@
           }
         },
         "assumptions_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
-        "reopen_condition": {"type": "string", "minLength": 1},
+        "reopen_condition": {"const": "scope_or_assumptions_change"},
         "approved_by": {"type": "string", "minLength": 1},
         "issued_at": {"type": "string", "format": "date-time"},
         "expires_at": {"type": "string", "format": "date-time"},

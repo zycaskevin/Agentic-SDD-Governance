@@ -99,30 +99,21 @@ def _opened_directory_path(path: Path, *, create: bool):
 
 @contextmanager
 def _opened_dep_root(dep: Path):
-    if dep.is_symlink() or not dep.exists() or not dep.is_dir():
-        raise ValueError("DEP root must be an existing non-symlink directory")
-    before = dep.lstat()
-    directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
-    directory_flags |= getattr(os, "O_NOFOLLOW", 0)
-    descriptor = os.open(dep, directory_flags)
     try:
-        opened_root = os.fstat(descriptor)
-        if (before.st_dev, before.st_ino) != (opened_root.st_dev, opened_root.st_ino):
-            raise ValueError("DEP root changed while it was being opened")
-        yield descriptor
-        after = dep.lstat()
-        if (
-            stat.S_ISLNK(after.st_mode)
-            or not stat.S_ISDIR(after.st_mode)
-            or (after.st_dev, after.st_ino) != (opened_root.st_dev, opened_root.st_ino)
-        ):
-            raise ValueError("DEP root changed during the Evidence operation")
-    finally:
-        os.close(descriptor)
+        with _opened_directory_path(dep, create=False) as (_, descriptor):
+            yield descriptor
+    except FileNotFoundError as exc:
+        raise ValueError("DEP root must be an existing safe directory path") from exc
 
 
 @contextmanager
-def _opened_zone_at(root_fd: int, relative: Path, *, create: bool = True):
+def _opened_zone_at(
+    root_fd: int,
+    relative: Path,
+    *,
+    create: bool = True,
+    on_change=None,
+):
     if relative.is_absolute() or any(part in {"", ".", ".."} for part in relative.parts):
         raise ValueError(f"evidence zone is not normalized: {relative}")
     directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
@@ -153,6 +144,8 @@ def _opened_zone_at(root_fd: int, relative: Path, *, create: bool = True):
                     part, dir_fd=descriptors[index], follow_symlinks=False
                 )
             except OSError as exc:
+                if on_change is not None:
+                    on_change(descriptors[-1])
                 raise ValueError(
                     f"evidence zone changed during operation: {relative}"
                 ) from exc
@@ -162,6 +155,8 @@ def _opened_zone_at(root_fd: int, relative: Path, *, create: bool = True):
                 or not stat.S_ISDIR(current.st_mode)
                 or (current.st_dev, current.st_ino) != (opened.st_dev, opened.st_ino)
             ):
+                if on_change is not None:
+                    on_change(descriptors[-1])
                 raise ValueError(f"evidence zone changed during operation: {relative}")
     finally:
         for descriptor in reversed(descriptors):
@@ -213,7 +208,11 @@ def _read_regular_bytes_at(directory_fd: int, name: str, label: str) -> tuple[by
     """Read one direct child through a retained directory descriptor."""
     if not name or Path(name).name != name:
         raise ValueError(f"{label} has an invalid filename")
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    flags = (
+        os.O_RDONLY
+        | getattr(os, "O_NONBLOCK", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+    )
     try:
         descriptor = os.open(name, flags, dir_fd=directory_fd)
     except FileNotFoundError:
@@ -234,7 +233,44 @@ def _read_regular_bytes_at(directory_fd: int, name: str, label: str) -> tuple[by
             if not chunk:
                 break
             chunks.append(chunk)
-        return b"".join(chunks), metadata
+        final_descriptor = os.fstat(descriptor)
+        try:
+            final_name = os.stat(
+                name, dir_fd=directory_fd, follow_symlinks=False
+            )
+        except OSError as exc:
+            raise ValueError(f"{label} changed during read") from exc
+        expected = (
+            metadata.st_dev,
+            metadata.st_ino,
+            metadata.st_size,
+            metadata.st_mtime_ns,
+            metadata.st_ctime_ns,
+            metadata.st_nlink,
+        )
+        if (
+            (
+                final_descriptor.st_dev,
+                final_descriptor.st_ino,
+                final_descriptor.st_size,
+                final_descriptor.st_mtime_ns,
+                final_descriptor.st_ctime_ns,
+                final_descriptor.st_nlink,
+            )
+            != expected
+            or (
+                final_name.st_dev,
+                final_name.st_ino,
+                final_name.st_size,
+                final_name.st_mtime_ns,
+                final_name.st_ctime_ns,
+                final_name.st_nlink,
+            )
+            != expected
+            or not stat.S_ISREG(final_name.st_mode)
+        ):
+            raise ValueError(f"{label} changed during read")
+        return b"".join(chunks), final_descriptor
     finally:
         os.close(descriptor)
 
@@ -258,8 +294,123 @@ def _control_snapshot_digest(control_bytes: dict[str, bytes]) -> str:
     return digest.hexdigest()
 
 
-def _write_bytes_at(directory_fd: int, name: str, encoded: bytes, label: str) -> None:
-    """Atomically replace one direct child without reopening its parent path."""
+def _capture_artifact_snapshot(
+    dep_fd: int, manifest: dict
+) -> dict[str, tuple[int, int, int, int, str]]:
+    snapshot: dict[str, tuple[int, int, int, int, str]] = {}
+    for kind, zone in (("raw", "private/raw"), ("shareable", "shareable/artifacts")):
+        rows = manifest.get(kind, [])
+        if not isinstance(rows, list):
+            raise ValueError(f"manifest {kind} must be an array")
+        with _opened_zone_at(dep_fd, Path(zone), create=False) as zone_fd:
+            for row in rows:
+                if not isinstance(row, dict):
+                    raise ValueError(f"manifest {kind} row is invalid")
+                path = row.get("path")
+                name = Path(str(path)).name
+                raw, metadata = _read_regular_bytes_at(
+                    zone_fd, name, f"verified artifact {path}"
+                )
+                digest = hashlib.sha256(raw).hexdigest()
+                if len(raw) != row.get("size") or digest != row.get("sha256"):
+                    raise ValueError(f"verified artifact changed: {path}")
+                snapshot[str(path)] = (
+                    metadata.st_dev,
+                    metadata.st_ino,
+                    metadata.st_size,
+                    metadata.st_mtime_ns,
+                    digest,
+                )
+    return snapshot
+
+
+def _require_artifact_snapshot(
+    dep_fd: int, snapshot: dict[str, tuple[int, int, int, int, str]]
+) -> None:
+    grouped: dict[str, list[tuple[str, tuple[int, int, int, int, str]]]] = {
+        "private/raw": [],
+        "shareable/artifacts": [],
+    }
+    for path, identity in snapshot.items():
+        zone = str(PurePosixPath(path).parent)
+        if zone not in grouped:
+            raise ValueError(f"verified artifact path is unsafe: {path}")
+        grouped[zone].append((path, identity))
+    for zone, rows in grouped.items():
+        with _opened_zone_at(dep_fd, Path(zone), create=False) as zone_fd:
+            for path, identity in rows:
+                try:
+                    raw, metadata = _read_regular_bytes_at(
+                        zone_fd,
+                        PurePosixPath(path).name,
+                        f"verified artifact {path}",
+                    )
+                except (OSError, ValueError) as exc:
+                    raise ValueError(f"verified artifact changed: {path}") from exc
+                observed = (
+                    metadata.st_dev,
+                    metadata.st_ino,
+                    metadata.st_size,
+                    metadata.st_mtime_ns,
+                    hashlib.sha256(raw).hexdigest(),
+                )
+                if observed != identity:
+                    raise ValueError(f"verified artifact changed: {path}")
+
+
+def _remove_owned_at(
+    directory_fd: int,
+    name: str,
+    expected_identity: tuple[int, int],
+    label: str,
+) -> bool:
+    """Remove only the exact transaction-owned generation at a directory entry."""
+    pending = f".{name}.cleanup-pending-{uuid.uuid4().hex}"
+    try:
+        os.rename(
+            name,
+            pending,
+            src_dir_fd=directory_fd,
+            dst_dir_fd=directory_fd,
+        )
+    except FileNotFoundError:
+        return False
+    metadata = os.stat(pending, dir_fd=directory_fd, follow_symlinks=False)
+    if (
+        stat.S_ISREG(metadata.st_mode)
+        and (metadata.st_dev, metadata.st_ino) == expected_identity
+    ):
+        os.unlink(pending, dir_fd=directory_fd)
+        os.fsync(directory_fd)
+        return True
+    try:
+        os.link(
+            pending,
+            name,
+            src_dir_fd=directory_fd,
+            dst_dir_fd=directory_fd,
+            follow_symlinks=False,
+        )
+    except FileExistsError:
+        raise ValueError(
+            f"{label} changed during cleanup; preserved pending generation {pending}"
+        )
+    else:
+        os.unlink(pending, dir_fd=directory_fd)
+        os.fsync(directory_fd)
+    return False
+
+
+def _write_bytes_at(
+    directory_fd: int,
+    name: str,
+    encoded: bytes,
+    label: str,
+    published_identity: list[tuple[int, int]] | None = None,
+    expected_snapshot: tuple[tuple[int, int, int, int], str] | None = None,
+    must_not_exist: bool = False,
+) -> None:
+    """Publish one direct child without clobbering a changed expected generation."""
     if not name or Path(name).name != name:
         raise ValueError(f"{label} has an invalid filename")
     try:
@@ -274,8 +425,30 @@ def _write_bytes_at(directory_fd: int, name: str, encoded: bytes, label: str) ->
         raise ValueError(
             f"{label} must be a single-linked regular file: {name}"
         )
+    if must_not_exist and current is not None:
+        raise FileExistsError(f"{label} already exists: {name}")
+    if expected_snapshot is not None:
+        if current is None:
+            raise ValueError(f"{label} changed before publication: {name}")
+        observed_raw, observed_metadata = _read_regular_bytes_at(
+            directory_fd, name, label
+        )
+        observed_identity = (
+            observed_metadata.st_dev,
+            observed_metadata.st_ino,
+            observed_metadata.st_size,
+            observed_metadata.st_mtime_ns,
+        )
+        if (
+            observed_identity != expected_snapshot[0]
+            or hashlib.sha256(observed_raw).hexdigest() != expected_snapshot[1]
+        ):
+            raise ValueError(f"{label} changed before publication: {name}")
     temporary = f".{name}.tmp-{uuid.uuid4().hex}"
+    claimed = f".{name}.control-pending-{uuid.uuid4().hex}"
     descriptor = -1
+    claimed_exists = False
+    preserve_claim = False
     try:
         descriptor = os.open(
             temporary,
@@ -290,26 +463,128 @@ def _write_bytes_at(directory_fd: int, name: str, encoded: bytes, label: str) ->
         os.fsync(descriptor)
         os.close(descriptor)
         descriptor = -1
-        os.replace(
-            temporary,
-            name,
-            src_dir_fd=directory_fd,
-            dst_dir_fd=directory_fd,
-        )
+        if expected_snapshot is not None:
+            os.rename(
+                name,
+                claimed,
+                src_dir_fd=directory_fd,
+                dst_dir_fd=directory_fd,
+            )
+            claimed_exists = True
+            claimed_raw, claimed_metadata = _read_regular_bytes_at(
+                directory_fd, claimed, label
+            )
+            claimed_identity = (
+                claimed_metadata.st_dev,
+                claimed_metadata.st_ino,
+                claimed_metadata.st_size,
+                claimed_metadata.st_mtime_ns,
+            )
+            if (
+                claimed_identity != expected_snapshot[0]
+                or hashlib.sha256(claimed_raw).hexdigest() != expected_snapshot[1]
+            ):
+                try:
+                    os.link(
+                        claimed,
+                        name,
+                        src_dir_fd=directory_fd,
+                        dst_dir_fd=directory_fd,
+                        follow_symlinks=False,
+                    )
+                except FileExistsError:
+                    preserve_claim = True
+                else:
+                    os.unlink(claimed, dir_fd=directory_fd)
+                    claimed_exists = False
+                raise ValueError(f"{label} changed before publication: {name}")
+            try:
+                os.link(
+                    temporary,
+                    name,
+                    src_dir_fd=directory_fd,
+                    dst_dir_fd=directory_fd,
+                    follow_symlinks=False,
+                )
+            except FileExistsError as exc:
+                os.unlink(claimed, dir_fd=directory_fd)
+                claimed_exists = False
+                raise ValueError(
+                    f"{label} received a later writer before publication: {name}"
+                ) from exc
+            os.unlink(temporary, dir_fd=directory_fd)
+            temporary = ""
+            os.unlink(claimed, dir_fd=directory_fd)
+            claimed_exists = False
+        elif must_not_exist:
+            try:
+                os.link(
+                    temporary,
+                    name,
+                    src_dir_fd=directory_fd,
+                    dst_dir_fd=directory_fd,
+                    follow_symlinks=False,
+                )
+            except FileExistsError as exc:
+                raise FileExistsError(f"{label} already exists: {name}") from exc
+            os.unlink(temporary, dir_fd=directory_fd)
+            temporary = ""
+        else:
+            os.replace(
+                temporary,
+                name,
+                src_dir_fd=directory_fd,
+                dst_dir_fd=directory_fd,
+            )
+            temporary = ""
+        published = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+        if published_identity is not None:
+            published_identity.append((published.st_dev, published.st_ino))
         os.fsync(directory_fd)
     finally:
         if descriptor >= 0:
             os.close(descriptor)
-        try:
-            os.unlink(temporary, dir_fd=directory_fd)
-        except FileNotFoundError:
-            pass
+        if temporary:
+            try:
+                os.unlink(temporary, dir_fd=directory_fd)
+            except FileNotFoundError:
+                pass
+        if claimed_exists and not preserve_claim:
+            try:
+                os.link(
+                    claimed,
+                    name,
+                    src_dir_fd=directory_fd,
+                    dst_dir_fd=directory_fd,
+                    follow_symlinks=False,
+                )
+            except FileExistsError:
+                pass
+            try:
+                os.unlink(claimed, dir_fd=directory_fd)
+            except FileNotFoundError:
+                pass
 
 
-def _save_at(directory_fd: int, name: str, data: dict) -> None:
+def _save_at(
+    directory_fd: int,
+    name: str,
+    data: dict,
+    published_identity: list[tuple[int, int]] | None = None,
+    expected_snapshot: tuple[tuple[int, int, int, int], str] | None = None,
+    must_not_exist: bool = False,
+) -> None:
     """Atomically replace one control document through its retained DEP fd."""
     encoded = (json.dumps(data, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
-    _write_bytes_at(directory_fd, name, encoded, "machine-readable destination")
+    _write_bytes_at(
+        directory_fd,
+        name,
+        encoded,
+        "machine-readable destination",
+        published_identity,
+        expected_snapshot,
+        must_not_exist,
+    )
 
 
 def _stage_attachment_at(output_fd: int, name: str, encoded: bytes) -> str:
@@ -344,7 +619,7 @@ def _stage_attachment_at(output_fd: int, name: str, encoded: bytes) -> str:
             written = os.write(descriptor, view)
             view = view[written:]
         os.fsync(descriptor)
-    except Exception:
+    except BaseException:
         try:
             os.unlink(temporary, dir_fd=output_fd)
         except FileNotFoundError:
@@ -362,11 +637,19 @@ def _publish_verified_attachment_at(
     name: str,
     encoded: bytes,
     control_identities: dict[str, tuple[int, int, int, int]],
+    control_snapshot_digest: str,
+    artifact_identities: dict[str, tuple[int, int, int, int, str]],
 ) -> None:
     """Stage, recheck controls, then publish without clobbering another writer."""
     temporary = _stage_attachment_at(output_fd, name, encoded)
+    staged = os.stat(temporary, dir_fd=output_fd, follow_symlinks=False)
+    staged_identity = (staged.st_dev, staged.st_ino)
+    published = False
     try:
-        _require_control_snapshot(dep_fd, control_identities)
+        _require_control_snapshot(
+            dep_fd, control_identities, control_snapshot_digest
+        )
+        _require_artifact_snapshot(dep_fd, artifact_identities)
         os.link(
             temporary,
             name,
@@ -374,9 +657,23 @@ def _publish_verified_attachment_at(
             dst_dir_fd=output_fd,
             follow_symlinks=False,
         )
+        published = True
+        _require_control_snapshot(
+            dep_fd, control_identities, control_snapshot_digest
+        )
+        _require_artifact_snapshot(dep_fd, artifact_identities)
         os.unlink(temporary, dir_fd=output_fd)
         temporary = ""
         os.fsync(output_fd)
+    except BaseException:
+        if published:
+            _remove_owned_at(
+                output_fd,
+                name,
+                staged_identity,
+                "attachment output",
+            )
+        raise
     finally:
         if temporary:
             try:
@@ -523,7 +820,19 @@ def collect(dep: Path, collector: str, input_path: Path, label: str | None = Non
         raise ValueError(f"unsupported collector: {collector}")
     raw = _read_regular_bytes(input_path, "collector input")
     with _opened_dep_root(dep) as dep_fd:
-        manifest = _load_at(dep_fd, "manifest.json")
+        manifest_raw, manifest_metadata = _read_regular_bytes_at(
+            dep_fd, "manifest.json", "machine-readable document manifest.json"
+        )
+        manifest = json.loads(manifest_raw.decode("utf-8"))
+        manifest_snapshot = (
+            (
+                manifest_metadata.st_dev,
+                manifest_metadata.st_ino,
+                manifest_metadata.st_size,
+                manifest_metadata.st_mtime_ns,
+            ),
+            hashlib.sha256(manifest_raw).hexdigest(),
+        )
         ordinal = len(manifest.get("raw", [])) + 1
         source_suffix = input_path.suffix.lower()
         default_label = f"artifact-{ordinal}{source_suffix}"
@@ -540,22 +849,54 @@ def collect(dep: Path, collector: str, input_path: Path, label: str | None = Non
             safe_label += source_suffix
         filename = f"{collector}--{safe_label}"
         raw_dir = dep.resolve(strict=True) / "private" / "raw"
-        with _opened_zone_at(dep_fd, Path("private/raw"), create=False) as raw_dir_fd:
-            os.fchmod(raw_dir_fd, 0o700)
-            destination = _bounded_filename(raw_dir, filename)
-            flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
-            try:
-                descriptor = os.open(filename, flags, 0o600, dir_fd=raw_dir_fd)
-            except FileExistsError as exc:
-                raise FileExistsError(f"Evidence artifact already exists: {filename}") from exc
-            try:
-                view = memoryview(raw)
-                while view:
-                    written = os.write(descriptor, view)
-                    view = view[written:]
-                os.fsync(descriptor)
-            finally:
-                os.close(descriptor)
+        written_identity: tuple[int, int] | None = None
+        cleanup_fd: int | None = None
+
+        def cleanup_owned_raw(directory_fd: int) -> None:
+            if written_identity is None:
+                return
+            _remove_owned_at(
+                directory_fd,
+                filename,
+                written_identity,
+                "collector raw artifact",
+            )
+
+        try:
+            with _opened_zone_at(
+                dep_fd,
+                Path("private/raw"),
+                create=False,
+                on_change=cleanup_owned_raw,
+            ) as raw_dir_fd:
+                cleanup_fd = os.dup(raw_dir_fd)
+                os.fchmod(raw_dir_fd, 0o700)
+                destination = _bounded_filename(raw_dir, filename)
+                flags = (
+                    os.O_WRONLY
+                    | os.O_CREAT
+                    | os.O_EXCL
+                    | getattr(os, "O_NOFOLLOW", 0)
+                )
+                try:
+                    descriptor = os.open(filename, flags, 0o600, dir_fd=raw_dir_fd)
+                except FileExistsError as exc:
+                    raise FileExistsError(
+                        f"Evidence artifact already exists: {filename}"
+                    ) from exc
+                try:
+                    view = memoryview(raw)
+                    while view:
+                        written = os.write(descriptor, view)
+                        view = view[written:]
+                    os.fsync(descriptor)
+                    written_metadata = os.fstat(descriptor)
+                    written_identity = (
+                        written_metadata.st_dev,
+                        written_metadata.st_ino,
+                    )
+                finally:
+                    os.close(descriptor)
             digest = hashlib.sha256(raw).hexdigest()
             manifest["raw"].append({
                 "collector": collector,
@@ -567,13 +908,58 @@ def collect(dep: Path, collector: str, input_path: Path, label: str | None = Non
                 "collected_at": utc_now(),
                 "shareable": False,
             })
-            _save_at(dep_fd, "manifest.json", manifest)
+            manifest_publication: list[tuple[int, int]] = []
+            try:
+                _save_at(
+                    dep_fd,
+                    "manifest.json",
+                    manifest,
+                    manifest_publication,
+                    manifest_snapshot,
+                )
+            except BaseException:
+                if manifest_publication:
+                    return destination
+                if cleanup_fd is not None:
+                    cleanup_owned_raw(cleanup_fd)
+                raise
+        except BaseException:
+            if cleanup_fd is not None:
+                cleanup_owned_raw(cleanup_fd)
+            raise
+        finally:
+            if cleanup_fd is not None:
+                os.close(cleanup_fd)
         return destination
 
 
 def redact(dep: Path) -> dict:
     with _opened_dep_root(dep) as dep_fd:
-        manifest = _load_at(dep_fd, "manifest.json")
+        manifest_before, manifest_metadata = _read_regular_bytes_at(
+            dep_fd, "manifest.json", "machine-readable document manifest.json"
+        )
+        try:
+            _read_regular_bytes_at(
+                dep_fd,
+                "redaction-report.json",
+                "machine-readable document redaction-report.json",
+            )
+        except FileNotFoundError:
+            pass
+        else:
+            raise FileExistsError(
+                "redaction transaction requires no existing redaction report"
+            )
+        manifest = json.loads(manifest_before.decode("utf-8"))
+        manifest_snapshot = (
+            (
+                manifest_metadata.st_dev,
+                manifest_metadata.st_ino,
+                manifest_metadata.st_size,
+                manifest_metadata.st_mtime_ns,
+            ),
+            hashlib.sha256(manifest_before).hexdigest(),
+        )
         raw_rows = manifest.get("raw", [])
         if not isinstance(raw_rows, list):
             raise ValueError("Evidence manifest raw must be an array")
@@ -587,67 +973,189 @@ def redact(dep: Path) -> dict:
         dep_root = dep.resolve(strict=True)
         raw_dir = dep_root / "private" / "raw"
         shareable = dep_root / "shareable" / "artifacts"
-        with _opened_zone_at(dep_fd, Path("private/raw"), create=False) as raw_dir_fd:
+        written_outputs: dict[str, tuple[int, int]] = {}
+        cleanup_fd: int | None = None
+
+        def cleanup_owned_outputs(directory_fd: int) -> None:
+            for name, identity in tuple(written_outputs.items()):
+                _remove_owned_at(
+                    directory_fd,
+                    name,
+                    identity,
+                    "redaction artifact",
+                )
+
+        try:
             with _opened_zone_at(
-                dep_fd, Path("shareable/artifacts"), create=False
-            ) as shareable_fd:
-                names = sorted(os.listdir(raw_dir_fd))
-                files = [raw_dir / name for name in names]
-                report = redact_files(
-                files,
-                shareable,
-                metadata_by_name=raw_by_name,
-                source_dir_fd=raw_dir_fd,
-                output_dir_fd=shareable_fd,
-                )
-                report["dep_id"] = _load_at(dep_fd, "summary.yaml")["dep_id"]
-                report["generated_at"] = utc_now()
-                observed_raw = {
-                    row["source"]: (row["source_sha256"], row["source_size"])
-                    for row in report["files"]
-                }
-                observed_raw.update(
-                    {
-                        row["file"]: (row["sha256"], row["size"])
-                        for row in report["blocked"]
+                dep_fd, Path("private/raw"), create=False
+            ) as raw_dir_fd:
+                with _opened_zone_at(
+                    dep_fd,
+                    Path("shareable/artifacts"),
+                    create=False,
+                    on_change=cleanup_owned_outputs,
+                ) as shareable_fd:
+                    cleanup_fd = os.dup(shareable_fd)
+                    names = sorted(os.listdir(raw_dir_fd))
+                    files = [raw_dir / name for name in names]
+                    existing_outputs = set(os.listdir(shareable_fd))
+                    if existing_outputs:
+                        for existing_name in existing_outputs:
+                            existing_metadata = os.stat(
+                                existing_name,
+                                dir_fd=shareable_fd,
+                                follow_symlinks=False,
+                            )
+                            if stat.S_ISLNK(existing_metadata.st_mode):
+                                raise ValueError(
+                                    "redaction destination must not be a symlink: "
+                                    + existing_name
+                                )
+                        raise FileExistsError(
+                            "redaction transaction requires an empty shareable artifact zone"
+                        )
+                    report = redact_files(
+                        files,
+                        shareable,
+                        metadata_by_name=raw_by_name,
+                        source_dir_fd=raw_dir_fd,
+                        output_dir_fd=shareable_fd,
+                        published_outputs=written_outputs,
+                    )
+                    report["dep_id"] = _load_at(dep_fd, "summary.yaml")["dep_id"]
+                    report["generated_at"] = utc_now()
+                    observed_raw = {
+                        row["source"]: (row["source_sha256"], row["source_size"])
+                        for row in report["files"]
                     }
+                    observed_raw.update(
+                        {
+                            row["file"]: (row["sha256"], row["size"])
+                            for row in report["blocked"]
+                        }
+                    )
+                    for name, row in raw_by_name.items():
+                        observed = observed_raw.get(name)
+                        if observed is None:
+                            raise ValueError(
+                                f"raw artifact is not covered by redaction: {name}"
+                            )
+                        row["sha256"], row["size"] = observed
+                    manifest["shareable"] = [
+                        {
+                            "path": f"shareable/artifacts/{row['output']}",
+                            "sha256": row["output_sha256"],
+                            "size": row["output_size"],
+                            "shareable": True,
+                        }
+                        for row in report["files"]
+                    ]
+
+            report_publication: list[tuple[int, int]] = []
+            try:
+                _save_at(
+                    dep_fd,
+                    "redaction-report.json",
+                    report,
+                    report_publication,
+                    must_not_exist=True,
                 )
-                for name, row in raw_by_name.items():
-                    observed = observed_raw.get(name)
-                    if observed is None:
-                        raise ValueError(f"raw artifact is not covered by redaction: {name}")
-                    row["sha256"], row["size"] = observed
-                manifest["shareable"] = [
-                    {
-                        "path": f"shareable/artifacts/{row['output']}",
-                        "sha256": row["output_sha256"],
-                        "size": row["output_size"],
-                        "shareable": True,
-                    }
-                    for row in report["files"]
-                ]
-                _save_at(dep_fd, "redaction-report.json", report)
-                _save_at(dep_fd, "manifest.json", manifest)
-                return report
+            except BaseException:
+                if not report_publication:
+                    raise
+
+            expected_report = (
+                json.dumps(report, ensure_ascii=False, indent=2) + "\n"
+            ).encode("utf-8")
+            observed_report, observed_report_metadata = _read_regular_bytes_at(
+                dep_fd,
+                "redaction-report.json",
+                "machine-readable document redaction-report.json",
+            )
+            if (
+                not report_publication
+                or (observed_report_metadata.st_dev, observed_report_metadata.st_ino)
+                != report_publication[-1]
+                or observed_report != expected_report
+            ):
+                raise ValueError("redaction report changed before manifest publication")
+
+            manifest_publication: list[tuple[int, int]] = []
+            try:
+                _save_at(
+                    dep_fd,
+                    "manifest.json",
+                    manifest,
+                    manifest_publication,
+                    manifest_snapshot,
+                )
+            except BaseException:
+                if manifest_publication:
+                    return report
+                _remove_owned_at(
+                    dep_fd,
+                    "redaction-report.json",
+                    report_publication[-1],
+                    "redaction report",
+                )
+                raise
+            return report
+        except BaseException:
+            if cleanup_fd is not None:
+                cleanup_owned_outputs(cleanup_fd)
+            raise
+        finally:
+            if cleanup_fd is not None:
+                os.close(cleanup_fd)
 
 
 def transition(dep: Path, phase: str) -> dict:
     if phase not in PHASES:
         raise ValueError(f"phase must be one of: {', '.join(PHASES)}")
     with _opened_dep_root(dep) as dep_fd:
-        summary = _load_at(dep_fd, "summary.yaml")
+        summary_raw, summary_metadata = _read_regular_bytes_at(
+            dep_fd, "summary.yaml", "machine-readable document summary.yaml"
+        )
+        summary = json.loads(summary_raw.decode("utf-8"))
         current = summary["workflow"]["phase"]
         if PHASES.index(phase) != PHASES.index(current) + 1:
             raise ValueError(f"transition must advance exactly one phase: {current} -> {phase}")
-        previous = json.loads(json.dumps(summary))
         summary["workflow"]["phase"] = phase
         summary["workflow"]["history"].append({"phase": phase, "at": utc_now()})
         summary["updated_at"] = utc_now()
-        _save_at(dep_fd, "summary.yaml", summary)
-        errors = verify(dep, strict=False)
+        encoded = (
+            json.dumps(summary, ensure_ascii=False, indent=2) + "\n"
+        ).encode("utf-8")
+        errors, _, _, _, _ = _verify_open(
+            dep,
+            dep_fd,
+            strict=False,
+            portable=False,
+            control_overrides={"summary.yaml": encoded},
+        )
         if errors:
-            _save_at(dep_fd, "summary.yaml", previous)
             raise ValueError(f"cannot enter {phase}: " + "; ".join(errors))
+        published: list[tuple[int, int]] = []
+        try:
+            _write_bytes_at(
+                dep_fd,
+                "summary.yaml",
+                encoded,
+                "summary transition",
+                published,
+                (
+                    (
+                        summary_metadata.st_dev,
+                        summary_metadata.st_ino,
+                        summary_metadata.st_size,
+                        summary_metadata.st_mtime_ns,
+                    ),
+                    hashlib.sha256(summary_raw).hexdigest(),
+                ),
+            )
+        except BaseException:
+            if not published:
+                raise
         return summary
 
 
@@ -951,7 +1459,11 @@ def _verify_redaction_associations(
 
 
 def _verify_open(
-    dep: Path, dep_fd: int, strict: bool, portable: bool
+    dep: Path,
+    dep_fd: int,
+    strict: bool,
+    portable: bool,
+    control_overrides: dict[str, bytes] | None = None,
 ) -> tuple[
     list[str],
     dict | None,
@@ -963,12 +1475,20 @@ def _verify_open(
     errors: list[str] = []
     control_bytes: dict[str, bytes] = {}
     control_identities: dict[str, tuple[int, int, int, int]] = {}
+    for name in os.listdir(dep_fd):
+        if (
+            name.startswith(".attach-") and ".pending-" in name
+        ) or name.startswith(".redact-pending-") or any(
+            marker in name
+            for marker in (".control-pending-", ".cleanup-pending-")
+        ):
+            errors.append(f"pending Evidence transaction residue: {name}")
     if portable and not strict:
         errors.append("portable verification requires strict mode")
     for name in ("summary.yaml", "manifest.json"):
         try:
             document, metadata = _read_regular_bytes_at(dep_fd, name, name)
-            control_bytes[name] = document
+            control_bytes[name] = (control_overrides or {}).get(name, document)
             control_identities[name] = (
                 metadata.st_dev,
                 metadata.st_ino,
@@ -1097,13 +1617,18 @@ def _verify_open(
 
 
 def _require_control_snapshot(
-    dep_fd: int, identities: dict[str, tuple[int, int, int, int]]
+    dep_fd: int,
+    identities: dict[str, tuple[int, int, int, int]],
+    expected_digest: str,
 ) -> None:
-    """Fail closed if a verified DEP control file was replaced before use."""
+    """Fail closed if verified control identity or exact bytes changed before use."""
+    control_bytes: dict[str, bytes] = {}
     for name in ("summary.yaml", "manifest.json"):
         try:
-            metadata = os.stat(name, dir_fd=dep_fd, follow_symlinks=False)
-        except OSError as exc:
+            raw, metadata = _read_regular_bytes_at(
+                dep_fd, name, f"verified control document {name}"
+            )
+        except (OSError, ValueError) as exc:
             raise ValueError(f"verified control document changed: {name}") from exc
         observed = (
             metadata.st_dev,
@@ -1113,6 +1638,9 @@ def _require_control_snapshot(
         )
         if not stat.S_ISREG(metadata.st_mode) or observed != identities.get(name):
             raise ValueError(f"verified control document changed: {name}")
+        control_bytes[name] = raw
+    if _control_snapshot_digest(control_bytes) != expected_digest:
+        raise ValueError("verified control document bytes changed")
 
 
 def verify(dep: Path, strict: bool = False, portable: bool = False) -> list[str]:
@@ -1135,6 +1663,7 @@ def attach(dep: Path, target: str, output: Path | None = None) -> Path:
             raise ValueError("DEP is not attachable: " + "; ".join(errors))
         if summary is None or manifest is None or snapshot_digest is None:
             raise ValueError("DEP verification did not return a control snapshot")
+        artifact_identities = _capture_artifact_snapshot(dep_fd, manifest)
         lines = [
             f"Evidence: {summary['dep_id']}",
             f"Issue: {summary['issue']}",
@@ -1153,11 +1682,23 @@ def attach(dep: Path, target: str, output: Path | None = None) -> Path:
         if output is None:
             name = f"attach-{target}-{snapshot_digest[:16]}.md"
             _publish_verified_attachment_at(
-                dep_fd, dep_fd, name, encoded, identities
+                dep_fd,
+                dep_fd,
+                name,
+                encoded,
+                identities,
+                snapshot_digest,
+                artifact_identities,
             )
             return dep / name
         with _opened_directory_path(output.parent, create=False) as (_, output_fd):
             _publish_verified_attachment_at(
-                dep_fd, output_fd, output.name, encoded, identities
+                dep_fd,
+                output_fd,
+                output.name,
+                encoded,
+                identities,
+                snapshot_digest,
+                artifact_identities,
             )
         return output

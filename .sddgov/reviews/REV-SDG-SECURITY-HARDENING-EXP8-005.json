@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "algorithm": "ed25519",
+  "review": {
+    "review_id": "REV-SDG-SECURITY-HARDENING-EXP8-005",
+    "reviewer_id": "codex-independent-reviewer-pr10",
+    "builder_id": "codex-builder",
+    "change_digest": "767d428ac0e572d75cc73b26363937b47186d73c9c862edbc62dc924bac102fd",
+    "gate_metadata_digest": "71a2abcd9488fcc57e4aa5beffc42c7769ca1ed1f6297349fbfac963fb9ac233",
+    "verdict": "approved",
+    "issued_at": "2026-08-15T18:29:34Z",
+    "expires_at": "2026-08-15T19:29:34Z",
+    "nonce": "w8MD_elIxfg8HcIJ3riddr6G"
+  },
+  "signature": "bCcde3RuLFMrETsfvGQnyIMtAgmwuHhiqhIrCf6l4+eXW++LU9FVVqQAtBtTxNs5tdJopwkN8M2Koqcx8icfAA=="
+}

@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-SDG-SECURITY-HARDENING-EXP8-R7-ROLLBACK-008",
+  "issue": "PR-12-ROLLBACK-DRILL",
+  "sdd_references": [
+    "work-packages/WP-SDG-SECURITY-HARDENING-EXP8-003.md"
+  ],
+  "risk_level": "L1",
+  "created_at": "2026-08-16T03:26:23Z",
+  "updated_at": "2026-08-16T03:41:33Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-16T03:26:23Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-16T03:29:20Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-16T03:29:20Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-16T03:41:33Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-16T03:41:33Z"
+      }
+    ]
+  },
+  "expected_behavior": "The selected immutable rollback commit applies without conflict at the exact reviewed Head, and Merge verification proves this without executing candidate shell text.",
+  "actual_behavior": "The selected d7e16f2 commit passed parser and ancestry checks but a real Git revert drill conflicted with later Evidence edits.",
+  "environment": {
+    "commit": "77a68dc32e1e14022829cff4a0fcf966ed9be3c4",
+    "branch": "fix/security-hardening-exp8",
+    "runtime": "macOS, Git 2.50.1, fresh Python 3.11 independent review"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}

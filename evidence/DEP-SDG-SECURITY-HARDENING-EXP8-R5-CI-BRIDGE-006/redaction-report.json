@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "terminal--hosted-verifier-red.txt",
+      "output": "terminal--hosted-verifier-red.txt",
+      "source_sha256": "4750a3f570eb5fd9c98a1e616fd03e923e521239ff383032d343d37cf08bd1d9",
+      "source_size": 654,
+      "output_sha256": "ba51439865a906fec2deb139aaab7d1de3a74eaebf47e82825619d3437e956e2",
+      "output_size": 669,
+      "redactions": {
+        "phone": 1
+      }
+    }
+  ],
+  "blocked": [],
+  "totals": {
+    "phone": 1
+  },
+  "dep_id": "DEP-SDG-SECURITY-HARDENING-EXP8-R5-CI-BRIDGE-006",
+  "generated_at": "2026-08-16T01:22:16Z"
+}

@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-SDG-SECURITY-HARDENING-EXP8-R7-ROLLBACK-008",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--rollback-drill-red.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "96f2afa954733f82048c7b6f7f324ecedc872803dbd0975abcb8a9162fdfdca7",
+      "size": 563,
+      "collected_at": "2026-08-16T03:28:29Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--rollback-drill-red.txt",
+      "sha256": "96f2afa954733f82048c7b6f7f324ecedc872803dbd0975abcb8a9162fdfdca7",
+      "size": 563,
+      "shareable": true
+    }
+  ]
+}

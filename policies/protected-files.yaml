@@ -5,11 +5,20 @@ protected:
   - schemas/
   - policies/
   - tests/
+  - skill/
+  - adapters/
+  - collectors/
+  - redaction/
+  - templates/
   - redaction/rules.json
-  - .github/workflows/governance.yml
-  - src/sddgov/autonomy.py
-  - src/sddgov/merge_gate.py
-  - src/sddgov/cli.py
+  - .github/workflows/
+  - AGENTS.md
+  - .agents/
+  - .agentic-sdd-governance/
+  - .sddgov/ci-cost-guard.json
+  - src/sddgov/
+  - pyproject.toml
+  - requirements-governance.lock
   - .sddgov/trusted-approvers.json
   - .sddgov/trusted-reviewers.json
 rules:

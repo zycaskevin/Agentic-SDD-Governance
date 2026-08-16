@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-SDG-SECURITY-HARDENING-EXP8-R2-002",
+  "issue": "11",
+  "sdd_references": [
+    "HARD-GATES-V1.2"
+  ],
+  "risk_level": "L1",
+  "created_at": "2026-08-15T17:13:34Z",
+  "updated_at": "2026-08-15T17:41:27Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-15T17:13:34Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-15T17:41:26Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-15T17:41:26Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-15T17:41:26Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-15T17:41:27Z"
+      }
+    ]
+  },
+  "expected_behavior": "A low-risk request cannot encode concrete authority, CI guards cannot be satisfied by semantic bypasses or linked files, and Evidence publication preserves exact verified generations plus later writers.",
+  "actual_behavior": "Fresh independent review of b323b83 reproduced one P0 authority-disguise bypass and seven P1 CI, filesystem, redaction, transaction, attachment, rollback, and protected-inventory gaps despite the initial Green matrix.",
+  "environment": {
+    "commit": "b323b832d56a35138172e7f51b76abcbda1d7fe7",
+    "branch": "fix/security-hardening-exp8",
+    "runtime": "macOS; Python 3.14.3; fresh independent review plus local hostile regression suite"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}
