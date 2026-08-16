@@ -6,7 +6,10 @@
   "action_classifier": {
     "unknown_category_state": "BLOCKED",
     "dangerous_downgrade_state": "BLOCKED",
-    "sensitive_effects_require_l3": true
+    "sensitive_effects_require_l3": true,
+    "malformed_request_state": "BLOCKED",
+    "category_risk_must_match_exactly": true,
+    "uncertainty_can_emit_action_required": false
   },
   "approval_budget": {
     "L0": 0,
@@ -34,6 +37,8 @@
     "durable_classes": ["operational_action", "necessary_uat"],
     "pending_request_is_prompted_once": true,
     "resolution_requires_owner_signature": true,
+    "signed_terminal_resolution_reverified_on_reuse": true,
+    "only_expiry_is_an_unsigned_machine_transition": true,
     "terminal_states": ["completed", "cancelled", "expired"],
     "unrelated_work_continues": true
   },

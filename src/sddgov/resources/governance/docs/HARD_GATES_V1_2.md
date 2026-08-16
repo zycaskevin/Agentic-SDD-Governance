@@ -4,7 +4,7 @@ This module closes three trust gaps without adding human approval to routine L0/
 
 ## Fail-closed action classification
 
-`sddgov autonomy evaluate` accepts only canonical categories. Every known action request must include an explicit `effects` object, using `{}` when no sensitive effect applies; omission, `null`, unknown flags, and false-valued flags fail closed. Unknown categories return `BLOCKED` with `requires_response: false`; the Agent must classify the action instead of asking the owner to approve uncertainty.
+`sddgov autonomy evaluate` accepts only canonical categories. Every known action request must include an explicit `effects` object, using `{}` when no sensitive effect applies; omission, `null`, unknown flags, false-valued flags, malformed Decision Packages, and category/risk mismatch fail closed as `BLOCKED` with exit `1`. Exit `2` is reserved for one completely validated `ACTION REQUIRED`. Unknown categories return `BLOCKED` with `requires_response: false`; `uncertainty` never directly prompts the owner and must instead be investigated or reclassified as a genuine allowed escalation.
 
 Production data deletion, irreversible migration, Secret change, permission-boundary change, real payment, and high-privilege Production operations always require L3. Routine categories may also declare sensitive effects. Any Production, destructive, irreversible, Secret, permission-boundary, payment, or high-privilege effect prevents an L0/L1 downgrade.
 

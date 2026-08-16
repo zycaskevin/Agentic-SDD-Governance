@@ -34,7 +34,7 @@ Before stopping, the Agent evaluates in this order:
 4. Only one Work Package is blocked: record the blocker and continue unrelated work.
 5. It is an unresolved L2 product decision, concrete L3 operation, Operational Action, or Necessary UAT: emit a strict `ACTION REQUIRED` Decision Package.
 
-Sub-agents route uncertainty to the Main Agent. The Main Agent performs the lookup, evidence gathering and classification; a sub-agent does not ask the product owner to make routine engineering choices.
+Sub-agents route uncertainty to the Main Agent. The Main Agent performs the lookup, evidence gathering and classification; a sub-agent does not ask the product owner to make routine engineering choices. `uncertainty` itself can never emit `ACTION REQUIRED`, regardless of a caller-supplied risk label or Decision Package. It must be investigated and then either resolved or reclassified as one genuine L2/L3/Operational/UAT category.
 
 ## Decision memory and approval budget
 
@@ -48,7 +48,7 @@ Sub-agents route uncertainty to the Main Agent. The Main Agent performs the look
 
 An old L3 decision does not authorize a new operation. Fresh approval must match the exact operation ID, remain unexpired, and be unused.
 
-Operational Action and Necessary UAT requests are durable state, not chat prompts. The first exact owner/scope/request generation may emit one `ACTION REQUIRED`; a repeat reuses the same pending record. Machine-verifiable UAT does not ask the owner. A separate-identity owner-signed resolution receipt is required to mark the record `completed` or `cancelled`, while TTL expiry is deterministic. Completion resumes that action; cancellation or expiry blocks that action without creating another prompt. Unrelated Work Packages continue in every pending case.
+Operational Action and Necessary UAT requests are durable state, not chat prompts. The first exact owner/scope/request generation may emit one `ACTION REQUIRED`; a repeat reuses the same pending record. Machine-verifiable UAT does not ask the owner. A separate-identity owner-signed resolution receipt is required to mark the record `completed` or `cancelled`, and its exact signature and identity binding are reverified on every reuse. TTL expiry alone is deterministic and unsigned. Completion resumes that action; cancellation or expiry blocks that action without creating another prompt. Unrelated Work Packages continue in every pending case.
 
 The v1.2 Hard Gates require an owner-signed Ed25519 receipt from a configured trusted public key. Caller-provided `approved_by` text is never authority. The first successful L3 evaluation consumes the exact receipt atomically; a second or concurrent consumer fails closed. See `HARD_GATES_V1_2.md`.
 
@@ -83,7 +83,7 @@ Every known action request explicitly supplies `effects`, using `{}` when none a
 
 A genuine escalation must contain exactly one bounded decision or operation and include Decision ID, risk, why human judgment is required, what the Agent already verified, options, recommendation, rationale, impact of no decision, and approval scope. Vague questions such as “要不要繼續？” or “可以嗎？” are invalid.
 
-Before emitting it, SDG binds the package to the outer request: category and risk, exact Decision or Action ID, exact scope, and the complete validated L3 operation payload. Unknown nested fields, a mismatched ID/scope/risk, or an incomplete L3 payload returns `BLOCKED` without asking the owner.
+Before emitting it, SDG binds the package to the outer request: category and risk, exact Decision or Action ID, exact scope, and the complete validated L3 operation payload. Unknown nested fields, malformed machine input, a mismatched ID/scope/risk, or an incomplete L3 payload returns `BLOCKED` with exit `1` without asking the owner. Exit `2` is reserved exclusively for a fully validated `ACTION REQUIRED` package.
 
 If an Operational Action or Necessary UAT blocks only one Work Package, the Decision Package is queued while the Agent continues unrelated work.
 

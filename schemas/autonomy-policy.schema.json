@@ -29,11 +29,14 @@
     "no_human_escalation_if_machine_verifiable": {"const": true},
     "action_classifier": {
       "type": "object",
-      "required": ["unknown_category_state", "dangerous_downgrade_state", "sensitive_effects_require_l3"],
+      "required": ["unknown_category_state", "dangerous_downgrade_state", "sensitive_effects_require_l3", "malformed_request_state", "category_risk_must_match_exactly", "uncertainty_can_emit_action_required"],
       "properties": {
         "unknown_category_state": {"const": "BLOCKED"},
         "dangerous_downgrade_state": {"const": "BLOCKED"},
-        "sensitive_effects_require_l3": {"const": true}
+        "sensitive_effects_require_l3": {"const": true},
+        "malformed_request_state": {"const": "BLOCKED"},
+        "category_risk_must_match_exactly": {"const": true},
+        "uncertainty_can_emit_action_required": {"const": false}
       },
       "additionalProperties": false
     },
@@ -81,11 +84,13 @@
     },
     "external_action_lifecycle": {
       "type": "object",
-      "required": ["durable_classes", "pending_request_is_prompted_once", "resolution_requires_owner_signature", "terminal_states", "unrelated_work_continues"],
+      "required": ["durable_classes", "pending_request_is_prompted_once", "resolution_requires_owner_signature", "signed_terminal_resolution_reverified_on_reuse", "only_expiry_is_an_unsigned_machine_transition", "terminal_states", "unrelated_work_continues"],
       "properties": {
         "durable_classes": {"const": ["operational_action", "necessary_uat"]},
         "pending_request_is_prompted_once": {"const": true},
         "resolution_requires_owner_signature": {"const": true},
+        "signed_terminal_resolution_reverified_on_reuse": {"const": true},
+        "only_expiry_is_an_unsigned_machine_transition": {"const": true},
         "terminal_states": {"const": ["completed", "cancelled", "expired"]},
         "unrelated_work_continues": {"const": true}
       },

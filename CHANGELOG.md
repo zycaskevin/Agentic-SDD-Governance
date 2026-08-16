@@ -4,6 +4,8 @@
 
 ### Security
 
+- Reserve classifier exit `2` for a fully validated `ACTION REQUIRED`; malformed packages and category/risk mismatch now fail closed as `BLOCKED`/exit `1`, and generic uncertainty can no longer be promoted into an owner prompt by a caller-supplied label.
+- Reverify owner signatures for both completed and cancelled Operational Action/Necessary UAT state on every reuse, treating only deterministic TTL expiry as an unsigned terminal transition; synchronize the installed Governance Root and manifest with these exact rules.
 - Make `sddgov autonomy evaluate` return distinct process exit codes for `CONTINUE`, `BLOCKED`, and `ACTION_REQUIRED`; bind every Decision Package risk, identity, scope, and L3 payload to the outer request before asking the owner.
 - Persist Necessary UAT as well as Operational Action, deduplicate the first prompt, continue unrelated Work Packages, and require a separate-identity owner-signed terminal resolution receipt for completion or cancellation.
 - Add a fail-closed first-consumer Merge bootstrap that takes protected paths only from the immutable trusted verifier package and Reviewer keys only from a Repo-external separate-identity store; Candidate policy and trust never authorize the first Governance PR.

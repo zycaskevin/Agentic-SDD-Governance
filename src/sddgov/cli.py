@@ -370,10 +370,19 @@ def run(args: argparse.Namespace) -> int:
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0 if result["verdict"] == "PASS" else 1
     if args.command == "autonomy":
-        request = json.loads(args.request.read_text(encoding="utf-8"))
-        if not isinstance(request, dict):
-            raise ValueError("autonomy request must be a JSON object")
-        result = evaluate_escalation(args.path, request)
+        try:
+            request = json.loads(args.request.read_text(encoding="utf-8"))
+            if not isinstance(request, dict):
+                raise ValueError("autonomy request must be a JSON object")
+            result = evaluate_escalation(args.path, request)
+        except (OSError, TypeError, ValueError) as exc:
+            result = {
+                "state": "BLOCKED",
+                "requires_response": False,
+                "reason": "autonomy_request_has_an_invalid_contract",
+                "detail": str(exc),
+                "next_action": "repair_the_machine_request_before_reclassification",
+            }
         print(json.dumps(result, ensure_ascii=False, indent=2))
         if result.get("state") == "CONTINUE":
             return 0

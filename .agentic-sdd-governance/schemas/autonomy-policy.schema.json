@@ -10,6 +10,9 @@
     "action_classifier",
     "approval_budget",
     "checkpoint",
+    "classifier_exit_codes",
+    "action_required_binding",
+    "external_action_lifecycle",
     "integrity",
     "trusted_verifier",
     "routine_external_review",
@@ -26,11 +29,14 @@
     "no_human_escalation_if_machine_verifiable": {"const": true},
     "action_classifier": {
       "type": "object",
-      "required": ["unknown_category_state", "dangerous_downgrade_state", "sensitive_effects_require_l3"],
+      "required": ["unknown_category_state", "dangerous_downgrade_state", "sensitive_effects_require_l3", "malformed_request_state", "category_risk_must_match_exactly", "uncertainty_can_emit_action_required"],
       "properties": {
         "unknown_category_state": {"const": "BLOCKED"},
         "dangerous_downgrade_state": {"const": "BLOCKED"},
-        "sensitive_effects_require_l3": {"const": true}
+        "sensitive_effects_require_l3": {"const": true},
+        "malformed_request_state": {"const": "BLOCKED"},
+        "category_risk_must_match_exactly": {"const": true},
+        "uncertainty_can_emit_action_required": {"const": false}
       },
       "additionalProperties": false
     },
@@ -52,6 +58,41 @@
       "properties": {
         "requires_response": {"const": false},
         "next_state": {"const": "CONTINUE"}
+      },
+      "additionalProperties": false
+    },
+    "classifier_exit_codes": {
+      "type": "object",
+      "required": ["CONTINUE", "BLOCKED", "ACTION_REQUIRED"],
+      "properties": {
+        "CONTINUE": {"const": 0},
+        "BLOCKED": {"const": 1},
+        "ACTION_REQUIRED": {"const": 2}
+      },
+      "additionalProperties": false
+    },
+    "action_required_binding": {
+      "type": "object",
+      "required": ["risk_matches_category", "identity_matches_outer_request", "scope_matches_outer_request", "l3_exact_payload_required_before_prompt"],
+      "properties": {
+        "risk_matches_category": {"const": true},
+        "identity_matches_outer_request": {"const": true},
+        "scope_matches_outer_request": {"const": true},
+        "l3_exact_payload_required_before_prompt": {"const": true}
+      },
+      "additionalProperties": false
+    },
+    "external_action_lifecycle": {
+      "type": "object",
+      "required": ["durable_classes", "pending_request_is_prompted_once", "resolution_requires_owner_signature", "signed_terminal_resolution_reverified_on_reuse", "only_expiry_is_an_unsigned_machine_transition", "terminal_states", "unrelated_work_continues"],
+      "properties": {
+        "durable_classes": {"const": ["operational_action", "necessary_uat"]},
+        "pending_request_is_prompted_once": {"const": true},
+        "resolution_requires_owner_signature": {"const": true},
+        "signed_terminal_resolution_reverified_on_reuse": {"const": true},
+        "only_expiry_is_an_unsigned_machine_transition": {"const": true},
+        "terminal_states": {"const": ["completed", "cancelled", "expired"]},
+        "unrelated_work_continues": {"const": true}
       },
       "additionalProperties": false
     },

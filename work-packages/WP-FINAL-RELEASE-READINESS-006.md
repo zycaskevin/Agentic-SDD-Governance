@@ -24,6 +24,10 @@
 5. A first-time consumer Base has no trusted protected-file policy or Reviewer store, so its first Governance PR cannot complete Merge verification.
 6. Three historical Proof DEPs fail the current portable strict association contract.
 7. A malformed CI exemption list raises an unstructured exception.
+8. Malformed or category/risk-mismatched Decision Packages can be reported with exit 2, indistinguishable from a genuine human decision.
+9. Generic `uncertainty` can still be caller-labeled L2/L3 and emit an owner prompt.
+10. Locally forged or tampered `cancelled` state is not signature-reverified on reuse.
+11. The Repository's installed Governance Root is stale and fails its own Doctor check.
 
 ## Executable Scope
 
@@ -35,6 +39,10 @@
 6. Upgrade the three legacy Proof DEPs to current raw/report/shareable associations and enforce portable strict verification for every tracked Proof DEP.
 7. Return a structured fail-closed CI result for invalid exemption entries.
 8. Align canonical and packaged Policy, Schema, Skill, templates, documentation, protected-file inventory, Roadmap, and Changelog.
+9. Reserve `ACTION_REQUIRED`/exit 2 for an exact valid escalation; malformed input and risk mismatch are `BLOCKED`/exit 1.
+10. Make `uncertainty` investigate/reclassify without ever directly prompting the owner.
+11. Reverify both completed and cancelled owner-signed terminal receipts on every reuse; only expiry is an unsigned machine transition.
+12. Regenerate the installed Governance Root and manifest from the exact candidate source.
 
 ## Acceptance Tests
 
@@ -48,6 +56,10 @@
 - A partially governed or malformed Base does not reuse first-consumer bootstrap.
 - Every tracked Proof DEP passes `evidence verify --strict --portable`.
 - Invalid CI exemption entries return structured `ok: false` without an exception.
+- Malformed package input, missing L3 payload, and either product risk mismatch direction return `BLOCKED` with CLI exit 1.
+- L2/L3 `uncertainty`, even with a caller-supplied Decision Package, never emits `ACTION_REQUIRED`.
+- Unsigned, tampered, wrong-owner, wrong-scope, or replayed cancellation state is untrusted on every reuse.
+- The candidate Repository's own `sddgov doctor .` passes and all canonical, packaged, and installed Governance copies are byte-identical.
 - Canonical and packaged Governance resources remain byte-identical.
 - Full tests, validate, CI Guard, Local Green, build, fresh install, Doctor, offline pilot, independent Review, and exact Merge Gate pass.
 

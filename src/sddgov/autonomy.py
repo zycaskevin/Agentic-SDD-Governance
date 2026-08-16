@@ -1100,6 +1100,20 @@ def _continue(reason: str, next_action: str = "continue") -> dict[str, Any]:
     }
 
 
+def _blocked(
+    reason: str, next_action: str, *, detail: str | None = None
+) -> dict[str, Any]:
+    result = {
+        "state": "BLOCKED",
+        "requires_response": False,
+        "reason": reason,
+        "next_action": next_action,
+    }
+    if detail is not None:
+        result["detail"] = detail
+    return result
+
+
 def _l0_l1_envelope_error(request: dict[str, Any]) -> str | None:
     """Return an error for a low-risk envelope that could encode an executable action.
 
@@ -1308,11 +1322,11 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
             "reason": category_envelope_error,
             "next_action": "rebuild_request_with_one_exact_category_schema",
         }
-    if category == "product_decision" and risk in {"L0", "L1"}:
+    if category == "product_decision" and risk != "L2":
         return {
             "state": "BLOCKED",
             "requires_response": False,
-            "reason": "product_decision_cannot_be_downgraded",
+            "reason": "product_decision_requires_exact_l2_risk",
             "required_risk_levels": ["L2"],
             "next_action": "reclassify_and_prepare_signed_l2_decision_package",
         }
@@ -1350,6 +1364,24 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
             ),
         }
         return result
+    if category == "uncertainty":
+        if request.get("machine_verifiable") is True:
+            return _continue(
+                "machine_verifiable_uncertainty_requires_investigation",
+                "verify_with_repo_decisions_tests_ci_or_tools",
+            )
+        return {
+            "state": (
+                "CONTINUE" if request.get("unrelated_work_exists") else "BLOCKED"
+            ),
+            "requires_response": False,
+            "reason": "uncertainty_must_be_investigated_not_escalated",
+            "next_action": (
+                "investigate_and_continue_unrelated_work"
+                if request.get("unrelated_work_exists")
+                else "investigate_and_reclassify_with_one_canonical_category"
+            ),
+        }
     if category == "necessary_uat" and request.get("machine_verifiable") is True:
         return _continue(
             "necessary_uat_is_machine_verifiable",
@@ -1459,16 +1491,19 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
 
     package_input = request.get("decision_package")
     if not isinstance(package_input, dict):
-        raise ValueError("a genuine escalation requires a strict decision_package")
+        return _blocked(
+            "decision_package_has_an_invalid_contract",
+            "rebuild_one_strict_decision_package",
+            detail="a genuine escalation requires a strict decision_package",
+        )
     try:
         package = build_action_required(**package_input)
-    except TypeError:
-        return {
-            "state": "BLOCKED",
-            "requires_response": False,
-            "reason": "decision_package_has_an_invalid_contract",
-            "next_action": "rebuild_one_strict_decision_package",
-        }
+    except (TypeError, ValueError) as exc:
+        return _blocked(
+            "decision_package_has_an_invalid_contract",
+            "rebuild_one_strict_decision_package",
+            detail=str(exc),
+        )
     binding_error = _action_required_binding_error(request, package)
     if binding_error:
         return {
@@ -1516,7 +1551,7 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
                 "next_action": "repair_or_reissue_the_bounded_external_action",
             }
         if not external_action["external_action_created"]:
-            if external_action["status"] == "completed":
+            if external_action["status"] in {"completed", "cancelled"}:
                 try:
                     resolution, receipt_sha256 = (
                         _verify_external_action_resolution_envelope(
@@ -1539,7 +1574,7 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
                     or resolution.get("scope") != external_action.get("scope")
                     or resolution.get("request_sha256")
                     != external_action.get("request_sha256")
-                    or resolution.get("status") != "completed"
+                    or resolution.get("status") != external_action.get("status")
                     or receipt_sha256
                     != external_action.get("resolution_receipt_sha256")
                 ):
@@ -1549,8 +1584,17 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
                         "reason": f"{category}_resolution_is_untrusted",
                         "next_action": "import_one_exact_owner_signed_resolution_receipt",
                     }
-                return _continue(f"{category}_already_completed")
-            if external_action["status"] in {"cancelled", "expired"}:
+                if external_action["status"] == "completed":
+                    return _continue(f"{category}_already_completed")
+                return {
+                    "state": "BLOCKED",
+                    "requires_response": False,
+                    "reason": f"{category}_cancelled",
+                    "external_action_created": False,
+                    "action_id": external_action["action_id"],
+                    "next_action": "issue_a_new_bounded_request_only_if_the_need_still_exists",
+                }
+            if external_action["status"] == "expired":
                 return {
                     "state": "BLOCKED",
                     "requires_response": False,

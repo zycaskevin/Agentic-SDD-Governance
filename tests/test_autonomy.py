@@ -577,15 +577,36 @@ class AutonomyTests(unittest.TestCase):
         )
         self.assertFalse(result["requires_response"])
 
-        with self.assertRaisesRegex(ValueError, "strict decision_package"):
-            evaluate_escalation(
-                self.root,
-                {
-                    "risk_level": "L2",
-                    "category": "uncertainty",
-                    "machine_verifiable": True,
-                },
-            )
+        higher_risk_label = evaluate_escalation(
+            self.root,
+            {
+                "risk_level": "L2",
+                "category": "uncertainty",
+                "machine_verifiable": True,
+            },
+        )
+        self.assertEqual(higher_risk_label["state"], "CONTINUE")
+        self.assertFalse(higher_risk_label["requires_response"])
+
+    def test_uncertainty_never_becomes_action_required(self):
+        for risk in ("L2", "L3"):
+            with self.subTest(risk=risk):
+                result = evaluate_escalation(
+                    self.root,
+                    {
+                        "risk_level": risk,
+                        "category": "uncertainty",
+                        "decision_package": decision_package(
+                            risk, f"UNCERTAINTY-{risk}"
+                        ),
+                    },
+                )
+                self.assertEqual(result["state"], "BLOCKED")
+                self.assertFalse(result["requires_response"])
+                self.assertEqual(
+                    result["reason"],
+                    "uncertainty_must_be_investigated_not_escalated",
+                )
 
     def test_product_and_high_risk_categories_cannot_be_caller_downgraded(self):
         product = evaluate_escalation(
@@ -601,6 +622,47 @@ class AutonomyTests(unittest.TestCase):
         )
         self.assertEqual(operation["state"], "BLOCKED")
         self.assertEqual(operation["required_risk_levels"], ["L3"])
+
+        upgraded_product = evaluate_escalation(
+            self.root,
+            {
+                "risk_level": "L3",
+                "category": "product_decision",
+                "decision_id": "DEC-WRONG-RISK",
+                "decision_scope": "one product choice",
+                "decision_package": decision_package(
+                    "L2", "DEC-WRONG-RISK", "one product choice"
+                ),
+            },
+        )
+        self.assertEqual(upgraded_product["state"], "BLOCKED")
+        self.assertFalse(upgraded_product["requires_response"])
+        self.assertEqual(
+            upgraded_product["reason"],
+            "product_decision_requires_exact_l2_risk",
+        )
+
+        l2_with_l3_package = evaluate_escalation(
+            self.root,
+            {
+                "risk_level": "L2",
+                "category": "product_decision",
+                "decision_id": "DEC-INNER-WRONG-RISK",
+                "decision_scope": "one product choice",
+                "decision_package": decision_package(
+                    "L3",
+                    "DEC-INNER-WRONG-RISK",
+                    "one product choice",
+                    payload=operation_payload("DEC-INNER-WRONG-RISK"),
+                ),
+            },
+        )
+        self.assertEqual(l2_with_l3_package["state"], "BLOCKED")
+        self.assertFalse(l2_with_l3_package["requires_response"])
+        self.assertEqual(
+            l2_with_l3_package["reason"],
+            "action_required_risk_does_not_match_request",
+        )
 
     def test_unsigned_l2_decision_cannot_be_recorded_as_approved(self):
         with self.assertRaisesRegex(ValueError, "signed.*L2"):
@@ -823,17 +885,21 @@ class AutonomyTests(unittest.TestCase):
         self.assertEqual(l3["state"], "ACTION_REQUIRED")
         invalid = decision_package("L2", "DEC-BLANK")
         invalid["scope_of_approval"] = "   "
-        with self.assertRaisesRegex(ValueError, "missing fields"):
-            evaluate_escalation(
-                self.root,
-                {
-                    "risk_level": "L2",
-                    "category": "product_decision",
-                    "decision_id": "DEC-BLANK",
-                    "decision_scope": "   ",
-                    "decision_package": invalid,
-                },
-            )
+        malformed = evaluate_escalation(
+            self.root,
+            {
+                "risk_level": "L2",
+                "category": "product_decision",
+                "decision_id": "DEC-BLANK",
+                "decision_scope": "   ",
+                "decision_package": invalid,
+            },
+        )
+        self.assertEqual(malformed["state"], "BLOCKED")
+        self.assertFalse(malformed["requires_response"])
+        self.assertEqual(
+            malformed["reason"], "decision_package_has_an_invalid_contract"
+        )
 
     def test_l3_requires_fresh_exact_one_use_approval(self):
         product_path, _ = self._signed_product_approval(
@@ -1363,6 +1429,61 @@ class AutonomyTests(unittest.TestCase):
             result["reason"], "operational_action_resolution_is_untrusted"
         )
 
+    def test_cancelled_external_action_is_reverified_on_every_reuse(self):
+        request = {
+            "risk_level": "L1",
+            "category": "necessary_uat",
+            "uat_id": "UAT-CANCELLED-1",
+            "uat_owner": "product-owner",
+            "uat_scope": "one subjective milestone check",
+            "decision_package": decision_package(
+                "UAT", "UAT-CANCELLED-1", "one subjective milestone check"
+            ),
+        }
+        evaluate_escalation(self.root, request)
+        state_path = self.root / ".sddgov/external-actions.json"
+        action = json.loads(state_path.read_text(encoding="utf-8"))["actions"][0]
+        receipt, _ = self._signed_external_resolution(action, status="cancelled")
+        imported = import_external_action_resolution(self.root, receipt)
+        self.assertEqual(imported["status"], "cancelled")
+
+        cancelled = evaluate_escalation(self.root, request)
+        self.assertEqual(cancelled["state"], "BLOCKED")
+        self.assertFalse(cancelled["requires_response"])
+        self.assertEqual(cancelled["reason"], "necessary_uat_cancelled")
+
+        store = json.loads(state_path.read_text(encoding="utf-8"))
+        store["actions"][0]["resolution_envelope"]["signature"] = "invalid"
+        state_path.write_text(json.dumps(store), encoding="utf-8")
+        tampered = evaluate_escalation(self.root, request)
+        self.assertEqual(tampered["state"], "BLOCKED")
+        self.assertEqual(
+            tampered["reason"], "necessary_uat_resolution_is_untrusted"
+        )
+
+    def test_local_cancelled_status_without_owner_signature_is_untrusted(self):
+        request = {
+            "risk_level": "L1",
+            "category": "operational_action",
+            "action_id": "LOGIN-FORGED-CANCEL",
+            "action_owner": "product-owner",
+            "action_scope": "login:one-account",
+            "decision_package": decision_package(
+                "Operational", "LOGIN-FORGED-CANCEL", "login:one-account"
+            ),
+        }
+        evaluate_escalation(self.root, request)
+        path = self.root / ".sddgov/external-actions.json"
+        store = json.loads(path.read_text(encoding="utf-8"))
+        store["actions"][0]["status"] = "cancelled"
+        path.write_text(json.dumps(store), encoding="utf-8")
+        result = evaluate_escalation(self.root, request)
+        self.assertEqual(result["state"], "BLOCKED")
+        self.assertFalse(result["requires_response"])
+        self.assertEqual(
+            result["reason"], "operational_action_resolution_is_untrusted"
+        )
+
     def test_external_action_resolution_rejects_identity_change(self):
         request = {
             "risk_level": "L1",
@@ -1522,6 +1643,61 @@ class AutonomyTests(unittest.TestCase):
                 ), redirect_stdout(io.StringIO()), self.assertRaises(SystemExit) as exit_info:
                     main()
                 self.assertEqual(exit_info.exception.code, expected)
+
+    def test_autonomy_cli_maps_malformed_packages_to_blocked_exit_one(self):
+        malformed_requests = (
+            {
+                "risk_level": "L3",
+                "category": "high_risk_operation",
+                "effects": {},
+                "operation_id": "PROD-MALFORMED-1",
+                "approval_id": "APP-MALFORMED-1",
+                "operation_payload": operation_payload("PROD-MALFORMED-1"),
+                "decision_package": {
+                    **decision_package(
+                        "L3",
+                        "APP-MALFORMED-1",
+                        "one exact operation:PROD-MALFORMED-1",
+                    ),
+                    "operation_payload": None,
+                },
+            },
+            {
+                "risk_level": "L2",
+                "category": "product_decision",
+                "effects": {},
+                "decision_id": "DEC-MALFORMED-1",
+                "decision_scope": "one product choice",
+                "decision_package": {"unknown": "field"},
+            },
+            {
+                "risk_level": "L2",
+                "category": "product_decision",
+                "effects": {},
+                "decision_id": "DEC-WRONG-INNER-RISK",
+                "decision_scope": "one product choice",
+                "decision_package": decision_package(
+                    "L3",
+                    "DEC-WRONG-INNER-RISK",
+                    "one product choice",
+                    payload=operation_payload("DEC-WRONG-INNER-RISK"),
+                ),
+            },
+        )
+        for index, request in enumerate(malformed_requests):
+            with self.subTest(index=index):
+                path = self.root / f"malformed-request-{index}.json"
+                path.write_text(json.dumps(request), encoding="utf-8")
+                stdout = io.StringIO()
+                with patch(
+                    "sys.argv",
+                    ["sddgov", "autonomy", "evaluate", str(path), "--path", str(self.root)],
+                ), redirect_stdout(stdout), self.assertRaises(SystemExit) as exit_info:
+                    main()
+                self.assertEqual(exit_info.exception.code, 1)
+                result = json.loads(stdout.getvalue())
+                self.assertEqual(result["state"], "BLOCKED")
+                self.assertFalse(result["requires_response"])
 
     def test_sha256_is_generated_verified_and_never_a_human_token(self):
         artifact = self.root / "package.whl"
