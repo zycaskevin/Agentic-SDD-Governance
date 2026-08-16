@@ -7,6 +7,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path, PurePosixPath
@@ -26,6 +27,12 @@ LEGACY_ROLLBACK_V1_BOOTSTRAP_BASE_SHA = (
 )
 LEGACY_ROLLBACK_V1_BOOTSTRAP_PATH = (
     "evidence/DEP-SDG-SECURITY-HARDENING-EXP8-001/rollback.md"
+)
+ROLLBACK_V2_POSTCONDITION_BOOTSTRAP_BASE_SHA = (
+    "ce08f48c5d7c4232e9c0154dabb3b43c63b920c1"
+)
+ROLLBACK_V2_POSTCONDITION_BOOTSTRAP_PATH = (
+    "evidence/DEP-RELEASE-READINESS-HARDENING-010/rollback.md"
 )
 AUDIT_EXCLUDES = (
     ":(exclude).sddgov/merge-gate.json",
@@ -355,7 +362,10 @@ def only_audit_changes_after_review(
 
 
 def _rollback_contract(
-    text: str, *, allow_legacy_v1: bool = False
+    text: str,
+    *,
+    allow_legacy_v1: bool = False,
+    allow_v2_postcondition_bridge: bool = False,
 ) -> dict[str, str] | None:
     """Validate rollback bytes loaded from the immutable candidate commit.
 
@@ -411,21 +421,77 @@ def _rollback_contract(
         "verify_action",
         "verify_module",
     }
-    if set(fields) != required_v2 or version != "2.0":
+    if version == "2.0":
+        if set(fields) != required_v2 or not allow_v2_postcondition_bridge:
+            return None
+        bridge_comments = (
+            "# reconcile_action: setup_agent_from_reverted_source",
+            "# reconcile_agent: codex",
+            "# reconcile_profile: team-standard",
+            "# post_verify_action: doctor_and_python_module",
+        )
+        lines = text.splitlines()
+        if any(lines.count(comment) != 1 for comment in bridge_comments):
+            return None
+        if fields["rollback_action"] != "git_revert":
+            return None
+        if not re.fullmatch(r"[0-9a-f]{40}", fields["rollback_ref"]):
+            return None
+        if fields["verify_action"] != "python_module":
+            return None
+        if fields["verify_module"] not in {"pytest", "unittest"}:
+            return None
+        return {
+            "version": version,
+            "rollback_ref": fields["rollback_ref"],
+            "reconcile_action": "setup_agent_from_reverted_source",
+            "reconcile_agent": "codex",
+            "reconcile_profile": "team-standard",
+            "verify_action": "doctor_and_python_module",
+            "verify_module": fields["verify_module"],
+        }
+    required_v3 = required_v2 | {
+        "reconcile_action",
+        "reconcile_agent",
+        "reconcile_profile",
+    }
+    if set(fields) != required_v3 or version != "3.0":
         return None
     if fields["rollback_action"] != "git_revert":
         return None
     if not re.fullmatch(r"[0-9a-f]{40}", fields["rollback_ref"]):
         return None
-    if fields["verify_action"] != "python_module":
+    if fields["reconcile_action"] != "setup_agent_from_reverted_source":
+        return None
+    if fields["reconcile_agent"] not in {"codex", "hermes"}:
+        return None
+    if fields["reconcile_profile"] not in {
+        "solo-fast",
+        "team-standard",
+        "regulated",
+    }:
+        return None
+    if fields["verify_action"] != "doctor_and_python_module":
         return None
     if fields["verify_module"] not in {"pytest", "unittest"}:
         return None
-    return {"version": version, "rollback_ref": fields["rollback_ref"]}
+    return {key: fields[key] for key in required_v3}
 
 
-def _real_rollback(text: str, *, allow_legacy_v1: bool = False) -> bool:
-    return _rollback_contract(text, allow_legacy_v1=allow_legacy_v1) is not None
+def _real_rollback(
+    text: str,
+    *,
+    allow_legacy_v1: bool = False,
+    allow_v2_postcondition_bridge: bool = False,
+) -> bool:
+    return (
+        _rollback_contract(
+            text,
+            allow_legacy_v1=allow_legacy_v1,
+            allow_v2_postcondition_bridge=allow_v2_postcondition_bridge,
+        )
+        is not None
+    )
 
 
 def _rollback_ref_is_in_candidate_range(
@@ -607,6 +673,188 @@ def _rollback_ref_is_cleanly_revertible(
     return exact_base_restore.returncode == 0
 
 
+def _rollback_postcondition_is_green(
+    root: Path,
+    rollback: dict[str, str],
+    *,
+    reviewed_head_sha: str,
+) -> bool:
+    """Execute the closed rollback post-condition only in local verification.
+
+    The privileged hosted verifier never calls this function because it receives
+    ``--skip-local-checks``.  A fresh local clone loads the reverted source tree,
+    reconciles only managed Agent-governance files, then runs Doctor and the
+    allowlisted Python test module without a shell. Candidate-controlled
+    reverted CLI and test code still has the local reviewer's process access;
+    callers must provide a disposable no-credential, network-isolated runtime.
+    """
+    if (
+        rollback.get("reconcile_action")
+        != "setup_agent_from_reverted_source"
+        or rollback.get("verify_action") != "doctor_and_python_module"
+    ):
+        return False
+    agent = rollback.get("reconcile_agent")
+    profile = rollback.get("reconcile_profile")
+    verify_module = rollback.get("verify_module")
+    if agent not in {"codex", "hermes"}:
+        return False
+    if profile not in {"solo-fast", "team-standard", "regulated"}:
+        return False
+    if verify_module not in {"pytest", "unittest"}:
+        return False
+
+    environment = os.environ.copy()
+    for key in tuple(environment):
+        if key.startswith(("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_")) or key in {
+            "GIT_DIR",
+            "GIT_WORK_TREE",
+            "GIT_COMMON_DIR",
+            "GIT_OBJECT_DIRECTORY",
+            "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+            "GIT_CONFIG_COUNT",
+            "GIT_CONFIG_PARAMETERS",
+            "GIT_ATTR_SOURCE",
+            "GIT_REPLACE_REF_BASE",
+        }:
+            environment.pop(key, None)
+    environment.update(
+        {
+            "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_CONFIG_SYSTEM": os.devnull,
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_NO_LAZY_FETCH": "1",
+            "GIT_NO_REPLACE_OBJECTS": "1",
+            "GIT_TERMINAL_PROMPT": "0",
+            "GIT_OPTIONAL_LOCKS": "0",
+        }
+    )
+
+    try:
+        with tempfile.TemporaryDirectory(prefix="sddgov-rollback-drill-") as temporary:
+            temporary_root = Path(temporary)
+            drill = temporary_root / "repository"
+            empty_hooks = temporary_root / "hooks"
+            empty_hooks.mkdir(mode=0o700)
+            commands = (
+                (
+                    [
+                        "git",
+                        "-c",
+                        f"core.hooksPath={empty_hooks}",
+                        "-c",
+                        "protocol.file.allow=always",
+                        "clone",
+                        "--no-local",
+                        "--no-checkout",
+                        "--quiet",
+                        "--template=",
+                        str(root),
+                        str(drill),
+                    ],
+                    root,
+                    environment,
+                    60,
+                ),
+                (
+                    [
+                        "git",
+                        "-c",
+                        f"core.hooksPath={empty_hooks}",
+                        "-c",
+                        "protocol.allow=never",
+                        "checkout",
+                        "--detach",
+                        "--quiet",
+                        reviewed_head_sha,
+                    ],
+                    drill,
+                    environment,
+                    30,
+                ),
+                (
+                    [
+                        "git",
+                        "-c",
+                        f"core.hooksPath={empty_hooks}",
+                        "-c",
+                        "protocol.allow=never",
+                        "revert",
+                        "--no-commit",
+                        rollback["rollback_ref"],
+                    ],
+                    drill,
+                    environment,
+                    30,
+                ),
+            )
+            for argv, cwd, command_environment, timeout in commands:
+                completed = subprocess.run(
+                    argv,
+                    cwd=cwd,
+                    check=False,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    env=command_environment,
+                    timeout=timeout,
+                )
+                if completed.returncode != 0:
+                    return False
+
+            python_environment = dict(environment)
+            python_environment["PYTHONPATH"] = str(drill / "src")
+            python_commands = [
+                [
+                    sys.executable,
+                    "-m",
+                    "sddgov.cli",
+                    "setup-agent",
+                    str(drill),
+                    "--agent",
+                    agent,
+                    "--profile",
+                    profile,
+                    "--force",
+                ],
+                [
+                    sys.executable,
+                    "-m",
+                    "sddgov.cli",
+                    "doctor",
+                    str(drill),
+                ],
+            ]
+            if verify_module == "pytest":
+                python_commands.append([sys.executable, "-m", "pytest"])
+            else:
+                python_commands.append(
+                    [
+                        sys.executable,
+                        "-m",
+                        "unittest",
+                        "discover",
+                        "-s",
+                        "tests",
+                        "-v",
+                    ]
+                )
+            for index, argv in enumerate(python_commands):
+                completed = subprocess.run(
+                    argv,
+                    cwd=drill,
+                    check=False,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    env=python_environment,
+                    timeout=300 if index == len(python_commands) - 1 else 60,
+                )
+                if completed.returncode != 0:
+                    return False
+    except (OSError, KeyError, subprocess.TimeoutExpired):
+        return False
+    return True
+
+
 def verify_merge(
     root: Path,
     base_ref: str,
@@ -674,8 +922,14 @@ def verify_merge(
         base_sha == LEGACY_ROLLBACK_V1_BOOTSTRAP_BASE_SHA
         and rollback_relative == LEGACY_ROLLBACK_V1_BOOTSTRAP_PATH
     )
+    allow_v2_postcondition_bridge = (
+        base_sha == ROLLBACK_V2_POSTCONDITION_BOOTSTRAP_BASE_SHA
+        and rollback_relative == ROLLBACK_V2_POSTCONDITION_BOOTSTRAP_PATH
+    )
     rollback = _rollback_contract(
-        rollback_text, allow_legacy_v1=allow_legacy_v1
+        rollback_text,
+        allow_legacy_v1=allow_legacy_v1,
+        allow_v2_postcondition_bridge=allow_v2_postcondition_bridge,
     )
     if (
         rollback is None
@@ -693,6 +947,12 @@ def verify_merge(
         )
     ):
         raise ValueError("rollback record is missing or incomplete")
+    if run_checks and not _rollback_postcondition_is_green(
+        root,
+        rollback,
+        reviewed_head_sha=gate["head_sha"],
+    ):
+        raise ValueError("rollback post-condition did not return to Green")
     commits = _git(root, "rev-list", f"{base_ref}..HEAD").splitlines()
     raw = sorted(
         {

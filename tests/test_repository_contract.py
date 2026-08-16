@@ -59,10 +59,12 @@ class RepositoryContractTests(unittest.TestCase):
 
     def test_packaged_hard_gate_assets_match_canonical_sources(self):
         paths = (
+            "docs/CI_COST_GUARD.md",
             "docs/HARD_GATES_V1_2.md",
             "policies/autonomy-policy.json",
             "policies/protected-files.yaml",
             "schemas/autonomy-policy.schema.json",
+            "schemas/ci-cost-guard.schema.json",
             "schemas/decision-record.schema.json",
             "schemas/merge-gate.schema.json",
             "schemas/operation-approval-receipt.schema.json",
@@ -72,6 +74,7 @@ class RepositoryContractTests(unittest.TestCase):
             "schemas/trusted-approvers.schema.json",
             "schemas/trusted-reviewers.schema.json",
             "templates/MERGE_GATE.json",
+            "templates/CI_COST_GUARD.json",
             "templates/OPERATION_APPROVAL_RECEIPT.json",
             "templates/L3_RUNTIME_CONTEXT.json",
             "templates/PRODUCT_DECISION_APPROVAL_RECEIPT.json",
@@ -297,7 +300,12 @@ class RepositoryContractTests(unittest.TestCase):
             ["committed_pull_request_diff", "public_repository_instructions"],
         )
         self.assertTrue(
-            routine_review["private_repository_requires_recorded_pair_decision"]
+            routine_review["public_repository_required_for_pre_authorization"]
+        )
+        self.assertTrue(
+            routine_review[
+                "private_repository_requires_separate_recorded_pair_authorization"
+            ]
         )
         self.assertEqual(
             set(routine_review["forbidden_payloads"]),
@@ -312,6 +320,11 @@ class RepositoryContractTests(unittest.TestCase):
         )
         self.assertTrue(routine_review["review_output_is_untrusted"])
         self.assertTrue(routine_review["signed_independent_review_still_required"])
+        self.assertTrue(
+            routine_review["new_vendor_or_destination_requires_escalation"]
+        )
+        self.assertTrue(routine_review["new_access_requires_operational_action"])
+        self.assertTrue(routine_review["new_cost_requires_owner_decision"])
         self.assertFalse(policy["l3_approval_receipts"]["caller_strings_are_authority"])
         self.assertFalse(
             policy["l3_approval_receipts"]["candidate_worktree_store_is_authority"]
@@ -374,6 +387,10 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn(
             "pull_request.base.sha", by_path["trusted-verifier"]["with"]["ref"]
         )
+        workflow_events = workflow[True]
+        self.assertIn("pull_request_target", workflow_events)
+        self.assertIn("workflow_dispatch", workflow_events)
+        self.assertNotIn("push", workflow_events)
         cli = (ROOT / "src/sddgov/cli.py").read_text(encoding="utf-8")
         self.assertIn("import-product-approval", cli)
         self.assertIn("import-operation-approval", cli)

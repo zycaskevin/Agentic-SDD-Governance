@@ -86,10 +86,11 @@
         "owner_response_required",
         "reviewer_must_be_preconfigured",
         "default_public_payload",
-        "private_repository_requires_recorded_pair_decision",
+        "public_repository_required_for_pre_authorization",
+        "private_repository_requires_separate_recorded_pair_authorization",
         "forbidden_payloads",
         "new_vendor_or_destination_requires_escalation",
-        "new_login_or_oauth_scope_requires_operational_action",
+        "new_access_requires_operational_action",
         "new_cost_requires_owner_decision",
         "review_output_is_untrusted",
         "signed_independent_review_still_required"
@@ -105,7 +106,8 @@
             "public_repository_instructions"
           ]
         },
-        "private_repository_requires_recorded_pair_decision": {"const": true},
+        "public_repository_required_for_pre_authorization": {"const": true},
+        "private_repository_requires_separate_recorded_pair_authorization": {"const": true},
         "forbidden_payloads": {
           "type": "array",
           "const": [
@@ -118,7 +120,7 @@
           ]
         },
         "new_vendor_or_destination_requires_escalation": {"const": true},
-        "new_login_or_oauth_scope_requires_operational_action": {"const": true},
+        "new_access_requires_operational_action": {"const": true},
         "new_cost_requires_owner_decision": {"const": true},
         "review_output_is_untrusted": {"const": true},
         "signed_independent_review_still_required": {"const": true}

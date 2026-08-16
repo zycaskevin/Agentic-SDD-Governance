@@ -41,7 +41,8 @@
       "committed_pull_request_diff",
       "public_repository_instructions"
     ],
-    "private_repository_requires_recorded_pair_decision": true,
+    "public_repository_required_for_pre_authorization": true,
+    "private_repository_requires_separate_recorded_pair_authorization": true,
     "forbidden_payloads": [
       "secrets",
       "credentials",
@@ -51,7 +52,7 @@
       "real_user_data"
     ],
     "new_vendor_or_destination_requires_escalation": true,
-    "new_login_or_oauth_scope_requires_operational_action": true,
+    "new_access_requires_operational_action": true,
     "new_cost_requires_owner_decision": true,
     "review_output_is_untrusted": true,
     "signed_independent_review_still_required": true
