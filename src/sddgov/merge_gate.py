@@ -684,7 +684,9 @@ def _rollback_postcondition_is_green(
     The privileged hosted verifier never calls this function because it receives
     ``--skip-local-checks``.  A fresh local clone loads the reverted source tree,
     reconciles only managed Agent-governance files, then runs Doctor and the
-    allowlisted Python test module without a shell or network access.
+    allowlisted Python test module without a shell. Candidate-controlled
+    reverted CLI and test code still has the local reviewer's process access;
+    callers must provide a disposable no-credential, network-isolated runtime.
     """
     if (
         rollback.get("reconcile_action")

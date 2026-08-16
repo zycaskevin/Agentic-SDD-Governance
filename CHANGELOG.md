@@ -5,7 +5,7 @@
 ### Security
 
 - Require rollback v3 to reconcile managed Agent governance from the reverted source, run Doctor, and execute an allowlisted Python test module during local Merge verification; add one exact v2-to-v3 bootstrap for Issue #15.
-- Enforce `post_merge_verification: manual_only`, reject automatic `push` workflows under that contract, and keep Release verification on explicit `workflow_dispatch` so one Work Package does not silently consume a second hosted run after Merge.
+- Enforce `post_merge_verification: manual_only` before workflow exemptions, reject automatic `push` workflows under that contract, preserve the schema-1.0 legacy automatic default when the new field is absent, and keep Release verification on explicit `workflow_dispatch` so one Work Package does not silently consume a second hosted run after Merge.
 - Pre-authorize minimum routine review submission for an already-configured Reviewer: committed public PR changes and public repository instructions may be reviewed without a per-PR owner prompt, while Private Repo content without a recorded pair decision, Secrets, raw Evidence, real user data, new vendors/access, and new cost remain fail-closed.
 - Restrict every autonomy category and risk level to one closed request schema before decision or approval reuse; L0/L1 stays targetless and parameterless, product L2 reuse rejects foreign L3 fields and any new nested Decision Package, and product receipts cannot authorize Operational Action or Necessary UAT categories.
 - Constrain L2 reopen behavior to the machine-readable `scope_or_assumptions_change` contract and retain non-symlink repository directory descriptors while recalculating assumption artifacts.

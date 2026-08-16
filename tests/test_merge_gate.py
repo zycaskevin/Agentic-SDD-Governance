@@ -629,6 +629,20 @@ jobs:
             )
         )
 
+    def test_release_readiness_dep_uses_parseable_v2_bridge(self):
+        rollback = (
+            REPOSITORY_ROOT
+            / "evidence/DEP-RELEASE-READINESS-HARDENING-010/rollback.md"
+        )
+        if not rollback.exists():
+            self.skipTest("release-readiness DEP is unavailable")
+        self.assertTrue(
+            _real_rollback(
+                rollback.read_text(encoding="utf-8"),
+                allow_v2_postcondition_bridge=True,
+            )
+        )
+
     def test_pr14_rollback_reconciliation_returns_doctor_and_tests_to_green(self):
         if not (REPOSITORY_ROOT / ".git").exists():
             self.skipTest("historical rollback drill requires a Git checkout")

@@ -26,7 +26,7 @@
     },
     "hosted": {
       "type": "object",
-      "required": ["max_runs_per_work_package", "max_reruns_per_revision", "expected_minutes", "full_matrix", "post_merge_verification"],
+      "required": ["max_runs_per_work_package", "max_reruns_per_revision", "expected_minutes", "full_matrix"],
       "properties": {
         "max_runs_per_work_package": {"type": "integer", "minimum": 1},
         "max_reruns_per_revision": {"type": "integer", "minimum": 0},
