@@ -7,6 +7,7 @@ import json
 import os
 import re
 import subprocess
+import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -453,14 +454,16 @@ def _rollback_ref_is_in_candidate_range(
 
 
 def _rollback_ref_is_cleanly_revertible(
-    root: Path, rollback_ref: str, *, reviewed_head_sha: str
+    root: Path, rollback_ref: str, *, base_sha: str, reviewed_head_sha: str
 ) -> bool:
     """Prove the declared single-commit rollback applies without conflicts.
 
     ``git merge-tree`` performs the same three-way merge shape as reverting the
     commit: the rollback commit is the merge base, the reviewed Head is ours,
-    and the rollback commit's sole parent is theirs.  It does not update the
-    worktree, execute the Markdown command, run hooks, or invoke a shell.
+    and the rollback commit's sole parent is theirs.  An isolated bare Git
+    directory prevents repository config, hooks, lazy fetches, or custom merge
+    drivers from becoming executable authority.  The result must restore the
+    trusted Base outside Evidence/audit paths, not merely avoid conflicts.
     """
     try:
         parent_row = _git(root, "rev-list", "--parents", "-n", "1", rollback_ref)
@@ -469,34 +472,139 @@ def _rollback_ref_is_cleanly_revertible(
     parents = parent_row.split()
     if len(parents) != 2 or parents[0] != rollback_ref:
         return False
+    try:
+        rollback_paths = changed_paths(root, parents[1], rollback_ref)
+        descendant_paths = changed_paths(root, rollback_ref, reviewed_head_sha)
+    except ValueError:
+        return False
+    if any(
+        path == ".sddgov/merge-gate.json"
+        or path.startswith(("evidence/", ".sddgov/reviews/"))
+        for path in rollback_paths
+    ):
+        return False
+    if any(not path.startswith("evidence/") for path in descendant_paths):
+        return False
+    try:
+        objects_text = _git(root, "rev-parse", "--git-path", "objects")
+        objects = Path(objects_text)
+        if not objects.is_absolute():
+            objects = root / objects
+        objects = objects.resolve(strict=True)
+    except (OSError, ValueError):
+        return False
+    if not objects.is_dir():
+        return False
+
     environment = os.environ.copy()
+    for key in tuple(environment):
+        if key.startswith(("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_")) or key in {
+            "GIT_DIR",
+            "GIT_WORK_TREE",
+            "GIT_COMMON_DIR",
+            "GIT_OBJECT_DIRECTORY",
+            "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+            "GIT_CONFIG_COUNT",
+        }:
+            environment.pop(key, None)
     environment.update(
         {
             "GIT_CONFIG_GLOBAL": os.devnull,
             "GIT_CONFIG_SYSTEM": os.devnull,
             "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_NO_LAZY_FETCH": "1",
+            "GIT_NO_REPLACE_OBJECTS": "1",
+            "GIT_TERMINAL_PROMPT": "0",
+            "GIT_OPTIONAL_LOCKS": "0",
         }
     )
-    completed = subprocess.run(
-        [
-            "git",
-            "-c",
-            "core.hooksPath=/dev/null",
-            "merge-tree",
-            "--write-tree",
-            "--no-messages",
-            "--merge-base",
-            rollback_ref,
-            reviewed_head_sha,
-            parents[1],
-        ],
-        cwd=root,
-        check=False,
-        capture_output=True,
-        text=True,
-        env=environment,
-    )
-    return completed.returncode == 0
+    try:
+        with tempfile.TemporaryDirectory(prefix="sddgov-rollback-") as temporary:
+            isolated_git = Path(temporary) / "git"
+            empty_hooks = Path(temporary) / "hooks"
+            empty_hooks.mkdir(mode=0o700)
+            initialized = subprocess.run(
+                [
+                    "git",
+                    "-c",
+                    f"core.hooksPath={empty_hooks}",
+                    "-c",
+                    "protocol.allow=never",
+                    "init",
+                    "--bare",
+                    "--quiet",
+                    "--template=",
+                    str(isolated_git),
+                ],
+                cwd=root,
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                env=environment,
+                timeout=10,
+            )
+            if initialized.returncode != 0:
+                return False
+            isolated_environment = dict(environment)
+            isolated_environment.update(
+                {
+                    "GIT_DIR": str(isolated_git),
+                    "GIT_ALTERNATE_OBJECT_DIRECTORIES": str(objects),
+                }
+            )
+            completed = subprocess.run(
+                [
+                    "git",
+                    "-c",
+                    f"core.hooksPath={empty_hooks}",
+                    "-c",
+                    "protocol.allow=never",
+                    "merge-tree",
+                    "--write-tree",
+                    "--no-messages",
+                    "--merge-base",
+                    rollback_ref,
+                    reviewed_head_sha,
+                    parents[1],
+                ],
+                cwd=root,
+                check=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                env=isolated_environment,
+                timeout=15,
+                text=True,
+            )
+            if completed.returncode != 0 or not re.fullmatch(
+                r"[0-9a-f]{40,64}\n?", completed.stdout
+            ):
+                return False
+            result_tree = completed.stdout.strip()
+            exact_base_restore = subprocess.run(
+                [
+                    "git",
+                    "-c",
+                    "protocol.allow=never",
+                    "diff",
+                    "--quiet",
+                    base_sha,
+                    result_tree,
+                    "--",
+                    ".",
+                    ":(exclude)evidence/**",
+                    ":(exclude).sddgov/merge-gate.json",
+                    ":(exclude).sddgov/reviews/**",
+                ],
+                cwd=root,
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                env=isolated_environment,
+                timeout=15,
+            )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return exact_base_restore.returncode == 0
 
 
 def verify_merge(
@@ -580,6 +688,7 @@ def verify_merge(
         or not _rollback_ref_is_cleanly_revertible(
             root,
             rollback["rollback_ref"],
+            base_sha=base_sha,
             reviewed_head_sha=gate["head_sha"],
         )
     ):
