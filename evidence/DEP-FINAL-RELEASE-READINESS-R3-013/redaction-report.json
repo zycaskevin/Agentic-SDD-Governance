@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "terminal--atomic-rollback-red-green.txt",
+      "output": "terminal--atomic-rollback-red-green.txt",
+      "source_sha256": "960f8fa33f0564b24cbd0c81fa6eec6429cbcda1a26d92d291aa9ab3a24d4971",
+      "source_size": 1104,
+      "output_sha256": "960f8fa33f0564b24cbd0c81fa6eec6429cbcda1a26d92d291aa9ab3a24d4971",
+      "output_size": 1104,
+      "redactions": {}
+    }
+  ],
+  "blocked": [],
+  "totals": {},
+  "dep_id": "DEP-FINAL-RELEASE-READINESS-R3-013",
+  "generated_at": "2026-08-16T10:11:22Z"
+}
