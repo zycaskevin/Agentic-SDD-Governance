@@ -6,10 +6,7 @@
   "action_classifier": {
     "unknown_category_state": "BLOCKED",
     "dangerous_downgrade_state": "BLOCKED",
-    "sensitive_effects_require_l3": true,
-    "malformed_request_state": "BLOCKED",
-    "category_risk_must_match_exactly": true,
-    "uncertainty_can_emit_action_required": false
+    "sensitive_effects_require_l3": true
   },
   "approval_budget": {
     "L0": 0,
@@ -21,26 +18,6 @@
   "checkpoint": {
     "requires_response": false,
     "next_state": "CONTINUE"
-  },
-  "classifier_exit_codes": {
-    "CONTINUE": 0,
-    "BLOCKED": 1,
-    "ACTION_REQUIRED": 2
-  },
-  "action_required_binding": {
-    "risk_matches_category": true,
-    "identity_matches_outer_request": true,
-    "scope_matches_outer_request": true,
-    "l3_exact_payload_required_before_prompt": true
-  },
-  "external_action_lifecycle": {
-    "durable_classes": ["operational_action", "necessary_uat"],
-    "pending_request_is_prompted_once": true,
-    "resolution_requires_owner_signature": true,
-    "signed_terminal_resolution_reverified_on_reuse": true,
-    "only_expiry_is_an_unsigned_machine_transition": true,
-    "terminal_states": ["completed", "cancelled", "expired"],
-    "unrelated_work_continues": true
   },
   "integrity": {
     "algorithm": "sha256",

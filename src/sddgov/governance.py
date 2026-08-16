@@ -132,10 +132,10 @@ def _enqueue_external_action_unlocked(
 ) -> dict:
     if (
         risk not in {"L1", "L2", "L3"}
-        or action_class not in {"operational_action", "necessary_uat"}
+        or action_class != "operational_action"
     ):
         raise ValueError(
-            "external action must be an explicitly classified Operational Action or Necessary UAT"
+            "external action must be an explicitly classified Operational Action"
         )
     if not all(
         isinstance(value, str) and value.strip()
@@ -178,29 +178,18 @@ def _enqueue_external_action_unlocked(
         row = existing[0]
         if row.get("request_sha256") != request_sha256:
             raise ValueError(f"external action identity changed: {action_id}")
-        if row.get("status") not in {
-            "pending", "completed", "cancelled", "expired"
-        }:
-            raise ValueError(f"external action status is invalid: {action_id}")
-        if row["status"] != "pending":
-            return {**row, "external_action_created": False}
+        if row.get("status") != "pending":
+            raise ValueError(f"external action is not pending: {action_id}")
         try:
             expiry = datetime.fromisoformat(
                 str(row["expires_at"]).replace("Z", "+00:00")
             )
         except (KeyError, TypeError, ValueError) as exc:
             raise ValueError("external action expiry is invalid") from exc
-        if expiry.tzinfo is None:
-            raise ValueError("external action expiry is invalid")
-        if expiry <= now():
-            row["status"] = "expired"
-            row["resolved_at"] = stamp()
-            row["resolution_receipt_sha256"] = None
-            row["resolution_evidence_sha256"] = None
-            row["resolution_envelope"] = None
-            _write(path, data)
-            emit_event(root, "external_action_expired", risk, {"action_id": action_id})
-            return {**row, "external_action_created": False}
+        if expiry.tzinfo is None or expiry <= now():
+            raise ValueError(
+                f"external action expired; create a new bounded action_id: {action_id}"
+            )
         return {**row, "external_action_created": False}
     current = now()
     item = {
@@ -215,125 +204,6 @@ def _enqueue_external_action_unlocked(
     _write(path, data)
     emit_event(root, "external_action_queued", risk, {"action_id": action_id})
     return {**item, "external_action_created": True}
-
-
-def resolve_external_action(
-    root: Path,
-    *,
-    action_id: str,
-    action_class: str,
-    owner: str,
-    scope: str,
-    request_sha256: str,
-    status: str,
-    resolved_at: str,
-    resolution_receipt_sha256: str,
-    resolution_evidence_sha256: str,
-    resolution_envelope: dict,
-) -> dict:
-    """Apply one exact, independently verified terminal transition.
-
-    Signature and trust-root verification happen before this state mutation.  The
-    stored action identity is rechecked while holding the same lock used by queue
-    creation so a completion can never resolve a different owner, scope, or
-    request generation.
-    """
-    if status not in {"completed", "cancelled"}:
-        raise ValueError("external action resolution status must be completed or cancelled")
-    for label, value in (
-        ("action_id", action_id),
-        ("action_class", action_class),
-        ("owner", owner),
-        ("scope", scope),
-        ("resolved_at", resolved_at),
-    ):
-        if not isinstance(value, str) or not value.strip():
-            raise ValueError(f"external action resolution {label} is required")
-    for label, digest in (
-        ("request_sha256", request_sha256),
-        ("resolution_receipt_sha256", resolution_receipt_sha256),
-        ("resolution_evidence_sha256", resolution_evidence_sha256),
-    ):
-        if (
-            not isinstance(digest, str)
-            or len(digest) != 64
-            or any(character not in "0123456789abcdef" for character in digest)
-        ):
-            raise ValueError(f"external action resolution {label} is invalid")
-    if not isinstance(resolution_envelope, dict):
-        raise ValueError("external action resolution envelope is invalid")
-
-    lock_path = root / ".sddgov" / "external-actions.lock"
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
-    with lock_path.open("a", encoding="utf-8") as handle:
-        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
-        try:
-            path = root / ".sddgov" / "external-actions.json"
-            data = _read(path, {"schema_version": "1.1", "actions": []})
-            if (
-                not isinstance(data, dict)
-                or set(data) != {"schema_version", "actions"}
-                or data.get("schema_version") != "1.1"
-                or not isinstance(data.get("actions"), list)
-            ):
-                raise ValueError("external action store has an invalid contract")
-            matches = [row for row in data["actions"] if row.get("action_id") == action_id]
-            if len(matches) != 1:
-                raise ValueError("external action resolution requires one exact action")
-            row = matches[0]
-            expected = {
-                "action_class": action_class,
-                "owner": owner,
-                "scope": scope,
-                "request_sha256": request_sha256,
-            }
-            if any(row.get(field) != value for field, value in expected.items()):
-                raise ValueError("external action resolution identity does not match pending action")
-            if row.get("status") == status:
-                if row.get("resolution_receipt_sha256") != resolution_receipt_sha256:
-                    raise ValueError("external action was resolved by a different receipt")
-                return {**row, "state_changed": False}
-            if row.get("status") != "pending":
-                raise ValueError("external action is not pending")
-            try:
-                expiry = datetime.fromisoformat(
-                    str(row["expires_at"]).replace("Z", "+00:00")
-                )
-                resolution_time = datetime.fromisoformat(
-                    resolved_at.replace("Z", "+00:00")
-                )
-                created_time = datetime.fromisoformat(
-                    str(row["created_at"]).replace("Z", "+00:00")
-                )
-            except (KeyError, TypeError, ValueError) as exc:
-                raise ValueError("external action resolution timestamp is invalid") from exc
-            if (
-                expiry.tzinfo is None
-                or resolution_time.tzinfo is None
-                or created_time.tzinfo is None
-            ):
-                raise ValueError("external action resolution timestamp requires a timezone")
-            if resolution_time < created_time or resolution_time > expiry:
-                raise ValueError("external action resolution is outside the action lifetime")
-            row.update(
-                {
-                    "status": status,
-                    "resolved_at": resolved_at,
-                    "resolution_receipt_sha256": resolution_receipt_sha256,
-                    "resolution_evidence_sha256": resolution_evidence_sha256,
-                    "resolution_envelope": resolution_envelope,
-                }
-            )
-            _write(path, data)
-            emit_event(
-                root,
-                f"external_action_{status}",
-                row["risk_level"],
-                {"action_id": action_id, "action_class": action_class},
-            )
-            return {**row, "state_changed": True}
-        finally:
-            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
 
 def enqueue_external_action(
