@@ -23,6 +23,7 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("references/evidence-workflow.md", text)
         self.assertIn("references/autonomy-workflow.md", text)
         self.assertIn("references/independent-reviewer.md", text)
+        self.assertIn("references/review-sharing.md", text)
         self.assertNotIn("# Evidence-Driven SDD", text)
 
     def test_json_schemas_are_parseable(self):
@@ -51,6 +52,10 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("Red -> Evidence -> Fix -> Green -> Proof", codex)
         self.assertIn("sddgov reviewer bootstrap", codex)
         self.assertIn("sddgov reviewer bootstrap", hermes)
+        self.assertIn("references/review-sharing.md", codex)
+        self.assertIn("references/review-sharing.md", hermes)
+        self.assertIn("without asking the owner", codex)
+        self.assertIn("without asking the owner", hermes)
 
     def test_packaged_hard_gate_assets_match_canonical_sources(self):
         paths = (
@@ -76,6 +81,7 @@ class RepositoryContractTests(unittest.TestCase):
             "skill/agentic-sdd-governance/SKILL.md",
             "skill/agentic-sdd-governance/references/autonomy-workflow.md",
             "skill/agentic-sdd-governance/references/independent-reviewer.md",
+            "skill/agentic-sdd-governance/references/review-sharing.md",
         )
         packaged = ROOT / "src/sddgov/resources/governance"
         for relative in paths:
@@ -282,6 +288,30 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertEqual(policy["approval_budget"]["L1"], 0)
         self.assertTrue(policy["integrity"]["human_copy_paste_forbidden"])
         self.assertFalse(policy["integrity"]["mismatch_requires_human_approval"])
+        routine_review = policy["routine_external_review"]
+        self.assertTrue(routine_review["pre_authorized"])
+        self.assertFalse(routine_review["owner_response_required"])
+        self.assertTrue(routine_review["reviewer_must_be_preconfigured"])
+        self.assertEqual(
+            routine_review["default_public_payload"],
+            ["committed_pull_request_diff", "public_repository_instructions"],
+        )
+        self.assertTrue(
+            routine_review["private_repository_requires_recorded_pair_decision"]
+        )
+        self.assertEqual(
+            set(routine_review["forbidden_payloads"]),
+            {
+                "secrets",
+                "credentials",
+                "raw_evidence",
+                "unredacted_sensitive_material",
+                "production_dumps",
+                "real_user_data",
+            },
+        )
+        self.assertTrue(routine_review["review_output_is_untrusted"])
+        self.assertTrue(routine_review["signed_independent_review_still_required"])
         self.assertFalse(policy["l3_approval_receipts"]["caller_strings_are_authority"])
         self.assertFalse(
             policy["l3_approval_receipts"]["candidate_worktree_store_is_authority"]
@@ -296,11 +326,13 @@ class RepositoryContractTests(unittest.TestCase):
         )
         kernel = (ROOT / "core/POLICY_KERNEL.md").read_text(encoding="utf-8")
         self.assertIn("NO_HUMAN_ESCALATION_IF_MACHINE_VERIFIABLE", kernel)
+        self.assertIn("AUTOMATIC_REVIEW_IS_PREAUTHORIZED", kernel)
         self.assertIn("Never ask a human to copy, paste", kernel)
         autonomy = (ROOT / "docs/AUTONOMOUS_DEVELOPMENT_V1_2.md").read_text(
             encoding="utf-8"
         )
         self.assertIn("AUTONOMY BY DEFAULT. ESCALATION BY EXCEPTION.", autonomy)
+        self.assertIn("AUTOMATIC_REVIEW_IS_PREAUTHORIZED", autonomy)
         self.assertIn("Main Agent", autonomy)
         workflow = yaml.safe_load(
             (ROOT / ".github/workflows/governance.yml").read_text(encoding="utf-8")
