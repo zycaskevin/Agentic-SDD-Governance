@@ -1,12 +1,12 @@
 # 公開發布檢查清單
 
-本文件用來判斷 Private Repository 是否適合改為 Public。完成技術檢查不等於自動授權公開；Repository visibility、License 接受與個人資訊揭露仍是 Owner 決策。
+Repository 現在已是 Public。本文件保留公開前的歷史判斷，同時作為後續 Release 的持續檢查清單；完成技術檢查不等於自動授權新的 Release、License 變更或額外個人資訊揭露。
 
-## 2026-08-13 準備度 Snapshot
+## 2026-08-13 歷史準備度 Snapshot
 
 ### 已確認
 
-- Repository 目前為 Private；`v0.2.0-experimental.3` 是已發布的 Pre-release，不是 Draft。
+- Repository 當時為 Private；目前已是 Public。`v0.2.0-experimental.3` 是該 Snapshot 當時已發布的 Pre-release，不是 Draft。
 - 根目錄存在 Apache License 2.0，GitHub 可辨識為 `Apache-2.0`。
 - `docs/BASELINE_PROVENANCE.md` 記錄 Canonical baseline 與重建界線。
 - `THIRD_PARTY_NOTICES.md` 聲明 BugEzy 只提供概念啟發，沒有複製其 Source、Asset、Template、Schema 或 Brand material。
@@ -23,7 +23,7 @@
 2. 是否接受完整 Git History 公開，包括 Commit author 使用的個人 Email。具體值請在本機執行 `git log --all --format='%an <%ae>' | sort -u` 檢查。
 3. 是否接受 Release Notes 中出現 MyHermes、Vault-Agent-Memory、Piku 等專案名稱與驗證摘要。
 4. 是否接受 experimental 軟體公開後可能被誤用；README 必須保留「非穩定版、非合規認證、Benchmark 非優越性證明」限制。
-5. 是否現在把 Repository visibility 從 Private 改為 Public。
+5. Repository visibility 已另行決定並改為 Public；後續若要改回 Private，仍是新的 Owner 決策。
 
 ### 公開前建議補強
 

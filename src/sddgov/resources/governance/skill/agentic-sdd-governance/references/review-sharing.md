@@ -7,10 +7,11 @@ Load this module only when an Agent is about to send repository material to an a
 `AUTOMATIC_REVIEW_IS_PREAUTHORIZED` when every condition is true:
 
 1. The Reviewer is already configured for this repository.
-2. The repository is public, or the exact Private Repo/Reviewer pair has a recorded owner decision.
+2. The repository and submitted material are public.
 3. The payload contains only the committed PR diff and public repository instructions needed for review, such as `AGENTS.md` or the applicable public Skill route.
 4. The payload contains no Secret, credential, raw DEP Evidence, unredacted sensitive material, Production dump, or real user data.
-5. No new vendor, destination, login, MFA, OAuth scope, paid plan, or cost is introduced.
+5. No new vendor, destination, login, MFA, OAuth scope, account permission,
+   other access, paid plan, or cost is introduced.
 
 When eligible, submit the review automatically. Do not ask the owner to approve sending each PR, start the review, relay findings, approve ordinary fixes, or retry locally verifiable review work.
 
@@ -18,7 +19,8 @@ When eligible, submit the review automatically. Do not ask the owner to approve 
 
 If any condition is false or unknown, do not send the payload. Classify the smallest unresolved boundary:
 
-- Private Repo or changed data-sharing scope: recorded L2 privacy/product decision.
+- Private Repo: this routine route never applies. An exact recorded Repo/Reviewer owner decision may authorize a separate bounded sharing route.
+- Changed data-sharing scope: recorded L2 privacy/product decision.
 - New login, MFA, OAuth consent, or account permission: Operational Action.
 - New paid plan or cost: owner cost decision.
 - Secret, raw Evidence, unredacted sensitive material, Production dump, or real user data: forbidden by the routine route; minimize/redact locally or keep it local.

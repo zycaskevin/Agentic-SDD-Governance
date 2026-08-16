@@ -18,6 +18,7 @@ def _contract(command):
             "max_reruns_per_revision": 1,
             "expected_minutes": 5,
             "full_matrix": "manual_or_ready_for_review",
+            "post_merge_verification": "manual_only",
         },
         "workflow_controls": {
             "require_concurrency": True,
@@ -45,8 +46,7 @@ GOOD_WORKFLOW = """name: CI
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
-  push:
-    branches: [main]
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
@@ -122,6 +122,25 @@ jobs:
             self.assertFalse(report["ok"])
             self.assertIn(
                 "pull_request types must include converted_to_draft",
+                "\n".join(report["errors"]),
+            )
+
+    def test_manual_only_post_merge_verification_rejects_automatic_push(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            workflow = GOOD_WORKFLOW.replace(
+                "  workflow_dispatch:\n",
+                "  push:\n    branches: [main]\n  workflow_dispatch:\n",
+            )
+            _write_project(
+                project,
+                _contract([sys.executable, "-c", "pass"]),
+                workflow,
+            )
+            report = verify_guard(project)
+            self.assertFalse(report["ok"])
+            self.assertIn(
+                "manual-only post-merge verification forbids automatic push",
                 "\n".join(report["errors"]),
             )
 

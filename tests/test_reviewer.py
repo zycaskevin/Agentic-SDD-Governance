@@ -110,6 +110,7 @@ class ReviewerSigningTests(unittest.TestCase):
                         "max_reruns_per_revision": 1,
                         "expected_minutes": 5,
                         "full_matrix": "manual_or_ready_for_review",
+                        "post_merge_verification": "manual_only",
                     },
                     "workflow_controls": {
                         "require_concurrency": True,
@@ -152,11 +153,14 @@ jobs:
         rollback = self.root / "evidence/DEP-1/rollback.md"
         rollback.parent.mkdir(parents=True)
         rollback.write_text(
-            "rollback_version: 2.0\n"
+            "rollback_version: 3.0\n"
             "target: bounded reviewer test\n"
             "rollback_action: git_revert\n"
             f"rollback_ref: {self.implementation}\n"
-            "verify_action: python_module\n"
+            "reconcile_action: setup_agent_from_reverted_source\n"
+            "reconcile_agent: codex\n"
+            "reconcile_profile: team-standard\n"
+            "verify_action: doctor_and_python_module\n"
             "verify_module: unittest\n"
         )
         _run(self.root, "git", "add", "evidence/DEP-1/rollback.md")

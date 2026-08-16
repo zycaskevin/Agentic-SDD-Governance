@@ -17,6 +17,7 @@ from yaml.constructor import ConstructorError
 CONTRACT_PATH = Path(".sddgov/ci-cost-guard.json")
 WORKFLOW_SUFFIXES = (".yml", ".yaml")
 FULL_MATRIX_VALUES = {"manual", "ready_for_review", "manual_or_ready_for_review", "release"}
+POST_MERGE_VERIFICATION_VALUES = {"manual_only", "automatic"}
 
 
 def _read_contract(root: Path) -> dict[str, Any]:
@@ -158,6 +159,8 @@ def _validate_contract(contract: dict[str, Any]) -> list[str]:
                 errors.append(f"hosted.{key} must be an integer >= {minimum}")
         if hosted.get("full_matrix") not in FULL_MATRIX_VALUES:
             errors.append("hosted.full_matrix is invalid")
+        if hosted.get("post_merge_verification") not in POST_MERGE_VERIFICATION_VALUES:
+            errors.append("hosted.post_merge_verification is invalid")
 
     controls = contract.get("workflow_controls")
     required_controls = (
@@ -388,6 +391,7 @@ def _inspect_workflow(
     workflow_name: str,
     source: str,
     controls: dict[str, Any],
+    hosted: dict[str, Any],
 ) -> tuple[list[str], dict[str, Any]]:
     errors: list[str] = []
     try:
@@ -408,6 +412,10 @@ def _inspect_workflow(
     automatic = bool(
         set(events) & {"pull_request", "pull_request_target", "push", "schedule"}
     )
+    if hosted.get("post_merge_verification") == "manual_only" and "push" in events:
+        errors.append(
+            f"{workflow_name}: manual-only post-merge verification forbids automatic push"
+        )
     jobs_value = document.get("jobs")
     if not isinstance(jobs_value, dict):
         jobs_value = {}
@@ -512,6 +520,7 @@ def verify_guard(root: Path) -> dict[str, Any]:
     errors = _validate_contract(contract)
     reports: list[dict[str, Any]] = []
     controls = contract.get("workflow_controls", {})
+    hosted = contract.get("hosted", {})
     exemptions = set(controls.get("exempt_workflows", [])) if isinstance(controls, dict) else set()
     documents, filesystem_errors = _safe_workflow_documents(root)
     errors.extend(filesystem_errors)
@@ -521,7 +530,7 @@ def verify_guard(root: Path) -> dict[str, Any]:
         if name in exemptions:
             reports.append({"workflow": name, "exempt": True})
             continue
-        workflow_errors, report = _inspect_workflow(name, source, controls)
+        workflow_errors, report = _inspect_workflow(name, source, controls, hosted)
         errors.extend(workflow_errors)
         reports.append(report)
     return {
