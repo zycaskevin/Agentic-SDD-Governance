@@ -2,7 +2,7 @@
 
 ## Regression test added or strengthened
 
-Add direct parser and full Merge tests proving exact legacy v1 passes, while duplicate keys, extra fields, wrappers, chaining, observational commands, alternate verification, and placeholders fail closed. Existing v2 tests remain Green.
+Add direct parser and full Merge tests proving exact legacy v1 passes, while duplicate keys (including after Markdown headings), extra fields, wrappers, backtick-wrapped values, non-canonical whitespace/casing, chaining, observational commands, alternate verification, and placeholders fail closed. Existing v2 tests remain Green.
 
 ## Related tests executed
 

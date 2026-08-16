@@ -357,17 +357,23 @@ def _real_rollback(text: str) -> bool:
     fields: dict[str, str] = {}
     for raw in text.splitlines():
         line = raw.strip()
-        if line.startswith("## "):
-            break
         if not line or line.startswith("#"):
             continue
-        if ":" not in line:
+        if ":" not in raw:
+            continue
+        key, value = raw.split(":", 1)
+        if (
+            raw != line
+            or not key
+            or key != key.strip()
+            or key != key.lower()
+            or key in fields
+            or not value.startswith(" ")
+            or value.startswith("  ")
+            or value[1:] != value[1:].strip()
+        ):
             return False
-        key, value = line.split(":", 1)
-        key = key.strip().lower()
-        if not key or key in fields:
-            return False
-        fields[key] = value.strip().strip("`")
+        fields[key] = value[1:]
     target = fields.get("target", "")
     if (
         not target

@@ -15,10 +15,10 @@ PASS on the exact working tree before review:
 
 Package digests:
 
-- wheel SHA-256: `3574f51dd39aa57420a18796898135a746efab6a9614df25aca9414b37d4d7ef`
-- sdist SHA-256: `6338f28bea66e62821c3723d3795278bb7696bd7ffb9352a00716a1910e71547`
+- wheel SHA-256: `b4cf8371a1eaae2a1c78e3ed5f41e6c1439b7165dec8d061477a0dab4e9f4908`
+- sdist SHA-256: `85b33b2def55c3966112321627acffc022085c5687067cb03d39f554aa33e932`
 
-Fresh install root: `/private/tmp/sdg-exp8-r5-final-wheel-NrC9PX` (local, disposable proof only).
+Fresh install root: `/private/tmp/sdg-exp8-r5b-final-wheel-0lprRs` (local, disposable proof only).
 
 ## Before/after evidence
 

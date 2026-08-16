@@ -524,6 +524,13 @@ jobs:
             valid.replace("verify: python -m pytest", "verify: python -m pytest\nverify: true"),
             valid.replace("verify: python -m pytest", "verify: python -m pytest\nshell: bash"),
             valid.replace("bounded verifier migration bridge", "TODO"),
+            valid.replace("git revert --no-edit HEAD", "`git revert --no-edit HEAD`"),
+            valid.replace("python -m pytest", "`python -m pytest`"),
+            valid.replace("command: git revert", "command:  git revert"),
+            valid.replace("rollback_version: 1.0", "Rollback_Version: 1.0"),
+            valid.replace(
+                "## Trigger", "## Notes\n\ncommand: git revert --no-edit HEAD\n\n## Trigger"
+            ),
         )
         for rollback in invalid_variants:
             with self.subTest(rollback=rollback):
