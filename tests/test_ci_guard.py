@@ -184,6 +184,19 @@ jobs:
                 self.assertFalse(report["ok"])
                 self.assertIn(f"{key} must be an object", "\n".join(report["errors"]))
 
+    def test_invalid_exemption_entry_returns_structured_error(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            contract = _contract([sys.executable, "-c", "pass"])
+            contract["workflow_controls"]["exempt_workflows"] = [{}]
+            _write_project(project, contract, GOOD_WORKFLOW)
+            report = verify_guard(project)
+            self.assertFalse(report["ok"])
+            self.assertIn(
+                "workflow_controls.exempt_workflows must be a string array",
+                "\n".join(report["errors"]),
+            )
+
     def test_comments_cannot_fake_types_or_hide_job_write_permissions(self):
         with tempfile.TemporaryDirectory() as temporary:
             project = Path(temporary)

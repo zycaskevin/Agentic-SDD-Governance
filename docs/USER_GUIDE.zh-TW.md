@@ -270,14 +270,26 @@ sddgov event local_green_passed \
 排入一個有界的 Owner Action：
 
 ```bash
-sddgov external-action BILLING-001 \
+sddgov external-action queue BILLING-001 \
   --summary 'Confirm GitHub Actions budget' \
   --risk L3 \
   --owner Arthur \
+  --scope 'repository Actions billing budget' \
+  --class operational_action \
   --path .
 ```
 
-這個命令只建立 Queue record，不會替 Owner 操作 Billing。
+這個命令只建立 Queue record，不會替 Owner 操作 Billing。同一個 Action ID、Owner、Scope 與 request 只會提示一次；重複執行會讀取既有 pending 狀態，不會再問一次。
+
+Owner 完成或取消後，由受信任的外部簽署者建立 `EXTERNAL_ACTION_RESOLUTION_RECEIPT.json`，再匯入：
+
+```bash
+sddgov external-action resolve signed-resolution.json --path .
+```
+
+Operational Action 與 Necessary UAT 共用這套持久狀態。只有 exact Owner/Scope/request digest 相符的簽章收據才能完成或取消；過期、取消或不相符都 fail closed。若只阻塞一個 Work Package，其他工作會繼續。
+
+Necessary UAT 只用於 Agent 無法判斷的主觀品質。若工作其實能由測試、工具或 Runtime Evidence 判定，SDG 會以 `BLOCKED`／exit `1` 拒絕矛盾的 UAT 分類、要求 Agent 先蒐集證據並重新分類，不會詢問 Owner。CLI 只有完整有效的 `ACTION REQUIRED` 使用 exit `2`；指令格式、檔案系統或其他 Process Error 使用 exit `3`。
 
 ## 10. 升級
 

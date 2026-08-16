@@ -40,7 +40,13 @@ def load_schema(path: Path) -> dict[str, Any]:
 
 
 def bundled_schema(name: str) -> dict[str, Any]:
-    resource = resources.files("sddgov").joinpath("resources/governance/schemas", name)
+    resource = (
+        resources.files("sddgov")
+        .joinpath("resources")
+        .joinpath("governance")
+        .joinpath("schemas")
+        .joinpath(name)
+    )
     data = json.loads(resource.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise ValueError(f"bundled JSON Schema must be an object: {name}")

@@ -4,6 +4,17 @@
 
 ### Security
 
+- Reserve exit `2` exclusively for a validated owner `ACTION REQUIRED`; parser, filesystem, and process failures now exit `3`, so automation cannot turn a machine error into an owner prompt.
+- Reject `machine_verifiable` Necessary UAT as a contradictory category without prompting the owner; deterministic work must gather Evidence and return through a machine-verifiable route, while subjective UAT retains durable one-prompt state.
+- Validate and recompute every durable External Action row before mutation so a missing or downgraded risk cannot persist terminal state or falsify its audit event.
+- Close partial first-consumer trust bootstrap when the Base already contains the installed protected-file policy, and keep bundled policy/resource lookup compatible with the declared Python 3.10 floor.
+- Reserve classifier exit `2` for a fully validated `ACTION REQUIRED`; malformed packages and category/risk mismatch now fail closed as `BLOCKED`/exit `1`, and generic uncertainty can no longer be promoted into an owner prompt by a caller-supplied label.
+- Reverify owner signatures for both completed and cancelled Operational Action/Necessary UAT state on every reuse, treating only deterministic TTL expiry as an unsigned terminal transition; synchronize the installed Governance Root and manifest with these exact rules.
+- Make `sddgov autonomy evaluate` return distinct process exit codes for `CONTINUE`, `BLOCKED`, and `ACTION_REQUIRED`; bind every Decision Package risk, identity, scope, and L3 payload to the outer request before asking the owner.
+- Persist Necessary UAT as well as Operational Action, deduplicate the first prompt, continue unrelated Work Packages, and require a separate-identity owner-signed terminal resolution receipt for completion or cancellation.
+- Add a fail-closed first-consumer Merge bootstrap that takes protected paths only from the immutable trusted verifier package and Reviewer keys only from a Repo-external separate-identity store; Candidate policy and trust never authorize the first Governance PR.
+- Require every tracked Proof DEP to pass the current portable strict verifier and migrate the three legacy proof packages to the current raw/report/shareable association contract.
+- Treat malformed CI exemption lists as structured fail-closed input instead of an unhandled exception, and protect `.gitignore` plus `.sddgov/project.json` as Governance inputs.
 - Require rollback v3 to reconcile managed Agent governance from the reverted source, run Doctor, and execute an allowlisted Python test module during local Merge verification; add one exact v2-to-v3 bootstrap for Issue #15.
 - Enforce `post_merge_verification: manual_only` before workflow exemptions, reject automatic `push` workflows under that contract, preserve the schema-1.0 legacy automatic default when the new field is absent, and keep Release verification on explicit `workflow_dispatch` so one Work Package does not silently consume a second hosted run after Merge.
 - Pre-authorize minimum routine review submission for an already-configured Reviewer: committed public PR changes and public repository instructions may be reviewed without a per-PR owner prompt, while Private Repo content without a recorded pair decision, Secrets, raw Evidence, real user data, new vendors/access, and new cost remain fail-closed.
@@ -22,6 +33,10 @@
 
 - Added `DEP-SDG-SECURITY-HARDENING-EXP8-001`, second-round `DEP-SDG-SECURITY-HARDENING-EXP8-R2-002`, third-round authority-envelope `DEP-SDG-SECURITY-HARDENING-EXP8-R3-003`, protected-inventory `DEP-SDG-SECURITY-HARDENING-EXP8-R3-PROTECTED-004`, nested-authority `DEP-SDG-SECURITY-HARDENING-EXP8-R4-AUTH-005`, rollback-contract DEPs R5-R7, and permanent defensive regression tests for Issue #11.
 - This entry records implemented local work only; independent review, exact Merge verification, GitHub-hosted proof, and release publication remain separate gates.
+
+### Changed
+
+- `sddgov external-action` now requires the explicit `queue` or `resolve` subcommand. Replace the former flat form with `sddgov external-action queue <ACTION_ID> ...` or `sddgov external-action resolve <SIGNED_RECEIPT> --path .`.
 
 ## 0.2.0-experimental.7 — 2026-08-15 security hardening candidate
 
