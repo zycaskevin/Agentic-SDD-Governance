@@ -4,6 +4,7 @@
 
 ### Security
 
+- Pre-authorize minimum routine review submission for an already-configured Reviewer: committed public PR changes and public repository instructions may be reviewed without a per-PR owner prompt, while Private Repo content without a recorded pair decision, Secrets, raw Evidence, real user data, new vendors/access, and new cost remain fail-closed.
 - Restrict every autonomy category and risk level to one closed request schema before decision or approval reuse; L0/L1 stays targetless and parameterless, product L2 reuse rejects foreign L3 fields and any new nested Decision Package, and product receipts cannot authorize Operational Action or Necessary UAT categories.
 - Constrain L2 reopen behavior to the machine-readable `scope_or_assumptions_change` contract and retain non-symlink repository directory descriptors while recalculating assumption artifacts.
 - Replace CI workflow regex checks with YAML 1.2 duplicate-key-rejecting semantic validation for triggers, exact non-bypassable Draft conditions, valid runners, concurrency, permissions, and bounded job timeouts; read every workflow through retained non-symlink directory descriptors.

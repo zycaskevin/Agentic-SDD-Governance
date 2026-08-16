@@ -1,4 +1,4 @@
-version: "0.2.0-experimental.7"
+version: "0.2.0-experimental.8"
 runtime_load_set:
   - core/POLICY_KERNEL.md
   - selected_project_profile
@@ -19,6 +19,9 @@ invariants:
   symlink_and_path_escape_allowed: false
   l2_requires_owner_signature: true
   l3_binds_complete_operation_payload: true
+  routine_review_submission_pre_authorized: true
+  routine_review_owner_response_required: false
+  routine_review_sensitive_payload_allowed: false
 interruptions:
   allowed:
     - unresolved_l2_product_decision

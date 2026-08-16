@@ -1,20 +1,13 @@
 {
   "schema_version": "1.0",
-  "base_sha": "f44cb5f4897f6c821f817fcf178581b43777163a",
-  "head_sha": "7fba51af033d9317e8eef0df5fbb65b08db27410",
+  "base_sha": "6a90ad84e8ed141241d3ca972b5ab91251429671",
+  "head_sha": "3dfd3061bb3bd58b40a3877039a87c45bdd9d943",
   "risk_level": "L1",
   "builder_id": "codex-builder",
-  "change_digest": "ebe898b62e8a4adfa8aaa05c216111f00939a86c366a1a06473d4270ef2c5af8",
+  "change_digest": "03dced88aff53d18efc47870a34c905d691b8a533ca9cb12302add87cf1fc7f9",
   "deps": [
-    "evidence/DEP-SDG-SECURITY-HARDENING-EXP8-001",
-    "evidence/DEP-SDG-SECURITY-HARDENING-EXP8-R2-002",
-    "evidence/DEP-SDG-SECURITY-HARDENING-EXP8-R3-003",
-    "evidence/DEP-SDG-SECURITY-HARDENING-EXP8-R3-PROTECTED-004",
-    "evidence/DEP-SDG-SECURITY-HARDENING-EXP8-R4-AUTH-005",
-    "evidence/DEP-SDG-SECURITY-HARDENING-EXP8-R5-CI-BRIDGE-006",
-    "evidence/DEP-SDG-SECURITY-HARDENING-EXP8-R6-ROLLBACK-007",
-    "evidence/DEP-SDG-SECURITY-HARDENING-EXP8-R7-ROLLBACK-008"
+    "evidence/DEP-ROUTINE-REVIEW-PREAUTH-009"
   ],
-  "rollback_path": "evidence/DEP-SDG-SECURITY-HARDENING-EXP8-001/rollback.md",
-  "protected_file_review": ".sddgov/reviews/REV-SDG-SECURITY-HARDENING-EXP8-ROLLBACK-008.json"
+  "rollback_path": "evidence/DEP-ROUTINE-REVIEW-PREAUTH-009/rollback.md",
+  "protected_file_review": ".sddgov/reviews/REV-ROUTINE-REVIEW-PREAUTH-009.json"
 }

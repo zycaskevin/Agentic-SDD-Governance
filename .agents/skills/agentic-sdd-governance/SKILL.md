@@ -29,6 +29,8 @@ Treat SHA-256 as machine-to-machine integrity data; never ask the owner to copy,
 
 For CI creation, modification, reruns, or cost control, read `references/ci-cost-guard.md` and require the repository Local Green Gate before Push.
 
+For automated or external code review, read `references/review-sharing.md`. An eligible committed public PR diff and public repository instructions may be sent automatically to a Reviewer already configured for the repository. The Main Agent verifies findings and continues; do not turn routine Review into an owner approval or relay task.
+
 ## Debugging route
 
 When a task includes a failure, bug, regression, incident, flaky test, unexpected UI/API behavior, or a request for verification proof:

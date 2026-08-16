@@ -33,6 +33,29 @@
     "verifier_source": "exact_base_sha",
     "pull_request_event": "pull_request_target"
   },
+  "routine_external_review": {
+    "pre_authorized": true,
+    "owner_response_required": false,
+    "reviewer_must_be_preconfigured": true,
+    "default_public_payload": [
+      "committed_pull_request_diff",
+      "public_repository_instructions"
+    ],
+    "private_repository_requires_recorded_pair_decision": true,
+    "forbidden_payloads": [
+      "secrets",
+      "credentials",
+      "raw_evidence",
+      "unredacted_sensitive_material",
+      "production_dumps",
+      "real_user_data"
+    ],
+    "new_vendor_or_destination_requires_escalation": true,
+    "new_login_or_oauth_scope_requires_operational_action": true,
+    "new_cost_requires_owner_decision": true,
+    "review_output_is_untrusted": true,
+    "signed_independent_review_still_required": true
+  },
   "evidence_verification": {
     "recalculate_every_artifact": true,
     "require_size_and_sha256": true,

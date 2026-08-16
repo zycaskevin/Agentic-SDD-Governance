@@ -7,8 +7,10 @@
 - Parsed CI workflow semantics with duplicate-key and job-permission rejection.
 - Evidence artifact-generation recheck, intermediate-symlink/FIFO rejection, pending-transaction visibility, and bounded collect/redact recovery.
 - Durable deduplicated Operational Action state, meaningful Rollback validation, complete protected-source inventory, provider-token redaction, and patched hash-locked cryptography.
-- Local Green/Proof is complete for both experimental.8 DEPs, including Python 3.11/3.14 test runs, package build, fresh-wheel Codex/Hermes doctor, and an offline synthetic Muse pilot.
-- Remaining before release: exact independent review with P0=0/P1=0, trusted Merge receipt, hosted Base-workflow proof, owner release authorization, and freshly downloaded asset verification.
+- PR #12 completed exact independent review with P0=0/P1=0, trusted Merge receipt, one Hosted Base-workflow proof, and merge-commit integration while preserving the verified rollback commit.
+- All eight experimental.8 DEPs completed Local Green/Proof, including Python 3.11/3.14 test runs, package build, fresh-wheel Codex/Hermes doctor, and an offline synthetic Muse pilot.
+- Issue #13 adds pre-authorized routine review sharing for an already-configured Reviewer without weakening Private Repo, Secret, raw Evidence, personal-data, access, vendor, or cost boundaries.
+- Remaining before release: finish Issue #13 review/merge, owner release authorization, and freshly downloaded asset verification.
 
 ## v0.2.0-experimental.7 — security hardening candidate
 

@@ -26,5 +26,7 @@ For a failure, start or continue a DEP and follow Red -> Evidence -> Fix -> Gree
 
 Default to `CONTINUE`. Before stopping, use the Skill autonomy route and classifier. Do not use a human as a checksum validator, CI runner, Git operator, retry button, or approval gate for reversible L0/L1 work. Sub-agent uncertainty routes to the Main Agent, not directly to the owner.
 
+For an already-configured Reviewer, load `references/review-sharing.md` and automatically submit the eligible committed public PR diff plus public repository instructions. Verify findings locally and continue without asking the owner to approve each submission or relay review comments. Private Repo content, Secrets, raw Evidence, real user data, new vendors, new access, and new cost remain outside this pre-authorization.
+
 For an explicitly assigned independent protected-file Review, load `references/independent-reviewer.md`, use a fresh clean checkout, and create the Reviewer identity outside the Repo with `sddgov reviewer bootstrap`. Never ask the owner to provide a Reviewer key.
 <!-- agentic-sdd-governance:end -->

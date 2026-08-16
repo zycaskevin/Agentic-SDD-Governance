@@ -12,6 +12,7 @@
     "checkpoint",
     "integrity",
     "trusted_verifier",
+    "routine_external_review",
     "evidence_verification",
     "l2_approval_receipts",
     "l3_approval_receipts",
@@ -75,6 +76,52 @@
         "candidate_code_is_executed_by_governance_gate": {"const": false},
         "verifier_source": {"const": "exact_base_sha"},
         "pull_request_event": {"const": "pull_request_target"}
+      },
+      "additionalProperties": false
+    },
+    "routine_external_review": {
+      "type": "object",
+      "required": [
+        "pre_authorized",
+        "owner_response_required",
+        "reviewer_must_be_preconfigured",
+        "default_public_payload",
+        "private_repository_requires_recorded_pair_decision",
+        "forbidden_payloads",
+        "new_vendor_or_destination_requires_escalation",
+        "new_login_or_oauth_scope_requires_operational_action",
+        "new_cost_requires_owner_decision",
+        "review_output_is_untrusted",
+        "signed_independent_review_still_required"
+      ],
+      "properties": {
+        "pre_authorized": {"const": true},
+        "owner_response_required": {"const": false},
+        "reviewer_must_be_preconfigured": {"const": true},
+        "default_public_payload": {
+          "type": "array",
+          "const": [
+            "committed_pull_request_diff",
+            "public_repository_instructions"
+          ]
+        },
+        "private_repository_requires_recorded_pair_decision": {"const": true},
+        "forbidden_payloads": {
+          "type": "array",
+          "const": [
+            "secrets",
+            "credentials",
+            "raw_evidence",
+            "unredacted_sensitive_material",
+            "production_dumps",
+            "real_user_data"
+          ]
+        },
+        "new_vendor_or_destination_requires_escalation": {"const": true},
+        "new_login_or_oauth_scope_requires_operational_action": {"const": true},
+        "new_cost_requires_owner_decision": {"const": true},
+        "review_output_is_untrusted": {"const": true},
+        "signed_independent_review_still_required": {"const": true}
       },
       "additionalProperties": false
     },

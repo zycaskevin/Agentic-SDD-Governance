@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-ROUTINE-REVIEW-PREAUTH-009",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--routine-review-preauth-red.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "91592310ff0afa8bcef940839f87736c14c41e5803f0a888bb1aec4fdd24eeb0",
+      "size": 570,
+      "collected_at": "2026-08-16T06:06:16Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--routine-review-preauth-red.txt",
+      "sha256": "91592310ff0afa8bcef940839f87736c14c41e5803f0a888bb1aec4fdd24eeb0",
+      "size": 570,
+      "shareable": true
+    }
+  ]
+}

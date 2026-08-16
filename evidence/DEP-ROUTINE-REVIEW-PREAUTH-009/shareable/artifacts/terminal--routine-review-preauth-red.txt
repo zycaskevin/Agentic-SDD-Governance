@@ -1,0 +1,11 @@
+RED reproduction for Issue 13
+baseline_commit=6a90ad84e8ed141241d3ca972b5ab91251429671
+expected=An already-configured Reviewer receives the committed public PR diff and public repository instructions without a per-PR owner approval prompt.
+actual=The baseline Policy Kernel, machine policy, Skill, and Codex/Hermes adapters do not define a bounded review-sharing pre-authorization contract.
+baseline_policy_marker_count=0
+baseline_skill_route_count=0
+baseline_adapter_route_count=0
+payload=synthetic public text only
+secrets=false
+raw_user_data=false
+network_used=false
