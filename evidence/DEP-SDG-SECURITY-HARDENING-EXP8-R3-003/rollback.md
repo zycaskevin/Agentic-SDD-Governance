@@ -3,7 +3,7 @@
 rollback_version: 2.0
 target: closed category request-schema enforcement for experimental.8
 rollback_action: git_revert
-rollback_ref: 140bf2be2c3d29aa52650c7a3282afdfde30ec7b
+rollback_ref: 822ed753ff87d8eed2e3256cf8ae30b2a125e3c4
 verify_action: python_module
 verify_module: pytest
 
