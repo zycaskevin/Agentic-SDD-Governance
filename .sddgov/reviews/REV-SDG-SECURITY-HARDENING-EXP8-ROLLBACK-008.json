@@ -8,9 +8,9 @@
     "change_digest": "ebe898b62e8a4adfa8aaa05c216111f00939a86c366a1a06473d4270ef2c5af8",
     "gate_metadata_digest": "4fee9c21c4171de0f5ed65da5d6b8db2d500191a7494d028fa907fcb30eb31c3",
     "verdict": "approved",
-    "issued_at": "2026-08-16T03:59:01Z",
-    "expires_at": "2026-08-16T04:59:01Z",
-    "nonce": "vaOhi-IZiMle-gGjdMHUlQIV"
+    "issued_at": "2026-08-16T05:45:35Z",
+    "expires_at": "2026-08-16T06:45:35Z",
+    "nonce": "TPil2p4KfhR0dDNpc6letiaT"
   },
-  "signature": "6tFukeKCu6pgOIa4iE/fg3H1HcKwI1xh5OdVxBi1cVNzSYa/VVKPqIM9A7kjcZ/Nt4+hoy4TfoGn/Umjclj6Dw=="
+  "signature": "rfVvYvenfWhxVNx8wOwmFFVrTg3r2rk6EmCOjDEtol/3XsCPbJFQ2cQ9zMxvuTVRUoizcQwY1ui2/WVZmel3DQ=="
 }
