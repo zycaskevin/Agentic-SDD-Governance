@@ -1,16 +1,13 @@
 {
   "schema_version": "1.0",
-  "base_sha": "a5c27e306373829eee966222c3915f5a822b190c",
-  "head_sha": "b5561ee7b84ef199abe03a86f7a5d30e4ff3a93b",
-  "risk_level": "L1",
+  "base_sha": "dd84c538624cdda4e65d7189821b43747c2c535f",
+  "head_sha": "a29a84fe5eee5f9e599dccc53f441ff791b3ae64",
+  "risk_level": "L0",
   "builder_id": "codex-builder",
-  "change_digest": "086f6eee80fba30383b8d4e2408b13803f9b1c11582fec619c75e9e60ec12512",
+  "change_digest": "900f43877a0b841d9a401272d6a893396d5c12947da47dcb77dc916a94e9ca5e",
   "deps": [
-    "evidence/DEP-FINAL-RELEASE-READINESS-011",
-    "evidence/DEP-FINAL-RELEASE-READINESS-R2-012",
-    "evidence/DEP-FINAL-RELEASE-READINESS-R3-013",
-    "evidence/DEP-FINAL-RELEASE-READINESS-R4-014"
+    "evidence/DEP-EXPERIMENTAL8-RELEASE-DOCS-015"
   ],
-  "rollback_path": "evidence/DEP-FINAL-RELEASE-READINESS-R4-014/rollback.md",
-  "protected_file_review": ".sddgov/reviews/REV-FINAL-RELEASE-READINESS-EXP8-R4-014.json"
+  "rollback_path": "evidence/DEP-EXPERIMENTAL8-RELEASE-DOCS-015/rollback.md",
+  "protected_file_review": null
 }
