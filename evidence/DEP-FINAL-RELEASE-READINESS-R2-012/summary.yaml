@@ -1,0 +1,52 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-FINAL-RELEASE-READINESS-R2-012",
+  "issue": "18",
+  "sdd_references": [
+    "docs/AUTONOMOUS_DEVELOPMENT_V1_2.md"
+  ],
+  "risk_level": "L1",
+  "created_at": "2026-08-16T09:55:59Z",
+  "updated_at": "2026-08-16T10:01:00Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-16T09:55:59Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-16T10:00:59Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-16T10:00:59Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-16T10:00:59Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-16T10:01:00Z"
+      }
+    ]
+  },
+  "expected_behavior": "Only a fully validated genuine L2/L3/Operational/UAT decision emits ACTION_REQUIRED; uncertainty remains machine-actionable; signed completion and cancellation are reverified; the active installed Governance Root matches the candidate source and passes Doctor.",
+  "actual_behavior": "The reviewed candidate could map malformed or risk-mismatched packages to exit 2, let generic uncertainty prompt the owner, accept locally forged cancellation state, and load stale installed governance files whose manifest failed Doctor.",
+  "environment": {
+    "commit": "d592892246b1dcfe6cffe50bfd90ea0feeec1227",
+    "branch": "fix/final-release-readiness-exp8",
+    "runtime": "macOS arm64; Python 3.12; synthetic local evidence; no Production data"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": [
+    {
+      "path": "shareable/artifacts/terminal--final-review-r2-red.txt",
+      "sha256": "f71fc66c75840d0e592d25b04bace4922a579f60a14d794695a1d30d3becac8b",
+      "collector": "terminal"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-FINAL-RELEASE-READINESS-R2-012",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--final-review-r2-red.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "f71fc66c75840d0e592d25b04bace4922a579f60a14d794695a1d30d3becac8b",
+      "size": 964,
+      "collected_at": "2026-08-16T09:56:17Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--final-review-r2-red.txt",
+      "sha256": "f71fc66c75840d0e592d25b04bace4922a579f60a14d794695a1d30d3becac8b",
+      "size": 964,
+      "shareable": true
+    }
+  ]
+}
