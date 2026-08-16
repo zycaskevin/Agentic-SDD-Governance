@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "terminal--routine-review-preauth-red.txt",
+      "output": "terminal--routine-review-preauth-red.txt",
+      "source_sha256": "91592310ff0afa8bcef940839f87736c14c41e5803f0a888bb1aec4fdd24eeb0",
+      "source_size": 570,
+      "output_sha256": "91592310ff0afa8bcef940839f87736c14c41e5803f0a888bb1aec4fdd24eeb0",
+      "output_size": 570,
+      "redactions": {}
+    }
+  ],
+  "blocked": [],
+  "totals": {},
+  "dep_id": "DEP-ROUTINE-REVIEW-PREAUTH-009",
+  "generated_at": "2026-08-16T06:06:16Z"
+}
