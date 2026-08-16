@@ -317,6 +317,7 @@ jobs:
         _run(self.root, "git", "commit", "-qm", "restore rename source")
         _run(self.root, "git", "mv", "core/POLICY_KERNEL.md", "harmless.txt")
         _run(self.root, "git", "commit", "-qm", "attempt protected rename bypass")
+        self._bind_rollback_to_current_candidate()
         self._write_gate(review=False)
         with self.assertRaisesRegex(ValueError, "independent review"):
             verify_merge(self.root, self.base, run_checks=False)
@@ -605,8 +606,17 @@ jobs:
             verify_merge(self.root, self.base, run_checks=False)
 
     @patch("sddgov.merge_gate.verify_dep", return_value=[])
+    def test_rollback_ref_must_apply_cleanly_at_the_reviewed_head(self, _verify):
+        (self.root / "core/POLICY_KERNEL.md").write_text("later overlapping edit\n")
+        _run(self.root, "git", "add", "core/POLICY_KERNEL.md")
+        _run(self.root, "git", "commit", "-qm", "overlap after rollback target")
+        self._write_gate()
+        with self.assertRaisesRegex(ValueError, "rollback record"):
+            verify_merge(self.root, self.base, run_checks=False)
+
+    @patch("sddgov.merge_gate.verify_dep", return_value=[])
     def test_exact_legacy_v1_bridge_passes_full_merge_verification(self, _verify):
-        bounded_ref = _run(self.root, "git", "rev-parse", "HEAD")
+        bounded_ref = self.implementation
         rollback = self.root / "evidence/DEP-1/rollback.md"
         rollback.write_text(
             "# Rollback\n\n"

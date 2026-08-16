@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "terminal--rollback-drill-red.txt",
+      "output": "terminal--rollback-drill-red.txt",
+      "source_sha256": "96f2afa954733f82048c7b6f7f324ecedc872803dbd0975abcb8a9162fdfdca7",
+      "source_size": 563,
+      "output_sha256": "96f2afa954733f82048c7b6f7f324ecedc872803dbd0975abcb8a9162fdfdca7",
+      "output_size": 563,
+      "redactions": {}
+    }
+  ],
+  "blocked": [],
+  "totals": {},
+  "dep_id": "DEP-SDG-SECURITY-HARDENING-EXP8-R7-ROLLBACK-008",
+  "generated_at": "2026-08-16T03:28:36Z"
+}

@@ -1,0 +1,8 @@
+PR #12 rollback drill RED evidence
+base=f44cb5f4897f6c821f817fcf178581b43777163a
+reviewed_head=77a68dc32e1e14022829cff4a0fcf966ed9be3c4
+selected_rollback_ref=d7e16f2e5695f6fba28c262daf8e6819dd0c0c35
+git_merge_tree_exit=1
+result=conflict
+conflicts=evidence/DEP-SDG-SECURITY-HARDENING-EXP8-001/rollback.md,evidence/DEP-SDG-SECURITY-HARDENING-EXP8-R6-ROLLBACK-007/rollback.md,evidence/DEP-SDG-SECURITY-HARDENING-EXP8-R6-ROLLBACK-007/summary.yaml,evidence/DEP-SDG-SECURITY-HARDENING-EXP8-R6-ROLLBACK-007/verification.md
+independent_review=P0_0_P1_1_FAIL_NO_SIGNATURE

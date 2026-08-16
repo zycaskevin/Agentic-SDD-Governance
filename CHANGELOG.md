@@ -11,12 +11,13 @@
 - Use generation-bound no-clobber control publication, clean only transaction-owned collect/redact outputs on failure, preserve later writers, replace free-form rollback shell strings with an allowlisted declarative v2 contract, and protect the complete trusted source/workflow/dependency surface including Agent-loaded installed governance copies.
 - Add a non-executing, exact-field legacy rollback v1 compatibility bridge so the experimental.7 trusted Base can validate the v2 migration PR; wrappers, chaining, alternate commands, duplicates, extra fields, and placeholders remain rejected, and all new records use declarative v2.
 - Bind the temporary v1 bridge to the exact experimental.7 Base and migration DEP, reject standalone unknown text, and require every v1/v2 rollback ref to resolve to a full immutable commit inside the reviewed candidate range.
+- Require the selected rollback ref to be a single-parent implementation-only commit whose inverse applies conflict-free at the exact reviewed Head, proven with a non-executing Git tree simulation before Merge.
 - Persist one owner-, scope-, TTL-, and digest-bound Operational Action record so repeated calls do not emit duplicate prompts.
 - Add known provider-credential detectors while preserving clean zero-match text, and upgrade the trusted verifier dependency line to hash-locked `cryptography==50.0.0`.
 
 ### Evidence
 
-- Added `DEP-SDG-SECURITY-HARDENING-EXP8-001`, second-round `DEP-SDG-SECURITY-HARDENING-EXP8-R2-002`, third-round authority-envelope `DEP-SDG-SECURITY-HARDENING-EXP8-R3-003`, protected-inventory `DEP-SDG-SECURITY-HARDENING-EXP8-R3-PROTECTED-004`, nested-authority `DEP-SDG-SECURITY-HARDENING-EXP8-R4-AUTH-005`, and permanent defensive regression tests for Issue #11.
+- Added `DEP-SDG-SECURITY-HARDENING-EXP8-001`, second-round `DEP-SDG-SECURITY-HARDENING-EXP8-R2-002`, third-round authority-envelope `DEP-SDG-SECURITY-HARDENING-EXP8-R3-003`, protected-inventory `DEP-SDG-SECURITY-HARDENING-EXP8-R3-PROTECTED-004`, nested-authority `DEP-SDG-SECURITY-HARDENING-EXP8-R4-AUTH-005`, rollback-contract DEPs R5-R7, and permanent defensive regression tests for Issue #11.
 - This entry records implemented local work only; independent review, exact Merge verification, GitHub-hosted proof, and release publication remain separate gates.
 
 ## 0.2.0-experimental.7 — 2026-08-15 security hardening candidate

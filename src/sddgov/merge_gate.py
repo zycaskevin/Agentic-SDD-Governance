@@ -452,6 +452,53 @@ def _rollback_ref_is_in_candidate_range(
     return True
 
 
+def _rollback_ref_is_cleanly_revertible(
+    root: Path, rollback_ref: str, *, reviewed_head_sha: str
+) -> bool:
+    """Prove the declared single-commit rollback applies without conflicts.
+
+    ``git merge-tree`` performs the same three-way merge shape as reverting the
+    commit: the rollback commit is the merge base, the reviewed Head is ours,
+    and the rollback commit's sole parent is theirs.  It does not update the
+    worktree, execute the Markdown command, run hooks, or invoke a shell.
+    """
+    try:
+        parent_row = _git(root, "rev-list", "--parents", "-n", "1", rollback_ref)
+    except ValueError:
+        return False
+    parents = parent_row.split()
+    if len(parents) != 2 or parents[0] != rollback_ref:
+        return False
+    environment = os.environ.copy()
+    environment.update(
+        {
+            "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_CONFIG_SYSTEM": os.devnull,
+            "GIT_CONFIG_NOSYSTEM": "1",
+        }
+    )
+    completed = subprocess.run(
+        [
+            "git",
+            "-c",
+            "core.hooksPath=/dev/null",
+            "merge-tree",
+            "--write-tree",
+            "--no-messages",
+            "--merge-base",
+            rollback_ref,
+            reviewed_head_sha,
+            parents[1],
+        ],
+        cwd=root,
+        check=False,
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+    return completed.returncode == 0
+
+
 def verify_merge(
     root: Path,
     base_ref: str,
@@ -522,11 +569,19 @@ def verify_merge(
     rollback = _rollback_contract(
         rollback_text, allow_legacy_v1=allow_legacy_v1
     )
-    if rollback is None or not _rollback_ref_is_in_candidate_range(
-        root,
-        rollback["rollback_ref"],
-        base_sha=base_sha,
-        reviewed_head_sha=gate["head_sha"],
+    if (
+        rollback is None
+        or not _rollback_ref_is_in_candidate_range(
+            root,
+            rollback["rollback_ref"],
+            base_sha=base_sha,
+            reviewed_head_sha=gate["head_sha"],
+        )
+        or not _rollback_ref_is_cleanly_revertible(
+            root,
+            rollback["rollback_ref"],
+            reviewed_head_sha=gate["head_sha"],
+        )
     ):
         raise ValueError("rollback record is missing or incomplete")
     commits = _git(root, "rev-list", f"{base_ref}..HEAD").splitlines()
