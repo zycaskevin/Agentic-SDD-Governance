@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-RELEASE-READINESS-HARDENING-010",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--release-readiness-red.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "b41047defda420215f47ce9ca548511ff4a4102c74bedc0716cc3c71305b4d92",
+      "size": 884,
+      "collected_at": "2026-08-16T07:12:32Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--release-readiness-red.txt",
+      "sha256": "c4bfe10afff4c5abe4711a9b338168bd76e5b039ae96acc231d6b9daa991bba9",
+      "size": 914,
+      "shareable": true
+    }
+  ]
+}

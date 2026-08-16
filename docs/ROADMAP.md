@@ -9,8 +9,9 @@
 - Durable deduplicated Operational Action state, meaningful Rollback validation, complete protected-source inventory, provider-token redaction, and patched hash-locked cryptography.
 - PR #12 completed exact independent review with P0=0/P1=0, trusted Merge receipt, one Hosted Base-workflow proof, and merge-commit integration while preserving the verified rollback commit.
 - All eight experimental.8 DEPs completed Local Green/Proof, including Python 3.11/3.14 test runs, package build, fresh-wheel Codex/Hermes doctor, and an offline synthetic Muse pilot.
-- Issue #13 adds pre-authorized routine review sharing for an already-configured Reviewer without weakening Private Repo, Secret, raw Evidence, personal-data, access, vendor, or cost boundaries.
-- Remaining before release: finish Issue #13 review/merge, owner release authorization, and freshly downloaded asset verification.
+- Issue #13 and PR #14 merged pre-authorized routine review sharing for an already-configured Reviewer without weakening Private Repo, Secret, raw Evidence, personal-data, access, vendor, or cost boundaries.
+- Issue #15 hardens executable rollback post-conditions, enforces one automatic hosted Work Package run, and records the required GitHub `main` Ruleset as a separate Operational action.
+- Remaining before release: finish Issue #15 review/merge, activate the required `main` Ruleset, obtain owner release authorization, and verify freshly downloaded assets.
 
 ## v0.2.0-experimental.7 — security hardening candidate
 

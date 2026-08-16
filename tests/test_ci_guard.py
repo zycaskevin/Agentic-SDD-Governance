@@ -18,6 +18,7 @@ def _contract(command):
             "max_reruns_per_revision": 1,
             "expected_minutes": 5,
             "full_matrix": "manual_or_ready_for_review",
+            "post_merge_verification": "manual_only",
         },
         "workflow_controls": {
             "require_concurrency": True,
@@ -45,8 +46,7 @@ GOOD_WORKFLOW = """name: CI
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
-  push:
-    branches: [main]
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
@@ -124,6 +124,65 @@ jobs:
                 "pull_request types must include converted_to_draft",
                 "\n".join(report["errors"]),
             )
+
+    def test_manual_only_post_merge_verification_rejects_automatic_push(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            workflow = GOOD_WORKFLOW.replace(
+                "  workflow_dispatch:\n",
+                "  push:\n    branches: [main]\n  workflow_dispatch:\n",
+            )
+            _write_project(
+                project,
+                _contract([sys.executable, "-c", "pass"]),
+                workflow,
+            )
+            report = verify_guard(project)
+            self.assertFalse(report["ok"])
+            self.assertIn(
+                "manual-only post-merge verification forbids automatic push",
+                "\n".join(report["errors"]),
+            )
+
+    def test_manual_only_push_cannot_hide_behind_workflow_exemption(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            contract = _contract([sys.executable, "-c", "pass"])
+            contract["workflow_controls"]["exempt_workflows"] = ["ci.yml"]
+            workflow = GOOD_WORKFLOW.replace(
+                "  workflow_dispatch:\n",
+                "  push:\n    branches: [main]\n  workflow_dispatch:\n",
+            )
+            _write_project(project, contract, workflow)
+            report = verify_guard(project)
+            self.assertFalse(report["ok"])
+            self.assertIn(
+                "manual-only post-merge verification forbids automatic push",
+                "\n".join(report["errors"]),
+            )
+
+    def test_v1_contract_defaults_missing_post_merge_policy_to_automatic(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            contract = _contract([sys.executable, "-c", "pass"])
+            del contract["hosted"]["post_merge_verification"]
+            workflow = GOOD_WORKFLOW.replace(
+                "  workflow_dispatch:\n",
+                "  push:\n    branches: [main]\n  workflow_dispatch:\n",
+            )
+            _write_project(project, contract, workflow)
+            self.assertTrue(verify_guard(project)["ok"])
+
+    def test_invalid_contract_mappings_fail_closed_without_exception(self):
+        for key in ("hosted", "workflow_controls"):
+            with self.subTest(key=key), tempfile.TemporaryDirectory() as temporary:
+                project = Path(temporary)
+                contract = _contract([sys.executable, "-c", "pass"])
+                contract[key] = "invalid"
+                _write_project(project, contract, GOOD_WORKFLOW)
+                report = verify_guard(project)
+                self.assertFalse(report["ok"])
+                self.assertIn(f"{key} must be an object", "\n".join(report["errors"]))
 
     def test_comments_cannot_fake_types_or_hide_job_write_permissions(self):
         with tempfile.TemporaryDirectory() as temporary:

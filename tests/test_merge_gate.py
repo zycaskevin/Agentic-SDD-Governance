@@ -15,11 +15,15 @@ from sddgov.merge_gate import (
     _is_protected,
     _protected_patterns,
     _real_rollback,
+    _rollback_postcondition_is_green,
     _rollback_ref_is_cleanly_revertible,
     change_digest,
     gate_metadata_digest,
     verify_merge,
 )
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _run(root: Path, *args: str) -> str:
@@ -79,6 +83,7 @@ class MergeGateTests(unittest.TestCase):
                         "max_reruns_per_revision": 1,
                         "expected_minutes": 5,
                         "full_matrix": "manual_or_ready_for_review",
+                        "post_merge_verification": "manual_only",
                     },
                     "workflow_controls": {
                         "require_concurrency": True,
@@ -127,11 +132,14 @@ jobs:
         rollback.parent.mkdir(parents=True, exist_ok=True)
         rollback.write_text(
             "# Rollback\n\n"
-            "rollback_version: 2.0\n"
+            "rollback_version: 3.0\n"
             "target: bounded test commit\n"
             "rollback_action: git_revert\n"
             f"rollback_ref: {implementation}\n"
-            "verify_action: python_module\n"
+            "reconcile_action: setup_agent_from_reverted_source\n"
+            "reconcile_agent: codex\n"
+            "reconcile_profile: team-standard\n"
+            "verify_action: doctor_and_python_module\n"
             "verify_module: unittest\n"
         )
         _run(self.root, "git", "add", "evidence/DEP-1/rollback.md")
@@ -195,8 +203,11 @@ jobs:
             _run(self.root, "git", "add", ".sddgov/merge-gate.json")
         _run(self.root, "git", "commit", "-qm", "merge receipt")
 
+    @patch("sddgov.merge_gate._rollback_postcondition_is_green", return_value=True)
     @patch("sddgov.merge_gate.verify_dep", return_value=[])
-    def test_exact_change_green_dep_rollback_and_review_pass(self, _verify):
+    def test_exact_change_green_dep_rollback_and_review_pass(
+        self, _verify, _postcondition
+    ):
         self._write_gate()
         result = verify_merge(self.root, self.base)
         self.assertTrue(result["ok"])
@@ -561,18 +572,108 @@ jobs:
             with self.subTest(rollback=rollback):
                 self.assertFalse(_real_rollback(rollback, allow_legacy_v1=True))
 
-    def test_v2_rollback_requires_a_full_immutable_ref(self):
+    def test_v3_rollback_requires_reconciliation_doctor_and_full_immutable_ref(self):
         template = (
-            "rollback_version: 2.0\n"
-            "target: bounded verifier migration bridge\n"
+            "rollback_version: 3.0\n"
+            "target: bounded rollback post-condition\n"
             "rollback_action: git_revert\n"
             "rollback_ref: {ref}\n"
-            "verify_action: python_module\n"
-            "verify_module: pytest\n"
+            "reconcile_action: setup_agent_from_reverted_source\n"
+            "reconcile_agent: codex\n"
+            "reconcile_profile: team-standard\n"
+            "verify_action: doctor_and_python_module\n"
+            "verify_module: unittest\n"
         )
         self.assertFalse(_real_rollback(template.format(ref="HEAD")))
         self.assertFalse(_real_rollback(template.format(ref="deadbee")))
         self.assertTrue(_real_rollback(template.format(ref="a" * 40)))
+        self.assertFalse(
+            _real_rollback(
+                template.format(ref="a" * 40).replace(
+                    "reconcile_action: setup_agent_from_reverted_source\n", ""
+                )
+            )
+        )
+        self.assertFalse(
+            _real_rollback(
+                template.format(ref="a" * 40).replace(
+                    "verify_action: doctor_and_python_module",
+                    "verify_action: python_module",
+                )
+            )
+        )
+
+    def test_v2_postcondition_bootstrap_requires_exact_comment_contract(self):
+        bounded_ref = "a" * 40
+        valid = (
+            "# Rollback\n\n"
+            "rollback_version: 2.0\n"
+            "target: exact post-condition transition bridge\n"
+            "rollback_action: git_revert\n"
+            f"rollback_ref: {bounded_ref}\n"
+            "verify_action: python_module\n"
+            "verify_module: unittest\n"
+            "# reconcile_action: setup_agent_from_reverted_source\n"
+            "# reconcile_agent: codex\n"
+            "# reconcile_profile: team-standard\n"
+            "# post_verify_action: doctor_and_python_module\n"
+        )
+        self.assertFalse(_real_rollback(valid))
+        self.assertTrue(
+            _real_rollback(valid, allow_v2_postcondition_bridge=True)
+        )
+        self.assertFalse(
+            _real_rollback(
+                valid.replace("# reconcile_agent: codex\n", ""),
+                allow_v2_postcondition_bridge=True,
+            )
+        )
+
+    def test_release_readiness_dep_uses_parseable_v2_bridge(self):
+        rollback = (
+            REPOSITORY_ROOT
+            / "evidence/DEP-RELEASE-READINESS-HARDENING-010/rollback.md"
+        )
+        if not rollback.exists():
+            self.skipTest("release-readiness DEP is unavailable")
+        self.assertTrue(
+            _real_rollback(
+                rollback.read_text(encoding="utf-8"),
+                allow_v2_postcondition_bridge=True,
+            )
+        )
+
+    def test_pr14_rollback_reconciliation_returns_doctor_and_tests_to_green(self):
+        if not (REPOSITORY_ROOT / ".git").exists():
+            self.skipTest("historical rollback drill requires a Git checkout")
+        for revision in (
+            "3dfd3061bb3bd58b40a3877039a87c45bdd9d943",
+            "fd691a7a069fbaa0f5d5f17886524a29f1ba17a4",
+        ):
+            available = subprocess.run(
+                ["git", "cat-file", "-e", f"{revision}^{{commit}}"],
+                cwd=REPOSITORY_ROOT,
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            if available.returncode != 0:
+                self.skipTest("historical rollback commit is unavailable")
+        rollback = {
+            "rollback_ref": "fd691a7a069fbaa0f5d5f17886524a29f1ba17a4",
+            "reconcile_action": "setup_agent_from_reverted_source",
+            "reconcile_agent": "codex",
+            "reconcile_profile": "team-standard",
+            "verify_action": "doctor_and_python_module",
+            "verify_module": "unittest",
+        }
+        self.assertTrue(
+            _rollback_postcondition_is_green(
+                REPOSITORY_ROOT,
+                rollback,
+                reviewed_head_sha="3dfd3061bb3bd58b40a3877039a87c45bdd9d943",
+            )
+        )
 
     def test_builtin_union_merge_cannot_mask_a_non_base_rollback_result(self):
         with tempfile.TemporaryDirectory() as temporary:

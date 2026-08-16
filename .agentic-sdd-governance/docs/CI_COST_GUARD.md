@@ -31,6 +31,16 @@ Automatic hosted workflows must:
 - avoid allocating runners for Draft PRs;
 - set `timeout-minutes` for every hosted job.
 
+`hosted.post_merge_verification` accepts only `manual_only` or `automatic`.
+For schema `1.0`, an omitted field retains the legacy `automatic` behavior so
+an existing governed repository has an explicit migration path. New installs
+and upgraded repositories should add the field explicitly. When it is
+`manual_only`, automatic `push` events are forbidden even for workflows listed
+under `exempt_workflows`. Use the one non-Draft PR verification as the Work
+Package's hosted run; keep `workflow_dispatch` for a deliberately requested
+Release verification. A successful Merge must not silently consume a second
+hosted run.
+
 Do not use path or commit-message skipping for a required check without coordinating branch protection: GitHub may leave the required check pending. Prefer one cheap required workflow and conditionally activated expensive jobs.
 
 ## Risk and authority
