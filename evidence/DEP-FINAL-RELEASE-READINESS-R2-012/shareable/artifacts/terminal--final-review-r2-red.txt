@@ -1,0 +1,8 @@
+Final pre-release review, exact candidate ac0a1add18e4930ee07298431dda72ccc93011c4
+
+RED 1: A malformed or category/risk-mismatched Decision Package can be reported with classifier exit 2, which is reserved for a genuine ACTION_REQUIRED.
+RED 2: category uncertainty can be caller-labelled L2 or L3 and reach an owner prompt instead of investigation and canonical reclassification.
+RED 3: cancelled Operational Action or Necessary UAT state is accepted on reuse without re-verifying the owner-signed terminal receipt.
+RED 4: the Repository-installed Governance Root omits the new signed-resolution Schema/template and loads stale autonomy policy and workflow copies; Doctor fails.
+
+Expected: every malformed/mismatched request is BLOCKED with exit 1; uncertainty never directly prompts; completed and cancelled terminal receipts are reverified on every reuse; the candidate Repository Doctor passes with byte-identical canonical, packaged, and installed governance.

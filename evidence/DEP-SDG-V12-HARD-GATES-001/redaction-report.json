@@ -5,7 +5,9 @@
       "source": "terminal--v12-hard-gates-red.txt",
       "output": "terminal--v12-hard-gates-red.txt",
       "source_sha256": "976f9e39c85433f719484344f1a08721f4dc6053217531c53c607a972a387147",
+      "source_size": 491,
       "output_sha256": "976f9e39c85433f719484344f1a08721f4dc6053217531c53c607a972a387147",
+      "output_size": 491,
       "redactions": {}
     }
   ],

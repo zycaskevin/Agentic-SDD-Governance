@@ -1,0 +1,7 @@
+Final Security re-review, exact candidate c3f6ec1d17f3f8313593ef7883d1171942fab7e5
+
+RED: DEP-012 selected rollback_ref d592892246b1dcfe6cffe50bfd90ea0feeec1227 covered only the second implementation increment. Reverting it left the earlier implementation in place, so 34 non-Evidence paths still differed from trusted Base a5c27e306373829eee966222c3915f5a822b190c. The exact Merge Gate rollback invariant could not pass.
+
+Expected: one implementation-only commit whose inverse at the exact reviewed Head restores every non-Evidence/non-audit path to the trusted Base, followed only by Evidence and audit descendants. Doctor and the reverted full test suite remain Green after the documented reconciliation.
+
+FIX PROOF: boundary 27f860484b2604d83d80e364eb9ca33eccfcd191 has a non-Evidence/non-audit tree equal to trusted Base. Atomic implementation 2d8497efe36f394637f8a224c70a32167f69bbd5 reapplies the complete candidate. A disposable actual revert of 2d8497e succeeded with zero remaining non-Evidence difference; reconciled Doctor passed with 64 Base managed files and the reverted test suite passed.

@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-FINAL-RELEASE-READINESS-R3-013",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--atomic-rollback-red-green.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "960f8fa33f0564b24cbd0c81fa6eec6429cbcda1a26d92d291aa9ab3a24d4971",
+      "size": 1104,
+      "collected_at": "2026-08-16T10:11:22Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--atomic-rollback-red-green.txt",
+      "sha256": "960f8fa33f0564b24cbd0c81fa6eec6429cbcda1a26d92d291aa9ab3a24d4971",
+      "size": 1104,
+      "shareable": true
+    }
+  ]
+}

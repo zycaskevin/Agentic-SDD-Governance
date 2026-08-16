@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "algorithm": "ed25519",
+  "review": {
+    "review_id": "REV-FINAL-RELEASE-READINESS-EXP8-R4-014",
+    "reviewer_id": "codex-independent-reviewer-pr10",
+    "builder_id": "codex-builder",
+    "change_digest": "086f6eee80fba30383b8d4e2408b13803f9b1c11582fec619c75e9e60ec12512",
+    "gate_metadata_digest": "7353e752eed9317dc4a0617005bebe15f3da5abbdcf3225760f698cc262f137c",
+    "verdict": "approved",
+    "issued_at": "2026-08-16T11:37:56Z",
+    "expires_at": "2026-08-16T23:37:56Z",
+    "nonce": "DmvQkOqPiWbl7HJQUkIgdLqZ"
+  },
+  "signature": "9O3wndq5uqnpfqtkjLC8Be4NhUs3PLTOJ5pBUilTgB3bedh3lH1EMC2XYfBkjx67tFZuuksnJy4mLw3EL9RxDw=="
+}

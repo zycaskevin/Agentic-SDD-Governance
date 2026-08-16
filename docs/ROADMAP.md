@@ -10,8 +10,9 @@
 - PR #12 completed exact independent review with P0=0/P1=0, trusted Merge receipt, one Hosted Base-workflow proof, and merge-commit integration while preserving the verified rollback commit.
 - All eight experimental.8 DEPs completed Local Green/Proof, including Python 3.11/3.14 test runs, package build, fresh-wheel Codex/Hermes doctor, and an offline synthetic Muse pilot.
 - Issue #13 and PR #14 merged pre-authorized routine review sharing for an already-configured Reviewer without weakening Private Repo, Secret, raw Evidence, personal-data, access, vendor, or cost boundaries.
-- Issue #15 hardens executable rollback post-conditions, enforces one automatic hosted Work Package run, and records the required GitHub `main` Ruleset as a separate Operational action.
-- Remaining before release: finish Issue #15 review/merge, activate the required `main` Ruleset, obtain owner release authorization, and verify freshly downloaded assets.
+- Issue #15 and PR #16 merged executable rollback post-conditions and one automatic hosted Work Package run; runtime rollback Doctor/tests proof is Green.
+- Final release-readiness work closes machine-significant classifier exit codes, exact `ACTION REQUIRED` binding, durable Necessary UAT and Operational Action resolution, first-consumer trusted Merge bootstrap, current portable verification for every tracked Proof DEP, and invalid CI exemption handling.
+- Remaining before release: one complete final independent review with P0=0/P1=0, activate and read back the required GitHub security controls, produce signed/attested exact-commit provenance, and verify freshly downloaded assets. No intermediate Release is published.
 
 ## v0.2.0-experimental.7 — security hardening candidate
 

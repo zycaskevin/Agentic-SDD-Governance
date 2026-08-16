@@ -1,0 +1,35 @@
+Synthetic release-readiness RED evidence
+Captured from the complete Security and Autonomy audits of baseline a5c27e306373829eee966222c3915f5a822b190c.
+No Production data, credentials, real user data, or private key material is included.
+
+RED-1 classifier process contract
+CONTINUE returned process exit 0.
+BLOCKED returned process exit 0.
+ACTION_REQUIRED returned process exit 0.
+Expected: 0, 1, and 2 respectively.
+
+RED-2 escalation binding
+A strict Decision Package was not bound to outer risk, Decision or Action ID, exact scope, and the complete L3 operation payload before prompting.
+
+RED-3 Necessary UAT durability
+Two identical Necessary UAT requests emitted ACTION_REQUIRED twice.
+machine_verifiable=true could still prompt.
+One dependent UAT could stop unrelated Work Packages.
+
+RED-4 Operational Action terminal authority
+Pending state was durable, but there was no signed completion or cancellation transition.
+A local completed state needed to be treated as untrusted rather than as Owner authority.
+
+RED-5 first-consumer Merge bootstrap
+A first-time consumer Base had no root policies/protected-files.yaml or trusted Reviewer store.
+Merge verification failed with: protected-file policy is required at the trusted base.
+A Candidate policy or same-UID public trust file must never become the fallback authority.
+
+RED-6 historical Proof portability
+Current portable strict verification failed for:
+- DEP-SDG-V020-EXP6-RELEASE-001
+- DEP-SDG-V12-HARD-GATES-001
+- DEP-SDG-V12-REVIEWER-BOOTSTRAP-001
+
+RED-7 CI exemption robustness
+An unhashable invalid workflow_controls.exempt_workflows element raised TypeError instead of returning a structured fail-closed result.

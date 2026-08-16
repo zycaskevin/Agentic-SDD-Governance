@@ -524,7 +524,12 @@ def verify_guard(root: Path) -> dict[str, Any]:
     controls = controls_value if isinstance(controls_value, dict) else {}
     hosted = hosted_value if isinstance(hosted_value, dict) else {}
     exemptions_value = controls.get("exempt_workflows", [])
-    exemptions = set(exemptions_value) if isinstance(exemptions_value, list) else set()
+    exemptions = (
+        set(exemptions_value)
+        if isinstance(exemptions_value, list)
+        and all(isinstance(item, str) for item in exemptions_value)
+        else set()
+    )
     documents, filesystem_errors = _safe_workflow_documents(root)
     errors.extend(filesystem_errors)
     if not documents and not filesystem_errors:

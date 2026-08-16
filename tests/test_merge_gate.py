@@ -12,6 +12,8 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from sddgov.merge_gate import (
+    _external_trusted_reviewers,
+    _first_consumer_base,
     _is_protected,
     _protected_patterns,
     _real_rollback,
@@ -20,6 +22,7 @@ from sddgov.merge_gate import (
     change_digest,
     gate_metadata_digest,
     verify_merge,
+    _trusted_reviewers,
 )
 
 
@@ -230,6 +233,74 @@ jobs:
         ):
             with self.subTest(path=path):
                 self.assertTrue(_is_protected(path, patterns))
+
+    def test_installed_policy_alone_marks_a_partially_governed_base(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            _run(root, "git", "init", "-q")
+            _run(root, "git", "config", "user.email", "consumer@example.com")
+            _run(root, "git", "config", "user.name", "Consumer Builder")
+            policy = root / ".agentic-sdd-governance/policies/protected-files.yaml"
+            policy.parent.mkdir(parents=True)
+            policy.write_text("protected:\n  - src/sddgov/\nrules:\n")
+            _run(root, "git", "add", ".")
+            _run(root, "git", "commit", "-qm", "partial governance base")
+            base = _run(root, "git", "rev-parse", "HEAD")
+            self.assertFalse(_first_consumer_base(root, base))
+
+    def test_builtin_policy_lookup_uses_python_310_traversable_contract(self):
+        class OneChildTraversable:
+            def __init__(self, parts=()):
+                self.parts = parts
+
+            def joinpath(self, child):
+                return OneChildTraversable((*self.parts, child))
+
+            def read_text(self, encoding="utf-8"):
+                self.assert_path()
+                return "protected:\n  - src/sddgov/\nrules:\n"
+
+            def assert_path(self):
+                expected = (
+                    "resources",
+                    "governance",
+                    "policies",
+                    "protected-files.yaml",
+                )
+                if self.parts != expected:
+                    raise AssertionError(self.parts)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            _run(root, "git", "init", "-q")
+            _run(root, "git", "config", "user.email", "consumer@example.com")
+            _run(root, "git", "config", "user.name", "Consumer Builder")
+            (root / "README.md").write_text("ungoverned\n")
+            _run(root, "git", "add", ".")
+            _run(root, "git", "commit", "-qm", "ungoverned base")
+            base = _run(root, "git", "rev-parse", "HEAD")
+            with patch(
+                "sddgov.merge_gate.resources.files",
+                return_value=OneChildTraversable(),
+            ):
+                patterns = _protected_patterns(root, base)
+            self.assertIn("src/sddgov/", patterns)
+
+    def test_external_reviewer_store_rejects_unresolved_repo_alias(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            parent = Path(temporary)
+            real_root = parent / "real-repository"
+            real_root.mkdir()
+            alias_root = parent / "repository-alias"
+            alias_root.symlink_to(real_root, target_is_directory=True)
+            internal = real_root / "trusted-reviewers.json"
+            internal.write_text('{"schema_version":"1.0","reviewers":[]}\n')
+            internal.chmod(0o600)
+            with patch.dict(
+                "os.environ", {"SDDGOV_TRUSTED_REVIEWERS_FILE": str(internal)}
+            ):
+                with self.assertRaisesRegex(ValueError, "outside the repository"):
+                    _external_trusted_reviewers(alias_root)
 
     @patch("sddgov.merge_gate.verify_dep", return_value=[])
     def test_tracked_raw_evidence_fails(self, _verify):
@@ -449,6 +520,189 @@ jobs:
             ):
                 with self.assertRaisesRegex(ValueError, "required at the trusted base"):
                     verify_merge(self.root, self.base, run_checks=False)
+
+    @patch("sddgov.merge_gate._rollback_postcondition_is_green", return_value=True)
+    @patch("sddgov.merge_gate.verify_dep", return_value=[])
+    def test_first_consumer_uses_trusted_verifier_policy_not_candidate_policy(
+        self, _verify, _postcondition
+    ):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            _run(root, "git", "init", "-q")
+            _run(root, "git", "config", "user.email", "consumer@example.com")
+            _run(root, "git", "config", "user.name", "Consumer Builder")
+            (root / "README.md").write_text("ungoverned baseline\n")
+            _run(root, "git", "add", ".")
+            _run(root, "git", "commit", "-qm", "consumer baseline")
+            base = _run(root, "git", "rev-parse", "HEAD")
+
+            (root / ".agentic-sdd-governance/policies").mkdir(parents=True)
+            # Candidate bytes deliberately claim nothing is protected.  The
+            # first-consumer verifier must ignore them as authority.
+            (root / ".agentic-sdd-governance/policies/protected-files.yaml").write_text(
+                "protected:\n  - harmless-only.txt\nrules:\n"
+            )
+            (root / ".agentic-sdd-governance/manifest.json").write_text("{}\n")
+            (root / "AGENTS.md").write_text("installed governance adapter\n")
+            (root / ".sddgov").mkdir()
+            (root / ".sddgov/trusted-reviewers.json").write_text(
+                '{"schema_version":"1.0","reviewers":[]}\n'
+            )
+            (root / ".sddgov/ci-cost-guard.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": "1.0",
+                        "profile": "team-standard",
+                        "local_green": {
+                            "environment": {},
+                            "commands": [[sys.executable, "-c", "pass"]],
+                        },
+                        "hosted": {
+                            "max_runs_per_work_package": 1,
+                            "max_reruns_per_revision": 1,
+                            "expected_minutes": 5,
+                            "full_matrix": "manual_or_ready_for_review",
+                            "post_merge_verification": "manual_only",
+                        },
+                        "workflow_controls": {
+                            "require_concurrency": True,
+                            "cancel_in_progress": True,
+                            "require_job_timeouts": True,
+                            "require_read_only_permissions": True,
+                            "skip_draft_pull_requests": True,
+                            "exempt_workflows": [],
+                        },
+                    }
+                )
+            )
+            workflows = root / ".github/workflows"
+            workflows.mkdir(parents=True)
+            (workflows / "ci.yml").write_text(
+                "name: CI\non: workflow_dispatch\npermissions:\n  contents: read\n"
+                "jobs:\n  verify:\n    runs-on: ubuntu-latest\n"
+                "    timeout-minutes: 10\n    steps:\n      - run: true\n"
+            )
+            _run(root, "git", "add", ".")
+            _run(root, "git", "commit", "-qm", "install governance")
+            implementation = _run(root, "git", "rev-parse", "HEAD")
+
+            rollback = root / "evidence/DEP-BOOTSTRAP/rollback.md"
+            rollback.parent.mkdir(parents=True)
+            rollback.write_text(
+                "# Rollback\n\n"
+                "rollback_version: 3.0\n"
+                "target: first consumer governance install\n"
+                "rollback_action: git_revert\n"
+                f"rollback_ref: {implementation}\n"
+                "reconcile_action: setup_agent_from_reverted_source\n"
+                "reconcile_agent: codex\n"
+                "reconcile_profile: team-standard\n"
+                "verify_action: doctor_and_python_module\n"
+                "verify_module: unittest\n"
+            )
+            _run(root, "git", "add", "evidence/DEP-BOOTSTRAP/rollback.md")
+            _run(root, "git", "commit", "-qm", "record bootstrap proof")
+            reviewed_head = _run(root, "git", "rev-parse", "HEAD")
+            digest = change_digest(root, base)
+            gate = {
+                "schema_version": "1.0",
+                "base_sha": base,
+                "head_sha": reviewed_head,
+                "risk_level": "L1",
+                "builder_id": "consumer-builder",
+                "change_digest": digest,
+                "deps": ["evidence/DEP-BOOTSTRAP"],
+                "rollback_path": "evidence/DEP-BOOTSTRAP/rollback.md",
+                "protected_file_review": ".sddgov/reviews/REV-BOOTSTRAP.json",
+            }
+            now = datetime.now(timezone.utc).replace(microsecond=0)
+            review = {
+                "review_id": "REV-BOOTSTRAP",
+                "reviewer_id": "independent-reviewer",
+                "builder_id": "consumer-builder",
+                "change_digest": digest,
+                "gate_metadata_digest": gate_metadata_digest(gate),
+                "verdict": "approved",
+                "issued_at": now.isoformat().replace("+00:00", "Z"),
+                "expires_at": (now + timedelta(hours=1)).isoformat().replace(
+                    "+00:00", "Z"
+                ),
+                "nonce": "first-consumer-review-nonce",
+            }
+            canonical = json.dumps(
+                review, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+            ).encode("utf-8")
+            envelope = {
+                "schema_version": "1.0",
+                "algorithm": "ed25519",
+                "review": review,
+                "signature": base64.b64encode(
+                    self.reviewer_key.sign(canonical)
+                ).decode("ascii"),
+            }
+            reviews = root / ".sddgov/reviews"
+            reviews.mkdir()
+            (reviews / "REV-BOOTSTRAP.json").write_text(json.dumps(envelope))
+            (root / ".sddgov/merge-gate.json").write_text(json.dumps(gate))
+            _run(root, "git", "add", ".sddgov/merge-gate.json", ".sddgov/reviews")
+            _run(root, "git", "commit", "-qm", "bind bootstrap review")
+
+            with tempfile.TemporaryDirectory() as external:
+                trust = Path(external) / "trusted-reviewers.json"
+                public_key = self.reviewer_key.public_key().public_bytes(
+                    encoding=serialization.Encoding.Raw,
+                    format=serialization.PublicFormat.Raw,
+                )
+                trust.write_text(
+                    json.dumps(
+                        {
+                            "schema_version": "1.0",
+                            "reviewers": [
+                                {
+                                    "reviewer_id": "independent-reviewer",
+                                    "algorithm": "ed25519",
+                                    "public_key": base64.b64encode(public_key).decode(
+                                        "ascii"
+                                    ),
+                                    "status": "active",
+                                }
+                            ],
+                        }
+                    )
+                )
+                trust.chmod(0o600)
+                with patch.dict(
+                    "os.environ", {"SDDGOV_TRUSTED_REVIEWERS_FILE": str(trust)}
+                ), patch(
+                    "sddgov.merge_gate.load_control_plane_json",
+                    side_effect=lambda path, _label: json.loads(Path(path).read_text()),
+                ):
+                    result = verify_merge(root, base, run_checks=False)
+            self.assertEqual(result["state"], "MERGE_READY")
+            self.assertIn("AGENTS.md", result["protected_files_changed"])
+
+    def test_first_consumer_rejects_same_identity_reviewer_trust(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            _run(root, "git", "init", "-q")
+            _run(root, "git", "config", "user.email", "consumer@example.com")
+            _run(root, "git", "config", "user.name", "Consumer Builder")
+            (root / "README.md").write_text("ungoverned baseline\n")
+            _run(root, "git", "add", ".")
+            _run(root, "git", "commit", "-qm", "consumer baseline")
+            base = _run(root, "git", "rev-parse", "HEAD")
+            trust = root.parent / f"{root.name}-same-identity-reviewers.json"
+            trust.write_text('{"schema_version":"1.0","reviewers":[]}\n')
+            trust.chmod(0o600)
+            try:
+                with patch.dict(
+                    "os.environ", {"SDDGOV_TRUSTED_REVIEWERS_FILE": str(trust)}
+                ), self.assertRaisesRegex(
+                    ValueError, "root-owned|separate identity|control-plane"
+                ):
+                    _trusted_reviewers(root, base)
+            finally:
+                trust.unlink(missing_ok=True)
 
     @patch("sddgov.merge_gate.verify_dep", return_value=[])
     def test_external_store_cannot_override_active_base_reviewer(self, _verify):

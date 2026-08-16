@@ -1,0 +1,15 @@
+Synthetic PR #19 final CodeRabbit triage RED evidence
+Exact reviewed Head: b815214632a820451d3e8444af9ebfea8a2ec0f5
+No credentials, Production data, real user data, or private key material.
+
+Independent Autonomy triage: P0=0, P1=3.
+RED-1: necessary_uat with caller machine_verifiable=true returned CONTINUE without durable machine evidence.
+RED-2: a validated ACTION_REQUIRED, argparse usage error, and a general process error all used exit code 2.
+RED-3: malformed or downgraded external-action risk was validated after terminal state persistence.
+
+Independent Security triage: P0=0, P1=2.
+RED-4: a Base containing only .agentic-sdd-governance/policies/protected-files.yaml was classified as first consumer.
+RED-5: the built-in protected policy lookup passed multiple children to Traversable.joinpath despite the declared Python 3.10 floor.
+
+Initial permanent regression matrix: 8 tests, 6 failures and 2 errors.
+Expected: contradictory UAT classification blocks without owner prompt; exit 2 is owner-only; malformed durable state remains byte-unchanged; partial Base fails closed; Python 3.10 resource lookup succeeds.
