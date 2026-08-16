@@ -1,14 +1,11 @@
 # Rollback
 
-rollback_version: 3.0
+rollback_version: 2.0
 target: TODO bounded rollback target
 rollback_action: git_revert
 rollback_ref: REPLACE_WITH_FULL_CANDIDATE_SHA
-reconcile_action: setup_agent_from_reverted_source
-reconcile_agent: codex
-reconcile_profile: team-standard
-verify_action: doctor_and_python_module
-verify_module: unittest
+verify_action: python_module
+verify_module: pytest
 
 ## Trigger
 
@@ -24,4 +21,4 @@ verify_module: unittest
 
 ## Post-rollback verification
 
-# Refresh managed Agent governance from the reverted source, run Doctor, then run the declared module and affected full verification matrix.
+# Run the declared module plus the affected full verification matrix.

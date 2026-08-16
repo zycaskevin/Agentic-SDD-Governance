@@ -149,7 +149,7 @@ SDG v1.2 預設 `CONTINUE`。Issue、Branch、Commit、feature-branch Push、PR�
 
 若 CodeRabbit 或其他 Reviewer 已經為這個公開 Repo 設定完成，Agent 可以自動送出 committed PR diff，以及審查所需的公開 `AGENTS.md`／治理指令。Agent 應自行核對 findings、修正有效問題並重新送審，不應要求 Arthur 逐次批准，也不應讓 Arthur 在不同 Agent 之間複製貼上審查內容。
 
-這個預先授權只涵蓋最小公開 Payload。Private Repo 內容、Secrets、Credentials、`private/raw`、未遮罩敏感資料、Production dump、真實使用者資料、新 Reviewer／Vendor／外部目的地、新登入／MFA／OAuth scope、帳號權限或其他新存取，以及新增費用都不在範圍內。Private Repo 與 Reviewer 的精確既有決策屬於另一條有界授權路徑，不是公開例行送審的例外。遇到這些情況必須先停止傳送，再依 L2／L3／Operational Action 分類。自動化第三方 Review 也不能取代 Merge Gate 所需的獨立簽章 Review receipt。
+這個預先授權只涵蓋最小公開 Payload。Private Repo 內容、Secrets、Credentials、`private/raw`、未遮罩敏感資料、Production dump、真實使用者資料、新 Reviewer／Vendor、新登入或 OAuth scope，以及新增費用都不在範圍內。遇到這些情況必須先停止傳送，再依 L2／L3／Operational Action 分類。自動化第三方 Review 也不能取代 Merge Gate 所需的獨立簽章 Review receipt。
 
 建議循環：
 

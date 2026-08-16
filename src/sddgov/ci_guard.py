@@ -17,7 +17,6 @@ from yaml.constructor import ConstructorError
 CONTRACT_PATH = Path(".sddgov/ci-cost-guard.json")
 WORKFLOW_SUFFIXES = (".yml", ".yaml")
 FULL_MATRIX_VALUES = {"manual", "ready_for_review", "manual_or_ready_for_review", "release"}
-POST_MERGE_VERIFICATION_VALUES = {"manual_only", "automatic"}
 
 
 def _read_contract(root: Path) -> dict[str, Any]:
@@ -159,8 +158,6 @@ def _validate_contract(contract: dict[str, Any]) -> list[str]:
                 errors.append(f"hosted.{key} must be an integer >= {minimum}")
         if hosted.get("full_matrix") not in FULL_MATRIX_VALUES:
             errors.append("hosted.full_matrix is invalid")
-        if hosted.get("post_merge_verification", "automatic") not in POST_MERGE_VERIFICATION_VALUES:
-            errors.append("hosted.post_merge_verification is invalid")
 
     controls = contract.get("workflow_controls")
     required_controls = (
@@ -391,7 +388,6 @@ def _inspect_workflow(
     workflow_name: str,
     source: str,
     controls: dict[str, Any],
-    hosted: dict[str, Any],
 ) -> tuple[list[str], dict[str, Any]]:
     errors: list[str] = []
     try:
@@ -412,10 +408,6 @@ def _inspect_workflow(
     automatic = bool(
         set(events) & {"pull_request", "pull_request_target", "push", "schedule"}
     )
-    if hosted.get("post_merge_verification", "automatic") == "manual_only" and "push" in events:
-        errors.append(
-            f"{workflow_name}: manual-only post-merge verification forbids automatic push"
-        )
     jobs_value = document.get("jobs")
     if not isinstance(jobs_value, dict):
         jobs_value = {}
@@ -519,27 +511,18 @@ def verify_guard(root: Path) -> dict[str, Any]:
     contract = _read_contract(root)
     errors = _validate_contract(contract)
     reports: list[dict[str, Any]] = []
-    controls_value = contract.get("workflow_controls", {})
-    hosted_value = contract.get("hosted", {})
-    controls = controls_value if isinstance(controls_value, dict) else {}
-    hosted = hosted_value if isinstance(hosted_value, dict) else {}
-    exemptions_value = controls.get("exempt_workflows", [])
-    exemptions = set(exemptions_value) if isinstance(exemptions_value, list) else set()
+    controls = contract.get("workflow_controls", {})
+    exemptions = set(controls.get("exempt_workflows", [])) if isinstance(controls, dict) else set()
     documents, filesystem_errors = _safe_workflow_documents(root)
     errors.extend(filesystem_errors)
     if not documents and not filesystem_errors:
         errors.append("no GitHub Actions workflows found")
     for name, source in documents:
-        exempt = name in exemptions
-        workflow_errors, report = _inspect_workflow(
-            name,
-            source,
-            {} if exempt else controls,
-            hosted,
-        )
+        if name in exemptions:
+            reports.append({"workflow": name, "exempt": True})
+            continue
+        workflow_errors, report = _inspect_workflow(name, source, controls)
         errors.extend(workflow_errors)
-        if exempt:
-            report["exempt"] = True
         reports.append(report)
     return {
         "ok": not errors,

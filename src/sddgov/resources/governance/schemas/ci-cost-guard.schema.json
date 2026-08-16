@@ -31,8 +31,7 @@
         "max_runs_per_work_package": {"type": "integer", "minimum": 1},
         "max_reruns_per_revision": {"type": "integer", "minimum": 0},
         "expected_minutes": {"type": "integer", "minimum": 1},
-        "full_matrix": {"enum": ["manual", "ready_for_review", "manual_or_ready_for_review", "release"]},
-        "post_merge_verification": {"enum": ["manual_only", "automatic"]}
+        "full_matrix": {"enum": ["manual", "ready_for_review", "manual_or_ready_for_review", "release"]}
       },
       "additionalProperties": false
     },

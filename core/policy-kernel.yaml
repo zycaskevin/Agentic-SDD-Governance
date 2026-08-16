@@ -21,10 +21,7 @@ invariants:
   l3_binds_complete_operation_payload: true
   routine_review_submission_pre_authorized: true
   routine_review_owner_response_required: false
-  routine_review_public_repository_required: true
-  private_review_requires_separate_recorded_pair_authorization: true
   routine_review_sensitive_payload_allowed: false
-  routine_review_new_access_allowed: false
 interruptions:
   allowed:
     - unresolved_l2_product_decision

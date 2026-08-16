@@ -20,10 +20,10 @@
 `AUTOMATIC_REVIEW_IS_PREAUTHORIZED` applies when all of the following are true:
 
 1. The Reviewer is already configured for the repository.
-2. The repository and submitted material are public. An exact Private Repo/Reviewer owner decision belongs to a separate bounded authorization path.
+2. The repository and submitted material are public, or an exact repository/Reviewer pair has a recorded owner decision.
 3. The payload is limited to committed PR changes and the public repository instructions needed to review them.
 4. The payload contains no Secret, credential, raw DEP Evidence, unredacted sensitive material, production dump, or real user data.
-5. The submission creates no new login, MFA, OAuth scope, account permission, other access, paid plan, cost, vendor, or destination.
+5. The submission creates no new login, OAuth scope, paid plan, vendor, or destination.
 
 If any condition is false or unknown, the Agent fails closed and routes the bounded privacy, access, cost, or Operational Action through the normal classifier.
 
@@ -41,8 +41,8 @@ If any condition is false or unknown, the Agent fails closed and routes the boun
 - The policy marks eligible routine review as pre-authorized and owner response as unnecessary.
 - Public committed PR diff and public `AGENTS.md`/governance instructions are the only default-allowed payload classes.
 - Secrets, credentials, raw Evidence, unredacted sensitive material, production dumps, and real user data are always forbidden.
-- Private repository sharing never uses public routine pre-authorization; it requires a separate exact recorded repository/Reviewer decision.
-- New vendor, login/MFA, OAuth scope, account permission, other access, paid plan, cost, or expanded destination cannot use routine pre-authorization.
+- Private repository sharing requires an exact recorded repository/Reviewer decision.
+- New vendor, login/MFA, OAuth scope, paid plan, or expanded destination cannot use routine pre-authorization.
 - Codex and Hermes route findings to the Main Agent for local verification and repair instead of asking the owner to relay them.
 - Automated third-party review is not accepted as the signed independent Review receipt.
 - Canonical, packaged, and installed governance copies remain byte-consistent.
