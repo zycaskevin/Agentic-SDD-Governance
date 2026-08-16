@@ -2,7 +2,7 @@
 
 ## Smallest sufficient change
 
-Implement a bounded, exact legacy-v1 allowlist alongside declarative v2; use v1 only for the Base bootstrap gate and retain v2 for future gates.
+Implement a bounded, exact legacy-v1 allowlist alongside declarative v2; enable v1 only for exact Base `f44cb5f4897f6c821f817fcf178581b43777163a` plus the selected migration rollback path, and retain v2 for future gates.
 
 ## Files or components in scope
 

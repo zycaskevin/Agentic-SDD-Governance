@@ -115,19 +115,26 @@ jobs:
         _run(self.root, "git", "commit", "-qm", "baseline")
         self.base = _run(self.root, "git", "rev-parse", "HEAD")
         (self.root / "core/POLICY_KERNEL.md").write_text("hardened\n")
+        _run(self.root, "git", "add", "core/POLICY_KERNEL.md")
+        _run(self.root, "git", "commit", "-qm", "harden implementation")
+        self.implementation = _run(self.root, "git", "rev-parse", "HEAD")
+        self._bind_rollback_to_current_candidate()
+
+    def _bind_rollback_to_current_candidate(self):
+        implementation = _run(self.root, "git", "rev-parse", "HEAD")
         rollback = self.root / "evidence/DEP-1/rollback.md"
-        rollback.parent.mkdir(parents=True)
+        rollback.parent.mkdir(parents=True, exist_ok=True)
         rollback.write_text(
             "# Rollback\n\n"
             "rollback_version: 2.0\n"
             "target: bounded test commit\n"
             "rollback_action: git_revert\n"
-            "rollback_ref: HEAD\n"
+            f"rollback_ref: {implementation}\n"
             "verify_action: python_module\n"
             "verify_module: unittest\n"
         )
-        _run(self.root, "git", "add", ".")
-        _run(self.root, "git", "commit", "-qm", "harden")
+        _run(self.root, "git", "add", "evidence/DEP-1/rollback.md")
+        _run(self.root, "git", "commit", "-qm", "bind rollback plan")
 
     def tearDown(self):
         self.temporary.cleanup()
@@ -353,6 +360,7 @@ jobs:
         (self.root / "core/POLICY_KERNEL.md").write_text("hardened again\n")
         _run(self.root, "git", "add", "core/POLICY_KERNEL.md")
         _run(self.root, "git", "commit", "-qm", "protected follow-up")
+        self._bind_rollback_to_current_candidate()
         self._write_gate()
         with self.assertRaisesRegex(ValueError, "duplicate reviewer_id"):
             verify_merge(self.root, self.base, run_checks=False)
@@ -369,6 +377,7 @@ jobs:
         (self.root / "core/POLICY_KERNEL.md").write_text("bootstrap change\n")
         _run(self.root, "git", "add", "core/POLICY_KERNEL.md")
         _run(self.root, "git", "commit", "-qm", "protected bootstrap change")
+        self._bind_rollback_to_current_candidate()
         self._write_gate()
         with tempfile.TemporaryDirectory() as external:
             trust_path = Path(external) / "trusted-reviewers.json"
@@ -392,6 +401,7 @@ jobs:
         (self.root / "core/POLICY_KERNEL.md").write_text("bootstrap change\n")
         _run(self.root, "git", "add", "core/POLICY_KERNEL.md")
         _run(self.root, "git", "commit", "-qm", "protected bootstrap change")
+        self._bind_rollback_to_current_candidate()
         self._write_gate()
         with tempfile.TemporaryDirectory() as external:
             trust_path = Path(external) / "trusted-reviewers.json"
@@ -413,6 +423,7 @@ jobs:
         (self.root / "core/POLICY_KERNEL.md").write_text("bootstrap change\n")
         _run(self.root, "git", "add", "core/POLICY_KERNEL.md")
         _run(self.root, "git", "commit", "-qm", "protected bootstrap change")
+        self._bind_rollback_to_current_candidate()
         self._write_gate()
         with tempfile.TemporaryDirectory() as external:
             trust_path = Path(external) / "trusted-reviewers.json"
@@ -465,6 +476,7 @@ jobs:
         (self.root / "core/POLICY_KERNEL.md").write_text("post-revocation change\n")
         _run(self.root, "git", "add", "core/POLICY_KERNEL.md")
         _run(self.root, "git", "commit", "-qm", "protected change")
+        self._bind_rollback_to_current_candidate()
         self._write_gate()
 
         trust["reviewers"][0]["status"] = "active"
@@ -507,50 +519,116 @@ jobs:
             verify_merge(self.root, self.base, run_checks=False)
 
     def test_legacy_v1_bridge_is_an_exact_non_executable_allowlist(self):
+        bounded_ref = "a" * 40
         valid = (
             "# Rollback\n\n"
             "rollback_version: 1.0\n"
             "target: bounded verifier migration bridge\n"
-            "command: git revert --no-edit HEAD\n"
-            "verify: python -m pytest\n\n"
-            "## Trigger\n\nOnly after a failed migration.\n"
+            f"command: git revert --no-edit {bounded_ref}\n"
+            "verify: python -m pytest\n"
         )
-        self.assertTrue(_real_rollback(valid))
+        self.assertFalse(_real_rollback(valid))
+        self.assertTrue(_real_rollback(valid, allow_legacy_v1=True))
         invalid_variants = (
-            valid.replace("git revert --no-edit HEAD", "sh -c 'git revert --no-edit HEAD'"),
-            valid.replace("git revert --no-edit HEAD", "git status"),
-            valid.replace("git revert --no-edit HEAD", "git revert --no-edit HEAD && true"),
+            valid + "sh -c 'dangerous standalone command'\n",
+            valid.replace(
+                f"git revert --no-edit {bounded_ref}",
+                f"sh -c 'git revert --no-edit {bounded_ref}'",
+            ),
+            valid.replace(f"git revert --no-edit {bounded_ref}", "git status"),
+            valid.replace(
+                f"git revert --no-edit {bounded_ref}",
+                f"git revert --no-edit {bounded_ref} && true",
+            ),
             valid.replace("python -m pytest", "python -m unittest"),
             valid.replace("verify: python -m pytest", "verify: python -m pytest\nverify: true"),
             valid.replace("verify: python -m pytest", "verify: python -m pytest\nshell: bash"),
             valid.replace("bounded verifier migration bridge", "TODO"),
-            valid.replace("git revert --no-edit HEAD", "`git revert --no-edit HEAD`"),
+            valid.replace(
+                f"git revert --no-edit {bounded_ref}",
+                f"`git revert --no-edit {bounded_ref}`",
+            ),
             valid.replace("python -m pytest", "`python -m pytest`"),
             valid.replace("command: git revert", "command:  git revert"),
             valid.replace("rollback_version: 1.0", "Rollback_Version: 1.0"),
-            valid.replace(
-                "## Trigger", "## Notes\n\ncommand: git revert --no-edit HEAD\n\n## Trigger"
-            ),
+            valid + f"command: git revert --no-edit {bounded_ref}\n",
         )
         for rollback in invalid_variants:
             with self.subTest(rollback=rollback):
-                self.assertFalse(_real_rollback(rollback))
+                self.assertFalse(_real_rollback(rollback, allow_legacy_v1=True))
+
+    def test_v2_rollback_requires_a_full_immutable_ref(self):
+        template = (
+            "rollback_version: 2.0\n"
+            "target: bounded verifier migration bridge\n"
+            "rollback_action: git_revert\n"
+            "rollback_ref: {ref}\n"
+            "verify_action: python_module\n"
+            "verify_module: pytest\n"
+        )
+        self.assertFalse(_real_rollback(template.format(ref="HEAD")))
+        self.assertFalse(_real_rollback(template.format(ref="deadbee")))
+        self.assertTrue(_real_rollback(template.format(ref="a" * 40)))
+
+    @patch("sddgov.merge_gate.verify_dep", return_value=[])
+    def test_v2_rollback_ref_must_exist_in_the_candidate_range(self, _verify):
+        rollback = self.root / "evidence/DEP-1/rollback.md"
+        rollback.write_text(
+            "rollback_version: 2.0\n"
+            "target: bounded nonexistent commit\n"
+            "rollback_action: git_revert\n"
+            f"rollback_ref: {'f' * 40}\n"
+            "verify_action: python_module\n"
+            "verify_module: pytest\n"
+        )
+        _run(self.root, "git", "add", "evidence/DEP-1/rollback.md")
+        _run(self.root, "git", "commit", "-qm", "invalid rollback ref")
+        self._write_gate()
+        with self.assertRaisesRegex(ValueError, "rollback record"):
+            verify_merge(self.root, self.base, run_checks=False)
+
+    @patch("sddgov.merge_gate.verify_dep", return_value=[])
+    def test_v2_rollback_ref_cannot_select_the_base_commit(self, _verify):
+        rollback = self.root / "evidence/DEP-1/rollback.md"
+        rollback.write_text(
+            "rollback_version: 2.0\n"
+            "target: bounded out-of-range commit\n"
+            "rollback_action: git_revert\n"
+            f"rollback_ref: {self.base}\n"
+            "verify_action: python_module\n"
+            "verify_module: pytest\n"
+        )
+        _run(self.root, "git", "add", "evidence/DEP-1/rollback.md")
+        _run(self.root, "git", "commit", "-qm", "out-of-range rollback ref")
+        self._write_gate()
+        with self.assertRaisesRegex(ValueError, "rollback record"):
+            verify_merge(self.root, self.base, run_checks=False)
 
     @patch("sddgov.merge_gate.verify_dep", return_value=[])
     def test_exact_legacy_v1_bridge_passes_full_merge_verification(self, _verify):
+        bounded_ref = _run(self.root, "git", "rev-parse", "HEAD")
         rollback = self.root / "evidence/DEP-1/rollback.md"
         rollback.write_text(
             "# Rollback\n\n"
             "rollback_version: 1.0\n"
             "target: bounded trusted-verifier migration\n"
-            "command: git revert --no-edit HEAD\n"
-            "verify: python -m pytest\n\n"
-            "## Trigger\n\nOnly for the reviewed bootstrap transition.\n"
+            f"command: git revert --no-edit {bounded_ref}\n"
+            "verify: python -m pytest\n"
         )
         _run(self.root, "git", "add", "evidence/DEP-1/rollback.md")
         _run(self.root, "git", "commit", "-qm", "bridge rollback contract")
         self._write_gate()
-        result = verify_merge(self.root, self.base, run_checks=False)
+        with (
+            patch(
+                "sddgov.merge_gate.LEGACY_ROLLBACK_V1_BOOTSTRAP_BASE_SHA",
+                self.base,
+            ),
+            patch(
+                "sddgov.merge_gate.LEGACY_ROLLBACK_V1_BOOTSTRAP_PATH",
+                "evidence/DEP-1/rollback.md",
+            ),
+        ):
+            result = verify_merge(self.root, self.base, run_checks=False)
         self.assertEqual(result["state"], "MERGE_READY")
 
 

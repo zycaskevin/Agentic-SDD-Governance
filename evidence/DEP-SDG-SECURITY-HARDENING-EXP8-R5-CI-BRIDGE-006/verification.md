@@ -7,7 +7,7 @@ PASS on the exact working tree before review:
 - Full suite and Local Green Gate: 190/190 tests PASS on macOS, including the real AF_UNIX broker path with no skip.
 - `sddgov validate`: PASS.
 - `sddgov ci verify`: PASS.
-- Existing five strict DEPs: full and portable verification PASS.
+- All six packages present at that checkpoint (the five predecessor DEPs plus this R5 DEP): full and portable strict verification PASS.
 - Wheel and sdist build: PASS.
 - Fresh Python 3.11 wheel install: `pip check` PASS.
 - Fresh Codex and Hermes installs: `doctor` PASS with 63 managed files each.

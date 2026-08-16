@@ -1,0 +1,38 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-SDG-SECURITY-HARDENING-EXP8-R6-ROLLBACK-007",
+  "issue": "11",
+  "sdd_references": [
+    "HARD-GATES-V1.2"
+  ],
+  "risk_level": "L1",
+  "created_at": "2026-08-16T02:55:56Z",
+  "updated_at": "2026-08-16T02:57:18Z",
+  "workflow": {
+    "phase": "fix",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-16T02:55:56Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-16T02:57:17Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-16T02:57:18Z"
+      }
+    ]
+  },
+  "expected_behavior": "Rollback v1 is limited to the exact experimental.7 bootstrap, v1/v2 refs identify an existing immutable commit inside the reviewed candidate range, and unknown non-comment text fails closed.",
+  "actual_behavior": "The parser accepts HEAD, short or nonexistent hexadecimal refs, permits v1 without Base context, and ignores standalone non-comment text without a colon.",
+  "environment": {
+    "commit": "3c11f977f1a36d87511047437d8e4f631b6ddf9e",
+    "branch": "fix/security-hardening-exp8",
+    "runtime": "macOS; Python 3.14 test venv; PR #12 exact Base f44cb5f and Head 3c11f97"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}

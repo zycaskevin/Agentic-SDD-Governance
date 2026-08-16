@@ -20,6 +20,12 @@ from .trust import load_owner_controlled_json
 
 
 DEFAULT_GATE = Path(".sddgov/merge-gate.json")
+LEGACY_ROLLBACK_V1_BOOTSTRAP_BASE_SHA = (
+    "f44cb5f4897f6c821f817fcf178581b43777163a"
+)
+LEGACY_ROLLBACK_V1_BOOTSTRAP_PATH = (
+    "evidence/DEP-SDG-SECURITY-HARDENING-EXP8-001/rollback.md"
+)
 AUDIT_EXCLUDES = (
     ":(exclude).sddgov/merge-gate.json",
     ":(exclude).sddgov/reviews/**",
@@ -347,7 +353,9 @@ def only_audit_changes_after_review(
     )
 
 
-def _real_rollback(text: str) -> bool:
+def _rollback_contract(
+    text: str, *, allow_legacy_v1: bool = False
+) -> dict[str, str] | None:
     """Validate rollback bytes loaded from the immutable candidate commit.
 
     Declarative v2 is the normal contract.  One exact legacy v1 form remains as a
@@ -360,7 +368,7 @@ def _real_rollback(text: str) -> bool:
         if not line or line.startswith("#"):
             continue
         if ":" not in raw:
-            continue
+            return None
         key, value = raw.split(":", 1)
         if (
             raw != line
@@ -372,7 +380,7 @@ def _real_rollback(text: str) -> bool:
             or value.startswith("  ")
             or value[1:] != value[1:].strip()
         ):
-            return False
+            return None
         fields[key] = value[1:]
     target = fields.get("target", "")
     if (
@@ -380,14 +388,20 @@ def _real_rollback(text: str) -> bool:
         or len(target) > 240
         or any(token in target.lower() for token in ("todo", "unavailable", "<", ">"))
     ):
-        return False
+        return None
     version = fields.get("rollback_version")
     if version == "1.0":
-        return (
-            set(fields) == {"rollback_version", "target", "command", "verify"}
-            and fields["command"] == "git revert --no-edit HEAD"
-            and fields["verify"] == "python -m pytest"
-        )
+        if not allow_legacy_v1 or set(fields) != {
+            "rollback_version",
+            "target",
+            "command",
+            "verify",
+        }:
+            return None
+        match = re.fullmatch(r"git revert --no-edit ([0-9a-f]{40})", fields["command"])
+        if match is None or fields["verify"] != "python -m pytest":
+            return None
+        return {"version": version, "rollback_ref": match.group(1)}
     required_v2 = {
         "rollback_version",
         "target",
@@ -397,14 +411,45 @@ def _real_rollback(text: str) -> bool:
         "verify_module",
     }
     if set(fields) != required_v2 or version != "2.0":
-        return False
+        return None
     if fields["rollback_action"] != "git_revert":
-        return False
-    if not re.fullmatch(r"(?:HEAD|[0-9a-f]{7,40})", fields["rollback_ref"]):
-        return False
+        return None
+    if not re.fullmatch(r"[0-9a-f]{40}", fields["rollback_ref"]):
+        return None
     if fields["verify_action"] != "python_module":
+        return None
+    if fields["verify_module"] not in {"pytest", "unittest"}:
+        return None
+    return {"version": version, "rollback_ref": fields["rollback_ref"]}
+
+
+def _real_rollback(text: str, *, allow_legacy_v1: bool = False) -> bool:
+    return _rollback_contract(text, allow_legacy_v1=allow_legacy_v1) is not None
+
+
+def _rollback_ref_is_in_candidate_range(
+    root: Path, rollback_ref: str, *, base_sha: str, reviewed_head_sha: str
+) -> bool:
+    try:
+        resolved = _git(root, "rev-parse", "--verify", f"{rollback_ref}^{{commit}}")
+    except ValueError:
         return False
-    return fields["verify_module"] in {"pytest", "unittest"}
+    if resolved != rollback_ref or rollback_ref == base_sha:
+        return False
+    for older, newer in (
+        (base_sha, rollback_ref),
+        (rollback_ref, reviewed_head_sha),
+    ):
+        completed = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", older, newer],
+            cwd=root,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if completed.returncode != 0:
+            return False
+    return True
 
 
 def verify_merge(
@@ -467,10 +512,22 @@ def verify_merge(
     rollback_relative = gate.get("rollback_path")
     _bounded_repository_path(root, rollback_relative, "rollback")
     try:
-        rollback_text = _git(root, "show", f"{head_sha}:{rollback_relative}")
+        rollback_text = _git(root, "show", f"{gate['head_sha']}:{rollback_relative}")
     except ValueError as exc:
         raise ValueError("rollback record is missing or incomplete") from exc
-    if not _real_rollback(rollback_text):
+    allow_legacy_v1 = (
+        base_sha == LEGACY_ROLLBACK_V1_BOOTSTRAP_BASE_SHA
+        and rollback_relative == LEGACY_ROLLBACK_V1_BOOTSTRAP_PATH
+    )
+    rollback = _rollback_contract(
+        rollback_text, allow_legacy_v1=allow_legacy_v1
+    )
+    if rollback is None or not _rollback_ref_is_in_candidate_range(
+        root,
+        rollback["rollback_ref"],
+        base_sha=base_sha,
+        reviewed_head_sha=gate["head_sha"],
+    ):
         raise ValueError("rollback record is missing or incomplete")
     commits = _git(root, "rev-list", f"{base_ref}..HEAD").splitlines()
     raw = sorted(
