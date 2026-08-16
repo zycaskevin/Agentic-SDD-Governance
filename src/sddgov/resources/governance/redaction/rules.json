@@ -7,7 +7,6 @@
     {"id": "authorization", "action": "replace"},
     {"id": "cookie", "action": "replace"},
     {"id": "jwt", "action": "replace"},
-    {"id": "provider-credential", "action": "replace"},
     {"id": "password", "action": "replace"},
     {"id": "secret-field", "action": "replace"},
     {"id": "patient-identifier", "action": "mask"},

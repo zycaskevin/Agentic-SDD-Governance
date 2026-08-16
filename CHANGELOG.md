@@ -1,25 +1,5 @@
 # Changelog
 
-## 0.2.0-experimental.8 — 2026-08-16 security hardening (unreleased)
-
-### Security
-
-- Restrict every autonomy category and risk level to one closed request schema before decision or approval reuse; L0/L1 stays targetless and parameterless, product L2 reuse rejects foreign L3 fields and any new nested Decision Package, and product receipts cannot authorize Operational Action or Necessary UAT categories.
-- Constrain L2 reopen behavior to the machine-readable `scope_or_assumptions_change` contract and retain non-symlink repository directory descriptors while recalculating assumption artifacts.
-- Replace CI workflow regex checks with YAML 1.2 duplicate-key-rejecting semantic validation for triggers, exact non-bypassable Draft conditions, valid runners, concurrency, permissions, and bounded job timeouts; read every workflow through retained non-symlink directory descriptors.
-- Recheck the exact verified Evidence artifact generation immediately before attachment publication; reject intermediate symlinks, nonblocking-open non-regular inputs, pending attachment residue, and interrupted staging.
-- Use generation-bound no-clobber control publication, clean only transaction-owned collect/redact outputs on failure, preserve later writers, replace free-form rollback shell strings with an allowlisted declarative v2 contract, and protect the complete trusted source/workflow/dependency surface including Agent-loaded installed governance copies.
-- Add a non-executing, exact-field legacy rollback v1 compatibility bridge so the experimental.7 trusted Base can validate the v2 migration PR; wrappers, chaining, alternate commands, duplicates, extra fields, and placeholders remain rejected, and all new records use declarative v2.
-- Bind the temporary v1 bridge to the exact experimental.7 Base and migration DEP, reject standalone unknown text, and require every v1/v2 rollback ref to resolve to a full immutable commit inside the reviewed candidate range.
-- Require the selected rollback ref to be a single-parent implementation-only commit whose inverse applies conflict-free at the exact reviewed Head, proven with a non-executing Git tree simulation before Merge.
-- Persist one owner-, scope-, TTL-, and digest-bound Operational Action record so repeated calls do not emit duplicate prompts.
-- Add known provider-credential detectors while preserving clean zero-match text, and upgrade the trusted verifier dependency line to hash-locked `cryptography==50.0.0`.
-
-### Evidence
-
-- Added `DEP-SDG-SECURITY-HARDENING-EXP8-001`, second-round `DEP-SDG-SECURITY-HARDENING-EXP8-R2-002`, third-round authority-envelope `DEP-SDG-SECURITY-HARDENING-EXP8-R3-003`, protected-inventory `DEP-SDG-SECURITY-HARDENING-EXP8-R3-PROTECTED-004`, nested-authority `DEP-SDG-SECURITY-HARDENING-EXP8-R4-AUTH-005`, rollback-contract DEPs R5-R7, and permanent defensive regression tests for Issue #11.
-- This entry records implemented local work only; independent review, exact Merge verification, GitHub-hosted proof, and release publication remain separate gates.
-
 ## 0.2.0-experimental.7 — 2026-08-15 security hardening candidate
 
 ### Security
