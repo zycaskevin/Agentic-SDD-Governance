@@ -3,7 +3,7 @@
 rollback_version: 2.0
 target: bounded experimental.8 conflict-proof rollback hardening
 rollback_action: git_revert
-rollback_ref: REPLACE_WITH_FULL_CANDIDATE_SHA
+rollback_ref: 140bf2be2c3d29aa52650c7a3282afdfde30ec7b
 verify_action: python_module
 verify_module: pytest
 

@@ -3,7 +3,7 @@
 rollback_version: 2.0
 target: bounded experimental.8 second-round security hardening
 rollback_action: git_revert
-rollback_ref: d03213a62abb1d5752eea3380d3f75275e069dbf
+rollback_ref: 140bf2be2c3d29aa52650c7a3282afdfde30ec7b
 verify_action: python_module
 verify_module: pytest
 

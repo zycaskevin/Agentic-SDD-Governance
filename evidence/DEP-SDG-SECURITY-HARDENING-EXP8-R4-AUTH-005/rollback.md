@@ -3,7 +3,7 @@
 rollback_version: 2.0
 target: L2 existing-decision reuse package exclusion for experimental.8
 rollback_action: git_revert
-rollback_ref: 523beb50def4efc4cad06d99a03506a7b750cd1a
+rollback_ref: 140bf2be2c3d29aa52650c7a3282afdfde30ec7b
 verify_action: python_module
 verify_module: pytest
 

@@ -3,7 +3,7 @@
 rollback_version: 2.0
 target: strict rollback v1-to-v2 verifier migration bridge
 rollback_action: git_revert
-rollback_ref: 576b49aa6b94d9fad2ff6be9ff7983d18a76abd2
+rollback_ref: 140bf2be2c3d29aa52650c7a3282afdfde30ec7b
 verify_action: python_module
 verify_module: pytest
 
