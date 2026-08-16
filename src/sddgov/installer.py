@@ -60,7 +60,7 @@ def _walk_resource(node, prefix: PurePosixPath = PurePosixPath()) -> Iterable[tu
 
 
 def _resource_files() -> dict[str, bytes]:
-    root = resources.files("sddgov").joinpath("resources").joinpath("governance")
+    root = resources.files("sddgov").joinpath("resources", "governance")
     return dict(_walk_resource(root))
 
 

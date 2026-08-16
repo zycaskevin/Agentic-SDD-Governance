@@ -1183,8 +1183,6 @@ def _closed_category_envelope_error(request: dict[str, Any]) -> str | None:
             }
         )
     elif category == "necessary_uat":
-        if "machine_verifiable" in request:
-            return "machine_verifiable_work_is_not_necessary_uat"
         allowed.update(
             {
                 "uat_id",
@@ -1192,6 +1190,7 @@ def _closed_category_envelope_error(request: dict[str, Any]) -> str | None:
                 "uat_scope",
                 "uat_ttl_minutes",
                 "decision_package",
+                "machine_verifiable",
                 "unrelated_work_exists",
             }
         )
@@ -1383,6 +1382,11 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
                 else "investigate_and_reclassify_with_one_canonical_category"
             ),
         }
+    if category == "necessary_uat" and request.get("machine_verifiable") is True:
+        return _continue(
+            "necessary_uat_is_machine_verifiable",
+            "verify_with_tests_tools_or_runtime_evidence",
+        )
     if (
         not forced_human_category
         and category in ROUTINE_OPERATIONS
@@ -1539,23 +1543,12 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
                 action_class=category,
             )
         except ValueError as exc:
-            invalid_terminal_proof = str(exc).startswith(
-                "terminal external action row"
-            )
             return {
                 "state": "BLOCKED",
                 "requires_response": False,
-                "reason": (
-                    f"{category}_resolution_is_untrusted"
-                    if invalid_terminal_proof
-                    else f"{category}_state_is_invalid"
-                ),
+                "reason": f"{category}_state_is_invalid",
                 "detail": str(exc),
-                "next_action": (
-                    "import_one_exact_owner_signed_resolution_receipt"
-                    if invalid_terminal_proof
-                    else "repair_or_reissue_the_bounded_external_action"
-                ),
+                "next_action": "repair_or_reissue_the_bounded_external_action",
             }
         if not external_action["external_action_created"]:
             if external_action["status"] in {"completed", "cancelled"}:

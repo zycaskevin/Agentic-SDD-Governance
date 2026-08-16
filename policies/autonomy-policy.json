@@ -25,8 +25,7 @@
   "classifier_exit_codes": {
     "CONTINUE": 0,
     "BLOCKED": 1,
-    "ACTION_REQUIRED": 2,
-    "PROCESS_ERROR": 3
+    "ACTION_REQUIRED": 2
   },
   "action_required_binding": {
     "risk_matches_category": true,
@@ -40,8 +39,6 @@
     "resolution_requires_owner_signature": true,
     "signed_terminal_resolution_reverified_on_reuse": true,
     "only_expiry_is_an_unsigned_machine_transition": true,
-    "necessary_uat_requires_subjective_judgment": true,
-    "machine_verifiable_work_must_be_reclassified": true,
     "terminal_states": ["completed", "cancelled", "expired"],
     "unrelated_work_continues": true
   },

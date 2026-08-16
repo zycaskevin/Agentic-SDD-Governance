@@ -529,7 +529,7 @@ class AutonomyTests(unittest.TestCase):
             ],
         ), redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as exit_info:
             main()
-        self.assertEqual(exit_info.exception.code, 3)
+        self.assertEqual(exit_info.exception.code, 2)
 
     def test_timezone_naive_imported_expiry_blocks_without_exception(self):
         path, _ = self._signed_operation_approval("APP-NAIVE", "PROD-NAIVE")
@@ -1324,11 +1324,8 @@ class AutonomyTests(unittest.TestCase):
                 "machine_verifiable": True,
             },
         )
-        self.assertEqual(uat["state"], "BLOCKED")
+        self.assertEqual(uat["state"], "CONTINUE")
         self.assertFalse(uat["requires_response"])
-        self.assertEqual(
-            uat["reason"], "machine_verifiable_work_is_not_necessary_uat"
-        )
 
     def test_operational_action_is_durable_and_not_reprompted(self):
         request = {
@@ -1646,30 +1643,6 @@ class AutonomyTests(unittest.TestCase):
                 ), redirect_stdout(io.StringIO()), self.assertRaises(SystemExit) as exit_info:
                     main()
                 self.assertEqual(exit_info.exception.code, expected)
-
-    def test_cli_reserves_exit_two_for_validated_action_required(self):
-        with patch("sys.argv", ["sddgov", "autonomy", "evaluate"]), redirect_stderr(
-            io.StringIO()
-        ), self.assertRaises(SystemExit) as usage_exit:
-            main()
-        self.assertEqual(usage_exit.exception.code, 3)
-
-        missing = self.root / "missing-artifact.whl"
-        with patch(
-            "sys.argv",
-            [
-                "sddgov",
-                "artifact",
-                "lock",
-                str(missing),
-                "--release",
-                "test-release",
-                "--output",
-                str(self.root / "release.lock"),
-            ],
-        ), redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as process_exit:
-            main()
-        self.assertEqual(process_exit.exception.code, 3)
 
     def test_autonomy_cli_maps_malformed_packages_to_blocked_exit_one(self):
         malformed_requests = (
