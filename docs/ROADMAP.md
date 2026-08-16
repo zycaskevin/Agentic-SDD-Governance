@@ -1,6 +1,6 @@
 # Roadmap
 
-## v0.2.0-experimental.8 — proof and authority hardening in progress
+## v0.2.0-experimental.8 — release candidate complete 2026-08-16
 
 - Exact outer/inner authority consistency before autonomous L0/L1 continuation.
 - Machine-readable L2 reopen semantics and retained-fd assumption freshness.
@@ -12,7 +12,7 @@
 - Issue #13 and PR #14 merged pre-authorized routine review sharing for an already-configured Reviewer without weakening Private Repo, Secret, raw Evidence, personal-data, access, vendor, or cost boundaries.
 - Issue #15 and PR #16 merged executable rollback post-conditions and one automatic hosted Work Package run; runtime rollback Doctor/tests proof is Green.
 - Final release-readiness work closes machine-significant classifier exit codes, exact `ACTION REQUIRED` binding, durable Necessary UAT and Operational Action resolution, first-consumer trusted Merge bootstrap, current portable verification for every tracked Proof DEP, and invalid CI exemption handling.
-- Remaining before release: one complete final independent review with P0=0/P1=0, activate and read back the required GitHub security controls, produce signed/attested exact-commit provenance, and verify freshly downloaded assets. No intermediate Release is published.
+- Final Security and Autonomy reviews completed with P0=0/P1=0; required GitHub `verify`, branch protection, Secret Scanning, Push Protection, and Dependabot security updates were enabled and read back. The release transaction records signed/attested exact-commit provenance and freshly downloaded asset verification in the GitHub Release; no intermediate candidate is published.
 
 ## v0.2.0-experimental.7 — security hardening candidate
 

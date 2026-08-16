@@ -36,7 +36,7 @@ gh auth status -h github.com
 
 ```bash
 mkdir -p sdg-release
-gh release download v0.2.0-experimental.6 \
+gh release download v0.2.0-experimental.8 \
   --repo zycaskevin/Agentic-SDD-Governance \
   --pattern '*.whl' \
   --pattern 'SHA256SUMS.txt' \
@@ -78,7 +78,7 @@ Private Repo 的 Clone 同樣需要 GitHub 權限。
 使用 wheel 不需要 Git History。需要完整 Git History 時可從 bundle Clone：
 
 ```bash
-git clone agentic-sdd-governance-v0.2.0-experimental.6.bundle \
+git clone agentic-sdd-governance-v0.2.0-experimental.8.bundle \
   Agentic-SDD-Governance
 ```
 
