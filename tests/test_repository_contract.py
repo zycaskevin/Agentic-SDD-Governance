@@ -8,6 +8,7 @@ import yaml
 from sddgov.cli import _validate_repo
 from sddgov.evidence import verify as verify_dep
 from sddgov.installer import doctor
+from sddgov.schema_validation import load_schema, validate_instance
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -70,6 +71,7 @@ class RepositoryContractTests(unittest.TestCase):
             "schemas/ci-cost-guard.schema.json",
             "schemas/decision-record.schema.json",
             "schemas/external-action-resolution-receipt.schema.json",
+            "schemas/external-action.schema.json",
             "schemas/merge-gate.schema.json",
             "schemas/operation-approval-receipt.schema.json",
             "schemas/runtime-context.schema.json",
@@ -124,6 +126,10 @@ class RepositoryContractTests(unittest.TestCase):
             (
                 "schemas/external-action-resolution-receipt.schema.json",
                 ".agentic-sdd-governance/schemas/external-action-resolution-receipt.schema.json",
+            ),
+            (
+                "schemas/external-action.schema.json",
+                ".agentic-sdd-governance/schemas/external-action.schema.json",
             ),
             (
                 "templates/EXTERNAL_ACTION_RESOLUTION_RECEIPT.json",
@@ -242,6 +248,7 @@ class RepositoryContractTests(unittest.TestCase):
         for dep in sorted((ROOT / "evidence").glob("DEP-*")):
             summary = dep / "summary.yaml"
             if not summary.is_file():
+                failures[dep.name] = ["summary.yaml is required"]
                 continue
             document = json.loads(summary.read_text(encoding="utf-8"))
             if document.get("workflow", {}).get("phase") != "proof":
@@ -250,6 +257,51 @@ class RepositoryContractTests(unittest.TestCase):
             if errors:
                 failures[dep.name] = errors
         self.assertEqual(failures, {})
+
+    def test_terminal_external_action_schema_requires_signed_resolution_proof(self):
+        schema = load_schema(ROOT / "schemas/external-action.schema.json")
+        pending = {
+            "action_id": "UAT-1",
+            "summary": "one subjective UAT",
+            "risk_level": "L1",
+            "owner": "product-owner",
+            "action_class": "necessary_uat",
+            "scope": "uat:one-milestone",
+            "status": "pending",
+            "created_at": "2026-08-16T00:00:00Z",
+            "expires_at": "2026-08-17T00:00:00Z",
+            "request_sha256": "a" * 64,
+            "authorization_scope": "one concrete action only",
+        }
+        self.assertEqual(validate_instance(pending, schema), [])
+        terminal_without_proof = {**pending, "status": "completed"}
+        self.assertTrue(validate_instance(terminal_without_proof, schema))
+
+        terminal = {
+            **terminal_without_proof,
+            "resolved_at": "2026-08-16T01:00:00Z",
+            "resolution_receipt_sha256": "b" * 64,
+            "resolution_evidence_sha256": "c" * 64,
+            "resolution_envelope": {
+                "schema_version": "1.0",
+                "algorithm": "ed25519",
+                "receipt": {
+                    "resolution_id": "RES-1",
+                    "action_id": "UAT-1",
+                    "action_class": "necessary_uat",
+                    "owner": "product-owner",
+                    "scope": "uat:one-milestone",
+                    "request_sha256": "a" * 64,
+                    "status": "completed",
+                    "evidence_sha256": "c" * 64,
+                    "resolved_at": "2026-08-16T01:00:00Z",
+                    "expires_at": "2026-08-16T02:00:00Z",
+                    "nonce": "resolution-nonce-1",
+                },
+                "signature": "A" * 88,
+            },
+        }
+        self.assertEqual(validate_instance(terminal, schema), [])
 
     def test_experimental_8_uses_patched_cryptography_line(self):
         pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
@@ -354,6 +406,17 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertEqual(policy["approval_budget"]["L1"], 0)
         self.assertTrue(policy["integrity"]["human_copy_paste_forbidden"])
         self.assertFalse(policy["integrity"]["mismatch_requires_human_approval"])
+        self.assertEqual(policy["classifier_exit_codes"]["PROCESS_ERROR"], 3)
+        self.assertTrue(
+            policy["external_action_lifecycle"][
+                "necessary_uat_requires_subjective_judgment"
+            ]
+        )
+        self.assertTrue(
+            policy["external_action_lifecycle"][
+                "machine_verifiable_work_must_be_reclassified"
+            ]
+        )
         routine_review = policy["routine_external_review"]
         self.assertTrue(routine_review["pre_authorized"])
         self.assertFalse(routine_review["owner_response_required"])

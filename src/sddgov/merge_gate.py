@@ -41,6 +41,7 @@ AUDIT_EXCLUDES = (
 )
 FIRST_CONSUMER_BASE_MARKERS = (
     "policies/protected-files.yaml",
+    ".agentic-sdd-governance/policies/protected-files.yaml",
     ".agentic-sdd-governance/manifest.json",
     ".sddgov/project.json",
     ".sddgov/trusted-reviewers.json",
@@ -313,7 +314,10 @@ def _protected_patterns(root: Path, base_ref: str) -> list[str]:
     # immutable built-in policy; never fall back to Candidate bytes.
     text = (
         resources.files("sddgov")
-        .joinpath("resources", "governance", "policies", "protected-files.yaml")
+        .joinpath("resources")
+        .joinpath("governance")
+        .joinpath("policies")
+        .joinpath("protected-files.yaml")
         .read_text(encoding="utf-8")
     )
     return _parse_protected_patterns(text)
@@ -327,9 +331,10 @@ def _external_trusted_reviewers(
         raise ValueError(
             "trusted reviewer bootstrap requires SDDGOV_TRUSTED_REVIEWERS_FILE"
         )
+    resolved_root = root.resolve()
     source = Path(external).expanduser().absolute()
     try:
-        source.resolve().relative_to(root)
+        source.resolve().relative_to(resolved_root)
     except ValueError:
         if require_separate_identity:
             return load_control_plane_json(

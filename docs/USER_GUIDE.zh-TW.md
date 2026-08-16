@@ -289,6 +289,8 @@ sddgov external-action resolve signed-resolution.json --path .
 
 Operational Action 與 Necessary UAT 共用這套持久狀態。只有 exact Owner/Scope/request digest 相符的簽章收據才能完成或取消；過期、取消或不相符都 fail closed。若只阻塞一個 Work Package，其他工作會繼續。
 
+Necessary UAT 只用於 Agent 無法判斷的主觀品質。若工作其實能由測試、工具或 Runtime Evidence 判定，SDG 會以 `BLOCKED`／exit `1` 拒絕矛盾的 UAT 分類、要求 Agent 先蒐集證據並重新分類，不會詢問 Owner。CLI 只有完整有效的 `ACTION REQUIRED` 使用 exit `2`；指令格式、檔案系統或其他 Process Error 使用 exit `3`。
+
 ## 10. 升級
 
 1. 下載並驗證新的 wheel。

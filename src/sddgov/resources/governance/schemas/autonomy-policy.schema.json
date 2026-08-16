@@ -63,11 +63,12 @@
     },
     "classifier_exit_codes": {
       "type": "object",
-      "required": ["CONTINUE", "BLOCKED", "ACTION_REQUIRED"],
+      "required": ["CONTINUE", "BLOCKED", "ACTION_REQUIRED", "PROCESS_ERROR"],
       "properties": {
         "CONTINUE": {"const": 0},
         "BLOCKED": {"const": 1},
-        "ACTION_REQUIRED": {"const": 2}
+        "ACTION_REQUIRED": {"const": 2},
+        "PROCESS_ERROR": {"const": 3}
       },
       "additionalProperties": false
     },
@@ -84,13 +85,15 @@
     },
     "external_action_lifecycle": {
       "type": "object",
-      "required": ["durable_classes", "pending_request_is_prompted_once", "resolution_requires_owner_signature", "signed_terminal_resolution_reverified_on_reuse", "only_expiry_is_an_unsigned_machine_transition", "terminal_states", "unrelated_work_continues"],
+      "required": ["durable_classes", "pending_request_is_prompted_once", "resolution_requires_owner_signature", "signed_terminal_resolution_reverified_on_reuse", "only_expiry_is_an_unsigned_machine_transition", "necessary_uat_requires_subjective_judgment", "machine_verifiable_work_must_be_reclassified", "terminal_states", "unrelated_work_continues"],
       "properties": {
         "durable_classes": {"const": ["operational_action", "necessary_uat"]},
         "pending_request_is_prompted_once": {"const": true},
         "resolution_requires_owner_signature": {"const": true},
         "signed_terminal_resolution_reverified_on_reuse": {"const": true},
         "only_expiry_is_an_unsigned_machine_transition": {"const": true},
+        "necessary_uat_requires_subjective_judgment": {"const": true},
+        "machine_verifiable_work_must_be_reclassified": {"const": true},
         "terminal_states": {"const": ["completed", "cancelled", "expired"]},
         "unrelated_work_continues": {"const": true}
       },

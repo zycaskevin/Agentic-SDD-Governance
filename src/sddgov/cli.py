@@ -33,6 +33,14 @@ from .reviewer import bootstrap_reviewer, export_trust, sign_protected_review
 from .schema_validation import check_schema, load_schema, validate_instance
 
 
+class SDGArgumentParser(argparse.ArgumentParser):
+    """Keep parser failures distinct from validated owner decisions."""
+
+    def error(self, message: str) -> None:
+        self.print_usage(sys.stderr)
+        self.exit(3, f"{self.prog}: error: {message}\n")
+
+
 def _evidence_parser(subparsers) -> None:
     evidence = subparsers.add_parser("evidence", help="Manage Debug Evidence Packages")
     commands = evidence.add_subparsers(dest="evidence_command", required=True)
@@ -134,7 +142,7 @@ def _autonomy_parsers(subparsers) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="sddgov")
+    parser = SDGArgumentParser(prog="sddgov")
     parser.add_argument("--version", action="version", version=__version__)
     sub = parser.add_subparsers(dest="command", required=True)
     _evidence_parser(sub)
@@ -500,7 +508,7 @@ def main() -> None:
         raise SystemExit(run(build_parser().parse_args()))
     except (ValueError, FileNotFoundError, FileExistsError) as exc:
         print(f"[ERROR] {exc}", file=sys.stderr)
-        raise SystemExit(2)
+        raise SystemExit(3)
 
 
 def evidence_main() -> None:
@@ -509,7 +517,7 @@ def evidence_main() -> None:
         raise SystemExit(run(build_parser().parse_args(argv)))
     except (ValueError, FileNotFoundError, FileExistsError) as exc:
         print(f"[ERROR] {exc}", file=sys.stderr)
-        raise SystemExit(2)
+        raise SystemExit(3)
 
 
 if __name__ == "__main__":

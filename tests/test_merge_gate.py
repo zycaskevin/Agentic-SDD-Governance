@@ -12,6 +12,8 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from sddgov.merge_gate import (
+    _external_trusted_reviewers,
+    _first_consumer_base,
     _is_protected,
     _protected_patterns,
     _real_rollback,
@@ -231,6 +233,74 @@ jobs:
         ):
             with self.subTest(path=path):
                 self.assertTrue(_is_protected(path, patterns))
+
+    def test_installed_policy_alone_marks_a_partially_governed_base(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            _run(root, "git", "init", "-q")
+            _run(root, "git", "config", "user.email", "consumer@example.com")
+            _run(root, "git", "config", "user.name", "Consumer Builder")
+            policy = root / ".agentic-sdd-governance/policies/protected-files.yaml"
+            policy.parent.mkdir(parents=True)
+            policy.write_text("protected:\n  - src/sddgov/\nrules:\n")
+            _run(root, "git", "add", ".")
+            _run(root, "git", "commit", "-qm", "partial governance base")
+            base = _run(root, "git", "rev-parse", "HEAD")
+            self.assertFalse(_first_consumer_base(root, base))
+
+    def test_builtin_policy_lookup_uses_python_310_traversable_contract(self):
+        class OneChildTraversable:
+            def __init__(self, parts=()):
+                self.parts = parts
+
+            def joinpath(self, child):
+                return OneChildTraversable((*self.parts, child))
+
+            def read_text(self, encoding="utf-8"):
+                self.assert_path()
+                return "protected:\n  - src/sddgov/\nrules:\n"
+
+            def assert_path(self):
+                expected = (
+                    "resources",
+                    "governance",
+                    "policies",
+                    "protected-files.yaml",
+                )
+                if self.parts != expected:
+                    raise AssertionError(self.parts)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            _run(root, "git", "init", "-q")
+            _run(root, "git", "config", "user.email", "consumer@example.com")
+            _run(root, "git", "config", "user.name", "Consumer Builder")
+            (root / "README.md").write_text("ungoverned\n")
+            _run(root, "git", "add", ".")
+            _run(root, "git", "commit", "-qm", "ungoverned base")
+            base = _run(root, "git", "rev-parse", "HEAD")
+            with patch(
+                "sddgov.merge_gate.resources.files",
+                return_value=OneChildTraversable(),
+            ):
+                patterns = _protected_patterns(root, base)
+            self.assertIn("src/sddgov/", patterns)
+
+    def test_external_reviewer_store_rejects_unresolved_repo_alias(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            parent = Path(temporary)
+            real_root = parent / "real-repository"
+            real_root.mkdir()
+            alias_root = parent / "repository-alias"
+            alias_root.symlink_to(real_root, target_is_directory=True)
+            internal = real_root / "trusted-reviewers.json"
+            internal.write_text('{"schema_version":"1.0","reviewers":[]}\n')
+            internal.chmod(0o600)
+            with patch.dict(
+                "os.environ", {"SDDGOV_TRUSTED_REVIEWERS_FILE": str(internal)}
+            ):
+                with self.assertRaisesRegex(ValueError, "outside the repository"):
+                    _external_trusted_reviewers(alias_root)
 
     @patch("sddgov.merge_gate.verify_dep", return_value=[])
     def test_tracked_raw_evidence_fails(self, _verify):

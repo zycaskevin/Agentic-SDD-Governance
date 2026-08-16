@@ -4,6 +4,10 @@
 
 ### Security
 
+- Reserve exit `2` exclusively for a validated owner `ACTION REQUIRED`; parser, filesystem, and process failures now exit `3`, so automation cannot turn a machine error into an owner prompt.
+- Reject `machine_verifiable` Necessary UAT as a contradictory category without prompting the owner; deterministic work must gather Evidence and return through a machine-verifiable route, while subjective UAT retains durable one-prompt state.
+- Validate and recompute every durable External Action row before mutation so a missing or downgraded risk cannot persist terminal state or falsify its audit event.
+- Close partial first-consumer trust bootstrap when the Base already contains the installed protected-file policy, and keep bundled policy/resource lookup compatible with the declared Python 3.10 floor.
 - Reserve classifier exit `2` for a fully validated `ACTION REQUIRED`; malformed packages and category/risk mismatch now fail closed as `BLOCKED`/exit `1`, and generic uncertainty can no longer be promoted into an owner prompt by a caller-supplied label.
 - Reverify owner signatures for both completed and cancelled Operational Action/Necessary UAT state on every reuse, treating only deterministic TTL expiry as an unsigned terminal transition; synchronize the installed Governance Root and manifest with these exact rules.
 - Make `sddgov autonomy evaluate` return distinct process exit codes for `CONTINUE`, `BLOCKED`, and `ACTION_REQUIRED`; bind every Decision Package risk, identity, scope, and L3 payload to the outer request before asking the owner.
@@ -29,6 +33,10 @@
 
 - Added `DEP-SDG-SECURITY-HARDENING-EXP8-001`, second-round `DEP-SDG-SECURITY-HARDENING-EXP8-R2-002`, third-round authority-envelope `DEP-SDG-SECURITY-HARDENING-EXP8-R3-003`, protected-inventory `DEP-SDG-SECURITY-HARDENING-EXP8-R3-PROTECTED-004`, nested-authority `DEP-SDG-SECURITY-HARDENING-EXP8-R4-AUTH-005`, rollback-contract DEPs R5-R7, and permanent defensive regression tests for Issue #11.
 - This entry records implemented local work only; independent review, exact Merge verification, GitHub-hosted proof, and release publication remain separate gates.
+
+### Changed
+
+- `sddgov external-action` now requires the explicit `queue` or `resolve` subcommand. Replace the former flat form with `sddgov external-action queue <ACTION_ID> ...` or `sddgov external-action resolve <SIGNED_RECEIPT> --path .`.
 
 ## 0.2.0-experimental.7 — 2026-08-15 security hardening candidate
 
