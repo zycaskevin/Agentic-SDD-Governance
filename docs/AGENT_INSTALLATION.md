@@ -33,10 +33,6 @@ sddgov status /path/to/project
 
 `doctor` verifies the install manifest, SHA-256 hashes, the managed `AGENTS.md` and `.gitignore` blocks, the selected Profile, and the Skill discovery path. A clean result proves the files and routing contract are installed; it does not replace a fresh-Agent behavior pilot.
 
-## First governed PR
-
-The first PR after installation cannot read a protected-file policy or Reviewer store from its pre-Governance Base. Run the Merge verifier from the trusted SDG package, provide Reviewer public trust through a root-owned, non-writable, non-linked Repo-external `SDDGOV_TRUSTED_REVIEWERS_FILE`, and keep the Reviewer private key outside the project. A same-user `0600` file is intentionally rejected because the Builder Agent could create it. The verifier uses its bundled immutable protected-file policy only when the Base has no Governance markers at all; it never trusts Candidate policy or Candidate reviewer keys. Once the first PR merges, normal Base policy and Base reviewer authority take over automatically. A partial or malformed previous installation fails closed and must be repaired instead of using first-install bootstrap.
-
 ## Idempotence and upgrades
 
 Running the same setup again is a no-op. A different Agent, Profile, CLI version, or modified managed file causes setup to stop. Review `doctor` output before explicitly allowing a managed replacement:

@@ -10,7 +10,6 @@ import subprocess
 import sys
 import tempfile
 from datetime import datetime, timedelta, timezone
-from importlib import resources
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -19,7 +18,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from .ci_guard import run_local_gate
 from .evidence import verify as verify_dep
-from .trust import load_control_plane_json, load_owner_controlled_json
+from .trust import load_owner_controlled_json
 
 
 DEFAULT_GATE = Path(".sddgov/merge-gate.json")
@@ -38,13 +37,6 @@ ROLLBACK_V2_POSTCONDITION_BOOTSTRAP_PATH = (
 AUDIT_EXCLUDES = (
     ":(exclude).sddgov/merge-gate.json",
     ":(exclude).sddgov/reviews/**",
-)
-FIRST_CONSUMER_BASE_MARKERS = (
-    "policies/protected-files.yaml",
-    ".agentic-sdd-governance/manifest.json",
-    ".sddgov/project.json",
-    ".sddgov/trusted-reviewers.json",
-    ".github/workflows/governance.yml",
 )
 
 
@@ -262,25 +254,11 @@ def _verify_review_receipt(
     return review
 
 
-def _base_has_path(root: Path, base_ref: str, relative: str) -> bool:
-    completed = subprocess.run(
-        ["git", "cat-file", "-e", f"{base_ref}:{relative}"],
-        cwd=root,
-        check=False,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    return completed.returncode == 0
-
-
-def _first_consumer_base(root: Path, base_ref: str) -> bool:
-    return not any(
-        _base_has_path(root, base_ref, marker)
-        for marker in FIRST_CONSUMER_BASE_MARKERS
-    )
-
-
-def _parse_protected_patterns(text: str) -> list[str]:
+def _protected_patterns(root: Path, base_ref: str) -> list[str]:
+    try:
+        text = _git(root, "show", f"{base_ref}:policies/protected-files.yaml")
+    except ValueError as exc:
+        raise ValueError("protected-file policy is required at the trusted base") from exc
     patterns: list[str] = []
     in_protected = False
     for raw in text.splitlines():
@@ -297,59 +275,11 @@ def _parse_protected_patterns(text: str) -> list[str]:
     return patterns
 
 
-def _protected_patterns(root: Path, base_ref: str) -> list[str]:
-    for relative in (
-        "policies/protected-files.yaml",
-        ".agentic-sdd-governance/policies/protected-files.yaml",
-    ):
-        try:
-            text = _git(root, "show", f"{base_ref}:{relative}")
-        except ValueError:
-            continue
-        return _parse_protected_patterns(text)
-    if not _first_consumer_base(root, base_ref):
-        raise ValueError("protected-file policy is required at the trusted base")
-    # A first installation has no Base policy.  Use only the verifier package's
-    # immutable built-in policy; never fall back to Candidate bytes.
-    text = (
-        resources.files("sddgov")
-        .joinpath("resources", "governance", "policies", "protected-files.yaml")
-        .read_text(encoding="utf-8")
-    )
-    return _parse_protected_patterns(text)
-
-
-def _external_trusted_reviewers(
-    root: Path, *, require_separate_identity: bool = False
-) -> dict[str, Any]:
-    external = os.environ.get("SDDGOV_TRUSTED_REVIEWERS_FILE")
-    if not external:
-        raise ValueError(
-            "trusted reviewer bootstrap requires SDDGOV_TRUSTED_REVIEWERS_FILE"
-        )
-    source = Path(external).expanduser().absolute()
-    try:
-        source.resolve().relative_to(root)
-    except ValueError:
-        if require_separate_identity:
-            return load_control_plane_json(
-                source, "first-consumer trusted reviewer store"
-            )
-        return load_owner_controlled_json(
-            source, "out-of-band trusted reviewer store"
-        )
-    raise ValueError("out-of-band trusted reviewer store must be outside the repository")
-
-
 def _trusted_reviewers(root: Path, base_ref: str) -> dict[str, Any]:
     """Prefer base-anchored reviewer authority; use external trust for bootstrap only."""
     try:
         text = _git(root, "show", f"{base_ref}:.sddgov/trusted-reviewers.json")
     except ValueError as exc:
-        if _first_consumer_base(root, base_ref):
-            return _external_trusted_reviewers(
-                root, require_separate_identity=True
-            )
         raise ValueError("trusted reviewer store is required at the trusted base") from exc
     try:
         value = json.loads(text)
@@ -369,7 +299,20 @@ def _trusted_reviewers(root: Path, base_ref: str) -> dict[str, Any]:
         # Falling back here would let a stale bootstrap variable resurrect a key.
         return base_store
 
-    return _external_trusted_reviewers(root)
+    external = os.environ.get("SDDGOV_TRUSTED_REVIEWERS_FILE")
+    if not external:
+        raise ValueError(
+            "trusted reviewer store at the trusted base is in initial empty bootstrap; "
+            "bootstrap requires SDDGOV_TRUSTED_REVIEWERS_FILE"
+        )
+    source = Path(external).expanduser().absolute()
+    try:
+        source.resolve().relative_to(root)
+    except ValueError:
+        return load_owner_controlled_json(
+            source, "out-of-band trusted reviewer store"
+        )
+    raise ValueError("out-of-band trusted reviewer store must be outside the repository")
 
 
 def _is_protected(path: str, patterns: list[str]) -> bool:
