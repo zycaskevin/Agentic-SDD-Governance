@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-FINAL-RELEASE-READINESS-R4-014",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--final-coderabbit-red.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "191782fe65186299199eda7d2c5d0a49d082e21d20cf66cdebfce5b38eb45cb4",
+      "size": 1121,
+      "collected_at": "2026-08-16T10:56:17Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--final-coderabbit-red.txt",
+      "sha256": "191782fe65186299199eda7d2c5d0a49d082e21d20cf66cdebfce5b38eb45cb4",
+      "size": 1121,
+      "shareable": true
+    }
+  ]
+}

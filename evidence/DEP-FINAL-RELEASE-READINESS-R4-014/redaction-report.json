@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "terminal--final-coderabbit-red.txt",
+      "output": "terminal--final-coderabbit-red.txt",
+      "source_sha256": "191782fe65186299199eda7d2c5d0a49d082e21d20cf66cdebfce5b38eb45cb4",
+      "source_size": 1121,
+      "output_sha256": "191782fe65186299199eda7d2c5d0a49d082e21d20cf66cdebfce5b38eb45cb4",
+      "output_size": 1121,
+      "redactions": {}
+    }
+  ],
+  "blocked": [],
+  "totals": {},
+  "dep_id": "DEP-FINAL-RELEASE-READINESS-R4-014",
+  "generated_at": "2026-08-16T10:56:17Z"
+}

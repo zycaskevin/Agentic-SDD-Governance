@@ -1,0 +1,53 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-FINAL-RELEASE-READINESS-R4-014",
+  "issue": "PR-19-CODERABBIT-FINAL",
+  "sdd_references": [
+    "work-packages/WP-FINAL-RELEASE-READINESS-006.md"
+  ],
+  "risk_level": "L1",
+  "created_at": "2026-08-16T10:46:04Z",
+  "updated_at": "2026-08-16T11:08:48Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-16T10:46:04Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-16T10:57:01Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-16T10:57:01Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-16T11:08:47Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-16T11:08:48Z"
+      }
+    ]
+  },
+  "expected_behavior": "Necessary UAT is subjective and durable; machine-verifiable work is reclassified without an owner prompt; exit 2 means only validated ACTION_REQUIRED; malformed durable action rows remain unmodified; partial governed Bases cannot bootstrap external trust; bundled resources work on every declared Python version.",
+  "actual_behavior": "The reviewed Head accepted a caller boolean as UAT authority, conflated machine errors with owner work, persisted malformed terminal state before risk validation, treated an installed-policy-only Base as first consumer, and used a Python 3.11-only Traversable call while declaring Python 3.10 support.",
+  "environment": {
+    "commit": "b815214632a820451d3e8444af9ebfea8a2ec0f5",
+    "fixed_candidate": "f03af448f453859d02e63f501fc0ad9aa62ae5ac",
+    "branch": "fix/final-release-readiness-exp8",
+    "runtime": "macOS arm64; Python 3.14 local tests; Python 3.12 locked fresh-wheel smoke; synthetic evidence only"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": [
+    {
+      "path": "shareable/artifacts/terminal--final-coderabbit-red.txt",
+      "sha256": "191782fe65186299199eda7d2c5d0a49d082e21d20cf66cdebfce5b38eb45cb4",
+      "collector": "terminal"
+    }
+  ]
+}
