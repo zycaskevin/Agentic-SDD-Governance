@@ -146,16 +146,21 @@ jobs:
         _run(self.root, "git", "commit", "-qm", "baseline")
         self.base = _run(self.root, "git", "rev-parse", "HEAD")
         (self.root / "core/POLICY_KERNEL.md").write_text("hardened\n")
+        _run(self.root, "git", "add", "core/POLICY_KERNEL.md")
+        _run(self.root, "git", "commit", "-qm", "harden implementation")
+        self.implementation = _run(self.root, "git", "rev-parse", "HEAD")
         rollback = self.root / "evidence/DEP-1/rollback.md"
         rollback.parent.mkdir(parents=True)
         rollback.write_text(
-            "rollback_version: 1.0\n"
+            "rollback_version: 2.0\n"
             "target: bounded reviewer test\n"
-            "command: git revert HEAD\n"
-            "verify: python -m unittest\n"
+            "rollback_action: git_revert\n"
+            f"rollback_ref: {self.implementation}\n"
+            "verify_action: python_module\n"
+            "verify_module: unittest\n"
         )
-        _run(self.root, "git", "add", ".")
-        _run(self.root, "git", "commit", "-qm", "harden")
+        _run(self.root, "git", "add", "evidence/DEP-1/rollback.md")
+        _run(self.root, "git", "commit", "-qm", "bind rollback plan")
         self.reviewed_head = _run(self.root, "git", "rev-parse", "HEAD")
         self.key_path = self.external / "reviewer.pem"
         self.trust_path = self.external / "trusted-reviewers.json"

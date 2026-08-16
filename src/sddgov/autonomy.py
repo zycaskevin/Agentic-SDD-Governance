@@ -18,6 +18,7 @@ from typing import Any, Iterable
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
+from .governance import enqueue_external_action
 from .trust import load_control_plane_json
 
 
@@ -99,6 +100,7 @@ L3_NONCE_BROKER = (
     else Path("/run/sddgov/approval-broker.sock")
 )
 L3_RUNTIME_CONTEXT_FILE = Path("/etc/sddgov/runtime-context.json")
+L2_REOPEN_CONDITIONS = {"scope_or_assumptions_change"}
 
 
 def _now() -> datetime:
@@ -201,13 +203,97 @@ def _canonical_digest(value: dict[str, Any]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def _read_repository_regular_file(root: Path, relative: PurePosixPath) -> bytes:
+    """Read a repository file through retained, non-symlink directory descriptors."""
+    candidate_root = root if root.is_absolute() else Path.cwd() / root
+    if sys.platform == "darwin" and candidate_root.parts[:2] == ("/", "var"):
+        candidate_root = Path("/private/var").joinpath(*candidate_root.parts[2:])
+    directory_parts = list(candidate_root.parts[1:]) + list(relative.parts[:-1])
+    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+    descriptors = [os.open(candidate_root.anchor or os.sep, flags)]
+    names: list[str] = []
+    file_descriptor = -1
+    try:
+        for part in directory_parts:
+            try:
+                child = os.open(part, flags, dir_fd=descriptors[-1])
+            except OSError as exc:
+                raise ValueError(
+                    "product approval assumption path cannot be opened safely"
+                ) from exc
+            metadata = os.fstat(child)
+            if not stat.S_ISDIR(metadata.st_mode):
+                os.close(child)
+                raise ValueError(
+                    "product approval assumption path component is unsafe"
+                )
+            descriptors.append(child)
+            names.append(part)
+        final_name = relative.name
+        try:
+            file_descriptor = os.open(
+                final_name,
+                os.O_RDONLY
+                | getattr(os, "O_NONBLOCK", 0)
+                | getattr(os, "O_NOFOLLOW", 0),
+                dir_fd=descriptors[-1],
+            )
+        except OSError as exc:
+            raise ValueError(
+                "product approval assumption cannot be opened safely"
+            ) from exc
+        metadata = os.fstat(file_descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+            raise ValueError(
+                "product approval assumption must be a non-linked regular file"
+            )
+        chunks: list[bytes] = []
+        while True:
+            chunk = os.read(file_descriptor, 1024 * 1024)
+            if not chunk:
+                break
+            chunks.append(chunk)
+        try:
+            final_entry = os.stat(
+                final_name, dir_fd=descriptors[-1], follow_symlinks=False
+            )
+        except OSError as exc:
+            raise ValueError("product approval assumption path changed") from exc
+        if (
+            stat.S_ISLNK(final_entry.st_mode)
+            or (final_entry.st_dev, final_entry.st_ino)
+            != (metadata.st_dev, metadata.st_ino)
+        ):
+            raise ValueError("product approval assumption path changed")
+        for index, part in enumerate(names):
+            try:
+                current = os.stat(
+                    part, dir_fd=descriptors[index], follow_symlinks=False
+                )
+            except OSError as exc:
+                raise ValueError("product approval assumption path changed") from exc
+            opened = os.fstat(descriptors[index + 1])
+            if (
+                stat.S_ISLNK(current.st_mode)
+                or not stat.S_ISDIR(current.st_mode)
+                or (current.st_dev, current.st_ino)
+                != (opened.st_dev, opened.st_ino)
+            ):
+                raise ValueError("product approval assumption path changed")
+        return b"".join(chunks)
+    finally:
+        if file_descriptor >= 0:
+            os.close(file_descriptor)
+        for descriptor in reversed(descriptors):
+            os.close(descriptor)
+
+
 def _verified_assumptions_digest(root: Path, assumptions: Any) -> str:
     """Recalculate the signed L2 assumptions from current repository bytes."""
     if not isinstance(assumptions, list) or not assumptions:
         raise ValueError("product approval assumptions must be a non-empty array")
     normalized: list[dict[str, str]] = []
     seen: set[str] = set()
-    root_resolved = root.resolve()
     for index, row in enumerate(assumptions):
         if (
             not isinstance(row, dict)
@@ -229,33 +315,8 @@ def _verified_assumptions_digest(root: Path, assumptions: Any) -> str:
         ):
             raise ValueError(f"product approval assumptions[{index}] path is unsafe")
         seen.add(value)
-        candidate = root.joinpath(*pure.parts)
-        current = root
-        for part in pure.parts:
-            current = current / part
-            if current.is_symlink():
-                raise ValueError("product approval assumption path contains a symlink")
-        try:
-            candidate.resolve(strict=True).relative_to(root_resolved)
-        except (FileNotFoundError, ValueError) as exc:
-            raise ValueError("product approval assumption artifact is unavailable") from exc
-        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
-        try:
-            descriptor = os.open(candidate, flags)
-        except OSError as exc:
-            raise ValueError("product approval assumption cannot be opened safely") from exc
-        try:
-            metadata = os.fstat(descriptor)
-            if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
-                raise ValueError("product approval assumption must be a non-linked regular file")
-            digest = hashlib.sha256()
-            while True:
-                chunk = os.read(descriptor, 1024 * 1024)
-                if not chunk:
-                    break
-                digest.update(chunk)
-        finally:
-            os.close(descriptor)
+        raw = _read_repository_regular_file(root, pure)
+        digest = hashlib.sha256(raw)
         if digest.hexdigest() != row["sha256"]:
             raise ValueError("product approval assumption artifact changed")
         normalized.append({"path": value, "sha256": row["sha256"]})
@@ -430,6 +491,10 @@ def _verify_product_envelope(
         for field in string_fields
     ):
         raise ValueError("product approval receipt payload has an invalid contract")
+    if receipt["reopen_condition"] not in L2_REOPEN_CONDITIONS:
+        raise ValueError(
+            "product approval reopen_condition is unsupported; use scope_or_assumptions_change"
+        )
     if not SHA256_PATTERN.fullmatch(receipt["assumptions_sha256"]):
         raise ValueError("product approval assumptions_sha256 is invalid")
     if _verified_assumptions_digest(root, receipt["assumptions"]) != receipt["assumptions_sha256"]:
@@ -909,6 +974,84 @@ def _continue(reason: str, next_action: str = "continue") -> dict[str, Any]:
     }
 
 
+def _l0_l1_envelope_error(request: dict[str, Any]) -> str | None:
+    """Return an error for a low-risk envelope that could encode an executable action.
+
+    Free text and arbitrary nested parameters are never evidence that an action is
+    low risk. Concrete targets and parameters belong to a separately typed executor
+    contract; this classifier only pre-authorizes authority-free engineering records.
+    """
+    category = request["category"]
+    allowed = {"risk_level", "category", "effects"}
+    if category == "integrity_mismatch":
+        allowed.add("unrelated_work_exists")
+    elif category == "uncertainty":
+        allowed.update({"machine_verifiable", "unrelated_work_exists"})
+    elif category in {"operational_action", "necessary_uat"}:
+        return None
+    extra = set(request) - allowed
+    if extra:
+        return "low_risk_action_requires_closed_typed_executor_contract"
+    if request.get("effects") != {}:
+        return None
+    for field in ("machine_verifiable", "unrelated_work_exists"):
+        if field in request and not isinstance(request[field], bool):
+            return "low_risk_action_boolean_field_is_invalid"
+    return None
+
+
+def _closed_category_envelope_error(request: dict[str, Any]) -> str | None:
+    """Reject fields that belong to another authority or executor contract.
+
+    The risk label is caller supplied, so the category schema must be closed before
+    an existing approval is looked up.  In particular, a valid L2 product decision
+    must never turn an embedded L3 operation payload into authorized work.
+    """
+    category = request["category"]
+    allowed = {"risk_level", "category", "effects"}
+    if category == "product_decision":
+        allowed.update(
+            {
+                "decision_id",
+                "decision_scope",
+                "assumptions_sha256",
+                "reopen_condition_triggered",
+                "decision_package",
+            }
+        )
+    elif category in {"high_risk_operation", *HIGH_RISK_CATEGORIES}:
+        allowed.update(
+            {
+                "approval_id",
+                "operation_id",
+                "operation_payload",
+                "decision_package",
+                "machine_verifiable",
+            }
+        )
+    elif category == "operational_action":
+        allowed.update(
+            {
+                "action_owner",
+                "action_ttl_minutes",
+                "decision_package",
+                "unrelated_work_exists",
+            }
+        )
+    elif category == "necessary_uat":
+        allowed.update({"decision_package", "machine_verifiable"})
+    elif category == "uncertainty":
+        allowed.update(
+            {"machine_verifiable", "unrelated_work_exists", "decision_package"}
+        )
+    elif category == "integrity_mismatch":
+        allowed.add("unrelated_work_exists")
+    extra = set(request) - allowed
+    if extra:
+        return "request_contains_fields_outside_closed_category_schema"
+    return None
+
+
 def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
     risk = request.get("risk_level")
     category = request.get("category")
@@ -933,6 +1076,41 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
         for key, value in effects.items()
     ):
         raise ValueError("effects must contain only known sensitive flags set to true")
+    authority_fields = {
+        "approval_id",
+        "operation_id",
+        "operation_payload",
+        "decision_id",
+        "decision_scope",
+        "decision_package",
+    }
+    if risk in {"L0", "L1"} and category in ROUTINE_OPERATIONS and any(
+        field in request for field in authority_fields
+    ):
+        return {
+            "state": "BLOCKED",
+            "requires_response": False,
+            "reason": "authority_bearing_fields_not_allowed_for_routine_action",
+            "next_action": "rebuild_request_with_one_exact_authority_class",
+        }
+    envelope_error = (
+        _l0_l1_envelope_error(request) if risk in {"L0", "L1"} else None
+    )
+    if envelope_error:
+        return {
+            "state": "BLOCKED",
+            "requires_response": False,
+            "reason": envelope_error,
+            "next_action": "use_one_closed_typed_executor_contract_or_remove_executable_fields",
+        }
+    category_envelope_error = _closed_category_envelope_error(request)
+    if category_envelope_error:
+        return {
+            "state": "BLOCKED",
+            "requires_response": False,
+            "reason": category_envelope_error,
+            "next_action": "rebuild_request_with_one_exact_category_schema",
+        }
     if category == "product_decision" and risk in {"L0", "L1"}:
         return {
             "state": "BLOCKED",
@@ -997,7 +1175,7 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
         return _continue("l0_l1_engineering_is_pre_authorized")
 
     decision_id = request.get("decision_id")
-    if risk == "L2":
+    if risk == "L2" and category == "product_decision":
         recorded = _find_decision(root, decision_id)
         if (
             recorded
@@ -1007,6 +1185,13 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
                 scope=request.get("decision_scope"),
             )
         ):
+            if "decision_package" in request:
+                return {
+                    "state": "BLOCKED",
+                    "requires_response": False,
+                    "reason": "existing_decision_reuse_must_not_include_decision_package",
+                    "next_action": "remove_the_new_package_or_reopen_one_bounded_product_decision",
+                }
             return _continue("existing_decision_reused_without_duplicate_question")
 
     if risk == "L3" and request.get("approval_id"):
@@ -1064,6 +1249,50 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(package_input, dict):
         raise ValueError("a genuine escalation requires a strict decision_package")
     package = build_action_required(**package_input)
+    external_action = None
+    if category == "operational_action":
+        owner = request.get("action_owner")
+        if not isinstance(owner, str) or not owner.strip():
+            return {
+                "state": "BLOCKED",
+                "requires_response": False,
+                "reason": "operational_action_owner_is_required",
+                "next_action": "bind_one_owner_and_bounded_scope_before_prompting",
+            }
+        try:
+            external_action = enqueue_external_action(
+                root,
+                package["decision_id"],
+                package["why_human_input_is_required"],
+                risk,
+                owner,
+                scope=package["scope_of_approval"],
+                ttl_minutes=request.get("action_ttl_minutes", 1440),
+                action_class="operational_action",
+            )
+        except ValueError as exc:
+            return {
+                "state": "BLOCKED",
+                "requires_response": False,
+                "reason": "operational_action_state_is_invalid",
+                "detail": str(exc),
+                "next_action": "repair_or_reissue_the_bounded_external_action",
+            }
+        if not external_action["external_action_created"]:
+            return {
+                "state": (
+                    "CONTINUE" if request.get("unrelated_work_exists") else "BLOCKED"
+                ),
+                "requires_response": False,
+                "reason": "operational_action_already_pending",
+                "external_action_created": False,
+                "action_id": external_action["action_id"],
+                "next_action": (
+                    "continue_unrelated_work"
+                    if request.get("unrelated_work_exists")
+                    else "wait_for_existing_bounded_owner_action"
+                ),
+            }
     if category == "operational_action" and request.get("unrelated_work_exists"):
         return {
             "state": "CONTINUE",
@@ -1071,13 +1300,19 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
             "reason": "operational_action_blocks_only_dependent_work",
             "next_action": "queue_action_required_and_continue_unrelated_work",
             "action_required": package,
+            "external_action_created": True,
+            "action_id": external_action["action_id"],
         }
-    return {
+    result = {
         "state": "ACTION_REQUIRED",
         "requires_response": True,
         "reason": "human_judgment_required_by_policy",
         "decision_package": package,
     }
+    if external_action is not None:
+        result["external_action_created"] = True
+        result["action_id"] = external_action["action_id"]
+    return result
 
 
 def _sha256(path: Path) -> str:

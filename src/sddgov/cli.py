@@ -223,8 +223,10 @@ def build_parser() -> argparse.ArgumentParser:
     external = sub.add_parser("external-action", help="Queue one bounded owner action")
     external.add_argument("action_id")
     external.add_argument("--summary", required=True)
-    external.add_argument("--risk", choices=("L2", "L3"), required=True)
+    external.add_argument("--risk", choices=("L1", "L2", "L3"), required=True)
     external.add_argument("--owner", required=True)
+    external.add_argument("--scope", required=True)
+    external.add_argument("--ttl-minutes", type=int, default=1440)
     external.add_argument("--path", type=Path, default=Path.cwd())
     bench = sub.add_parser("benchmark", help="Compare paired debugging run results")
     bench_sub = bench.add_subparsers(dest="benchmark_command", required=True)
@@ -325,7 +327,22 @@ def run(args: argparse.Namespace) -> int:
         print(json.dumps(emit_event(args.path, args.event_type, args.risk, payload), ensure_ascii=False, indent=2))
         return 0
     if args.command == "external-action":
-        print(json.dumps(enqueue_external_action(args.path, args.action_id, args.summary, args.risk, args.owner), ensure_ascii=False, indent=2))
+        print(
+            json.dumps(
+                enqueue_external_action(
+                    args.path,
+                    args.action_id,
+                    args.summary,
+                    args.risk,
+                    args.owner,
+                    scope=args.scope,
+                    ttl_minutes=args.ttl_minutes,
+                    action_class="operational_action",
+                ),
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
         return 0
     if args.command == "pilot":
         result = run_synthetic_muse_pilot(args.output)
