@@ -10,10 +10,11 @@ At baseline `6a90ad84e8ed141241d3ca972b5ab91251429671`, the Policy Kernel, auton
 
 ## Deterministic steps
 
-1. Read the baseline versions of `core/POLICY_KERNEL.md`, `policies/autonomy-policy.json`, `skill/agentic-sdd-governance/SKILL.md`, `adapters/codex/AGENTS.md`, and `adapters/hermes/AGENTS.md`.
-2. Search for `AUTOMATIC_REVIEW_IS_PREAUTHORIZED` and `references/review-sharing.md`.
-3. Observe zero matching policy/route contracts.
-4. Compare that absence with the owner-confirmed expectation in Issue #13.
+1. In a clean disposable clone, run `git checkout --detach 6a90ad84e8ed141241d3ca972b5ab91251429671` and verify `git rev-parse HEAD` prints that exact SHA.
+2. Inspect exactly `core/POLICY_KERNEL.md`, `policies/autonomy-policy.json`, `skill/agentic-sdd-governance/SKILL.md`, `adapters/codex/AGENTS.md`, and `adapters/hermes/AGENTS.md`.
+3. Run `git grep -n 'AUTOMATIC_REVIEW_IS_PREAUTHORIZED' --` across those five files and require exit 1 with no output; any match fails the Red precondition.
+4. Run `git grep -n 'references/review-sharing.md' --` across those five files and require exit 1 with no output; any match fails the Red precondition.
+5. Compare the verified absence with the owner-confirmed expectation in Issue #13.
 
 ## Environment and preconditions
 
