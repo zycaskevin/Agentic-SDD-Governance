@@ -1,0 +1,45 @@
+Script started on [REDACTED_PHONE_OR_NUMBER]:15:14+08:00 [COMMAND="set -eu; [REDACTED_LOCAL_PATH] -m twine check /tmp/sddgov-r7-package-FxC5hf/dist/*; jq . /tmp/sddgov-r7-package-FxC5hf/release-bundle.json; jq . /tmp/sddgov-r7-package-FxC5hf/fresh-wheel-smoke.json; sha256sum /tmp/sddgov-r7-package-FxC5hf/dist/agentic_sdd_governance-0.2.0rc1-py3-none-any.whl /tmp/sddgov-r7-package-FxC5hf/dist/agentic_sdd_governance-0.2.0rc1.tar.gz; printf "PACKAGE_PROOF=PASS\n"" <not executed on terminal>]
+Checking 
+/tmp/sddgov-r7-package-FxC5hf/dist/agentic_sdd_governance-0.2.0rc1-py3-none-any.
+whl: PASSED
+Checking 
+/tmp/sddgov-r7-package-FxC5hf/dist/agentic_sdd_governance-0.2.0rc1.tar.gz: PASSED
+{
+  "ok": true,
+  "version": "0.2.0rc1",
+  "platform_label": "linux-aarch64-py312",
+  "project_wheel": "agentic_sdd_governance-0.2.0rc1-py3-none-any.whl",
+  "dependency_wheel_count": 10,
+  "offline_archive": "agentic-sdd-governance-0.2.0rc1-offline-linux-aarch64-py312.zip",
+  "public_asset_count": 4
+}
+{
+  "ok": true,
+  "verdict": "PASS",
+  "wheel": "agentic_sdd_governance-0.2.0rc1-py3-none-any.whl",
+  "version": "0.2.0rc1",
+  "source_checkout_imported": false,
+  "offline_bundle_verified": true,
+  "bundle_file_count": 12,
+  "doctors": {
+    "codex": {
+      "ok": true,
+      "validation": "PASS",
+      "managed_file_count": 71
+    },
+    "hermes": {
+      "ok": true,
+      "validation": "PASS",
+      "managed_file_count": 71
+    }
+  },
+  "quick_demo": {
+    "verdict": "PASS",
+    "real_data_used": false
+  }
+}
+7ba081b14f55aed2edd9a81900fba83d16773bd4278d6432cb59251cdd34f414  /tmp/sddgov-r7-package-FxC5hf/dist/agentic_sdd_governance-0.2.0rc1-py3-none-any.whl
+95ce72365124dd460ce1c06230c105a8899111512a36665561746d0446dfd4a1  /tmp/sddgov-r7-package-FxC5hf/dist/agentic_sdd_governance-0.2.0rc1.tar.gz
+PACKAGE_PROOF=PASS
+
+Script done on [REDACTED_PHONE_OR_NUMBER]:15:14+08:00 [COMMAND_EXIT_CODE="0"]
