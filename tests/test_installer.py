@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from sddgov.cli import _validate_repo
 from sddgov.installer import (
     END_MARKER,
     START_MARKER,
@@ -18,6 +19,16 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class InstallerTests(unittest.TestCase):
+    def test_python_consumer_with_pyproject_validates_installed_governance(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            (project / "pyproject.toml").write_text(
+                "[project]\nname = \"synthetic-consumer\"\nversion = \"1.0\"\n",
+                encoding="utf-8",
+            )
+            setup_agent(project, "codex", "team-standard")
+            self.assertEqual(_validate_repo(project), [])
+
     def test_codex_setup_is_discoverable_idempotent_and_preserves_agents(self):
         with tempfile.TemporaryDirectory() as temporary:
             project = Path(temporary)
@@ -231,7 +242,7 @@ class InstallerTests(unittest.TestCase):
                 events[-1]["payload"]["previous_governance_version"],
                 "0.2.0-experimental.3",
             )
-            self.assertEqual(events[-1]["payload"]["governance_version"], "0.2.0-experimental.8")
+            self.assertEqual(events[-1]["payload"]["governance_version"], "0.2.0rc1")
 
     def test_packaged_install_assets_match_canonical_sources(self):
         for relative, content in _resource_files().items():
