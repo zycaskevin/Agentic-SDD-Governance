@@ -18,4 +18,4 @@ Add focused assertions for each reported boundary, including oversized/untermina
 
 ## Conclusion
 
-Confirmed. The bounded fixes make all focused/current tests Green; manifest schema 1.1 enforces accurate JSON labels for new Evidence while a narrow schema 1.0 compatibility rule preserves old proof; and the final one-commit rollback returns the non-audit tree exactly to Base and passes the Base verification matrix.
+Confirmed. The bounded fixes make all focused/current tests Green. The new collector emits manifest schema 1.1 and enforces accurate JSON labels, while a narrow schema 1.0 compatibility rule preserves proof created before that contract became trusted Base. This R10 bootstrap package itself is serialized as schema 1.0 with legacy JSON labels because it must remain consumable after reverting the implementation that introduces schema 1.1. The final one-commit rollback returns the non-audit tree exactly to Base and passes the Base verification matrix.
