@@ -1,0 +1,85 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "git--r11-git-context.txt",
+      "output": "git--r11-git-context.txt",
+      "source_sha256": "352f294b3bf2fd5af51ce05f26cbdd8593aabd1888b6f564fa1bac7606ceb122",
+      "source_size": 16978,
+      "output_sha256": "352f294b3bf2fd5af51ce05f26cbdd8593aabd1888b6f564fa1bac7606ceb122",
+      "output_size": 16978,
+      "redactions": {}
+    },
+    {
+      "source": "git--r11-review-bindings.txt",
+      "output": "git--r11-review-bindings.txt",
+      "source_sha256": "09858efe46d386cc6a450f7f7ce6b51908a1d7144bc208a6da1b173455350415",
+      "source_size": 4398,
+      "output_sha256": "28c6fd6f121dbeb414955584ebc1c8b0dc949decf58a5431308134a099f768ad",
+      "output_size": 4590,
+      "redactions": {
+        "phone": 12
+      }
+    },
+    {
+      "source": "terminal--r11-fresh-wheel-smoke.json",
+      "output": "terminal--r11-fresh-wheel-smoke.json",
+      "source_sha256": "af1dfdf7b16414cfc8e328f3d32e3bd56039d554c991b8738266c799d0c88872",
+      "source_size": 517,
+      "output_sha256": "af1dfdf7b16414cfc8e328f3d32e3bd56039d554c991b8738266c799d0c88872",
+      "output_size": 517,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--r11-local-green.txt",
+      "output": "terminal--r11-local-green.txt",
+      "source_sha256": "6b3bf6e73ac3919c46f336198994fb648bf85eb71f03d47696120ec7c58d565c",
+      "source_size": 54457,
+      "output_sha256": "6b3bf6e73ac3919c46f336198994fb648bf85eb71f03d47696120ec7c58d565c",
+      "output_size": 54457,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--r11-package-proof.txt",
+      "output": "terminal--r11-package-proof.txt",
+      "source_sha256": "dbbc9901853700fbd985b161168bbdf715b5eef59a3238c652a84438fdeea223",
+      "source_size": 56747,
+      "output_sha256": "dbbc9901853700fbd985b161168bbdf715b5eef59a3238c652a84438fdeea223",
+      "output_size": 56747,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--r11-red-tests.txt",
+      "output": "terminal--r11-red-tests.txt",
+      "source_sha256": "94de7f9d314184a72653a825517bd2896d4a1cd34136e8daeec80a6e7d0e12b8",
+      "source_size": 19185,
+      "output_sha256": "94de7f9d314184a72653a825517bd2896d4a1cd34136e8daeec80a6e7d0e12b8",
+      "output_size": 19185,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--r11-release-bundle.json",
+      "output": "terminal--r11-release-bundle.json",
+      "source_sha256": "98cf46953322abf93be7b3508e18c43ae56f78f5006d173fd8b374daf7058cd1",
+      "source_size": 303,
+      "output_sha256": "98cf46953322abf93be7b3508e18c43ae56f78f5006d173fd8b374daf7058cd1",
+      "output_size": 303,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--r11-rollback-drill.txt",
+      "output": "terminal--r11-rollback-drill.txt",
+      "source_sha256": "19e8255d76762a32cab2ce39a7966ee70c749475b4d905d316d3e30c92a8e173",
+      "source_size": 88556,
+      "output_sha256": "19e8255d76762a32cab2ce39a7966ee70c749475b4d905d316d3e30c92a8e173",
+      "output_size": 88556,
+      "redactions": {}
+    }
+  ],
+  "blocked": [],
+  "totals": {
+    "phone": 12
+  },
+  "dep_id": "DEP-RC1-REVIEW-FIX-R11-019",
+  "generated_at": "2026-08-21T19:38:40Z"
+}
