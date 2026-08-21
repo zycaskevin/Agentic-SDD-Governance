@@ -1,0 +1,38 @@
+R11 source review identity
+repository: zycaskevin/Agentic-SDD-Governance
+pull_request: 32
+review_rest_id: [REDACTED_PHONE_OR_NUMBER]
+review_node_id: PRR_kwDOTx8IyM8AAAABKdIVPg
+review_url: https://github.com/zycaskevin/Agentic-SDD-Governance/pull/32#pullrequestreview-[REDACTED_PHONE_OR_NUMBER]
+review_state: COMMENTED
+review_submitted_at: 2026-08-21T19:15:00Z
+reviewed_head: 4d84760eec736f51e7e9a8a1c6edf9d912fb2ccc
+reviewed_base: 1a5a0b214eccc2b9edd076fd5e2f222c4a456725
+actionable_count: 10
+nitpick_count: 6
+
+Inline findings and independent dispositions
+[REDACTED_PHONE_OR_NUMBER]	PRRC_kwDOTx8IyM7kdvFM	.agentic-sdd-governance/services/sddgov-broker.service	20	https://github.com/zycaskevin/Agentic-SDD-Governance/pull/32#discussion_r3833000268	FIXED: skip chown when bind already produced exact uid/gid; retain fail-closed post-check.
+[REDACTED_PHONE_OR_NUMBER]	PRRC_kwDOTx8IyM7kdvFS	.sddgov/merge-gate.json	5	https://github.com/zycaskevin/Agentic-SDD-Governance/pull/32#discussion_r3833000274	REJECTED: repository policy classifies autonomous code/docs/tests as L1; only root service installation, trust-root provisioning, or a concrete L3 operation is L3 and remains external non-scope.
+[REDACTED_PHONE_OR_NUMBER]	PRRC_kwDOTx8IyM7kdvFW	evidence/DEP-RC1-REVIEW-FIX-R6-014/root-cause-hypothesis.md	44	https://github.com/zycaskevin/Agentic-SDD-Governance/pull/32#discussion_r3833000278	FIXED: recorded Red/Green falsification evidence before the conclusion.
+[REDACTED_PHONE_OR_NUMBER]	PRRC_kwDOTx8IyM7kdvFZ	evidence/DEP-RC1-REVIEW-FIX-R6-014/verification.md	10	https://github.com/zycaskevin/Agentic-SDD-Governance/pull/32#discussion_r3833000281	FIXED: removed unsupported R6 source-build/Twine claims; no evidence was fabricated.
+[REDACTED_PHONE_OR_NUMBER]	PRRC_kwDOTx8IyM7kdvFd	schemas/ci-cost-guard.schema.json	67	https://github.com/zycaskevin/Agentic-SDD-Governance/pull/32#discussion_r3833000285	FIXED: runtime verifier rejects missing, wildcard, display-name, and unused exemptions; schema/docs/tests aligned.
+[REDACTED_PHONE_OR_NUMBER]	PRRC_kwDOTx8IyM7kdvFg	scripts/release_files.py	439	https://github.com/zycaskevin/Agentic-SDD-Governance/pull/32#discussion_r3833000288	FIXED: explicit Linux/macOS guard and final-component-only create contract; native Windows full-workflow boundary documented.
+[REDACTED_PHONE_OR_NUMBER]	PRRC_kwDOTx8IyM7kdvFo	services/com.sddgov.broker.plist	23	https://github.com/zycaskevin/Agentic-SDD-Governance/pull/32#discussion_r3833000296	FIXED: launchd ThrottleInterval=30 in canonical and both mirrors; manual stale-socket inspection preserved.
+[REDACTED_PHONE_OR_NUMBER]	PRRC_kwDOTx8IyM7kdvGU	src/sddgov/broker.py	337	https://github.com/zycaskevin/Agentic-SDD-Governance/pull/32#discussion_r3833000340	FIXED: readiness requires root-owned socket, exact 0660, and fixed platform group.
+[REDACTED_PHONE_OR_NUMBER]	PRRC_kwDOTx8IyM7kdvGa	src/sddgov/fs_security.py	54	https://github.com/zycaskevin/Agentic-SDD-Governance/pull/32#discussion_r3833000346	FIXED: remaining os.link OSError becomes labelled pending-generation ValueError; Linux/macOS versus native Windows support matrix documented.
+[REDACTED_PHONE_OR_NUMBER]	PRRC_kwDOTx8IyM7kdvGh	src/sddgov/redaction.py	528	https://github.com/zycaskevin/Agentic-SDD-Governance/pull/32#discussion_r3833000353	FIXED: per-source publication remains local until source identity passes and is reconciled on every post-publication failure.
+
+Review-body nitpicks
+broker ledger scan	FIXED: 64 MiB active-epoch hard limit bounds allocation and append; health/consume fail closed with controlled epoch-rollover diagnostic; runbook defines expiry-safe sealed archive procedure.
+R9 build reproducibility	FIXED BY NARROW CLAIM: locked --no-isolation release environment is distinguished from floating pyproject build compatibility; no byte-reproducibility claim.
+release cleanup masking	FIXED: write_from_descriptor, write_bytes, and binary_writer re-raise the primary failure with cleanup error chained as cause on Python 3.10+.
+release test getattr	FIXED: direct open_directory import.
+redaction constant source matching	FIXED: behavioral constants imported and compared numerically.
+README version literal	FIXED: install pin derives from sddgov.__version__; intentional RC1 release-state literal remains explicit.
+
+Non-actionable review-body preferences
+PR template sections	Will be supplied on the R11 draft PR body.
+docstring coverage	Not a repository acceptance contract and not a demonstrated correctness defect; no mass docstring churn added.
+
+No review thread was replied to or resolved by the implementing Agent.
