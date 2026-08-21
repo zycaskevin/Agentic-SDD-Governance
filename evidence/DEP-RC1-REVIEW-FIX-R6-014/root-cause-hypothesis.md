@@ -37,6 +37,15 @@ source marker, empty exception map, missing nested pilot key, dash-only line, an
 post-redaction collection. Each must fail on R5 and pass only after its boundary
 is explicitly bound or closed.
 
+## Falsification results
+
+`shareable/artifacts/terminal--r6-red-tests.txt` records the pre-fix boundary
+failures, while `shareable/artifacts/terminal--r6-local-green.txt` records the
+same focused cases and the 289-test R6 suite passing after the bindings were
+implemented. The exact PR review identities and reviewed Head are preserved in
+`shareable/artifacts/git--r6-review-bindings.txt`. No falsification result was
+inferred from the later conclusion text.
+
 ## Conclusion
 
 Confirmed. The reproduced defects share a missing end-to-end binding at an
