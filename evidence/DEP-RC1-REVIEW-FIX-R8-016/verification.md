@@ -2,7 +2,7 @@
 
 ## Green command and result
 
-`python -m sddgov.cli ci local-gate .` passed: 310 tests executed with 2 explicit skips and repository validation returned zero. The focused review suite also passed. Build, Twine, offline bundle assembly, and fresh-wheel proof returned PASS.
+`python -m sddgov.cli ci local-gate .` passed: 310 tests executed with 2 explicit skips and repository validation returned zero. The focused review suite also passed. Build, Twine, offline bundle assembly, and fresh-wheel proof returned PASS. The embedded `benchmark_error` and `{"ok": false}` JSON in the immutable R8 transcript are expected outputs asserted by negative-path unit tests, not failed Gate commands; R10 captures those expected outputs in-memory so its authoritative Green transcript is unambiguous.
 
 ## Before/after evidence
 
