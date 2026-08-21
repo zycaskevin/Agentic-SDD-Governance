@@ -25,8 +25,9 @@ verify_module: unittest
 
 # No Production data migration exists. The revert restores trusted Base code
 # and schema behavior while retaining immutable Evidence and gate history.
-# Historical manifest schema 1.0 rows intentionally retain their legacy media
-# labels so the trusted Base verifier can consume the audit descendants.
+# Historical and R10 bootstrap manifest schema 1.0 rows intentionally retain
+# their legacy media labels so the trusted Base verifier can consume every
+# audit descendant. New packages use schema 1.1 after this verifier is Base.
 
 ## Post-rollback verification
 
