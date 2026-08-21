@@ -59,13 +59,17 @@ def _walk_resource(node, prefix: PurePosixPath = PurePosixPath()) -> Iterable[tu
             yield relative.as_posix(), child.read_bytes()
 
 
-def _resource_files() -> dict[str, bytes]:
+def resource_files() -> dict[str, bytes]:
     root = resources.files("sddgov").joinpath("resources").joinpath("governance")
     return dict(_walk_resource(root))
 
 
+# Compatibility for callers that imported the former private helper.
+_resource_files = resource_files
+
+
 def _desired_files() -> tuple[dict[str, bytes], dict[str, bytes]]:
-    source = _resource_files()
+    source = resource_files()
     desired: dict[str, bytes] = {}
     for relative, content in source.items():
         skill_prefix = "skill/agentic-sdd-governance/"

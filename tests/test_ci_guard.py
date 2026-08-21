@@ -27,6 +27,7 @@ def _contract(command):
             "require_read_only_permissions": True,
             "skip_draft_pull_requests": True,
             "exempt_workflows": [],
+            "write_permission_exceptions": {},
         },
     }
 
@@ -55,6 +56,26 @@ concurrency:
 jobs:
   verify:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - run: true
+"""
+
+# _write_project deliberately stores this fixture as ci.yml; exception maps
+# therefore use the filename ci.yml rather than the display name below.
+GOOD_MANUAL_RELEASE_WORKFLOW = """name: Release
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  publish:
+    permissions:
+      id-token: write
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -194,6 +215,187 @@ jobs:
             self.assertFalse(report["ok"])
             self.assertIn(
                 "workflow_controls.exempt_workflows must be a string array",
+                "\n".join(report["errors"]),
+            )
+
+    def test_manual_release_uses_only_exact_write_permission_exceptions(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            contract = _contract([sys.executable, "-c", "pass"])
+            contract["workflow_controls"]["write_permission_exceptions"] = {
+                "ci.yml": {"publish": ["id-token"]}
+            }
+            _write_project(project, contract, GOOD_MANUAL_RELEASE_WORKFLOW)
+            self.assertTrue(verify_guard(project)["ok"])
+
+            for label, workflow, expected_error in (
+                (
+                    "missing concurrency",
+                    GOOD_MANUAL_RELEASE_WORKFLOW.replace(
+                        "concurrency:\n  group: release-${{ github.ref }}\n  cancel-in-progress: false\n",
+                        "",
+                    ),
+                    "hosted workflow requires concurrency",
+                ),
+                (
+                    "missing timeout",
+                    GOOD_MANUAL_RELEASE_WORKFLOW.replace(
+                        "    timeout-minutes: 10\n", ""
+                    ),
+                    "requires timeout-minutes between 1 and 360",
+                ),
+            ):
+                with self.subTest(label=label):
+                    (project / ".github/workflows/ci.yml").write_text(
+                        workflow, encoding="utf-8"
+                    )
+                    report = verify_guard(project)
+                    self.assertFalse(report["ok"])
+                    self.assertIn(expected_error, "\n".join(report["errors"]))
+
+    def test_exempt_workflow_names_must_be_nonempty_and_unique(self):
+        for exemptions, expected_error in (
+            ([""], "must contain non-empty strings"),
+            (["ci.yml", "ci.yml"], "must not contain duplicates"),
+        ):
+            with self.subTest(
+                exemptions=exemptions
+            ), tempfile.TemporaryDirectory() as temporary:
+                project = Path(temporary)
+                contract = _contract([sys.executable, "-c", "pass"])
+                contract["workflow_controls"]["exempt_workflows"] = exemptions
+                _write_project(project, contract, GOOD_MANUAL_RELEASE_WORKFLOW)
+                report = verify_guard(project)
+                self.assertFalse(report["ok"])
+                self.assertIn(expected_error, "\n".join(report["errors"]))
+
+    def test_exempt_workflow_must_name_one_discovered_file_exactly(self):
+        for exemption in ("missing.yml", "*.yml", "CI"):
+            with self.subTest(
+                exemption=exemption
+            ), tempfile.TemporaryDirectory() as temporary:
+                project = Path(temporary)
+                contract = _contract([sys.executable, "-c", "pass"])
+                contract["workflow_controls"]["exempt_workflows"] = [exemption]
+                _write_project(project, contract, GOOD_WORKFLOW)
+                report = verify_guard(project)
+                self.assertFalse(report["ok"])
+                self.assertIn(
+                    f"exempt workflows reference missing workflow {exemption}",
+                    "\n".join(report["errors"]),
+                )
+
+    def test_exempt_workflow_cannot_declare_write_exceptions(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            contract = _contract([sys.executable, "-c", "pass"])
+            contract["workflow_controls"]["exempt_workflows"] = ["ci.yml"]
+            contract["workflow_controls"]["write_permission_exceptions"] = {
+                "ci.yml": {"publish": ["id-token"]}
+            }
+            _write_project(project, contract, GOOD_MANUAL_RELEASE_WORKFLOW)
+            report = verify_guard(project)
+            self.assertFalse(report["ok"])
+            self.assertIn(
+                "exempt workflow must not declare write permission exceptions: ci.yml",
+                "\n".join(report["errors"]),
+            )
+
+    def test_manual_workflow_concurrency_error_uses_hosted_wording(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            contract = _contract([sys.executable, "-c", "pass"])
+            contract["workflow_controls"]["write_permission_exceptions"] = {
+                "ci.yml": {"publish": ["id-token"]}
+            }
+            workflow = GOOD_MANUAL_RELEASE_WORKFLOW.replace(
+                "  group: release-${{ github.ref }}\n", "  group: '   '\n"
+            )
+            _write_project(project, contract, workflow)
+            report = verify_guard(project)
+            self.assertFalse(report["ok"])
+            self.assertIn(
+                "hosted workflow concurrency requires a non-empty group",
+                "\n".join(report["errors"]),
+            )
+
+    def test_write_permission_exception_must_be_used_by_the_exact_job(self):
+        cases = (
+            (
+                "unknown job",
+                {"ci.yml": {"missing": ["id-token"]}},
+                "references unknown job missing",
+            ),
+            (
+                "unused permission",
+                {"ci.yml": {"publish": ["contents"]}},
+                "write permission exception is unused: contents",
+            ),
+        )
+        for label, exceptions, expected_error in cases:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as temporary:
+                project = Path(temporary)
+                contract = _contract([sys.executable, "-c", "pass"])
+                contract["workflow_controls"]["write_permission_exceptions"] = (
+                    exceptions
+                )
+                _write_project(project, contract, GOOD_MANUAL_RELEASE_WORKFLOW)
+                report = verify_guard(project)
+                self.assertFalse(report["ok"])
+                self.assertIn(expected_error, "\n".join(report["errors"]))
+
+    def test_write_permission_exception_names_must_not_be_blank(self):
+        cases = (
+            (
+                {"": {"publish": ["id-token"]}},
+                "workflow names must be non-empty strings",
+            ),
+            (
+                {"ci.yml": {"": ["id-token"]}},
+                "job names must be non-empty strings",
+            ),
+        )
+        for exceptions, expected_error in cases:
+            with self.subTest(
+                exceptions=exceptions
+            ), tempfile.TemporaryDirectory() as temporary:
+                project = Path(temporary)
+                contract = _contract([sys.executable, "-c", "pass"])
+                contract["workflow_controls"]["write_permission_exceptions"] = (
+                    exceptions
+                )
+                _write_project(project, contract, GOOD_MANUAL_RELEASE_WORKFLOW)
+                report = verify_guard(project)
+                self.assertFalse(report["ok"])
+                self.assertIn(expected_error, "\n".join(report["errors"]))
+
+    def test_write_permission_exception_job_map_must_not_be_empty(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            contract = _contract([sys.executable, "-c", "pass"])
+            contract["workflow_controls"]["write_permission_exceptions"] = {
+                "ci.yml": {}
+            }
+            _write_project(project, contract, GOOD_MANUAL_RELEASE_WORKFLOW)
+            report = verify_guard(project)
+            self.assertFalse(report["ok"])
+            self.assertIn(
+                "write_permission_exceptions.ci.yml must name at least one job",
+                "\n".join(report["errors"]),
+            )
+
+    def test_write_permission_exception_must_name_an_existing_workflow(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            contract = _contract([sys.executable, "-c", "pass"])
+            contract["workflow_controls"]["write_permission_exceptions"] = {
+                "retired-release.yml": {"publish": ["id-token"]}
+            }
+            _write_project(project, contract, GOOD_WORKFLOW)
+            report = verify_guard(project)
+            self.assertFalse(report["ok"])
+            self.assertIn(
+                "write permission exceptions reference missing workflow retired-release.yml",
                 "\n".join(report["errors"]),
             )
 
