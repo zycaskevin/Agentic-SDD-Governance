@@ -1,13 +1,13 @@
 {
   "schema_version": "1.0",
   "base_sha": "1a5a0b214eccc2b9edd076fd5e2f222c4a456725",
-  "head_sha": "a44d2bd38cc426e0fae6484069eed26e3d0cc411",
+  "head_sha": "ab0a572ed8cdfbc15e71133131ba6db5f2c0ed43",
   "risk_level": "L1",
   "builder_id": "codex-builder",
-  "change_digest": "7aacdce72115d210b6f257d33bccf205648804db6d7cf93b66102515323088c1",
+  "change_digest": "6ca4e064494cba6277c9dd415959640382121383c14534cfb665cf52b497b770",
   "deps": [
-    "evidence/DEP-RC1-REVIEW-FIX-R11-019"
+    "evidence/DEP-RC1-REVIEW-FIX-R12-020"
   ],
-  "rollback_path": "evidence/DEP-RC1-REVIEW-FIX-R11-019/rollback.md",
-  "protected_file_review": ".sddgov/reviews/REV-RC1-READINESS-R11.json"
+  "rollback_path": "evidence/DEP-RC1-REVIEW-FIX-R12-020/rollback.md",
+  "protected_file_review": ".sddgov/reviews/REV-RC1-READINESS-R12.json"
 }
