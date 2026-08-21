@@ -1,0 +1,26 @@
+R10 GIT AND PROOF CONTEXT
+
+Trusted Base: 1a5a0b214eccc2b9edd076fd5e2f222c4a456725
+Reviewed PR #31 Head: d0675e6bebed0cc89c978a251ca321365a2a571d
+Final atomic R10 implementation: dc6af7cfab8cbaad1c07da43af2a522ff5d58e01
+Atomic parent: 1a5a0b214eccc2b9edd076fd5e2f222c4a456725
+Pre-R10-evidence audit Head: d27fe0e9c58b14fa0da4628971cc4d5d2341d484
+Local branch during verification: feat/rc1-readiness-r10-candidate
+
+Topology contract:
+- dc6af7cfab8cbaad1c07da43af2a522ff5d58e01 is a single-parent implementation commit directly above the trusted Base.
+- R6-R9 evidence, correction, and Gate commits are audit-only descendants.
+- The R10 DEP and Gate will be audit-only descendants.
+- rollback_ref is the full immutable dc6af7cfab8cbaad1c07da43af2a522ff5d58e01 SHA.
+
+Rollback compatibility discovery:
+- The first R10 rollback rehearsal failed because retroactively relabeling historical R6-R9 JSON rows made the trusted Base verifier reject audit descendants.
+- The correction preserves historical manifest schema 1.0 labels and introduces manifest schema 1.1 for new accurate application/json labels.
+- The final drill reverts the atomic implementation, proves tracked equality and absence of unexpected untracked residue outside audit-only paths, then passes trusted-Base Doctor, Validate, 229 tests, build, Twine, and fresh wheel installation.
+
+Current verification:
+- Local Green: 333 tests passed; two explicit skips (sandbox Unix socket creation; unavailable historical PR #14 rollback commit); repository validation passed.
+- Package proof: source validation precedes build; wheel/sdist/Twine, 11 dependency-wheel offline bundle, Codex/Hermes fresh-wheel smoke, Validate, Doctor, and quick demo passed.
+- Wheel SHA-256: 433ef3571deafa4a52948bee9ea64d401d7b44ba401a6d2ca96ec160162a6600
+- Sdist SHA-256: 57d1be2a76e51c3fec4b92efb012bd09556616c860c8527c6874f4cd7638d013
+- Offline bundle SHA-256: 2f13be34d0cb448b1233929d6d46adbbf0d2a9f3c18fcbc70bf153f48f562379
