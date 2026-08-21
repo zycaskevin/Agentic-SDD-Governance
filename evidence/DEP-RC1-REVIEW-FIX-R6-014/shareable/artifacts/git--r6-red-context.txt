@@ -1,0 +1,15 @@
+branch=feat/rc1-readiness-r6
+base=1a5a0b214eccc2b9edd076fd5e2f222c4a456725
+r5_reviewed_head=7bd6a110768b1f98b6807d5337ed94c315379309
+risk=L1 regression and cross-module release/security hardening
+Python 3.12.3
+05e53253d4e2e4b756e0b1edf07ea4d691124d76
+ M tests/test_broker.py
+ M tests/test_ci_guard.py
+ M tests/test_installer.py
+ M tests/test_monorepo_benchmark.py
+ M tests/test_redaction.py
+ M tests/test_release_bundle.py
+ M tests/test_repository_contract.py
+ M tests/test_synthetic_muse_pilot.py
+?? evidence/DEP-RC1-REVIEW-FIX-R6-014/
