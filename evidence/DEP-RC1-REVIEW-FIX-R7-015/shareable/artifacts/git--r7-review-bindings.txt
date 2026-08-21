@@ -1,0 +1,20 @@
+PR: https://github.com/zycaskevin/Agentic-SDD-Governance/pull/28
+Base: 1a5a0b214eccc2b9edd076fd5e2f222c4a456725
+Reviewed Head: 5f7488008cded952f4e0470e01d69979a528829f
+CodeRabbit review: PRR_kwDOTx8IyM8AAAABKbo8Wg
+Submitted: 2026-08-21T15:48:07Z
+State: COMMENTED
+Actionable inline threads:
+- PRRT_kwDOTx8IyM6bNeyi https://github.com/zycaskevin/Agentic-SDD-Governance/pull/28#discussion_r3831650528
+- PRRT_kwDOTx8IyM6bNeym https://github.com/zycaskevin/Agentic-SDD-Governance/pull/28#discussion_r3831650532
+- PRRT_kwDOTx8IyM6bNeyx https://github.com/zycaskevin/Agentic-SDD-Governance/pull/28#discussion_r3831650551
+- PRRT_kwDOTx8IyM6bNey2 https://github.com/zycaskevin/Agentic-SDD-Governance/pull/28#discussion_r3831650557
+- PRRT_kwDOTx8IyM6bNey5 https://github.com/zycaskevin/Agentic-SDD-Governance/pull/28#discussion_r3831650562
+- PRRT_kwDOTx8IyM6bNey- https://github.com/zycaskevin/Agentic-SDD-Governance/pull/28#discussion_r3831650568
+- PRRT_kwDOTx8IyM6bNezA https://github.com/zycaskevin/Agentic-SDD-Governance/pull/28#discussion_r3831650571
+- PRRT_kwDOTx8IyM6bNezF https://github.com/zycaskevin/Agentic-SDD-Governance/pull/28#discussion_r3831650578
+Outside-diff finding: src/sddgov/ci_guard.py hosted-workflow concurrency wording.
+Review classification at Red:
+- Valid: demo exit status, rollback commands, Evidence count wording, local path exposure, decoded-character wording, demo test timeouts, Work Package evidence binding, CI message wording.
+- Invalid: requiring cancel-in-progress for workflow_dispatch-only publish.yml; the trusted verifier intentionally applies stale-run cancellation only to automatic workflows.
+- Pending verification: five maintainability nitpicks and PR-description/docstring prechecks.
