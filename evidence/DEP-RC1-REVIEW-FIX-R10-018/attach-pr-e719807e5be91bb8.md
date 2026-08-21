@@ -2,7 +2,7 @@ Evidence: DEP-RC1-REVIEW-FIX-R10-018
 Issue: https://github.com/zycaskevin/Agentic-SDD-Governance/issues/22
 SDD: work-packages/WP-RC1-READINESS-008.md
 Risk: L1
-Control snapshot SHA-256: `2380f45bf34d5f9b4b3bce8cf9b28941b953cccb57b34bb0c784484f55a91eea`
+Control snapshot SHA-256: `e719807e5be91bb80390df07be485b89bef01f2c1712494b450970d37360deb2`
 Workflow: Red -> Evidence -> Fix -> Green -> Proof
 Verified artifacts:
 - `shareable/artifacts/git--r10-git-context.txt` (sha256: `702abc99523ae23e9ce70642c24b7cc407dd452822ad63e94865ec60787e324a`)
