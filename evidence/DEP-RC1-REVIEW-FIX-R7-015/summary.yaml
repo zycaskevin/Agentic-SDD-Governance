@@ -1,0 +1,87 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-REVIEW-FIX-R7-015",
+  "issue": "https://github.com/zycaskevin/Agentic-SDD-Governance/issues/22",
+  "sdd_references": [
+    "work-packages/WP-RC1-READINESS-008.md"
+  ],
+  "risk_level": "L1",
+  "created_at": "2026-08-21T16:15:45Z",
+  "updated_at": "2026-08-21T16:19:59Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-21T16:15:45Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-21T16:19:58Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-21T16:19:58Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-21T16:19:59Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-21T16:19:59Z"
+      }
+    ]
+  },
+  "expected_behavior": "The RC1 candidate must preserve subprocess failure status, remove absolute user workspace paths from every shareable Evidence artifact, state bounded-redaction units precisely, bind the Work Package and executable rollback to current proof, use bounded test and fresh-wheel subprocesses, report hosted CI rules accurately, and retain deterministic tests without duplicated fakes or release-version literals.",
+  "actual_behavior": "The exact CodeRabbit review on PR 28 Head 5f7488008cded952f4e0470e01d69979a528829f reported eight inline findings and one outside-diff issue. The 86-test Red run reproduced six failures and two errors across demo exit propagation, path redaction, installed rule inventory, timeout configurability, CI wording, current-proof binding, and tracked shareable artifacts. A first 297-test Green attempt then exposed an escaped Windows path in a traceback; two rollback rehearsals exposed an incorrect working-directory assumption and inaccurate Base version/force-reconcile commands before the corrected isolated drill passed.",
+  "environment": {
+    "commit": "eb29619f4e9617b5f0e2a67569255e29af92d9ef",
+    "branch": "feat/rc1-readiness-r7",
+    "runtime": "Linux aarch64, Python 3.12; 297 tests executed with 2 explicit sandbox skips in Local Green; 229 Base tests executed with 2 explicit sandbox skips in an isolated rollback drill; 0.2.0rc1 source, wheel, locked offline bundle, and fresh-wheel proof."
+  },
+  "root_cause_status": "confirmed",
+  "attachments": [
+    {
+      "path": "shareable/artifacts/terminal--r7-red-tests.txt",
+      "sha256": "58664c685050135419253a12732b96c6409224fe30de6eea1f3e85e2478f1c9b",
+      "collector": "terminal"
+    },
+    {
+      "path": "shareable/artifacts/git--r7-review-bindings.txt",
+      "sha256": "e392c3600bb3de36153e18e1563d1363d1c2d02105535e2ea6c18e7ae9a41c54",
+      "collector": "git"
+    },
+    {
+      "path": "shareable/artifacts/terminal--r7-escaped-path-red.txt",
+      "sha256": "654e36cd368b2bc044b75a9fbb14d921cc05a5b10d6b929be34325ff03da2d71",
+      "collector": "terminal"
+    },
+    {
+      "path": "shareable/artifacts/terminal--r7-local-green.txt",
+      "sha256": "76a55b06602e2df1ee33f5e84aad66f480891e6966eb3517d4360e3e5cf463ee",
+      "collector": "terminal"
+    },
+    {
+      "path": "shareable/artifacts/terminal--r7-package-proof.txt",
+      "sha256": "e22209e619997a29b5652b1dfdf7cc1ed768d56057922c54e0d126caab5b5e02",
+      "collector": "terminal"
+    },
+    {
+      "path": "shareable/artifacts/terminal--r7-release-bundle.json",
+      "sha256": "c173a5d76313e68917bcdfe316f7a477cef38571c1b42f31d9ac99e9cb77250d",
+      "collector": "terminal"
+    },
+    {
+      "path": "shareable/artifacts/terminal--r7-fresh-wheel-smoke.json",
+      "sha256": "cf49fdc97f2132bd516dba20a71c02362ec1023463502b5e9ad6936dc19f3e63",
+      "collector": "terminal"
+    },
+    {
+      "path": "shareable/artifacts/terminal--r7-rollback-drill.txt",
+      "sha256": "95dc6fe33ea62a3fd61558e22048b2b82914e538328c3ac0b68affd6793cf772",
+      "collector": "terminal"
+    }
+  ]
+}
