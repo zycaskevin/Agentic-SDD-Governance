@@ -1,0 +1,84 @@
+Agentic SDD Governance RC1 R9 review bindings
+
+Repository: zycaskevin/Agentic-SDD-Governance
+Source review PR: #30
+Source review URL: https://github.com/zycaskevin/Agentic-SDD-Governance/pull/30
+Reviewed branch: feat/rc1-readiness-r8
+Reviewed commit: 115113691d814236df33571475bb8f519fd65b23
+Formal review REST ID: [REDACTED_PHONE_OR_NUMBER]
+Formal review GraphQL node: PRR_kwDOTx8IyM8AAAABKcX8Jg
+Formal review submitted: 2026-08-21T17:28:15Z
+Formal review URL: https://github.com/zycaskevin/Agentic-SDD-Governance/pull/30#pullrequestreview-[REDACTED_PHONE_OR_NUMBER]
+Formal review state: COMMENTED
+
+Inline findings
+
+1. REST ID [REDACTED_PHONE_OR_NUMBER]; node PRRC_kwDOTx8IyM7kbHFA
+   Area: rollback operations documentation; fetch-before-branch safety
+   URL: https://github.com/zycaskevin/Agentic-SDD-Governance/pull/30#discussion_r3832312128
+   R9 disposition: fixed in canonical, packaged, and installed documentation copies.
+
+2. REST ID [REDACTED_PHONE_OR_NUMBER]; node PRRC_kwDOTx8IyM7kbHFX
+   Area: merge gate; missing independent signed receipt and stale reviewed Head
+   URL: https://github.com/zycaskevin/Agentic-SDD-Governance/pull/30#discussion_r3832312151
+   R9 disposition: the stale R8 gate is superseded by an R9 gate bound to the exact R9 reviewed Head. A valid independent Ed25519 receipt remains an intentionally external, fail-closed requirement and is not fabricated by the implementing Agent.
+
+3. REST ID [REDACTED_PHONE_OR_NUMBER]; node PRRC_kwDOTx8IyM7kbHFd
+   Area: README / README.zh-TW contract parity
+   URL: https://github.com/zycaskevin/Agentic-SDD-Governance/pull/30#discussion_r3832312157
+   R9 disposition: fixed; both READMEs state the controlled-install pilot and exact file-size limit behavior.
+
+4. REST ID [REDACTED_PHONE_OR_NUMBER]; node PRRC_kwDOTx8IyM7kbHFl
+   Area: monorepo benchmark result schema and timeout state
+   URL: https://github.com/zycaskevin/Agentic-SDD-Governance/pull/30#discussion_r3832312165
+   R9 disposition: fixed with one common result schema and explicit timeout/correctness state.
+
+5. REST ID [REDACTED_PHONE_OR_NUMBER]; node PRRC_kwDOTx8IyM7kbHFs
+   Area: fresh-wheel output-parent creation and failure report
+   URL: https://github.com/zycaskevin/Agentic-SDD-Governance/pull/30#discussion_r3832312172
+   R9 disposition: fixed; the trusted parent is prepared before output-descriptor validation and failure reporting remains available.
+
+6. REST ID [REDACTED_PHONE_OR_NUMBER]; node PRRC_kwDOTx8IyM7kbHF6
+   Area: release input ancestor-directory descriptor binding
+   URL: https://github.com/zycaskevin/Agentic-SDD-Governance/pull/30#discussion_r3832312186
+   R9 disposition: fixed with retained component-by-component O_NOFOLLOW directory descriptors and descriptor-relative enumeration, open, copy, hash, archive, and output operations.
+
+7. REST ID [REDACTED_PHONE_OR_NUMBER]; node PRRC_kwDOTx8IyM7kbHF_
+   Area: Evidence collect limit before buffering
+   URL: https://github.com/zycaskevin/Agentic-SDD-Governance/pull/30#discussion_r3832312191
+   R9 disposition: fixed; the size ceiling is enforced before and throughout the input read.
+
+8. REST ID [REDACTED_PHONE_OR_NUMBER]; node PRRC_kwDOTx8IyM7kbHGF
+   Area: recursive nested Evidence artifact scan
+   URL: https://github.com/zycaskevin/Agentic-SDD-Governance/pull/30#discussion_r3832312197
+   R9 disposition: fixed; repository contracts recursively detect untracked nested artifacts.
+
+9. REST ID [REDACTED_PHONE_OR_NUMBER]; node PRRC_kwDOTx8IyM7kbHGO
+   Area: exact systemd hardening assertions
+   URL: https://github.com/zycaskevin/Agentic-SDD-Governance/pull/30#discussion_r3832312206
+   R9 disposition: fixed; tests assert the exact hardening directives and packaged/canonical service parity.
+
+Outside-diff actionable finding
+
+Fingerprint: 80fdd517af205f15c5835caf
+Area: src/sddgov/ci_guard.py; absent workflows must not carry permission exceptions
+R9 disposition: fixed with fail-closed validation and deterministic regression coverage.
+
+Accepted maintainability/security nitpicks included in R9
+
+- Benchmark timeout uses math.ceil.
+- Rollback verifier exposes a public compatibility wrapper.
+- Fresh-wheel rejects nested wheelhouse paths.
+- Release repository slugs are validated strictly.
+- GitHub environment checks retry only bounded transient 403/429 responses, honor Retry-After/rate reset/fallback delay, and close HTTPError objects.
+- Canonical and packaged service files are checked as mirrors.
+- Redaction local names are less misleading.
+- Owned-generation cleanup is shared and preserves a later replacement entry.
+
+Deliberate non-change
+
+The optional suggestion to shorten the publish job-level `if` prefix was not adopted. The exact literal TestPyPI/PyPI/GitHub Release tag guards are retained because they are part of the repository's already-reviewed release safety contract. This is not an unresolved correctness finding.
+
+Thread state policy
+
+No review thread was replied to or resolved by the implementing Agent. Thread mutation requires explicit authorization. These bindings preserve evidence of the review without claiming independent approval.
