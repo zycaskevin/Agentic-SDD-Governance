@@ -1,0 +1,246 @@
+test_ledger_rejects_an_active_epoch_over_the_capacity_limit (tests.test_broker.BrokerTests.test_ledger_rejects_an_active_epoch_over_the_capacity_limit) ... ERROR
+test_socket_access_skips_chown_when_bind_already_has_exact_ownership (tests.test_broker.BrokerTests.test_socket_access_skips_chown_when_bind_already_has_exact_ownership) ... ERROR
+test_socket_readiness_requires_exact_mode_and_platform_group (tests.test_broker.BrokerTests.test_socket_readiness_requires_exact_mode_and_platform_group) ... ERROR
+test_exempt_workflow_must_name_one_discovered_file_exactly (tests.test_ci_guard.CICostGuardTests.test_exempt_workflow_must_name_one_discovered_file_exactly) ... 
+  test_exempt_workflow_must_name_one_discovered_file_exactly (tests.test_ci_guard.CICostGuardTests.test_exempt_workflow_must_name_one_discovered_file_exactly) (exemption='missing.yml') ... FAIL
+  test_exempt_workflow_must_name_one_discovered_file_exactly (tests.test_ci_guard.CICostGuardTests.test_exempt_workflow_must_name_one_discovered_file_exactly) (exemption='*.yml') ... FAIL
+  test_exempt_workflow_must_name_one_discovered_file_exactly (tests.test_ci_guard.CICostGuardTests.test_exempt_workflow_must_name_one_discovered_file_exactly) (exemption='CI') ... FAIL
+test_source_identity_failure_reconciles_the_published_output (tests.test_redaction.RedactionTests.test_source_identity_failure_reconciles_the_published_output) ... FAIL
+test_directory_cleanup_failure_reports_the_pending_generation (tests.test_fs_security.FilesystemSecurityTests.test_directory_cleanup_failure_reports_the_pending_generation) ... ERROR
+test_release_helpers_fail_clearly_on_non_posix_hosts (tests.test_release_bundle.ReleaseBundleTests.test_release_helpers_fail_clearly_on_non_posix_hosts) ... ERROR
+test_open_directory_create_only_creates_the_final_component (tests.test_release_bundle.ReleaseBundleTests.test_open_directory_create_only_creates_the_final_component) ... ok
+test_release_cleanup_preserves_the_primary_failure (tests.test_release_bundle.ReleaseBundleTests.test_release_cleanup_preserves_the_primary_failure) ... 
+  test_release_cleanup_preserves_the_primary_failure (tests.test_release_bundle.ReleaseBundleTests.test_release_cleanup_preserves_the_primary_failure) (operation='write_bytes') ... ERROR
+  test_release_cleanup_preserves_the_primary_failure (tests.test_release_bundle.ReleaseBundleTests.test_release_cleanup_preserves_the_primary_failure) (operation='write_from_descriptor') ... ERROR
+  test_release_cleanup_preserves_the_primary_failure (tests.test_release_bundle.ReleaseBundleTests.test_release_cleanup_preserves_the_primary_failure) (operation='binary_writer') ... ERROR
+test_broker_service_unit_is_hardened (tests.test_repository_contract.RepositoryContractTests.test_broker_service_unit_is_hardened) ... FAIL
+test_r6_hypothesis_records_falsification_results_before_confirmation (tests.test_repository_contract.RepositoryContractTests.test_r6_hypothesis_records_falsification_results_before_confirmation) ... ERROR
+test_r6_verification_does_not_claim_unattached_build_or_twine_proof (tests.test_repository_contract.RepositoryContractTests.test_r6_verification_does_not_claim_unattached_build_or_twine_proof) ... FAIL
+
+======================================================================
+ERROR: test_ledger_rejects_an_active_epoch_over_the_capacity_limit (tests.test_broker.BrokerTests.test_ledger_rejects_an_active_epoch_over_the_capacity_limit)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 145, in test_ledger_rejects_an_active_epoch_over_the_capacity_limit
+    with patch("sddgov.broker.MAX_LEDGER_BYTES", 8), self.assertRaisesRegex(
+  File "/usr/lib/python3.12/unittest/mock.py", line 1458, in __enter__
+    original, local = self.get_original()
+                      ^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1431, in get_original
+    raise AttributeError(
+AttributeError: <module 'sddgov.broker' from '[REDACTED_LOCAL_PATH]'> does not have the attribute 'MAX_LEDGER_BYTES'
+
+======================================================================
+ERROR: test_socket_access_skips_chown_when_bind_already_has_exact_ownership (tests.test_broker.BrokerTests.test_socket_access_skips_chown_when_bind_already_has_exact_ownership)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 520, in test_socket_access_skips_chown_when_bind_already_has_exact_ownership
+    _configure_socket_access(socket_path, 123, (1, 2))
+  File "[REDACTED_LOCAL_PATH]", line 465, in _configure_socket_access
+    os.chown(path, owner_uid, group_id)
+  File "/usr/lib/python3.12/unittest/mock.py", line 1134, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1138, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1193, in _execute_mock_call
+    raise effect
+PermissionError: CAP_CHOWN is absent
+
+======================================================================
+ERROR: test_socket_readiness_requires_exact_mode_and_platform_group (tests.test_broker.BrokerTests.test_socket_readiness_requires_exact_mode_and_platform_group)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 525, in test_socket_readiness_requires_exact_mode_and_platform_group
+    self.assertEqual(broker_module.BROKER_SOCKET_GROUP, group_name)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'sddgov.broker' has no attribute 'BROKER_SOCKET_GROUP'
+
+======================================================================
+ERROR: test_directory_cleanup_failure_reports_the_pending_generation (tests.test_fs_security.FilesystemSecurityTests.test_directory_cleanup_failure_reports_the_pending_generation)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 26, in test_directory_cleanup_failure_reports_the_pending_generation
+    remove_owned_at(
+  File "[REDACTED_LOCAL_PATH]", line 42, in remove_owned_at
+    os.link(
+  File "/usr/lib/python3.12/unittest/mock.py", line 1134, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1138, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1193, in _execute_mock_call
+    raise effect
+IsADirectoryError: directory hard links are forbidden
+
+======================================================================
+ERROR: test_release_helpers_fail_clearly_on_non_posix_hosts (tests.test_release_bundle.ReleaseBundleTests.test_release_helpers_fail_clearly_on_non_posix_hosts)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 321, in test_release_helpers_fail_clearly_on_non_posix_hosts
+    open_directory(Path("C:/synthetic/release"), "release directory")
+  File "[REDACTED_LOCAL_PATH]", line 406, in open_directory
+    descriptor = os.open(expanded.anchor or os.sep, flags)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '\\'
+
+======================================================================
+ERROR: test_release_cleanup_preserves_the_primary_failure (tests.test_release_bundle.ReleaseBundleTests.test_release_cleanup_preserves_the_primary_failure) (operation='write_bytes')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 341, in write_bytes
+    written = os.write(descriptor, remaining)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1134, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1138, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1193, in _execute_mock_call
+    raise effect
+OSError: synthetic primary failure
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 346, in test_release_cleanup_preserves_the_primary_failure
+    output.write_bytes("result.bin", b"value")
+  File "[REDACTED_LOCAL_PATH]", line 349, in write_bytes
+    self._remove_owned(name, identity)
+  File "/usr/lib/python3.12/unittest/mock.py", line 1134, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1138, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1193, in _execute_mock_call
+    raise effect
+ValueError: synthetic cleanup failure
+
+======================================================================
+ERROR: test_release_cleanup_preserves_the_primary_failure (tests.test_release_bundle.ReleaseBundleTests.test_release_cleanup_preserves_the_primary_failure) (operation='write_from_descriptor')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 321, in write_from_descriptor
+    written = os.write(destination_descriptor, remaining)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1134, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1138, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1193, in _execute_mock_call
+    raise effect
+OSError: synthetic primary failure
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 356, in test_release_cleanup_preserves_the_primary_failure
+    output.write_from_descriptor(
+  File "[REDACTED_LOCAL_PATH]", line 329, in write_from_descriptor
+    self._remove_owned(name, identity)
+  File "/usr/lib/python3.12/unittest/mock.py", line 1134, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1138, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1193, in _execute_mock_call
+    raise effect
+ValueError: synthetic cleanup failure
+
+======================================================================
+ERROR: test_release_cleanup_preserves_the_primary_failure (tests.test_release_bundle.ReleaseBundleTests.test_release_cleanup_preserves_the_primary_failure) (operation='binary_writer')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 364, in binary_writer
+    yield handle
+  File "[REDACTED_LOCAL_PATH]", line 364, in test_release_cleanup_preserves_the_primary_failure
+    raise RuntimeError("synthetic primary failure")
+RuntimeError: synthetic primary failure
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 363, in test_release_cleanup_preserves_the_primary_failure
+    with output.binary_writer("result.bin"):
+  File "/usr/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "[REDACTED_LOCAL_PATH]", line 373, in binary_writer
+    self._remove_owned(name, identity)
+  File "/usr/lib/python3.12/unittest/mock.py", line 1134, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1138, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1193, in _execute_mock_call
+    raise effect
+ValueError: synthetic cleanup failure
+
+======================================================================
+ERROR: test_r6_hypothesis_records_falsification_results_before_confirmation (tests.test_repository_contract.RepositoryContractTests.test_r6_hypothesis_records_falsification_results_before_confirmation)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 716, in test_r6_hypothesis_records_falsification_results_before_confirmation
+    results = hypothesis.index("## Falsification results")
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: substring not found
+
+======================================================================
+FAIL: test_exempt_workflow_must_name_one_discovered_file_exactly (tests.test_ci_guard.CICostGuardTests.test_exempt_workflow_must_name_one_discovered_file_exactly) (exemption='missing.yml')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 282, in test_exempt_workflow_must_name_one_discovered_file_exactly
+    self.assertFalse(report["ok"])
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_exempt_workflow_must_name_one_discovered_file_exactly (tests.test_ci_guard.CICostGuardTests.test_exempt_workflow_must_name_one_discovered_file_exactly) (exemption='*.yml')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 282, in test_exempt_workflow_must_name_one_discovered_file_exactly
+    self.assertFalse(report["ok"])
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_exempt_workflow_must_name_one_discovered_file_exactly (tests.test_ci_guard.CICostGuardTests.test_exempt_workflow_must_name_one_discovered_file_exactly) (exemption='CI')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 282, in test_exempt_workflow_must_name_one_discovered_file_exactly
+    self.assertFalse(report["ok"])
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_source_identity_failure_reconciles_the_published_output (tests.test_redaction.RedactionTests.test_source_identity_failure_reconciles_the_published_output)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 375, in test_source_identity_failure_reconciles_the_published_output
+    self.assertFalse((output / source.name).exists())
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_broker_service_unit_is_hardened (tests.test_repository_contract.RepositoryContractTests.test_broker_service_unit_is_hardened)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 709, in test_broker_service_unit_is_hardened
+    self.assertIn("<key>ThrottleInterval</key>", launchd)
+AssertionError: '<key>ThrottleInterval</key>' not found in '<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">\n<dict>\n  <key>Label</key>\n  <string>com.sddgov.broker</string>\n  <key>ProgramArguments</key>\n  <array>\n    <string>/opt/sddgov/venv/bin/sddgov</string>\n    <string>broker</string>\n    <string>serve</string>\n    <string>--socket-group</string>\n    <string>_sddgov</string>\n  </array>\n  <key>UserName</key>\n  <string>root</string>\n  <key>GroupName</key>\n  <string>wheel</string>\n  <key>RunAtLoad</key>\n  <true/>\n  <key>KeepAlive</key>\n  <true/>\n  <!-- Unclean-exit socket inspection and removal are deliberately manual; see docs/L3_BROKER_OPERATIONS.md. -->\n  <key>StandardOutPath</key>\n  <string>/var/log/sddgov-broker.log</string>\n  <key>StandardErrorPath</key>\n  <string>/var/log/sddgov-broker.log</string>\n</dict>\n</plist>\n'
+
+======================================================================
+FAIL: test_r6_verification_does_not_claim_unattached_build_or_twine_proof (tests.test_repository_contract.RepositoryContractTests.test_r6_verification_does_not_claim_unattached_build_or_twine_proof)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 726, in test_r6_verification_does_not_claim_unattached_build_or_twine_proof
+    self.assertNotIn("source build, Twine inspection", verification)
+AssertionError: 'source build, Twine inspection' unexpectedly found in '# Verification\n\n## Green command and result\n\nPASS: focused 113-test regression matrix, R6 Local Green with 289 tests\nexecuted and 2 explicit skips,\nrepository validation, source build, Twine inspection, locked offline release\nbundle assembly, and fresh-wheel Codex/Hermes smoke all passed. Two existing\ntests were explicitly skipped because the execution sandbox forbids Unix socket\ncreation and lacks one historical rollback object; neither was reported PASS.\nR7 carries the later final-suite count instead of rewriting this R6 run.\n\n## Before/after evidence\n\nBefore, R5 accepted unbound release bytes, mutable installation inputs, inherited\nBroker deadlines, incomplete validation results, and post-redaction raw additions.\nAfter, each operation consumes a private verified generation or exact schema/\nmetadata binding, and later Evidence collection fails before changing manifest or\nraw inventory. Attached reports carry exact review, Red, Local Green, bundle, and\nfresh-wheel results.\n\n## Remaining limitations\n\nProtected files changed, so Merge remains blocked without an independent signed\nreview receipt on the final exact Head. TestPyPI/PyPI byte round trip, OIDC\nenvironment protection, attestations, GitHub Release, real key ceremony, root\nBroker installation/WSL2 rehearsal, and any sensitive-data pilot remain external\nor environment-specific gates; none is claimed complete by local proof.\n'
+
+----------------------------------------------------------------------
+Ran 12 tests in 0.010s
+
+FAILED (failures=6, errors=9)
