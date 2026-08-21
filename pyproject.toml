@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentic-sdd-governance"
-version = "0.2.0.dev8"
+version = "0.2.0rc1"
 description = "Governance and evidence infrastructure for autonomous software engineering"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -33,6 +33,7 @@ sddgov = [
   "resources/governance/profiles/*",
   "resources/governance/redaction/*",
   "resources/governance/schemas/*",
+  "resources/governance/services/*",
   "resources/governance/templates/*",
   "resources/governance/skill/agentic-sdd-governance/*",
   "resources/governance/skill/agentic-sdd-governance/agents/*",

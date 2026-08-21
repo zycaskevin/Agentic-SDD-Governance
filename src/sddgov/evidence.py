@@ -818,12 +818,27 @@ def make_dep(base: Path, issue: str, risk: str, sdd_ref: str | None = None, dep_
 def collect(dep: Path, collector: str, input_path: Path, label: str | None = None) -> Path:
     if collector not in COLLECTORS:
         raise ValueError(f"unsupported collector: {collector}")
-    raw = _read_regular_bytes(input_path, "collector input")
     with _opened_dep_root(dep) as dep_fd:
+        try:
+            _read_regular_bytes_at(
+                dep_fd,
+                "redaction-report.json",
+                "machine-readable document redaction-report.json",
+            )
+        except FileNotFoundError:
+            pass
+        else:
+            raise FileExistsError(
+                "Evidence collection is closed after redaction; create a new DEP"
+            )
         manifest_raw, manifest_metadata = _read_regular_bytes_at(
             dep_fd, "manifest.json", "machine-readable document manifest.json"
         )
         manifest = json.loads(manifest_raw.decode("utf-8"))
+        if manifest.get("shareable"):
+            raise ValueError(
+                "Evidence collection is closed after shareable artifacts exist"
+            )
         manifest_snapshot = (
             (
                 manifest_metadata.st_dev,
@@ -833,6 +848,7 @@ def collect(dep: Path, collector: str, input_path: Path, label: str | None = Non
             ),
             hashlib.sha256(manifest_raw).hexdigest(),
         )
+        raw = _read_regular_bytes(input_path, "collector input")
         ordinal = len(manifest.get("raw", [])) + 1
         source_suffix = input_path.suffix.lower()
         default_label = f"artifact-{ordinal}{source_suffix}"

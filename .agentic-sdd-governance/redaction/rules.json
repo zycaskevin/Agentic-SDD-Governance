@@ -14,7 +14,8 @@
     {"id": "customer-identifier", "action": "mask"},
     {"id": "email", "action": "mask"},
     {"id": "phone", "action": "mask"},
-    {"id": "card-like", "action": "mask"}
+    {"id": "card-like", "action": "mask"},
+    {"id": "local-path", "action": "mask"}
   ],
   "regulated_overrides": {
     "medical": "deny_raw_export",
