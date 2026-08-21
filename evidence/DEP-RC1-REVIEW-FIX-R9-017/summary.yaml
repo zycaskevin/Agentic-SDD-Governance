@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-REVIEW-FIX-R9-017",
+  "issue": "https://github.com/zycaskevin/Agentic-SDD-Governance/issues/22",
+  "sdd_references": [
+    "work-packages/WP-RC1-READINESS-008.md"
+  ],
+  "risk_level": "L1",
+  "created_at": "2026-08-21T17:59:58Z",
+  "updated_at": "2026-08-21T18:01:13Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-21T17:59:58Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-21T18:01:12Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-21T18:01:12Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-21T18:01:13Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-21T18:01:13Z"
+      }
+    ]
+  },
+  "expected_behavior": "The RC1 candidate must retain validated ancestor-directory and file descriptors through every release read/write operation; reject oversized Evidence before publication or unbounded buffering; preserve later filesystem generations during cleanup; and enforce CI, GitHub environment, benchmark, documentation, service-mirror, and fresh-wheel contracts at their exact trust boundaries.",
+  "actual_behavior": "The commit-bound CodeRabbit review on PR 30 Head 115113691d814236df33571475bb8f519fd65b23 reported nine inline findings, one outside-diff finding, and bounded nitpicks. The 11-test focused Red run produced nine failure records and three errors across the reviewed boundaries. R9 fixes then passed 323 current tests with two explicit skips, validation/doctor/CI checks, isolated build and Twine, a locked ten-wheel offline bundle, fresh-wheel Codex/Hermes smoke, and an actual Base rollback drill.",
+  "environment": {
+    "commit": "dfe51c5606a47641daeab3321651fcb949817d5b",
+    "branch": "feat/rc1-readiness-r9",
+    "runtime": "Linux aarch64, CPython 3.12; 323 current tests with two explicit skips; 229 trusted-Base rollback tests with two explicit skips; isolated 0.2.0rc1 build/Twine; locked ten-wheel offline bundle; fresh-wheel Codex/Hermes setup, doctor, validate, and quick demo."
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}
