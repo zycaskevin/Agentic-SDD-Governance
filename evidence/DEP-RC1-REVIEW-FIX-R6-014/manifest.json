@@ -84,14 +84,14 @@
     },
     {
       "path": "shareable/artifacts/terminal--r6-local-green.txt",
-      "sha256": "09f25c068bed405c109d753ec15effabada9e44d043dfe7e01fc97aa937934c3",
-      "size": 44842,
+      "sha256": "04fb952b3f449d34a8d4717c88e60a270cfb46f310afc8cc3a71249710822173",
+      "size": 44741,
       "shareable": true
     },
     {
       "path": "shareable/artifacts/terminal--r6-red-tests.txt",
-      "sha256": "99508a388e99449811703530a8bcadf97da70a98dd5bd94dba0311cfc33bcecd",
-      "size": 49552,
+      "sha256": "fdadbeda468fc04af4a163e200525aa113a642d684e582f27be4e7adc31457d1",
+      "size": 47623,
       "shareable": true
     },
     {
