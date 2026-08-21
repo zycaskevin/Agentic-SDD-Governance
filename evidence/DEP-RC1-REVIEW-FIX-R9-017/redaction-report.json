@@ -1,0 +1,96 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "git--r9-git-context.txt",
+      "output": "git--r9-git-context.txt",
+      "source_sha256": "e5f2bd10c2208930c477689a59474f82f22866274e02c525bf850d16d9ced4a0",
+      "source_size": 1187,
+      "output_sha256": "e5f2bd10c2208930c477689a59474f82f22866274e02c525bf850d16d9ced4a0",
+      "output_size": 1187,
+      "redactions": {}
+    },
+    {
+      "source": "git--r9-review-bindings.txt",
+      "output": "git--r9-review-bindings.txt",
+      "source_sha256": "738d83377145cbb7db39791c7ebaa9ccdc349eee3a8c5d9c4819f75be2c0b779",
+      "source_size": 4918,
+      "output_sha256": "6e7c25a427067a4083b6642b7e4ddf101dd3f85336f63ed0bb412c84026fbc1c",
+      "output_size": 5094,
+      "redactions": {
+        "phone": 11
+      }
+    },
+    {
+      "source": "terminal--r9-fresh-wheel-smoke.json",
+      "output": "terminal--r9-fresh-wheel-smoke.json",
+      "source_sha256": "cf49fdc97f2132bd516dba20a71c02362ec1023463502b5e9ad6936dc19f3e63",
+      "source_size": 517,
+      "output_sha256": "cf49fdc97f2132bd516dba20a71c02362ec1023463502b5e9ad6936dc19f3e63",
+      "output_size": 517,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--r9-local-green.txt",
+      "output": "terminal--r9-local-green.txt",
+      "source_sha256": "dd464258fb28fdcf9b19ce42ae6b142bc2795b519cf4dd5bfdcb1ab5dbc555fa",
+      "source_size": 51397,
+      "output_sha256": "a643e2a3a5e167765f0ae1b2578b87d28d4c3250b498320afa7d4e855f0092a8",
+      "output_size": 51353,
+      "redactions": {
+        "phone": 4,
+        "local-path": 1
+      }
+    },
+    {
+      "source": "terminal--r9-package-proof.txt",
+      "output": "terminal--r9-package-proof.txt",
+      "source_sha256": "f1d05f47028c9d2cbe8024de5c0bfebf8dfb6fde457264bb6e81db47b9ef8c13",
+      "source_size": 59175,
+      "output_sha256": "42727af49edf16cfd4e16a452bc41339343d07bc9a5ce3baf2394233210f792d",
+      "output_size": 59305,
+      "redactions": {
+        "phone": 10
+      }
+    },
+    {
+      "source": "terminal--r9-red-tests.txt",
+      "output": "terminal--r9-red-tests.txt",
+      "source_sha256": "53a7400a9d9d611a4525bab6d5bb6dd3d5fd688e911137309e2ad441fe2061cf",
+      "source_size": 15307,
+      "output_sha256": "c2a4429dec3e2ff8889c57adbe450a20e3f7dfd1b67bbe79fcaedd5691cdba0c",
+      "output_size": 13703,
+      "redactions": {
+        "phone": 16,
+        "local-path": 14
+      }
+    },
+    {
+      "source": "terminal--r9-release-bundle.json",
+      "output": "terminal--r9-release-bundle.json",
+      "source_sha256": "c173a5d76313e68917bcdfe316f7a477cef38571c1b42f31d9ac99e9cb77250d",
+      "source_size": 303,
+      "output_sha256": "c173a5d76313e68917bcdfe316f7a477cef38571c1b42f31d9ac99e9cb77250d",
+      "output_size": 303,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--r9-rollback-drill.txt",
+      "output": "terminal--r9-rollback-drill.txt",
+      "source_sha256": "cba2e01a855b8b9a47edd0aa2bd697842e1bb43b37d8ee58fa0a7a0f070d0f86",
+      "source_size": 105199,
+      "output_sha256": "3abf599fb40a117a3c742edc7bd893f407726f70bf7dfe16556b8618f4930465",
+      "output_size": 105225,
+      "redactions": {
+        "phone": 2
+      }
+    }
+  ],
+  "blocked": [],
+  "totals": {
+    "phone": 43,
+    "local-path": 15
+  },
+  "dep_id": "DEP-RC1-REVIEW-FIX-R9-017",
+  "generated_at": "2026-08-21T18:01:12Z"
+}
