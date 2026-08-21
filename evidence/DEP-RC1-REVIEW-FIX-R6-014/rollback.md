@@ -27,5 +27,20 @@ verify_module: unittest
 
 ## Post-rollback verification
 
-# Refresh managed Agent governance from the reverted source, run Doctor, unittest,
-# package/fresh-wheel checks applicable to Base, and the exact-tree comparison.
+# Set ROLLBACK_ROOT to the isolated checkout, BASE_SHA to the trusted exact Base,
+# and ROLLBACK_TMP to a new directory outside the checkout. Every command below
+# must succeed in order; validation and tests complete before packaging.
+# cd "$ROLLBACK_ROOT"
+# git revert --no-commit 4e45b924751d9bf4960972fad965b308a2cb8acb
+# PYTHONPATH=src python3 -m sddgov.cli setup-agent . --agent codex --profile team-standard --force
+# PYTHONPATH=src python3 -m sddgov.cli doctor .
+# PYTHONPATH=src python3 -m sddgov.cli validate .
+# PYTHONPATH=src python3 -m unittest discover -s tests -v
+# python3 -m build --no-isolation --outdir "$ROLLBACK_TMP/dist"
+# python3 -m twine check "$ROLLBACK_TMP/dist"/*
+# test ! -e scripts/fresh_wheel_smoke.py
+# python3 -m venv --system-site-packages "$ROLLBACK_TMP/venv"
+# "$ROLLBACK_TMP/venv/bin/python" -m pip install --no-deps --force-reinstall "$ROLLBACK_TMP/dist/agentic_sdd_governance-0.2.0.dev8-py3-none-any.whl"
+# test "$("$ROLLBACK_TMP/venv/bin/python" -m sddgov.cli --version)" = "0.2.0.dev8"
+# git diff --quiet "$BASE_SHA" -- . ':(exclude)evidence/**' ':(exclude).sddgov/merge-gate.json' ':(exclude).sddgov/reviews/**'
+# Only after all commands exit 0 is the rollback post-condition Green.
