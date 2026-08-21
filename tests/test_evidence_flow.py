@@ -198,6 +198,29 @@ class EvidenceFlowTests(unittest.TestCase):
         self.assertEqual(manifest["raw"][0]["path"], f"private/raw/{destination.name}")
         self.assertTrue(destination.is_file())
 
+    def test_collect_after_redaction_fails_without_staling_the_report(self):
+        first = self.root / "first-collection.log"
+        first.write_text("synthetic first collection\n", encoding="utf-8")
+        collect(self.dep, "terminal", first)
+        redact(self.dep)
+        manifest_before = (self.dep / "manifest.json").read_bytes()
+        report_before = (self.dep / "redaction-report.json").read_bytes()
+        raw_before = sorted(path.name for path in (self.dep / "private/raw").iterdir())
+
+        later = self.root / "later-collection.log"
+        later.write_text("synthetic later collection\n", encoding="utf-8")
+        with self.assertRaisesRegex(FileExistsError, "closed after redaction"):
+            collect(self.dep, "terminal", later)
+
+        self.assertEqual((self.dep / "manifest.json").read_bytes(), manifest_before)
+        self.assertEqual(
+            (self.dep / "redaction-report.json").read_bytes(), report_before
+        )
+        self.assertEqual(
+            sorted(path.name for path in (self.dep / "private/raw").iterdir()),
+            raw_before,
+        )
+
     def test_collect_preserves_later_manifest_writer_and_removes_owned_raw(self):
         source = self.root / "later-writer-collect.log"
         source.write_text("synthetic uncommitted evidence\n", encoding="utf-8")
@@ -266,14 +289,14 @@ class EvidenceFlowTests(unittest.TestCase):
         source.write_text("password=synthetic\n", encoding="utf-8")
         collect(self.dep, "terminal", source)
         manifest_before = (self.dep / "manifest.json").read_bytes()
-        original = redaction_module._write_at
+        original = redaction_module._stream_text_at
 
-        def fail_after_output(directory_fd, name, data, published_outputs=None):
-            original(directory_fd, name, data, published_outputs)
+        def fail_after_output(source_fd, directory_fd, name, published_outputs=None):
+            original(source_fd, directory_fd, name, published_outputs)
             raise OSError("synthetic output fsync failure")
 
         with (
-            patch("sddgov.redaction._write_at", side_effect=fail_after_output),
+            patch("sddgov.redaction._stream_text_at", side_effect=fail_after_output),
             self.assertRaisesRegex(OSError, "output fsync failure"),
         ):
             redact(self.dep)
@@ -413,15 +436,15 @@ class EvidenceFlowTests(unittest.TestCase):
         parked = self.dep / "shareable/artifacts-parked"
         outside = self.root / "outside-output"
         outside.mkdir()
-        original = redaction_module._write_at
+        original = redaction_module._stream_text_at
 
-        def replace_parent(directory_fd, name, data, published_outputs=None):
+        def replace_parent(source_fd, directory_fd, name, published_outputs=None):
             shareable.rename(parked)
             shareable.symlink_to(outside, target_is_directory=True)
-            return original(directory_fd, name, data, published_outputs)
+            return original(source_fd, directory_fd, name, published_outputs)
 
         with (
-            patch("sddgov.redaction._write_at", side_effect=replace_parent),
+            patch("sddgov.redaction._stream_text_at", side_effect=replace_parent),
             self.assertRaisesRegex(ValueError, "changed during operation"),
         ):
             redact(self.dep)

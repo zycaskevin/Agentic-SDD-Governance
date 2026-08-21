@@ -23,6 +23,9 @@ from .trust import load_control_plane_json, load_owner_controlled_json
 
 
 DEFAULT_GATE = Path(".sddgov/merge-gate.json")
+AUDIT_GATE_PATH = DEFAULT_GATE.as_posix()
+AUDIT_REVIEW_PREFIX = ".sddgov/reviews/"
+AUDIT_EVIDENCE_PREFIX = "evidence/"
 LEGACY_ROLLBACK_V1_BOOTSTRAP_BASE_SHA = (
     "f44cb5f4897f6c821f817fcf178581b43777163a"
 )
@@ -36,8 +39,12 @@ ROLLBACK_V2_POSTCONDITION_BOOTSTRAP_PATH = (
     "evidence/DEP-RELEASE-READINESS-HARDENING-010/rollback.md"
 )
 AUDIT_EXCLUDES = (
-    ":(exclude).sddgov/merge-gate.json",
-    ":(exclude).sddgov/reviews/**",
+    f":(exclude){AUDIT_GATE_PATH}",
+    f":(exclude){AUDIT_REVIEW_PREFIX}**",
+)
+ROLLBACK_AUDIT_EXCLUDES = (
+    f":(exclude){AUDIT_EVIDENCE_PREFIX}**",
+    *AUDIT_EXCLUDES,
 )
 FIRST_CONSUMER_BASE_MARKERS = (
     "policies/protected-files.yaml",
@@ -384,6 +391,14 @@ def _is_protected(path: str, patterns: list[str]) -> bool:
     )
 
 
+def _is_audit_path(path: str, *, include_evidence: bool = False) -> bool:
+    return (
+        path == AUDIT_GATE_PATH
+        or path.startswith(AUDIT_REVIEW_PREFIX)
+        or (include_evidence and path.startswith(AUDIT_EVIDENCE_PREFIX))
+    )
+
+
 def changed_paths(root: Path, start: str, end: str = "HEAD") -> list[str]:
     """Return exact source and destination paths from NUL-delimited Git output."""
     fields = _git(
@@ -416,9 +431,8 @@ def only_audit_changes_after_review(
     )
     if completed.returncode != 0:
         return False
-    allowed = (".sddgov/merge-gate.json", ".sddgov/reviews/")
     return all(
-        path == allowed[0] or path.startswith(allowed[1])
+        _is_audit_path(path)
         for path in changed_paths(root, reviewed_head_sha, current_head_sha)
     )
 
@@ -605,13 +619,12 @@ def _rollback_ref_is_cleanly_revertible(
         descendant_paths = changed_paths(root, rollback_ref, reviewed_head_sha)
     except ValueError:
         return False
-    if any(
-        path == ".sddgov/merge-gate.json"
-        or path.startswith(("evidence/", ".sddgov/reviews/"))
-        for path in rollback_paths
-    ):
+    if any(_is_audit_path(path, include_evidence=True) for path in rollback_paths):
         return False
-    if any(not path.startswith("evidence/") for path in descendant_paths):
+    if any(
+        not _is_audit_path(path, include_evidence=True)
+        for path in descendant_paths
+    ):
         return False
     try:
         objects_text = _git(root, "rev-parse", "--git-path", "objects")
@@ -719,9 +732,7 @@ def _rollback_ref_is_cleanly_revertible(
                     result_tree,
                     "--",
                     ".",
-                    ":(exclude)evidence/**",
-                    ":(exclude).sddgov/merge-gate.json",
-                    ":(exclude).sddgov/reviews/**",
+                    *ROLLBACK_AUDIT_EXCLUDES,
                 ],
                 cwd=root,
                 check=False,
