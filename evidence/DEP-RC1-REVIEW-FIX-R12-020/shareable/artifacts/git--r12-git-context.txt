@@ -1,0 +1,48 @@
+R12 atomic implementation and audit-chain context
+
+Base commit: 1a5a0b214eccc2b9edd076fd5e2f222c4a456725
+Base tree: 7b48daf1558a6ca3e02f20654663292a39772fce
+Atomic implementation: f1e1e32217b54d429b80e2a9eeb97291a5b5d9d4
+Atomic parent: 1a5a0b214eccc2b9edd076fd5e2f222c4a456725
+Audit head before R12 DEP: 1f96aa22b40d23b486540a3d49087d7c226a22d3
+Branch: feat/rc1-readiness-r12
+
+Atomic parent proof
+
+    git rev-list --parents -n 1 f1e1e32217b54d429b80e2a9eeb97291a5b5d9d4
+    f1e1e32217b54d429b80e2a9eeb97291a5b5d9d4 1a5a0b214eccc2b9edd076fd5e2f222c4a456725
+
+Audit-path proof
+
+    git diff --name-only f1e1e32217b54d429b80e2a9eeb97291a5b5d9d4..1f96aa22b40d23b486540a3d49087d7c226a22d3 | sed -E '/^(evidence\/|\.sddgov\/merge-gate\.json|\.sddgov\/reviews\/)/d' | wc -l
+    0
+
+The descendants after the atomic implementation contain only `evidence/**`,
+`.sddgov/merge-gate.json`, or `.sddgov/reviews/**`. The working tree was clean
+before DEP construction.
+
+Relevant commit order
+
+    1f96aa2 docs: correct reviewed evidence claims
+    4edaba1 chore: bind rc1 r11 merge gate
+    767ab07 evidence: seal rc1 r11 review fixes
+    ee7cdc3 docs: correct r6 falsification and proof claims
+    16d43f5 chore: rebind rc1 r10 merge gate
+    0c636e5 docs: preserve r10 evidence rollback compatibility
+    df112dd chore: bind rc1 r10 merge gate
+    fb4b1c9 evidence: seal rc1 r10 review fixes
+    a6a37b9 docs: preserve legacy evidence media compatibility
+    7f4ef29 docs: correct predecessor evidence provenance
+    edeb0ce chore: bind rc1 r9 merge gate
+    c6d67ec evidence: seal rc1 r9 review fixes
+    1ff16dc docs: bind R8 review and rollback proof
+    7618356 docs: bind R7 review and rollback proof
+    ae88ca5 docs: correct R6 shareable evidence provenance
+    321693c docs: bind R6 review-hardening evidence
+    f1e1e32 feat: prepare rc1 governance release
+
+Review binding
+
+PR #33 CodeRabbit review PRR_kwDOTx8IyM8AAAABKddt9Q reviewed exact Head
+4ea3b66f63f7e7df643465d7fe654b81b1335ebe. R12 preserves that history and
+places its bounded fixes in the one-parent atomic product commit above.
