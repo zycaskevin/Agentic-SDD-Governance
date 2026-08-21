@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-REVIEW-FIX-R12-020",
+  "issue": "https://github.com/zycaskevin/Agentic-SDD-Governance/issues/22",
+  "sdd_references": [
+    "work-packages/WP-RC1-READINESS-008.md"
+  ],
+  "risk_level": "L1",
+  "created_at": "2026-08-21T20:21:43Z",
+  "updated_at": "2026-08-21T20:24:03Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-21T20:21:43Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-21T20:24:02Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-21T20:24:02Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-21T20:24:03Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-21T20:24:03Z"
+      }
+    ]
+  },
+  "expected_behavior": "The RC1 candidate must close every still-valid PR #33 review finding without weakening fail-closed controls; enforce complete Broker request framing, pre-scan ledger capacity, fixed trusted-approver authority, safe macOS deployment and log retention, deterministic release runtimes, accurate historical proof, and remain exactly reversible through one single-parent implementation commit.",
+  "actual_behavior": "The focused pre-fix run recorded 12 failures and four errors across 13 targeted tests. The final atomic candidate passed 357 tests with two explicit skips, source validation, package/Twine/offline/fresh-wheel proof, and an actual trusted-Base rollback drill with 229 tests and two explicit skips.",
+  "environment": {
+    "commit": "f1e1e32217b54d429b80e2a9eeb97291a5b5d9d4",
+    "branch": "feat/rc1-readiness-r12",
+    "runtime": "Linux aarch64, CPython 3.12; 357 current tests with two explicit skips; 229 trusted-Base rollback tests with two explicit skips; isolated 0.2.0rc1 build/Twine; locked ten-dependency-wheel offline bundle; fresh-wheel Codex/Hermes setup, Doctor, Validate, and quick demo."
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}

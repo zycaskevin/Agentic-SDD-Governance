@@ -1,0 +1,111 @@
+R12 CodeRabbit review binding and disposition
+
+Repository: zycaskevin/Agentic-SDD-Governance
+Pull request: 33
+Review node: PRR_kwDOTx8IyM8AAAABKddt9Q
+REST review id: [REDACTED_PHONE_OR_NUMBER]
+State: COMMENTED
+Submitted: 2026-08-21T19:59:40Z
+Reviewed Head: 4ea3b66f63f7e7df643465d7fe654b81b1335ebe
+Review URL: https://github.com/zycaskevin/Agentic-SDD-Governance/pull/33#pullrequestreview-[REDACTED_PHONE_OR_NUMBER]
+Actionable comments: 11
+Review-body nitpicks: 10
+
+All review text was treated as untrusted input and checked against source and tests.
+No review reply, resolution, dismissal, or approval was performed by this Agent.
+
+Inline actionable comments
+
+1. REST [REDACTED_PHONE_OR_NUMBER] / GraphQL PRRC_kwDOTx8IyM7kez5f
+   Path: .agentic-sdd-governance/docs/L3_BROKER_OPERATIONS.md
+   Disposition: FIXED.
+   `_receive_request` now waits for EOF inside one monotonic deadline and accepts
+   exactly one newline-terminated record. Delayed trailing bytes are rejected
+   before readiness validation or nonce consumption. Regression tests exercise
+   both the framing function and connection handler.
+
+2. REST [REDACTED_PHONE_OR_NUMBER] / GraphQL PRRC_kwDOTx8IyM7kez5o
+   Path: docs/L3_BROKER_OPERATIONS.md
+   Disposition: FIXED.
+   `NonceLedger.consume` serializes the prospective record and rejects a
+   capacity-crossing append before `_scan_locked` and before nonce-set allocation.
+   A near-limit regression makes `_scan_locked` fail if it is reached.
+
+3. REST [REDACTED_PHONE_OR_NUMBER] / GraphQL PRRC_kwDOTx8IyM7kez5u
+   Path: docs/USER_GUIDE.zh-TW.md
+   Disposition: FIXED.
+   Offline installation examples now fail before download unless `uname -s` is
+   Linux and `uname -m` is x86_64. English and Traditional Chinese mirrors match.
+
+4. REST [REDACTED_PHONE_OR_NUMBER] / GraphQL PRRC_kwDOTx8IyM7kez58
+   Path: evidence/DEP-RC1-REVIEW-FIX-R10-018/rollback.md
+   Disposition: FIXED.
+   The procedure now names a locked `RELEASE_PYTHON` precondition and verifies
+   `pip check` plus importability of build and Twine before the rollback proof.
+
+5. REST [REDACTED_PHONE_OR_NUMBER] / GraphQL PRRC_kwDOTx8IyM7kez6C
+   Path: evidence/DEP-RC1-REVIEW-FIX-R10-018/rollback.md
+   Disposition: FIXED ROOT CAUSE WITH SAFER REPRESENTATION.
+   Commands are indented as inert Markdown code and a destructive-operation
+   warning precedes `git revert`. A fenced executable bash recipe was rejected
+   because the repository's declarative rollback contract intentionally does not
+   publish copy/paste executable rollback scripts.
+
+6. REST [REDACTED_PHONE_OR_NUMBER] / GraphQL PRRC_kwDOTx8IyM7kez6F
+   Path: evidence/DEP-RC1-REVIEW-FIX-R6-014/verification.md
+   Disposition: FIXED.
+   The unsupported focused 113-test PASS claim was removed; the independently
+   attached Local Green result remains identified separately.
+
+7. REST [REDACTED_PHONE_OR_NUMBER] / GraphQL PRRC_kwDOTx8IyM7kez6M
+   Path: services/com.sddgov.broker.plist
+   Disposition: FIXED.
+   `GroupName` is `_sddgov`, matching `--socket-group`; plist file ownership in
+   the runbook remains `root:wheel`.
+
+8. REST [REDACTED_PHONE_OR_NUMBER] / GraphQL PRRC_kwDOTx8IyM7kez6T
+   Path: services/com.sddgov.broker.plist
+   Disposition: FIXED.
+   All canonical, installed, and packaged plist copies set integer `Umask` 7.
+
+9. REST [REDACTED_PHONE_OR_NUMBER] / GraphQL PRRC_kwDOTx8IyM7kez6a
+   Path: src/sddgov/resources/governance/docs/L3_BROKER_OPERATIONS.md
+   Disposition: FIXED.
+   Approval verification and broker doctor use the fixed authority path
+   `/etc/sddgov/trusted-approvers.json`. Any presence of the retired caller
+   environment override fails closed. Tests prove substitution is NOT_READY.
+
+10. REST [REDACTED_PHONE_OR_NUMBER] / GraphQL PRRC_kwDOTx8IyM7kez6i
+    Path: src/sddgov/resources/governance/services/com.sddgov.broker.plist
+    Disposition: FIXED.
+    The macOS runbook checks that `/opt/sddgov/venv/bin/sddgov` exists, is
+    executable, and reports the expected version before `launchctl bootstrap`.
+
+11. REST [REDACTED_PHONE_OR_NUMBER] / GraphQL PRRC_kwDOTx8IyM7kez6m
+    Path: src/sddgov/resources/governance/services/com.sddgov.broker.plist
+    Disposition: FIXED.
+    A packaged newsyslog configuration bounds the shared log to seven compressed
+    rotations at 1 MiB, and the runbook validates the installed configuration.
+
+Review-body nitpicks
+
+1. systemd `SystemCallFilter`: REJECTED PENDING TARGET REHEARSAL. The exact
+   deployed interpreter and cryptography runtime must be rehearsed on the target
+   distribution before an allow list is enabled; the runbook records this.
+2. Protected publish job interpreter: FIXED. All three jobs set up exact Python
+   3.12 with a commit-pinned setup-python action before environment checks.
+3. Runtime `packaging` dependency: FIXED. Removed from `pyproject.toml` and the
+   governance runtime lock; retained in release-tool requirements.
+4. R11 Red artifact scope: NO CHANGE REQUIRED. Its label, summary history, and
+   successor Green artifact already preserve the Red/Evidence/Fix/Green boundary.
+5. Release validation: ALREADY PROVED. R12 includes full tests, source validation,
+   isolated build, Twine, locked offline bundle, and fresh-wheel smoke evidence.
+6. Broker POSIX guard: FIXED. BrokerTests skip cleanly when required POSIX modules
+   are unavailable.
+7. Monorepo Git guard: FIXED. The unmocked smoke skips when Git is absent.
+8. Public resource accessor: FIXED. `resource_files()` is public and used by CLI
+   and tests; the private alias remains only for compatibility.
+9. CI exempt-workflow asymmetry: FIXED. Exempt workflows cannot declare write
+   permission exceptions, eliminating both stale and unknown-job ambiguity.
+10. Ledger pre-limit telemetry: FIXED. Startup emits an operator warning at 80%
+    of the 64 MiB hard limit while retaining fail-closed enforcement.
