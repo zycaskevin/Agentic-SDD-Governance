@@ -1,13 +1,13 @@
 {
   "schema_version": "1.0",
-  "base_sha": "dd84c538624cdda4e65d7189821b43747c2c535f",
-  "head_sha": "a29a84fe5eee5f9e599dccc53f441ff791b3ae64",
-  "risk_level": "L0",
+  "base_sha": "1a5a0b214eccc2b9edd076fd5e2f222c4a456725",
+  "head_sha": "0eda771e099d2d6ea7f5c8976f0268358b26b0be",
+  "risk_level": "L1",
   "builder_id": "codex-builder",
-  "change_digest": "900f43877a0b841d9a401272d6a893396d5c12947da47dcb77dc916a94e9ca5e",
+  "change_digest": "0434c04e19330743ee6005008f8798a512fc9a5c49f97871ef8f663b986a6bf6",
   "deps": [
-    "evidence/DEP-EXPERIMENTAL8-RELEASE-DOCS-015"
+    "evidence/DEP-RC1-REVIEW-FIX-R5-013"
   ],
-  "rollback_path": "evidence/DEP-EXPERIMENTAL8-RELEASE-DOCS-015/rollback.md",
+  "rollback_path": "evidence/DEP-RC1-REVIEW-FIX-R5-013/rollback.md",
   "protected_file_review": null
 }
