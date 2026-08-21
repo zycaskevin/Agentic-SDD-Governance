@@ -1,0 +1,102 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "terminal--coderabbit-r2-review.json",
+      "output": "terminal--coderabbit-r2-review.json",
+      "source_sha256": "301cb6e26eb315777b4c18caf4f0cb6fb1bb563d651627168ba09c6a3bb4b495",
+      "source_size": 66077,
+      "output_sha256": "d61abc51464731120c78965f3f42e0557b2fca0cd8d7e73126f374bb16dcf5b1",
+      "output_size": 59779,
+      "redactions": {
+        "private-key": 7,
+        "provider-credential": 1,
+        "email": 3,
+        "phone": 22
+      }
+    },
+    {
+      "source": "terminal--distribution.log",
+      "output": "terminal--distribution.log",
+      "source_sha256": "6526f9f572ba59e6cb920be4ad28fdb2d24a89ac70472de6a50907c1fdbab144",
+      "source_size": 55778,
+      "output_sha256": "6526f9f572ba59e6cb920be4ad28fdb2d24a89ac70472de6a50907c1fdbab144",
+      "output_size": 55778,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--doctor-demo.log",
+      "output": "terminal--doctor-demo.log",
+      "source_sha256": "bc82d7802deb17f5b4d8426c2893739ca63d5e32e04e3f598a0f119a3871b046",
+      "source_size": 526,
+      "output_sha256": "bc82d7802deb17f5b4d8426c2893739ca63d5e32e04e3f598a0f119a3871b046",
+      "output_size": 526,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--fresh-wheel-smoke.json",
+      "output": "terminal--fresh-wheel-smoke.json",
+      "source_sha256": "a80c271306cedebb05f1c559882b3972ba271869b0ddbfda171ce4cba00204f7",
+      "source_size": 461,
+      "output_sha256": "a80c271306cedebb05f1c559882b3972ba271869b0ddbfda171ce4cba00204f7",
+      "output_size": 461,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--full-tests.log",
+      "output": "terminal--full-tests.log",
+      "source_sha256": "dcebde60559e2b0f7f2c7f476bba07efe1c4a6bd00df84c8a72b0b5692479d71",
+      "source_size": 40188,
+      "output_sha256": "dcebde60559e2b0f7f2c7f476bba07efe1c4a6bd00df84c8a72b0b5692479d71",
+      "output_size": 40188,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--package-build-record.log",
+      "output": "terminal--package-build-record.log",
+      "source_sha256": "1c6f464632ccf6305bd096e98c232ca0e9153591f95fdcb0eec3e750678b38d1",
+      "source_size": 702,
+      "output_sha256": "f7ca4956cf197fa3dfd47b901b8e677af4f2b88d5a6e1378066682d95dc8474d",
+      "output_size": 756,
+      "redactions": {
+        "phone": 4
+      }
+    },
+    {
+      "source": "terminal--release-bundle.json",
+      "output": "terminal--release-bundle.json",
+      "source_sha256": "c173a5d76313e68917bcdfe316f7a477cef38571c1b42f31d9ac99e9cb77250d",
+      "source_size": 303,
+      "output_sha256": "c173a5d76313e68917bcdfe316f7a477cef38571c1b42f31d9ac99e9cb77250d",
+      "output_size": 303,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--rollback-drill.log",
+      "output": "terminal--rollback-drill.log",
+      "source_sha256": "c21cefe7c44079c3a7db680b9f4ff0c205bfee9fef6d3fda99edc2b45673e30a",
+      "source_size": 35559,
+      "output_sha256": "c21cefe7c44079c3a7db680b9f4ff0c205bfee9fef6d3fda99edc2b45673e30a",
+      "output_size": 35559,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--source-validation.log",
+      "output": "terminal--source-validation.log",
+      "source_sha256": "b862535c7726b6b6843339a31ba053980b5c335d2eb80e90b343e3ff2a11b898",
+      "source_size": 805,
+      "output_sha256": "b862535c7726b6b6843339a31ba053980b5c335d2eb80e90b343e3ff2a11b898",
+      "output_size": 805,
+      "redactions": {}
+    }
+  ],
+  "blocked": [],
+  "totals": {
+    "private-key": 7,
+    "provider-credential": 1,
+    "email": 3,
+    "phone": 26
+  },
+  "dep_id": "DEP-RC1-REVIEW-FIX-R3-011",
+  "generated_at": "2026-08-21T13:16:12Z"
+}

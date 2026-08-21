@@ -1,0 +1,10 @@
+recorded_at=2026-08-21T13:15:22Z
+source_commit=a4ae82a3fdaf494f102c9ca1f6386f59a3c93cdc
+wheel_built_at=[REDACTED_PHONE_OR_NUMBER]:14:[REDACTED_PHONE_OR_NUMBER] +0800
+sdist_built_at=[REDACTED_PHONE_OR_NUMBER]:14:[REDACTED_PHONE_OR_NUMBER] +0800
+d37aee811e732bd63a50597fdb659850eb17b7daf7963575d349686091696fdd  /tmp/sddgov-r3-proof.k51f3Q/dist/agentic_sdd_governance-0.2.0rc1-py3-none-any.whl
+6bef9242d668e99a4e4b19a8a8f2201f8b68e18b263d9b8deb8e0bb6df25e947  /tmp/sddgov-r3-proof.k51f3Q/dist/agentic_sdd_governance-0.2.0rc1.tar.gz
+44d7984d3cab728fb538caf84ec7d32fefc7f369aace3ea9e48655538fb80635  /tmp/sddgov-r3-proof.k51f3Q/release/agentic-sdd-governance-0.2.0rc1-offline-linux-aarch64-py312.zip
+twine_check=PASS
+release_bundle=PASS
+fresh_wheel_smoke=PASS

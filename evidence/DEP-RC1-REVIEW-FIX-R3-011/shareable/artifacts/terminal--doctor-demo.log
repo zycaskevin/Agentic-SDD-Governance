@@ -1,0 +1,17 @@
+{
+  "ok": true,
+  "project": "/tmp/sddgov-r3-proof.k51f3Q/repo",
+  "agent": "codex",
+  "profile": "team-standard",
+  "governance_version": "0.2.0rc1",
+  "managed_file_count": 71,
+  "errors": [],
+  "warnings": []
+}
+Agentic SDD Governance — offline quick demo
+[PASS] Routine L1 engineering: CONTINUE
+[PASS] Disguised destructive Production action: BLOCKED
+[PASS] Synthetic credential in Evidence: REDACTED
+[PASS] Binary Evidence without reviewed derivative: BLOCKED
+[PASS] Installed Agent + strict DEP: VERIFIED
+Verdict: PASS

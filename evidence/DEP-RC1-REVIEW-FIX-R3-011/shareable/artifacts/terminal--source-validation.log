@@ -1,0 +1,34 @@
+[OK] governance kernel, profiles, evidence schema, skill, and lifecycle docs
+{
+  "ok": true,
+  "project": "/tmp/sddgov-r3-proof.k51f3Q/repo",
+  "contract": ".sddgov/ci-cost-guard.json",
+  "hosted_budget": {
+    "max_runs_per_work_package": 1,
+    "max_reruns_per_revision": 1,
+    "expected_minutes": 5,
+    "full_matrix": "manual_or_ready_for_review",
+    "post_merge_verification": "manual_only"
+  },
+  "workflows": [
+    {
+      "workflow": "governance.yml",
+      "automatic": true,
+      "hosted_jobs": [
+        "verify"
+      ]
+    },
+    {
+      "workflow": "publish.yml",
+      "automatic": false,
+      "hosted_jobs": [
+        "build-and-smoke",
+        "publish-github-release",
+        "publish-pypi",
+        "publish-testpypi",
+        "verify-testpypi"
+      ]
+    }
+  ],
+  "errors": []
+}

@@ -1,0 +1,152 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-REVIEW-FIX-R3-011",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--coderabbit-r2-review.json",
+      "source_suffix": ".json",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "301cb6e26eb315777b4c18caf4f0cb6fb1bb563d651627168ba09c6a3bb4b495",
+      "size": 66077,
+      "collected_at": "2026-08-21T13:12:28Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--full-tests.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "dcebde60559e2b0f7f2c7f476bba07efe1c4a6bd00df84c8a72b0b5692479d71",
+      "size": 40188,
+      "collected_at": "2026-08-21T13:15:35Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--source-validation.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "b862535c7726b6b6843339a31ba053980b5c335d2eb80e90b343e3ff2a11b898",
+      "size": 805,
+      "collected_at": "2026-08-21T13:15:36Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--doctor-demo.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "bc82d7802deb17f5b4d8426c2893739ca63d5e32e04e3f598a0f119a3871b046",
+      "size": 526,
+      "collected_at": "2026-08-21T13:15:36Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--distribution.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "6526f9f572ba59e6cb920be4ad28fdb2d24a89ac70472de6a50907c1fdbab144",
+      "size": 55778,
+      "collected_at": "2026-08-21T13:15:36Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--release-bundle.json",
+      "source_suffix": ".json",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "c173a5d76313e68917bcdfe316f7a477cef38571c1b42f31d9ac99e9cb77250d",
+      "size": 303,
+      "collected_at": "2026-08-21T13:15:36Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--fresh-wheel-smoke.json",
+      "source_suffix": ".json",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "a80c271306cedebb05f1c559882b3972ba271869b0ddbfda171ce4cba00204f7",
+      "size": 461,
+      "collected_at": "2026-08-21T13:15:36Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--package-build-record.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "1c6f464632ccf6305bd096e98c232ca0e9153591f95fdcb0eec3e750678b38d1",
+      "size": 702,
+      "collected_at": "2026-08-21T13:15:36Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--rollback-drill.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "c21cefe7c44079c3a7db680b9f4ff0c205bfee9fef6d3fda99edc2b45673e30a",
+      "size": 35559,
+      "collected_at": "2026-08-21T13:15:36Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--coderabbit-r2-review.json",
+      "sha256": "d61abc51464731120c78965f3f42e0557b2fca0cd8d7e73126f374bb16dcf5b1",
+      "size": 59779,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--distribution.log",
+      "sha256": "6526f9f572ba59e6cb920be4ad28fdb2d24a89ac70472de6a50907c1fdbab144",
+      "size": 55778,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--doctor-demo.log",
+      "sha256": "bc82d7802deb17f5b4d8426c2893739ca63d5e32e04e3f598a0f119a3871b046",
+      "size": 526,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--fresh-wheel-smoke.json",
+      "sha256": "a80c271306cedebb05f1c559882b3972ba271869b0ddbfda171ce4cba00204f7",
+      "size": 461,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--full-tests.log",
+      "sha256": "dcebde60559e2b0f7f2c7f476bba07efe1c4a6bd00df84c8a72b0b5692479d71",
+      "size": 40188,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--package-build-record.log",
+      "sha256": "f7ca4956cf197fa3dfd47b901b8e677af4f2b88d5a6e1378066682d95dc8474d",
+      "size": 756,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--release-bundle.json",
+      "sha256": "c173a5d76313e68917bcdfe316f7a477cef38571c1b42f31d9ac99e9cb77250d",
+      "size": 303,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--rollback-drill.log",
+      "sha256": "c21cefe7c44079c3a7db680b9f4ff0c205bfee9fef6d3fda99edc2b45673e30a",
+      "size": 35559,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--source-validation.log",
+      "sha256": "b862535c7726b6b6843339a31ba053980b5c335d2eb80e90b343e3ff2a11b898",
+      "size": 805,
+      "shareable": true
+    }
+  ]
+}
