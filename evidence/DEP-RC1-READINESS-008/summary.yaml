@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-READINESS-008",
+  "issue": "TASK-2026-08-21-RC1",
+  "sdd_references": [
+    "WP-RC1-READINESS-008"
+  ],
+  "risk_level": "L1",
+  "created_at": "2026-08-21T10:56:29Z",
+  "updated_at": "2026-08-21T11:44:42Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-21T10:56:29Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-21T10:59:21Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-21T11:00:29Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-21T11:44:37Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-21T11:44:42Z"
+      }
+    ]
+  },
+  "expected_behavior": "SDG provides a bounded redaction path, structured L3 runtime readiness diagnostics, a deterministic first-run demo, symmetric English onboarding, and verifiable RC1 release preparation without weakening trusted-Base or exact-tree gates.",
+  "actual_behavior": "The 229-test baseline is Green, but a 10 MiB + 1 byte text artifact does not fail closed before scanning and exceeded the five-second reproduction timeout; no broker readiness command exists; the demo, RC1 publishing workflow, operational key/Broker assets, recovery guide, and Monorepo benchmark are absent or not surfaced.",
+  "environment": {
+    "commit": "1a5a0b214eccc2b9edd076fd5e2f222c4a456725",
+    "branch": "feat/rc1-readiness",
+    "runtime": "Python 3.12.3; Git 2.43.0; Linux aarch64; offline local reproduction"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}

@@ -1,0 +1,8 @@
+command=.venv/bin/python -m unittest discover -s tests -v
+exit_status=0
+Python 3.12.3
+## feat/rc1-readiness
+ M .sddgov/events.jsonl
+ M .sddgov/work-claims.json
+?? evidence/DEP-RC1-READINESS-008/
+?? work-packages/WP-RC1-READINESS-008.md

@@ -1,0 +1,6 @@
+command=timeout 5s redaction oversize rejection check
+expected=input_exceeds_redaction_limit before scan
+redaction_exit_status=124
+command=sddgov broker doctor --json
+expected=structured L3 readiness report
+broker_exit_status=3

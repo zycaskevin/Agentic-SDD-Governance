@@ -1,0 +1,4 @@
+usage: sddgov [-h] [--version]
+              {evidence,ci,autonomy,artifact,decision,checkpoint,deploy,merge,reviewer,init,setup-agent,doctor,uninstall-agent,status,claim,event,external-action,benchmark,pilot,validate}
+              ...
+sddgov: error: argument command: invalid choice: 'broker' (choose from 'evidence', 'ci', 'autonomy', 'artifact', 'decision', 'checkpoint', 'deploy', 'merge', 'reviewer', 'init', 'setup-agent', 'doctor', 'uninstall-agent', 'status', 'claim', 'event', 'external-action', 'benchmark', 'pilot', 'validate')

@@ -1,0 +1,88 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-READINESS-008",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--baseline-tests.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "c897f7c84d556240ec9d86b95dbe82b20ba6f606693f3a02594253ed7fc017aa",
+      "size": 34847,
+      "collected_at": "2026-08-21T10:58:53Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--baseline-context.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "326a7d35cc276d59f606bead67b4cb9bc77713dd18cd775a761dbd219a4c650c",
+      "size": 236,
+      "collected_at": "2026-08-21T10:58:53Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--redaction-oversize-red.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "collected_at": "2026-08-21T10:58:53Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--broker-readiness-red.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "6b1afb2f24b8862e5d9f927822e6599f853ee24381b980cbfdabe8d47af10e49",
+      "size": 540,
+      "collected_at": "2026-08-21T10:58:53Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--red-context.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "d1d7a47b84aaedd7345bdf785cd232291207bcd952aba1d6c25ebca5fbca961f",
+      "size": 228,
+      "collected_at": "2026-08-21T10:58:54Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--baseline-context.log",
+      "sha256": "326a7d35cc276d59f606bead67b4cb9bc77713dd18cd775a761dbd219a4c650c",
+      "size": 236,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--baseline-tests.log",
+      "sha256": "c897f7c84d556240ec9d86b95dbe82b20ba6f606693f3a02594253ed7fc017aa",
+      "size": 34847,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--broker-readiness-red.log",
+      "sha256": "6b1afb2f24b8862e5d9f927822e6599f853ee24381b980cbfdabe8d47af10e49",
+      "size": 540,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--red-context.log",
+      "sha256": "d1d7a47b84aaedd7345bdf785cd232291207bcd952aba1d6c25ebca5fbca961f",
+      "size": 228,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--redaction-oversize-red.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "shareable": true
+    }
+  ]
+}
