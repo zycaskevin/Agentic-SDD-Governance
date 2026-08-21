@@ -10,7 +10,7 @@ The commit-bound CodeRabbit review on PR #30 identified nine inline findings, on
 
 ## Deterministic steps
 
-1. Check out R9 pre-fix ancestor `5120d60ab018edfee75f38c80d4e3abe872d1725` with the new regression assertions present and the implementation changes absent.
+1. Start from the exact reviewed R8 product Head `115113691d814236df33571475bb8f519fd65b23`, then apply only the new R9 regression assertions as uncommitted test changes. Commit `5120d60ab018edfee75f38c80d4e3abe872d1725` is an audit-only descendant used later for rollback topology; it is not described as a pre-fix product tree.
 2. Run the exact 11-test unittest command preserved in `terminal--r9-red-tests.txt`.
 3. Observe command exit 1 with nine failure records and three errors.
 4. Map every record to the exact PR #30 review IDs preserved in `git--r9-review-bindings.txt`; do not treat the missing independent reviewer receipt as an implementation defect or self-approve it.
