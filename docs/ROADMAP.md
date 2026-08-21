@@ -1,5 +1,15 @@
 # Roadmap
 
+## v0.2.0rc1 — local release candidate 2026-08-21
+
+- 30-second offline first-run demo plus aligned English/Traditional Chinese fast, controlled, and contributor installation paths.
+- Hash-locked build tooling, fresh-wheel Codex/Hermes doctor, manual isolated TestPyPI/PyPI OIDC Trusted Publishing, and registry round-trip verification before optional PyPI publication.
+- Owner key ceremony and per-domain rotation/revocation/loss recovery; root L3 Broker service, systemd/launchd templates, and Linux/WSL2/macOS readiness Doctor.
+- Redaction 10 MiB fail-fast cap and 64 KiB streaming with cross-chunk credential/private-key handling.
+- Single-parent rollback explanation, squash-SHA audit mapping, and external audited break-glass incident process without a verifier bypass.
+- 1k/10k/50k-file synthetic rollback benchmark completed; 50k p95 was 0.017217 seconds on the recorded local environment, so exact Base-tree equality remains unchanged.
+- Remaining external gates: exact-Head independent Review and signed Merge receipt, GitHub authentication, environment-scoped TestPyPI/PyPI Trusted Publisher configuration, TestPyPI round trip, and explicit PyPI publication decision.
+
 ## v0.2.0-experimental.8 — release candidate complete 2026-08-16
 
 - Exact outer/inner authority consistency before autonomous L0/L1 continuation.

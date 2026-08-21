@@ -23,7 +23,20 @@ gh --version
 
 ## 2. 取得安裝套件
 
-### 方法 A：從 GitHub Release 下載 wheel（建議）
+### 方法 A：從 PyPI 精確安裝 RC（快速試用）
+
+RC 發布後可用：
+
+```bash
+python3 -m venv .venv-sddgov
+.venv-sddgov/bin/python -m pip install --pre 'agentic-sdd-governance==0.2.0rc1'
+.venv-sddgov/bin/sddgov --version
+.venv-sddgov/bin/sddgov pilot quick
+```
+
+只適合 synthetic／staging 試用。受治理專案應固定精確版本，並保留審查與 provenance 紀錄。
+
+### 方法 B：從 GitHub Release 下載 wheel（可控／離線）
 
 Private Repo 必須先登入：
 
@@ -32,34 +45,43 @@ gh auth login -h github.com
 gh auth status -h github.com
 ```
 
-下載並核對 Checksum：
+Linux x86_64／CPython 3.12 下載完整離線 bundle，並由機器核對 Release checksum 與 bundle 內逐檔清單：
 
 ```bash
 mkdir -p sdg-release
-gh release download v0.2.0-experimental.8 \
+gh release download v0.2.0rc1 \
   --repo zycaskevin/Agentic-SDD-Governance \
-  --pattern '*.whl' \
+  --pattern '*-offline-linux-x86_64-py312.zip' \
   --pattern 'SHA256SUMS.txt' \
   --dir sdg-release
 
-wheel_name=$(find sdg-release -maxdepth 1 -type f -name '*.whl' -print -quit)
-test -n "$wheel_name"
-(cd sdg-release && rg "  $(basename "$wheel_name")$" SHA256SUMS.txt > wheel.SHA256SUMS)
-(cd sdg-release && test -s wheel.SHA256SUMS)
-(cd sdg-release && shasum -a 256 -c wheel.SHA256SUMS --strict)
+archive_name=$(find sdg-release -maxdepth 1 -type f -name '*-offline-linux-x86_64-py312.zip' -print -quit)
+test -n "$archive_name"
+(cd sdg-release && rg "  $(basename "$archive_name")$" SHA256SUMS.txt > offline.SHA256SUMS)
+(cd sdg-release && test "$(wc -l < offline.SHA256SUMS | tr -d ' ')" -eq 1)
+(cd sdg-release && sha256sum -c offline.SHA256SUMS)
+python3 -m zipfile -e "$archive_name" sdg-release/extracted
+bundle_root=$(find sdg-release/extracted -mindepth 1 -maxdepth 1 -type d -name '*-offline-linux-x86_64-py312' -print -quit)
+test -n "$bundle_root"
+(cd "$bundle_root" && sha256sum -c SHA256SUMS.txt)
 ```
 
-macOS 內建 `shasum`。Linux 可把最後一行改成 `sha256sum -c wheel.SHA256SUMS`。這段流程會先確認 wheel 存在、再從 Registry checksum 取出該 wheel 的唯一紀錄並由機器比對；不需要把 Digest 複製或貼給 Agent。
+這段流程會從 Registry checksum 取出 bundle 的唯一紀錄，再重算 bundle 內每個檔案；不需要把 Digest 複製或貼給 Agent。此 RC1 bundle 僅供 Linux x86_64／CPython 3.12；其他平台先使用隔離的精確 PyPI RC 安裝路徑。
 
 安裝到獨立 Virtual Environment：
 
 ```bash
 python3 -m venv .venv-sddgov
-.venv-sddgov/bin/python -m pip install sdg-release/*.whl
+project_wheel=$(find "$bundle_root/distributions" -maxdepth 1 -type f -name '*-py3-none-any.whl' -print -quit)
+test -n "$project_wheel"
+.venv-sddgov/bin/python -m pip install \
+  --no-index --find-links "$bundle_root/wheelhouse" --require-hashes \
+  -r "$bundle_root/requirements-governance.lock"
+.venv-sddgov/bin/python -m pip install --no-index --no-deps "$project_wheel"
 .venv-sddgov/bin/sddgov --version
 ```
 
-### 方法 B：從原始碼安裝
+### 方法 C：從原始碼安裝
 
 ```bash
 git clone https://github.com/zycaskevin/Agentic-SDD-Governance.git
@@ -71,14 +93,14 @@ python3 -m venv .venv
 
 Private Repo 的 Clone 同樣需要 GitHub 權限。
 
-### 方法 C：離線 GB10／Hermes
+### 方法 D：離線 GB10／Hermes
 
-在可連網機器下載 ZIP、wheel、bundle 與 `SHA256SUMS.txt`，驗證 Checksum 後用受信任通道複製到 GB10。
+在可連網機器下載平台相符的 offline ZIP 與 `SHA256SUMS.txt`，完成上述兩層機器驗證後，再用受信任通道複製到 GB10。
 
 使用 wheel 不需要 Git History。需要完整 Git History 時可從 bundle Clone：
 
 ```bash
-git clone agentic-sdd-governance-v0.2.0-experimental.8.bundle \
+git clone agentic-sdd-governance-v0.2.0rc1.bundle \
   Agentic-SDD-Governance
 ```
 
