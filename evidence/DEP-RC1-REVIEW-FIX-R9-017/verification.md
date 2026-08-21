@@ -2,7 +2,7 @@
 
 ## Green command and result
 
-`.venv/bin/python -m sddgov.cli ci local-gate .` passed with 323 tests, two explicit environment skips, and successful repository validation. Focused review tests passed. Isolated package build, Twine, offline bundle assembly, fresh-wheel smoke, doctor, validate, CI verification, and the actual Rollback v3 drill all returned PASS.
+`.venv/bin/python -m sddgov.cli ci local-gate .` passed with 323 tests and successful repository validation. Two skips were reported for distinct reasons: the execution sandbox forbade the Unix-socket integration test, and the historical PR #14 rollback commit was unavailable in the local clone. Focused review tests passed. Isolated package build, Twine, offline bundle assembly, fresh-wheel smoke, doctor, validate, CI verification, and the actual Rollback v3 drill all returned PASS.
 
 ## Before/after evidence
 
