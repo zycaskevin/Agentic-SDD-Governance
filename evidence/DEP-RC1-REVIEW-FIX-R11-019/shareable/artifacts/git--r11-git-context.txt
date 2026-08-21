@@ -1,0 +1,305 @@
+BASE_SHA=1a5a0b214eccc2b9edd076fd5e2f222c4a456725
+IMPLEMENTATION_SHA=c49c46e2d07a328636461bda8106b65326f25507
+AUDIT_HEAD=96f60ebba0c8eadf25a88f2482a4943d02753309
+CURRENT_HEAD=96f60ebba0c8eadf25a88f2482a4943d02753309
+CURRENT_BRANCH=feat/rc1-readiness-r11
+IMPLEMENTATION_PARENTS=c49c46e2d07a328636461bda8106b65326f25507 1a5a0b214eccc2b9edd076fd5e2f222c4a456725
+IMPLEMENTATION_SINGLE_PARENT_COUNT=1
+IMPLEMENTATION_SUBJECT=feat: prepare rc1 governance release
+AUDIT_ONLY_PATH_CHECK
+.sddgov/merge-gate.json
+evidence/DEP-RC1-REVIEW-FIX-R10-018/attach-pr-e719807e5be91bb8.md
+evidence/DEP-RC1-REVIEW-FIX-R10-018/fix-scope.md
+evidence/DEP-RC1-REVIEW-FIX-R10-018/manifest.json
+evidence/DEP-RC1-REVIEW-FIX-R10-018/redaction-report.json
+evidence/DEP-RC1-REVIEW-FIX-R10-018/regression-evidence.md
+evidence/DEP-RC1-REVIEW-FIX-R10-018/reproduction.md
+evidence/DEP-RC1-REVIEW-FIX-R10-018/rollback.md
+evidence/DEP-RC1-REVIEW-FIX-R10-018/root-cause-hypothesis.md
+evidence/DEP-RC1-REVIEW-FIX-R10-018/shareable/artifacts/git--r10-git-context.txt
+evidence/DEP-RC1-REVIEW-FIX-R10-018/shareable/artifacts/git--r10-review-bindings.txt
+evidence/DEP-RC1-REVIEW-FIX-R10-018/shareable/artifacts/terminal--r10-fresh-wheel-smoke.json
+evidence/DEP-RC1-REVIEW-FIX-R10-018/shareable/artifacts/terminal--r10-legacy-media-red.txt
+evidence/DEP-RC1-REVIEW-FIX-R10-018/shareable/artifacts/terminal--r10-local-green.txt
+evidence/DEP-RC1-REVIEW-FIX-R10-018/shareable/artifacts/terminal--r10-package-proof.txt
+evidence/DEP-RC1-REVIEW-FIX-R10-018/shareable/artifacts/terminal--r10-red-tests.txt
+evidence/DEP-RC1-REVIEW-FIX-R10-018/shareable/artifacts/terminal--r10-release-bundle.json
+evidence/DEP-RC1-REVIEW-FIX-R10-018/shareable/artifacts/terminal--r10-rollback-compat-red.txt
+evidence/DEP-RC1-REVIEW-FIX-R10-018/shareable/artifacts/terminal--r10-rollback-drill.txt
+evidence/DEP-RC1-REVIEW-FIX-R10-018/summary.yaml
+evidence/DEP-RC1-REVIEW-FIX-R10-018/verification.md
+evidence/DEP-RC1-REVIEW-FIX-R6-014/fix-scope.md
+evidence/DEP-RC1-REVIEW-FIX-R6-014/manifest.json
+evidence/DEP-RC1-REVIEW-FIX-R6-014/redaction-report.json
+evidence/DEP-RC1-REVIEW-FIX-R6-014/regression-evidence.md
+evidence/DEP-RC1-REVIEW-FIX-R6-014/reproduction.md
+evidence/DEP-RC1-REVIEW-FIX-R6-014/rollback.md
+evidence/DEP-RC1-REVIEW-FIX-R6-014/root-cause-hypothesis.md
+evidence/DEP-RC1-REVIEW-FIX-R6-014/shareable/artifacts/git--r6-red-context.txt
+evidence/DEP-RC1-REVIEW-FIX-R6-014/shareable/artifacts/git--r6-review-bindings.txt
+evidence/DEP-RC1-REVIEW-FIX-R6-014/shareable/artifacts/terminal--r6-fresh-wheel-smoke.json
+evidence/DEP-RC1-REVIEW-FIX-R6-014/shareable/artifacts/terminal--r6-local-green.txt
+evidence/DEP-RC1-REVIEW-FIX-R6-014/shareable/artifacts/terminal--r6-red-tests.txt
+evidence/DEP-RC1-REVIEW-FIX-R6-014/shareable/artifacts/terminal--r6-release-bundle.json
+evidence/DEP-RC1-REVIEW-FIX-R6-014/summary.yaml
+evidence/DEP-RC1-REVIEW-FIX-R6-014/verification.md
+evidence/DEP-RC1-REVIEW-FIX-R7-015/fix-scope.md
+evidence/DEP-RC1-REVIEW-FIX-R7-015/manifest.json
+evidence/DEP-RC1-REVIEW-FIX-R7-015/redaction-report.json
+evidence/DEP-RC1-REVIEW-FIX-R7-015/regression-evidence.md
+evidence/DEP-RC1-REVIEW-FIX-R7-015/reproduction.md
+evidence/DEP-RC1-REVIEW-FIX-R7-015/rollback.md
+evidence/DEP-RC1-REVIEW-FIX-R7-015/root-cause-hypothesis.md
+evidence/DEP-RC1-REVIEW-FIX-R7-015/shareable/artifacts/git--r7-red-context.txt
+evidence/DEP-RC1-REVIEW-FIX-R7-015/shareable/artifacts/git--r7-review-bindings.txt
+evidence/DEP-RC1-REVIEW-FIX-R7-015/shareable/artifacts/terminal--r7-escaped-path-red.txt
+evidence/DEP-RC1-REVIEW-FIX-R7-015/shareable/artifacts/terminal--r7-fresh-wheel-smoke.json
+evidence/DEP-RC1-REVIEW-FIX-R7-015/shareable/artifacts/terminal--r7-local-green.txt
+evidence/DEP-RC1-REVIEW-FIX-R7-015/shareable/artifacts/terminal--r7-package-proof.txt
+evidence/DEP-RC1-REVIEW-FIX-R7-015/shareable/artifacts/terminal--r7-red-tests.txt
+evidence/DEP-RC1-REVIEW-FIX-R7-015/shareable/artifacts/terminal--r7-release-bundle.json
+evidence/DEP-RC1-REVIEW-FIX-R7-015/shareable/artifacts/terminal--r7-rollback-drill.txt
+evidence/DEP-RC1-REVIEW-FIX-R7-015/summary.yaml
+evidence/DEP-RC1-REVIEW-FIX-R7-015/verification.md
+evidence/DEP-RC1-REVIEW-FIX-R8-016/fix-scope.md
+evidence/DEP-RC1-REVIEW-FIX-R8-016/manifest.json
+evidence/DEP-RC1-REVIEW-FIX-R8-016/redaction-report.json
+evidence/DEP-RC1-REVIEW-FIX-R8-016/regression-evidence.md
+evidence/DEP-RC1-REVIEW-FIX-R8-016/reproduction.md
+evidence/DEP-RC1-REVIEW-FIX-R8-016/rollback.md
+evidence/DEP-RC1-REVIEW-FIX-R8-016/root-cause-hypothesis.md
+evidence/DEP-RC1-REVIEW-FIX-R8-016/shareable/artifacts/git--r8-git-context.txt
+evidence/DEP-RC1-REVIEW-FIX-R8-016/shareable/artifacts/git--r8-review-bindings.txt
+evidence/DEP-RC1-REVIEW-FIX-R8-016/shareable/artifacts/terminal--r8-fresh-wheel-smoke.json
+evidence/DEP-RC1-REVIEW-FIX-R8-016/shareable/artifacts/terminal--r8-local-green.txt
+evidence/DEP-RC1-REVIEW-FIX-R8-016/shareable/artifacts/terminal--r8-package-proof.txt
+evidence/DEP-RC1-REVIEW-FIX-R8-016/shareable/artifacts/terminal--r8-red-tests.txt
+evidence/DEP-RC1-REVIEW-FIX-R8-016/shareable/artifacts/terminal--r8-release-bundle.json
+evidence/DEP-RC1-REVIEW-FIX-R8-016/shareable/artifacts/terminal--r8-rollback-drill.txt
+evidence/DEP-RC1-REVIEW-FIX-R8-016/summary.yaml
+evidence/DEP-RC1-REVIEW-FIX-R8-016/verification.md
+evidence/DEP-RC1-REVIEW-FIX-R9-017/fix-scope.md
+evidence/DEP-RC1-REVIEW-FIX-R9-017/manifest.json
+evidence/DEP-RC1-REVIEW-FIX-R9-017/redaction-report.json
+evidence/DEP-RC1-REVIEW-FIX-R9-017/regression-evidence.md
+evidence/DEP-RC1-REVIEW-FIX-R9-017/reproduction.md
+evidence/DEP-RC1-REVIEW-FIX-R9-017/rollback.md
+evidence/DEP-RC1-REVIEW-FIX-R9-017/root-cause-hypothesis.md
+evidence/DEP-RC1-REVIEW-FIX-R9-017/shareable/artifacts/git--r9-git-context.txt
+evidence/DEP-RC1-REVIEW-FIX-R9-017/shareable/artifacts/git--r9-review-bindings.txt
+evidence/DEP-RC1-REVIEW-FIX-R9-017/shareable/artifacts/terminal--r9-fresh-wheel-smoke.json
+evidence/DEP-RC1-REVIEW-FIX-R9-017/shareable/artifacts/terminal--r9-local-green.txt
+evidence/DEP-RC1-REVIEW-FIX-R9-017/shareable/artifacts/terminal--r9-package-proof.txt
+evidence/DEP-RC1-REVIEW-FIX-R9-017/shareable/artifacts/terminal--r9-red-tests.txt
+evidence/DEP-RC1-REVIEW-FIX-R9-017/shareable/artifacts/terminal--r9-release-bundle.json
+evidence/DEP-RC1-REVIEW-FIX-R9-017/shareable/artifacts/terminal--r9-rollback-drill.txt
+evidence/DEP-RC1-REVIEW-FIX-R9-017/summary.yaml
+evidence/DEP-RC1-REVIEW-FIX-R9-017/verification.md
+IMPLEMENTATION_NAME_STATUS
+M	.agentic-sdd-governance/VERSION
+M	.agentic-sdd-governance/core/policy-kernel.yaml
+M	.agentic-sdd-governance/docs/CI_COST_GUARD.md
+M	.agentic-sdd-governance/docs/HARD_GATES_V1_2.md
+A	.agentic-sdd-governance/docs/L3_BROKER_OPERATIONS.md
+A	.agentic-sdd-governance/docs/OWNER_KEY_CEREMONY.md
+A	.agentic-sdd-governance/docs/ROLLBACK_OPERATIONS.md
+M	.agentic-sdd-governance/manifest.json
+M	.agentic-sdd-governance/policies/protected-files.yaml
+M	.agentic-sdd-governance/redaction/LOCAL_REDACTION_GATEWAY.md
+M	.agentic-sdd-governance/redaction/rules.json
+M	.agentic-sdd-governance/schemas/ci-cost-guard.schema.json
+A	.agentic-sdd-governance/services/com.sddgov.broker.plist
+A	.agentic-sdd-governance/services/sddgov-broker.service
+M	.agentic-sdd-governance/templates/CI_COST_GUARD.json
+A	.github/workflows/publish.yml
+M	.sddgov/ci-cost-guard.json
+M	.sddgov/events.jsonl
+M	.sddgov/project.json
+M	.sddgov/work-claims.json
+M	CHANGELOG.md
+M	README.md
+M	README.zh-TW.md
+M	RELEASE_NOTES.md
+M	VERSION
+A	benchmarks/monorepo-rollback/README.md
+A	benchmarks/monorepo-rollback/latest-result.json
+M	core/policy-kernel.yaml
+A	demo/run.sh
+M	docs/CI_COST_GUARD.md
+M	docs/HARD_GATES_V1_2.md
+A	docs/L3_BROKER_OPERATIONS.md
+A	docs/OWNER_KEY_CEREMONY.md
+M	docs/PUBLIC_RELEASE_CHECKLIST.zh-TW.md
+M	docs/ROADMAP.md
+A	docs/ROLLBACK_OPERATIONS.md
+M	docs/USER_GUIDE.zh-TW.md
+M	policies/protected-files.yaml
+M	pyproject.toml
+M	redaction/LOCAL_REDACTION_GATEWAY.md
+M	redaction/rules.json
+M	requirements-governance.lock
+A	requirements-release.in
+A	requirements-release.lock
+M	schemas/ci-cost-guard.schema.json
+A	scripts/benchmark_monorepo_rollback.py
+A	scripts/check_release_environment.py
+A	scripts/fresh_wheel_smoke.py
+A	scripts/prepare_release_bundle.py
+A	scripts/release_files.py
+A	services/com.sddgov.broker.plist
+A	services/sddgov-broker.service
+M	src/sddgov/__init__.py
+A	src/sddgov/broker.py
+M	src/sddgov/ci_guard.py
+M	src/sddgov/cli.py
+M	src/sddgov/evidence.py
+A	src/sddgov/fs_security.py
+M	src/sddgov/merge_gate.py
+M	src/sddgov/pilot.py
+M	src/sddgov/redaction.py
+M	src/sddgov/resources/governance/VERSION
+M	src/sddgov/resources/governance/core/policy-kernel.yaml
+M	src/sddgov/resources/governance/docs/CI_COST_GUARD.md
+M	src/sddgov/resources/governance/docs/HARD_GATES_V1_2.md
+A	src/sddgov/resources/governance/docs/L3_BROKER_OPERATIONS.md
+A	src/sddgov/resources/governance/docs/OWNER_KEY_CEREMONY.md
+A	src/sddgov/resources/governance/docs/ROLLBACK_OPERATIONS.md
+M	src/sddgov/resources/governance/policies/protected-files.yaml
+M	src/sddgov/resources/governance/redaction/LOCAL_REDACTION_GATEWAY.md
+M	src/sddgov/resources/governance/redaction/rules.json
+M	src/sddgov/resources/governance/schemas/ci-cost-guard.schema.json
+A	src/sddgov/resources/governance/services/com.sddgov.broker.plist
+A	src/sddgov/resources/governance/services/sddgov-broker.service
+M	src/sddgov/resources/governance/templates/CI_COST_GUARD.json
+M	templates/CI_COST_GUARD.json
+A	tests/test_broker.py
+M	tests/test_ci_guard.py
+A	tests/test_demo_script.py
+M	tests/test_evidence_flow.py
+A	tests/test_fs_security.py
+M	tests/test_installer.py
+M	tests/test_merge_gate.py
+A	tests/test_monorepo_benchmark.py
+M	tests/test_redaction.py
+A	tests/test_release_bundle.py
+A	tests/test_release_environment.py
+M	tests/test_repository_contract.py
+M	tests/test_synthetic_muse_pilot.py
+A	work-packages/WP-RC1-READINESS-008.md
+IMPLEMENTATION_DIFF_STAT
+ .agentic-sdd-governance/VERSION                    |   2 +-
+ .agentic-sdd-governance/core/policy-kernel.yaml    |   2 +-
+ .agentic-sdd-governance/docs/CI_COST_GUARD.md      |  26 +-
+ .agentic-sdd-governance/docs/HARD_GATES_V1_2.md    |   4 +-
+ .../docs/L3_BROKER_OPERATIONS.md                   |  85 +++
+ .agentic-sdd-governance/docs/OWNER_KEY_CEREMONY.md |  95 +++
+ .../docs/ROLLBACK_OPERATIONS.md                    |  70 ++
+ .agentic-sdd-governance/manifest.json              |  27 +-
+ .../policies/protected-files.yaml                  |   8 +
+ .../redaction/LOCAL_REDACTION_GATEWAY.md           |   3 +-
+ .agentic-sdd-governance/redaction/rules.json       |   3 +-
+ .../schemas/ci-cost-guard.schema.json              |  22 +-
+ .../services/com.sddgov.broker.plist               |  31 +
+ .../services/sddgov-broker.service                 |  43 ++
+ .../templates/CI_COST_GUARD.json                   |   3 +-
+ .github/workflows/publish.yml                      | 271 +++++++
+ .sddgov/ci-cost-guard.json                         |   9 +-
+ .sddgov/events.jsonl                               |   3 +
+ .sddgov/project.json                               |   2 +-
+ .sddgov/work-claims.json                           |  10 +-
+ CHANGELOG.md                                       |  23 +
+ README.md                                          | 307 ++++++--
+ README.zh-TW.md                                    | 137 +++-
+ RELEASE_NOTES.md                                   |  91 +--
+ VERSION                                            |   2 +-
+ benchmarks/monorepo-rollback/README.md             |  18 +
+ benchmarks/monorepo-rollback/latest-result.json    |  62 ++
+ core/policy-kernel.yaml                            |   2 +-
+ demo/run.sh                                        |  94 +++
+ docs/CI_COST_GUARD.md                              |  26 +-
+ docs/HARD_GATES_V1_2.md                            |   4 +-
+ docs/L3_BROKER_OPERATIONS.md                       |  85 +++
+ docs/OWNER_KEY_CEREMONY.md                         |  95 +++
+ docs/PUBLIC_RELEASE_CHECKLIST.zh-TW.md             |   7 +
+ docs/ROADMAP.md                                    |  10 +
+ docs/ROLLBACK_OPERATIONS.md                        |  70 ++
+ docs/USER_GUIDE.zh-TW.md                           |  91 ++-
+ policies/protected-files.yaml                      |   8 +
+ pyproject.toml                                     |   5 +-
+ redaction/LOCAL_REDACTION_GATEWAY.md               |   3 +-
+ redaction/rules.json                               |   3 +-
+ requirements-governance.lock                       |   4 +
+ requirements-release.in                            |   7 +
+ requirements-release.lock                          | 478 ++++++++++++
+ schemas/ci-cost-guard.schema.json                  |  22 +-
+ scripts/benchmark_monorepo_rollback.py             | 232 ++++++
+ scripts/check_release_environment.py               | 201 +++++
+ scripts/fresh_wheel_smoke.py                       | 361 +++++++++
+ scripts/prepare_release_bundle.py                  | 440 +++++++++++
+ scripts/release_files.py                           | 476 ++++++++++++
+ services/com.sddgov.broker.plist                   |  31 +
+ services/sddgov-broker.service                     |  43 ++
+ src/sddgov/__init__.py                             |  17 +-
+ src/sddgov/broker.py                               | 596 +++++++++++++++
+ src/sddgov/ci_guard.py                             | 112 ++-
+ src/sddgov/cli.py                                  |  95 ++-
+ src/sddgov/evidence.py                             | 112 +--
+ src/sddgov/fs_security.py                          |  65 ++
+ src/sddgov/merge_gate.py                           |  47 +-
+ src/sddgov/pilot.py                                |  70 ++
+ src/sddgov/redaction.py                            | 453 +++++++++--
+ src/sddgov/resources/governance/VERSION            |   2 +-
+ .../resources/governance/core/policy-kernel.yaml   |   2 +-
+ .../resources/governance/docs/CI_COST_GUARD.md     |  26 +-
+ .../resources/governance/docs/HARD_GATES_V1_2.md   |   4 +-
+ .../governance/docs/L3_BROKER_OPERATIONS.md        |  85 +++
+ .../governance/docs/OWNER_KEY_CEREMONY.md          |  95 +++
+ .../governance/docs/ROLLBACK_OPERATIONS.md         |  70 ++
+ .../governance/policies/protected-files.yaml       |   8 +
+ .../redaction/LOCAL_REDACTION_GATEWAY.md           |   3 +-
+ .../resources/governance/redaction/rules.json      |   3 +-
+ .../governance/schemas/ci-cost-guard.schema.json   |  22 +-
+ .../governance/services/com.sddgov.broker.plist    |  31 +
+ .../governance/services/sddgov-broker.service      |  43 ++
+ .../governance/templates/CI_COST_GUARD.json        |   3 +-
+ templates/CI_COST_GUARD.json                       |   3 +-
+ tests/test_broker.py                               | 840 +++++++++++++++++++++
+ tests/test_ci_guard.py                             | 186 +++++
+ tests/test_demo_script.py                          | 109 +++
+ tests/test_evidence_flow.py                        | 135 +++-
+ tests/test_fs_security.py                          |  37 +
+ tests/test_installer.py                            |  16 +-
+ tests/test_merge_gate.py                           |  23 +
+ tests/test_monorepo_benchmark.py                   | 127 ++++
+ tests/test_redaction.py                            | 285 ++++++-
+ tests/test_release_bundle.py                       | 430 +++++++++++
+ tests/test_release_environment.py                  | 187 +++++
+ tests/test_repository_contract.py                  | 442 ++++++++++-
+ tests/test_synthetic_muse_pilot.py                 |  60 +-
+ work-packages/WP-RC1-READINESS-008.md              |  60 ++
+ 90 files changed, 8670 insertions(+), 391 deletions(-)
+AUDIT_LOG
+c49c46e feat: prepare rc1 governance release
+f72e2a4 docs: bind R6 review-hardening evidence
+9d98766 docs: correct R6 shareable evidence provenance
+d99d4ee docs: bind R7 review and rollback proof
+348323f docs: bind R8 review and rollback proof
+cd8a89b evidence: seal rc1 r9 review fixes
+c90faa9 chore: bind rc1 r9 merge gate
+3d5d661 docs: correct predecessor evidence provenance
+24ecb25 docs: preserve legacy evidence media compatibility
+b992f1b evidence: seal rc1 r10 review fixes
+d576d79 chore: bind rc1 r10 merge gate
+9067016 docs: preserve r10 evidence rollback compatibility
+1d518cb chore: rebind rc1 r10 merge gate
+96f60eb docs: correct r6 falsification and proof claims
+PROOF_SHA256
+299cef47ac8f8e508d7c051d1011a181daf3cb5b4cfca03477aa4558a3786e42  /tmp/sddgov-r11-red-tests.txt
+09858efe46d386cc6a450f7f7ce6b51908a1d7144bc208a6da1b173455350415  /tmp/sddgov-r11-review-bindings.txt
+10e22daead8c76e6d4640b00ef549f05fc061eaf1788728ae5125187024f0744  /tmp/sddgov-r11-local-green.txt
+dbbc9901853700fbd985b161168bbdf715b5eef59a3238c652a84438fdeea223  /tmp/sddgov-r11-package-proof.txt
+98cf46953322abf93be7b3508e18c43ae56f78f5006d173fd8b374daf7058cd1  /tmp/sddgov-r11-release-bundle.json
+af1dfdf7b16414cfc8e328f3d32e3bd56039d554c991b8738266c799d0c88872  /tmp/sddgov-r11-fresh-wheel-smoke.json
+b8df1847a0e7b3a5ca098a53d1bb5a8665cbc721caa1812fca3da61549374f0a  /tmp/sddgov-r11-rollback-drill.txt
+WORKTREE_STATUS
+?? evidence/DEP-RC1-REVIEW-FIX-R11-019/
