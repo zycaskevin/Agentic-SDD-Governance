@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.sddgov.broker</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/sddgov/venv/bin/sddgov</string>
+    <string>broker</string>
+    <string>serve</string>
+    <string>--socket-group</string>
+    <string>_sddgov</string>
+  </array>
+  <key>UserName</key>
+  <string>root</string>
+  <key>GroupName</key>
+  <string>_sddgov</string>
+  <key>Umask</key>
+  <integer>7</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>30</integer>
+  <!-- Unclean-exit socket inspection and removal are deliberately manual; see docs/L3_BROKER_OPERATIONS.md. -->
+  <key>StandardOutPath</key>
+  <string>/var/log/sddgov-broker.log</string>
+  <key>StandardErrorPath</key>
+  <string>/var/log/sddgov-broker.log</string>
+</dict>
+</plist>

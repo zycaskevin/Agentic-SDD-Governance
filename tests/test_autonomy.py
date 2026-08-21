@@ -100,10 +100,13 @@ class AutonomyTests(unittest.TestCase):
             "sddgov.autonomy.L3_RUNTIME_CONTEXT_FILE", self.runtime_context_path
         )
         self.runtime_context.start()
-        self.trust_environment = patch.dict(
-            "os.environ", {"SDDGOV_TRUSTED_APPROVERS_FILE": str(self.trust_path)}
-        )
+        self.trust_environment = patch.dict("os.environ", {}, clear=False)
         self.trust_environment.start()
+        os.environ.pop("SDDGOV_TRUSTED_APPROVERS_FILE", None)
+        self.trust_authority_path = patch(
+            "sddgov.trust.TRUSTED_APPROVERS_FILE", self.trust_path
+        )
+        self.trust_authority_path.start()
         init_project(self.root, "team-standard")
         self.control_plane_loader = patch(
             "sddgov.autonomy.load_control_plane_json",
@@ -119,6 +122,7 @@ class AutonomyTests(unittest.TestCase):
         self.nonce_broker.stop()
         self.control_plane_loader.stop()
         self.runtime_context.stop()
+        self.trust_authority_path.stop()
         self.trust_environment.stop()
         self.trust_temporary.cleanup()
         self.temporary.cleanup()
@@ -462,7 +466,7 @@ class AutonomyTests(unittest.TestCase):
                 "SDDGOV_TRUSTED_BASE_REF": "",
             },
         ):
-            with self.assertRaisesRegex(ValueError, "separate control-plane"):
+            with self.assertRaisesRegex(ValueError, "caller override"):
                 import_operation_approval(self.root, path)
 
     def test_same_uid_external_approver_store_is_not_owner_authority(self):
@@ -488,7 +492,7 @@ class AutonomyTests(unittest.TestCase):
                 "SDDGOV_TRUSTED_BASE_REF": "a" * 40,
             },
         ):
-            with self.assertRaisesRegex(ValueError, "separate control-plane"):
+            with self.assertRaisesRegex(ValueError, "caller override"):
                 import_operation_approval(self.root, path)
 
     def test_adversarial_receipt_encodings_fail_closed(self):

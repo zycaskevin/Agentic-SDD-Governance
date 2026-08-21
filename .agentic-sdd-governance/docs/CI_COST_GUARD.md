@@ -20,16 +20,25 @@ sddgov ci verify .
 sddgov ci local-gate .
 ```
 
-`verify` checks the contract and automatic GitHub-hosted workflows. `local-gate` first verifies those controls, then runs every configured local command sequentially and stops on the first failure.
+`verify` checks the contract and GitHub-hosted workflows. `local-gate` first verifies those controls, then runs every configured local command sequentially and stops on the first failure.
+
+Any `local-gate` failure starts or continues a DEP at Red. Capture the bounded
+local failure, advance through Evidence → Fix → Green → Proof, and do not spend
+another hosted run until the new revision is locally Green. A transient hosted
+provider failure may be rerun only when the DEP evidence identifies it as such.
 
 ## Workflow controls
 
-Automatic hosted workflows must:
+All hosted workflows must declare concurrency and per-job timeouts. Automatic
+hosted workflows must additionally cancel stale runs. Pull-request workflows
+must avoid allocating runners for Draft PRs. Every workflow must declare
+read-only default permissions.
 
-- declare read-only default permissions;
-- cancel stale runs for the same PR or ref;
-- avoid allocating runners for Draft PRs;
-- set `timeout-minutes` for every hosted job.
+Release jobs that require OIDC or GitHub Release publication must use
+`workflow_controls.write_permission_exceptions` to name the exact workflow,
+job, and write-capable permission. The verifier rejects unknown jobs, unused
+exceptions, and any other write permission. Do not exempt the whole release
+workflow: that also disables its timeout, concurrency, and permission checks.
 
 `hosted.post_merge_verification` accepts only `manual_only` or `automatic`.
 For schema `1.0`, an omitted field retains the legacy `automatic` behavior so
@@ -40,6 +49,11 @@ under `exempt_workflows`. Use the one non-Draft PR verification as the Work
 Package's hosted run; keep `workflow_dispatch` for a deliberately requested
 Release verification. A successful Merge must not silently consume a second
 hosted run.
+
+Every `exempt_workflows` entry must be the exact filename of one workflow found
+under `.github/workflows`; display names, globs, missing files, duplicates, and
+unused exemptions fail closed. Exemption is a narrow, auditable mapping, not a
+pattern language.
 
 Do not use path or commit-message skipping for a required check without coordinating branch protection: GitHub may leave the required check pending. Prefer one cheap required workflow and conditionally activated expensive jobs.
 

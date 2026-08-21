@@ -19,7 +19,7 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from .governance import enqueue_external_action, resolve_external_action
-from .trust import load_control_plane_json
+from .trust import load_control_plane_json, trusted_approvers_path
 
 
 RISK_LEVELS = {"L0", "L1", "L2", "L3"}
@@ -401,22 +401,8 @@ def _parse_time(value: Any, field: str) -> datetime:
 
 
 def _trusted_approver_store(root: Path) -> dict[str, Any]:
-    external = os.environ.get("SDDGOV_TRUSTED_APPROVERS_FILE")
-    if not external:
-        raise ValueError(
-            "trusted approver authority requires a separate control-plane file"
-        )
-    source = Path(external).expanduser().absolute()
-    try:
-        source.resolve().relative_to(root.resolve())
-    except ValueError:
-        data = load_control_plane_json(
-            source, "out-of-band trusted approver store"
-        )
-    else:
-        raise ValueError(
-            "out-of-band trusted approver store must be outside the repository"
-        )
+    source = trusted_approvers_path(root)
+    data = load_control_plane_json(source, "fixed trusted approver store")
     if not isinstance(data, dict):
         raise ValueError("trusted approver store must contain a JSON object")
     return data
