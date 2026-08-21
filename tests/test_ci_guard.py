@@ -27,6 +27,7 @@ def _contract(command):
             "require_read_only_permissions": True,
             "skip_draft_pull_requests": True,
             "exempt_workflows": [],
+            "write_permission_exceptions": {},
         },
     }
 
@@ -55,6 +56,24 @@ concurrency:
 jobs:
   verify:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - run: true
+"""
+
+GOOD_MANUAL_RELEASE_WORKFLOW = """name: Release
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  publish:
+    permissions:
+      id-token: write
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -196,6 +215,46 @@ jobs:
                 "workflow_controls.exempt_workflows must be a string array",
                 "\n".join(report["errors"]),
             )
+
+    def test_manual_release_uses_only_exact_write_permission_exceptions(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            contract = _contract([sys.executable, "-c", "pass"])
+            contract["workflow_controls"]["write_permission_exceptions"] = {
+                "ci.yml": {"publish": ["id-token"]}
+            }
+            _write_project(project, contract, GOOD_MANUAL_RELEASE_WORKFLOW)
+            self.assertTrue(verify_guard(project)["ok"])
+
+            for label, workflow in {
+                "missing concurrency": GOOD_MANUAL_RELEASE_WORKFLOW.replace(
+                    "concurrency:\n  group: release-${{ github.ref }}\n  cancel-in-progress: false\n",
+                    "",
+                ),
+                "missing timeout": GOOD_MANUAL_RELEASE_WORKFLOW.replace(
+                    "    timeout-minutes: 10\n", ""
+                ),
+            }.items():
+                with self.subTest(label=label):
+                    (project / ".github/workflows/ci.yml").write_text(
+                        workflow, encoding="utf-8"
+                    )
+                    self.assertFalse(verify_guard(project)["ok"])
+
+    def test_write_permission_exception_must_be_used_by_the_exact_job(self):
+        cases = {
+            "unknown job": {"ci.yml": {"missing": ["id-token"]}},
+            "unused permission": {"ci.yml": {"publish": ["contents"]}},
+        }
+        for label, exceptions in cases.items():
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as temporary:
+                project = Path(temporary)
+                contract = _contract([sys.executable, "-c", "pass"])
+                contract["workflow_controls"]["write_permission_exceptions"] = (
+                    exceptions
+                )
+                _write_project(project, contract, GOOD_MANUAL_RELEASE_WORKFLOW)
+                self.assertFalse(verify_guard(project)["ok"])
 
     def test_comments_cannot_fake_types_or_hide_job_write_permissions(self):
         with tempfile.TemporaryDirectory() as temporary:

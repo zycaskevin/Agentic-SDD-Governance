@@ -1,6 +1,15 @@
+import tempfile
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
-from sddgov.redaction import redact_text
+from sddgov.redaction import (
+    MAX_LOGICAL_LINE_CHARACTERS,
+    MAX_REDACTION_FILE_BYTES,
+    STREAM_RULES,
+    redact_files,
+    redact_text,
+)
 
 
 class RedactionTests(unittest.TestCase):
@@ -91,6 +100,128 @@ class RedactionTests(unittest.TestCase):
         cleaned, counts = redact_text(source)
         self.assertEqual(cleaned, source)
         self.assertEqual(counts, {})
+
+    def test_streaming_redacts_secrets_and_private_keys_across_chunks(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "source"
+            output = root / "output"
+            source.mkdir()
+            credential = "ghp_0123456789abcdefghijklmnopqrstuvwxyzAB"
+            raw = (
+                "prefix\n"
+                f"github_token={credential}\n"
+                "-----BEGIN " + "PRIVATE KEY-----\n"
+                "synthetic-private-material\n"
+                "-----END " + "PRIVATE KEY-----\n"
+                "owner@example.com\n"
+            )
+            path = source / "capture.log"
+            path.write_text(raw, encoding="utf-8")
+
+            with patch("sddgov.redaction.STREAM_CHUNK_BYTES", 7):
+                report = redact_files([path], output)
+
+            cleaned = (output / path.name).read_text(encoding="utf-8")
+            for exposed in (
+                credential,
+                "synthetic-private-material",
+                "owner@example.com",
+            ):
+                self.assertNotIn(exposed, cleaned)
+            self.assertIn("[REDACTED_PROVIDER_CREDENTIAL]", cleaned)
+            self.assertIn("[REDACTED_PRIVATE_KEY]", cleaned)
+            self.assertEqual(report["totals"]["private-key"], 1)
+            self.assertEqual(report["totals"]["provider-credential"], 1)
+
+    def test_streaming_redacts_private_key_markers_split_across_lines(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "source"
+            output = root / "output"
+            source.mkdir()
+            raw = (
+                "prefix\n"
+                "-----BEGIN \n" + "PRIVATE KEY-----\n"
+                "synthetic-private-material\n"
+                "-----END \n" + "PRIVATE KEY-----\n"
+                "suffix\n"
+            )
+            path = source / "capture.log"
+            path.write_text(raw, encoding="utf-8")
+
+            with patch("sddgov.redaction.STREAM_CHUNK_BYTES", 5):
+                report = redact_files([path], output)
+
+            cleaned = (output / path.name).read_text(encoding="utf-8")
+            self.assertNotIn("synthetic-private-material", cleaned)
+            self.assertIn("[REDACTED_PRIVATE_KEY]", cleaned)
+            self.assertEqual(report["totals"]["private-key"], 1)
+            validated, remaining = redact_text(cleaned)
+            self.assertEqual(validated, cleaned)
+            self.assertEqual(remaining, {})
+
+    def test_oversized_file_fails_before_redaction_output_is_created(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "large.log"
+            output = root / "output"
+            with source.open("wb") as handle:
+                handle.truncate(MAX_REDACTION_FILE_BYTES + 1)
+            with self.assertRaisesRegex(ValueError, "collect a bounded excerpt or summary"):
+                redact_files([source], output)
+            self.assertFalse((output / source.name).exists())
+
+    def test_streaming_rules_exclude_private_keys_by_identity(self):
+        self.assertNotIn("private-key", {rule.rule_id for rule in STREAM_RULES})
+
+    def test_oversized_logical_line_with_newline_publishes_no_output(self):
+        self._assert_oversized_logical_line_fails("\n")
+
+    def test_oversized_logical_line_without_newline_publishes_no_output(self):
+        self._assert_oversized_logical_line_fails("")
+
+    def _assert_oversized_logical_line_fails(self, terminator: str):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "capture.log"
+            output = root / "output"
+            source.write_text("x" * 65 + terminator, encoding="utf-8")
+            with patch("sddgov.redaction.MAX_LOGICAL_LINE_CHARACTERS", 64), patch(
+                "sddgov.redaction.STREAM_CHUNK_BYTES", 8
+            ):
+                with self.assertRaisesRegex(ValueError, "logical line exceeding 64"):
+                    redact_files([source], output)
+            self.assertFalse((output / source.name).exists())
+            self.assertEqual(MAX_LOGICAL_LINE_CHARACTERS, 1024 * 1024)
+
+    def test_unterminated_private_key_fails_closed(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "capture.log"
+            output = root / "output"
+            source.write_text(
+                "-----BEGIN PRIVATE KEY-----\nnot-terminated\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "unterminated private key"):
+                redact_files([source], output)
+            self.assertFalse((output / source.name).exists())
+
+    def test_streaming_destination_symlink_is_rejected_without_overwrite(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "capture.log"
+            output = root / "output"
+            outside = root / "outside.log"
+            source.write_text("password=synthetic\n", encoding="utf-8")
+            outside.write_text("preserve me\n", encoding="utf-8")
+            output.mkdir()
+            (output / source.name).symlink_to(outside)
+
+            with self.assertRaisesRegex(ValueError, "must not be a symlink"):
+                redact_files([source], output)
+            self.assertEqual(outside.read_text(encoding="utf-8"), "preserve me\n")
 
 
 if __name__ == "__main__":

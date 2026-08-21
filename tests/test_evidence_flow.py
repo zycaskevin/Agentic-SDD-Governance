@@ -266,14 +266,14 @@ class EvidenceFlowTests(unittest.TestCase):
         source.write_text("password=synthetic\n", encoding="utf-8")
         collect(self.dep, "terminal", source)
         manifest_before = (self.dep / "manifest.json").read_bytes()
-        original = redaction_module._write_at
+        original = redaction_module._stream_text_at
 
-        def fail_after_output(directory_fd, name, data, published_outputs=None):
-            original(directory_fd, name, data, published_outputs)
+        def fail_after_output(source_fd, directory_fd, name, published_outputs=None):
+            original(source_fd, directory_fd, name, published_outputs)
             raise OSError("synthetic output fsync failure")
 
         with (
-            patch("sddgov.redaction._write_at", side_effect=fail_after_output),
+            patch("sddgov.redaction._stream_text_at", side_effect=fail_after_output),
             self.assertRaisesRegex(OSError, "output fsync failure"),
         ):
             redact(self.dep)
@@ -413,15 +413,15 @@ class EvidenceFlowTests(unittest.TestCase):
         parked = self.dep / "shareable/artifacts-parked"
         outside = self.root / "outside-output"
         outside.mkdir()
-        original = redaction_module._write_at
+        original = redaction_module._stream_text_at
 
-        def replace_parent(directory_fd, name, data, published_outputs=None):
+        def replace_parent(source_fd, directory_fd, name, published_outputs=None):
             shareable.rename(parked)
             shareable.symlink_to(outside, target_is_directory=True)
-            return original(directory_fd, name, data, published_outputs)
+            return original(source_fd, directory_fd, name, published_outputs)
 
         with (
-            patch("sddgov.redaction._write_at", side_effect=replace_parent),
+            patch("sddgov.redaction._stream_text_at", side_effect=replace_parent),
             self.assertRaisesRegex(ValueError, "changed during operation"),
         ):
             redact(self.dep)
