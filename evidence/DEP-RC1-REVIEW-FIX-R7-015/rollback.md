@@ -44,4 +44,7 @@ verify_module: unittest
 # test "$("$ROLLBACK_TMP/venv/bin/python" -m sddgov.cli --version)" = "0.2.0-experimental.8"
 # test "$("$ROLLBACK_TMP/venv/bin/python" -c "import importlib.metadata; print(importlib.metadata.version('agentic-sdd-governance'))")" = "0.2.0.dev8"
 # git diff --quiet "$BASE_SHA" -- . ':(exclude)evidence/**' ':(exclude).sddgov/merge-gate.json' ':(exclude).sddgov/reviews/**'
+# test -z "$(git ls-files --others --exclude-standard -- . ':(exclude)evidence/**' ':(exclude).sddgov/merge-gate.json' ':(exclude).sddgov/reviews/**')"
+# The first assertion proves tracked equality with Base; the second rejects
+# unexpected non-ignored, untracked rollback residue outside audit-only paths.
 # Only after every command exits 0 is the rollback post-condition Green.
