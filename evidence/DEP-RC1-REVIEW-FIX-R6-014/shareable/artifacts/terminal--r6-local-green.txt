@@ -296,7 +296,7 @@ OK (skipped=2)
 [OK] managed governance contracts and lifecycle assets
 {
   "ok": true,
-  "project": "/home/zycas/Documents/Codex/[REDACTED_PHONE_OR_NUMBER]/https-github-com-zycaskevin-agentic-sdd/work/Agentic-SDD-Governance",
+  "project": "[REDACTED_LOCAL_PATH]",
   "commands": [
     {
       "command": [
