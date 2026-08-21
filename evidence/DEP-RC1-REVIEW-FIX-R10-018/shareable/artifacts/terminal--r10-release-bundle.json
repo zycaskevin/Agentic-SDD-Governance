@@ -1,0 +1,9 @@
+{
+  "ok": true,
+  "version": "0.2.0rc1",
+  "platform_label": "linux-aarch64-py312",
+  "project_wheel": "agentic_sdd_governance-0.2.0rc1-py3-none-any.whl",
+  "dependency_wheel_count": 11,
+  "offline_archive": "agentic-sdd-governance-0.2.0rc1-offline-linux-aarch64-py312.zip",
+  "public_asset_count": 4
+}
