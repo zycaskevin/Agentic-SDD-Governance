@@ -5,6 +5,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from .autonomy import evaluate_escalation
 from .evidence import collect, make_dep, redact, transition, verify
 from .installer import doctor, setup_agent
 
@@ -149,6 +150,67 @@ def run_synthetic_muse_pilot(output: Path | None = None) -> dict[str, Any]:
             )
             else "FAIL",
         }
+    if output is not None:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(
+            json.dumps(result, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+    return result
+
+
+def run_quick_demo(output: Path | None = None) -> dict[str, Any]:
+    """Demonstrate the core allow/block/evidence boundaries with synthetic data."""
+    routine = evaluate_escalation(
+        Path.cwd(),
+        {
+            "risk_level": "L1",
+            "category": "implementation",
+            "effects": {},
+        },
+    )
+    disguised_dangerous = evaluate_escalation(
+        Path.cwd(),
+        {
+            "risk_level": "L1",
+            "category": "implementation",
+            "effects": {"destructive": True, "production": True},
+        },
+    )
+    evidence_pilot = run_synthetic_muse_pilot()
+    result = {
+        "schema_version": "1.0",
+        "demo": "sdg-quick-offline",
+        "network_used": False,
+        "real_data_used": False,
+        "routine_l1_continues": routine.get("state") == "CONTINUE",
+        "dangerous_downgrade_blocked": (
+            disguised_dangerous.get("state") == "BLOCKED"
+            and disguised_dangerous.get("reason")
+            == "dangerous_action_cannot_be_downgraded"
+        ),
+        "agent_install_ok": evidence_pilot.get("agent_install_ok") is True,
+        "text_redaction_ok": evidence_pilot.get("text_redaction_ok") is True,
+        "binary_evidence_fail_closed": (
+            evidence_pilot.get("binary_image_fail_closed") is True
+        ),
+        "strict_dep_ok": evidence_pilot.get("strict_dep_ok") is True,
+        "verdict": "PASS",
+    }
+    if not all(
+        value is True
+        for key, value in result.items()
+        if key
+        in {
+            "routine_l1_continues",
+            "dangerous_downgrade_blocked",
+            "agent_install_ok",
+            "text_redaction_ok",
+            "binary_evidence_fail_closed",
+            "strict_dep_ok",
+        }
+    ):
+        result["verdict"] = "FAIL"
     if output is not None:
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(

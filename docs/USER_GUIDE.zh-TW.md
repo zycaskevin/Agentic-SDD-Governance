@@ -23,7 +23,20 @@ gh --version
 
 ## 2. 取得安裝套件
 
-### 方法 A：從 GitHub Release 下載 wheel（建議）
+### 方法 A：從 PyPI 精確安裝 RC（快速試用）
+
+RC 發布後可用：
+
+```bash
+python3 -m venv .venv-sddgov
+.venv-sddgov/bin/python -m pip install --pre 'agentic-sdd-governance==0.2.0rc1'
+.venv-sddgov/bin/sddgov --version
+.venv-sddgov/bin/sddgov pilot quick
+```
+
+只適合 synthetic／staging 試用。受治理專案應固定精確版本，並保留審查與 provenance 紀錄。
+
+### 方法 B：從 GitHub Release 下載 wheel（可控／離線）
 
 Private Repo 必須先登入：
 
@@ -36,7 +49,7 @@ gh auth status -h github.com
 
 ```bash
 mkdir -p sdg-release
-gh release download v0.2.0-experimental.8 \
+gh release download v0.2.0rc1 \
   --repo zycaskevin/Agentic-SDD-Governance \
   --pattern '*.whl' \
   --pattern 'SHA256SUMS.txt' \
@@ -59,7 +72,7 @@ python3 -m venv .venv-sddgov
 .venv-sddgov/bin/sddgov --version
 ```
 
-### 方法 B：從原始碼安裝
+### 方法 C：從原始碼安裝
 
 ```bash
 git clone https://github.com/zycaskevin/Agentic-SDD-Governance.git
@@ -71,14 +84,14 @@ python3 -m venv .venv
 
 Private Repo 的 Clone 同樣需要 GitHub 權限。
 
-### 方法 C：離線 GB10／Hermes
+### 方法 D：離線 GB10／Hermes
 
 在可連網機器下載 ZIP、wheel、bundle 與 `SHA256SUMS.txt`，驗證 Checksum 後用受信任通道複製到 GB10。
 
 使用 wheel 不需要 Git History。需要完整 Git History 時可從 bundle Clone：
 
 ```bash
-git clone agentic-sdd-governance-v0.2.0-experimental.8.bundle \
+git clone agentic-sdd-governance-v0.2.0rc1.bundle \
   Agentic-SDD-Governance
 ```
 

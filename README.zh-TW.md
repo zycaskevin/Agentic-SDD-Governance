@@ -8,7 +8,33 @@ Agentic SDD Governance（SDG）是一套給自主軟體開發 Agent 使用的「
 
 SDG v1.2 Hard Gates 已把三個剩餘信任缺口改為可執行 Gate：未知／危險 Action 不能自稱 L1、L3 只接受可信 Owner 簽章且一次性消耗的 Receipt、Merge 前必須執行 Local Green、DEP、Redaction、Rollback 與 Protected-file Review 驗證。詳見 [`docs/HARD_GATES_V1_2.md`](docs/HARD_GATES_V1_2.md)。
 
-## 一分鐘理解
+## 30 秒看懂
+
+在 Source checkout 直接執行：
+
+```bash
+./demo/run.sh
+```
+
+已安裝 CLI 則執行：
+
+```bash
+sddgov pilot quick
+```
+
+這個完全離線的 synthetic demo 會展示：
+
+```text
+例行 L1 工程                         → CONTINUE
+偽裝成 L1 的 Production 破壞操作     → BLOCKED
+Evidence 內的 synthetic credential   → REDACTED
+未審查的二進位 Evidence              → BLOCKED
+Agent 安裝與 strict DEP              → VERIFIED
+```
+
+Demo 不使用網路、Credential、真實使用者、Production 或特權服務。
+
+## Runtime 模型
 
 日常任務只載入最小必要內容：
 
@@ -37,17 +63,29 @@ Red → Evidence → Fix → Green → Proof
 
 它不會替你完成 GitHub Billing、正式部署、MFA、付款、Production 資料操作或其他 Owner 才能授權的外部行為。
 
-## 最快開始
+## 安裝 CLI
 
-### 1. 取得 CLI
+### 快速試用路徑
 
-目前尚未發布到 PyPI。建議透過 GitHub Release 下載 wheel；Private Repo 必須先登入有權限的 GitHub 帳號：
+RC 發布到 PyPI 後，以獨立環境安裝精確 pre-release 版本：
+
+```bash
+python3 -m venv .venv-sddgov
+.venv-sddgov/bin/python -m pip install --pre 'agentic-sdd-governance==0.2.0rc1'
+.venv-sddgov/bin/sddgov --version
+.venv-sddgov/bin/sddgov pilot quick
+```
+
+這條路徑適合 synthetic 評估。正式受治理的 Repository 應鎖定已審查的精確版本，不要自動漂移到下一個 RC。
+
+### 可控驗證路徑
+
+受治理或離線環境，從同版本 GitHub Release 下載 wheel 與 checksum，讓機器核對：
 
 ```bash
 set -eu
-gh auth login -h github.com
 mkdir -p sdg-release
-gh release download v0.2.0-experimental.8 \
+gh release download v0.2.0rc1 \
   --repo zycaskevin/Agentic-SDD-Governance \
   --pattern '*.whl' \
   --pattern 'SHA256SUMS.txt' \
@@ -65,17 +103,21 @@ python3 -c 'import sys; raise SystemExit(sys.version_info < (3, 10))'
 python3 -m venv .venv-sddgov
 .venv-sddgov/bin/python -m pip install "$verified_wheel"
 .venv-sddgov/bin/sddgov --version
+.venv-sddgov/bin/sddgov pilot quick
 ```
 
-若已 Clone 原始碼，也可以使用 editable install：
+Private Release 下載才需要先執行 `gh auth login`。不要把 Token 或 checksum 貼到聊天中請人判斷。
+
+### Contributor 原始碼路徑
 
 ```bash
 python3 -m venv .venv
 .venv/bin/python -m pip install -e .
 .venv/bin/sddgov validate .
+./demo/run.sh
 ```
 
-### 2. 安裝到 Codex 專案
+### 安裝到 Codex 專案
 
 ```bash
 .venv-sddgov/bin/sddgov setup-agent /absolute/path/to/project \
@@ -91,7 +133,7 @@ python3 -m venv .venv
 請使用 Agentic SDD Governance 處理這個 Bug，依照 Red → Evidence → Fix → Green → Proof 完成。
 ```
 
-### 3. 安裝到 Hermes 專案
+### 安裝到 Hermes 專案
 
 ```bash
 .venv-sddgov/bin/sddgov setup-agent /absolute/path/to/project \
@@ -221,6 +263,9 @@ sddgov uninstall-agent /absolute/path/to/project
 - [CI Cost Guard](docs/CI_COST_GUARD.md)
 - [SDG Autonomous Development v1.2](docs/AUTONOMOUS_DEVELOPMENT_V1_2.md)
 - [Local Redaction Gateway](redaction/LOCAL_REDACTION_GATEWAY.md)
+- [Owner Key Ceremony 與金鑰復原](docs/OWNER_KEY_CEREMONY.md)
+- [L3 Broker／WSL2／macOS 操作](docs/L3_BROKER_OPERATIONS.md)
+- [Rollback v3、Squash 與 Break-glass](docs/ROLLBACK_OPERATIONS.md)
 - [公開發布檢查清單](docs/PUBLIC_RELEASE_CHECKLIST.zh-TW.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Security Policy](SECURITY.md)
@@ -235,20 +280,23 @@ sddgov uninstall-agent /absolute/path/to/project
 - `collectors/`：不同 Stack 的 Evidence Playbook。
 - `redaction/`：本機分享邊界。
 - `src/sddgov/`：可執行 CLI。
+- `demo/`：離線 30 秒首次體驗。
+- `services/`：systemd 與 launchd Broker 範本。
 - `templates/`、`.github/`：Issue、PR、Commit、Changelog 與 Work Package 範本。
 - `benchmarks/`：成對 Debugging 評估 Harness。
 
 ## 發布與授權狀態
 
-- GitHub Release `v0.2.0-experimental.8` 是目前建議安裝版本；下載後必須由機器核對 `SHA256SUMS.txt`，不需要人工複製或貼回 Hash。
+- `v0.2.0-experimental.8` 是最近完成的 experimental release。
+- `0.2.0rc1` 是已準備的 PyPI pre-release 目標；正式發布仍是明確的外部 Release Action。
 - 專案使用 Apache License 2.0，詳見 [LICENSE](LICENSE)。
 - 公開前仍需由 Owner 接受 Git 歷史、作者資訊、Release Notes 與 experimental 風險；詳見 [公開發布檢查清單](docs/PUBLIC_RELEASE_CHECKLIST.zh-TW.md)。
 - 本專案沒有複製 BugEzy 原始碼、資產、Template 或 Schema；來源聲明見 [Baseline Provenance](docs/BASELINE_PROVENANCE.md) 與 [Third-Party Notices](THIRD_PARTY_NOTICES.md)。
 
 ## 已知限制
 
-- Local Redaction Gateway 是保守 MVP，不是法律上的匿名化認證。
+- Local Redaction Gateway 具有 10 MiB 單檔上限與跨 chunk 串流，但仍不是法律上的匿名化認證。
 - Screenshot、HAR、Trace ZIP、Video、Database dump 等二進位證據在人工審查前會 fail closed。
 - Benchmark fixture 只驗證 Harness，不能宣稱 Evidence-Driven Debugging 已實證勝出。
 - Codex Skill discovery 與 Hermes 檔案安裝已有驗證；新 Agent 行為與 GB10 Hermes Runtime 仍需 Pilot。
-- 專案目前不是正式穩定版，也尚未發布到 PyPI。
+- 專案目前不是正式穩定版；使用真實敏感資料前仍須完成 Owner key ceremony、Broker readiness 與實際 Runtime pilot。

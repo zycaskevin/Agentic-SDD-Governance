@@ -1,0 +1,166 @@
+#!/usr/bin/env python3
+"""Measure the existing exact-tree rollback proof on synthetic monorepos."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import platform
+import statistics
+import subprocess
+import tempfile
+import time
+from pathlib import Path
+from typing import Any
+
+from sddgov.merge_gate import _rollback_ref_is_cleanly_revertible
+
+
+DEFAULT_THRESHOLD_SECONDS = 5.0
+
+
+def _git(root: Path, *arguments: str) -> str:
+    completed = subprocess.run(
+        ["git", "-c", "core.hooksPath=/dev/null", *arguments],
+        cwd=root,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+    if completed.returncode != 0:
+        raise RuntimeError(
+            f"git {' '.join(arguments)} failed ({completed.returncode}): {completed.stderr}"
+        )
+    return completed.stdout.strip()
+
+
+def _percentile_95(samples: list[float]) -> float:
+    ordered = sorted(samples)
+    index = max(0, int((len(ordered) * 0.95) + 0.999999) - 1)
+    return ordered[min(index, len(ordered) - 1)]
+
+
+def _case(file_count: int, repeats: int) -> dict[str, Any]:
+    with tempfile.TemporaryDirectory(prefix="sddgov-monorepo-bench-") as temporary:
+        root = Path(temporary)
+        started = time.perf_counter()
+        _git(root, "init", "--quiet")
+        _git(root, "config", "user.email", "benchmark@example.invalid")
+        _git(root, "config", "user.name", "Synthetic Benchmark")
+        for index in range(file_count):
+            package = root / "packages" / f"p{index // 1000:04d}"
+            package.mkdir(parents=True, exist_ok=True)
+            (package / f"file-{index:07d}.txt").write_text(
+                f"synthetic baseline {index}\n", encoding="utf-8"
+            )
+        _git(root, "add", "packages")
+        _git(root, "commit", "--quiet", "-m", "synthetic baseline")
+        base_sha = _git(root, "rev-parse", "HEAD")
+
+        changed = root / "packages/p0000/file-0000000.txt"
+        changed.write_text("synthetic implementation\n", encoding="utf-8")
+        _git(root, "add", changed.relative_to(root).as_posix())
+        _git(root, "commit", "--quiet", "-m", "atomic implementation")
+        rollback_ref = _git(root, "rev-parse", "HEAD")
+
+        evidence = root / "evidence/DEP-MONOREPO/rollback.md"
+        evidence.parent.mkdir(parents=True)
+        evidence.write_text("synthetic audit-only descendant\n", encoding="utf-8")
+        _git(root, "add", evidence.relative_to(root).as_posix())
+        _git(root, "commit", "--quiet", "-m", "bind synthetic evidence")
+        reviewed_head_sha = _git(root, "rev-parse", "HEAD")
+        setup_seconds = time.perf_counter() - started
+
+        samples: list[float] = []
+        results: list[bool] = []
+        for _ in range(repeats):
+            sample_started = time.perf_counter()
+            results.append(
+                _rollback_ref_is_cleanly_revertible(
+                    root,
+                    rollback_ref,
+                    base_sha=base_sha,
+                    reviewed_head_sha=reviewed_head_sha,
+                )
+            )
+            samples.append(time.perf_counter() - sample_started)
+        return {
+            "file_count": file_count,
+            "changed_file_count": 1,
+            "repeats": repeats,
+            "all_proofs_passed": all(results),
+            "setup_seconds": round(setup_seconds, 6),
+            "samples_seconds": [round(value, 6) for value in samples],
+            "median_seconds": round(statistics.median(samples), 6),
+            "p95_seconds": round(_percentile_95(samples), 6),
+        }
+
+
+def run_benchmark(
+    file_counts: list[int],
+    repeats: int,
+    threshold_seconds: float = DEFAULT_THRESHOLD_SECONDS,
+) -> dict[str, Any]:
+    if not file_counts or any(value < 1 for value in file_counts):
+        raise ValueError("file counts must be positive")
+    if repeats < 1:
+        raise ValueError("repeats must be positive")
+    cases = [_case(value, repeats) for value in file_counts]
+    optimize_required = any(
+        not case["all_proofs_passed"]
+        or case["p95_seconds"] > threshold_seconds
+        for case in cases
+    )
+    git_version = subprocess.run(
+        ["git", "--version"], check=True, capture_output=True, text=True
+    ).stdout.strip()
+    return {
+        "schema_version": "1.0",
+        "benchmark": "exact-tree-rollback-monorepo",
+        "environment": {
+            "platform": platform.platform(),
+            "python": platform.python_version(),
+            "git": git_version,
+        },
+        "threshold_seconds_p95": threshold_seconds,
+        "cases": cases,
+        "decision": {
+            "optimize_required": optimize_required,
+            "action": (
+                "investigate without weakening exact Base-tree equality"
+                if optimize_required
+                else "retain full-tree proof; no affected-path optimization"
+            ),
+        },
+        "claim_allowed": False,
+        "note": (
+            "This synthetic local benchmark measures verifier latency only. "
+            "It is not a superiority, production capacity, or universal monorepo claim."
+        ),
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--file-counts",
+        default="1000,10000,50000",
+        help="Comma-separated positive synthetic repository file counts",
+    )
+    parser.add_argument("--repeats", type=int, default=3)
+    parser.add_argument("--threshold-seconds", type=float, default=DEFAULT_THRESHOLD_SECONDS)
+    parser.add_argument("--output", type=Path)
+    args = parser.parse_args()
+    counts = [int(value) for value in args.file_counts.split(",") if value.strip()]
+    result = run_benchmark(counts, args.repeats, args.threshold_seconds)
+    rendered = json.dumps(result, ensure_ascii=False, indent=2) + "\n"
+    if args.output is not None:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(rendered, encoding="utf-8")
+    print(rendered, end="")
+    return 1 if result["decision"]["optimize_required"] else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

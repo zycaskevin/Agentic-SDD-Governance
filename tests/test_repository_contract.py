@@ -18,6 +18,45 @@ class RepositoryContractTests(unittest.TestCase):
     def test_repository_assets_validate(self):
         self.assertEqual(_validate_repo(ROOT), [])
 
+    def test_english_readme_exposes_first_run_and_governance_tables(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        for required in (
+            "## Understand it in 30 seconds",
+            "./demo/run.sh",
+            "### Fast trial path",
+            "### Controlled verified path",
+            "### Contributor source path",
+            "## What setup manages",
+            "## Profiles",
+            "## L0-L3 authority levels",
+            "## Upgrade and uninstall",
+            "## Known limitations",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, readme)
+        self.assertIn("| `solo-fast` |", readme)
+        self.assertIn("| L3 |", readme)
+        self.assertIn("agentic-sdd-governance==0.2.0rc1", readme)
+
+        demo = ROOT / "demo/run.sh"
+        self.assertTrue(demo.is_file())
+        self.assertNotEqual(demo.stat().st_mode & 0o111, 0)
+        demo_text = demo.read_text(encoding="utf-8")
+        self.assertIn("pilot quick", demo_text)
+        pilot_text = (ROOT / "src/sddgov/pilot.py").read_text(encoding="utf-8")
+        self.assertIn('"real_data_used": False', pilot_text)
+
+    def test_fresh_wheel_smoke_does_not_import_the_source_checkout(self):
+        smoke = ROOT / "scripts/fresh_wheel_smoke.py"
+        self.assertTrue(smoke.is_file())
+        text = smoke.read_text(encoding="utf-8")
+        self.assertNotIn("PYTHONPATH=", text)
+        self.assertNotIn('"-e"', text)
+        self.assertIn('environment.pop("PYTHONPATH", None)', text)
+        self.assertIn('for agent in ("codex", "hermes")', text)
+        self.assertIn('"pilot", "quick"', text)
+        self.assertIn('"source_checkout_imported": False', text)
+
     def test_skill_is_thin_and_routes_one_level_references(self):
         skill = ROOT / "skill/agentic-sdd-governance/SKILL.md"
         lines = skill.read_text(encoding="utf-8").splitlines()
@@ -65,6 +104,9 @@ class RepositoryContractTests(unittest.TestCase):
             "docs/AUTONOMOUS_DEVELOPMENT_V1_2.md",
             "docs/CI_COST_GUARD.md",
             "docs/HARD_GATES_V1_2.md",
+            "docs/L3_BROKER_OPERATIONS.md",
+            "docs/OWNER_KEY_CEREMONY.md",
+            "docs/ROLLBACK_OPERATIONS.md",
             "policies/autonomy-policy.json",
             "policies/protected-files.yaml",
             "schemas/autonomy-policy.schema.json",
@@ -79,6 +121,8 @@ class RepositoryContractTests(unittest.TestCase):
             "schemas/protected-review-receipt.schema.json",
             "schemas/trusted-approvers.schema.json",
             "schemas/trusted-reviewers.schema.json",
+            "services/sddgov-broker.service",
+            "services/com.sddgov.broker.plist",
             "templates/MERGE_GATE.json",
             "templates/EXTERNAL_ACTION_RESOLUTION_RECEIPT.json",
             "templates/CI_COST_GUARD.json",
@@ -104,7 +148,7 @@ class RepositoryContractTests(unittest.TestCase):
     def test_current_repo_installed_governance_is_healthy_and_current(self):
         report = doctor(ROOT)
         self.assertTrue(report["ok"], report)
-        self.assertEqual(report["managed_file_count"], 66)
+        self.assertEqual(report["managed_file_count"], 71)
 
         triples = (
             (
@@ -114,6 +158,18 @@ class RepositoryContractTests(unittest.TestCase):
             (
                 "docs/HARD_GATES_V1_2.md",
                 ".agentic-sdd-governance/docs/HARD_GATES_V1_2.md",
+            ),
+            (
+                "docs/L3_BROKER_OPERATIONS.md",
+                ".agentic-sdd-governance/docs/L3_BROKER_OPERATIONS.md",
+            ),
+            (
+                "docs/OWNER_KEY_CEREMONY.md",
+                ".agentic-sdd-governance/docs/OWNER_KEY_CEREMONY.md",
+            ),
+            (
+                "docs/ROLLBACK_OPERATIONS.md",
+                ".agentic-sdd-governance/docs/ROLLBACK_OPERATIONS.md",
             ),
             (
                 "policies/autonomy-policy.json",
@@ -220,6 +276,10 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertEqual(actions["password"], "replace")
         self.assertEqual(actions["patient-identifier"], "mask")
         self.assertEqual(actions["customer-identifier"], "mask")
+        redactor = (ROOT / "src/sddgov/redaction.py").read_text(encoding="utf-8")
+        self.assertIn("MAX_REDACTION_FILE_BYTES = 10 * 1024 * 1024", redactor)
+        self.assertIn("STREAM_CHUNK_BYTES = 64 * 1024", redactor)
+        self.assertIn("unterminated private key block", redactor)
 
     def test_security_critical_sources_and_dependency_inputs_are_protected(self):
         policy = yaml.safe_load(
@@ -239,9 +299,65 @@ class RepositoryContractTests(unittest.TestCase):
             "adapters/",
             "pyproject.toml",
             "requirements-governance.lock",
+            "requirements-release.in",
+            "requirements-release.lock",
+            "scripts/fresh_wheel_smoke.py",
+            "scripts/benchmark_monorepo_rollback.py",
+            "services/",
         ):
             with self.subTest(required=required):
                 self.assertIn(required, protected)
+
+    def test_owner_key_and_broker_runbooks_cover_operational_failure_modes(self):
+        key_runbook = (ROOT / "docs/OWNER_KEY_CEREMONY.md").read_text(encoding="utf-8")
+        for required in (
+            "different Ed25519 key",
+            "Rotation",
+            "Revocation and suspected compromise",
+            "Loss recovery",
+            "private key",
+            "synthetic receipt",
+        ):
+            self.assertIn(required, key_runbook)
+        broker_runbook = (ROOT / "docs/L3_BROKER_OPERATIONS.md").read_text(encoding="utf-8")
+        for required in (
+            "sddgov broker doctor",
+            "systemd",
+            "WSL2",
+            "launchd",
+            "ALREADY_CONSUMED",
+            "no production `--mock-broker`",
+        ):
+            self.assertIn(required, broker_runbook)
+        self.assertTrue((ROOT / "services/sddgov-broker.service").is_file())
+        self.assertTrue((ROOT / "services/com.sddgov.broker.plist").is_file())
+
+    def test_rollback_runbook_preserves_fail_closed_verifier_and_squash_mapping(self):
+        runbook = (ROOT / "docs/ROLLBACK_OPERATIONS.md").read_text(encoding="utf-8")
+        for required in (
+            "single-parent",
+            "one atomic implementation commit",
+            "platform-generated squash SHA",
+            "not the feature-branch SHA",
+            "Break-glass incident recovery",
+            "no `--skip-rollback`",
+            "Never force push",
+            "Within 24 hours",
+        ):
+            self.assertIn(required, runbook)
+        self.assertNotIn("sddgov merge verify --skip", runbook)
+
+    def test_monorepo_benchmark_cannot_authorize_weaker_tree_proof(self):
+        benchmark = (ROOT / "scripts/benchmark_monorepo_rollback.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('"claim_allowed": False', benchmark)
+        self.assertIn("retain full-tree proof; no affected-path optimization", benchmark)
+        readme = (ROOT / "benchmarks/monorepo-rollback/README.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("p95 greater than 5 seconds", readme)
+        self.assertIn("does not authorize", readme)
 
     def test_every_tracked_proof_dep_is_portable_strict(self):
         failures = {}
@@ -303,13 +419,68 @@ class RepositoryContractTests(unittest.TestCase):
         }
         self.assertEqual(validate_instance(terminal, schema), [])
 
-    def test_experimental_8_uses_patched_cryptography_line(self):
+    def test_rc1_uses_patched_cryptography_line(self):
         pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
         lock = (ROOT / "requirements-governance.lock").read_text(encoding="utf-8")
-        self.assertIn('version = "0.2.0.dev8"', pyproject)
+        self.assertIn('version = "0.2.0rc1"', pyproject)
         self.assertIn('cryptography>=50,<51', pyproject)
         self.assertIn("cryptography==50.0.0", lock)
         self.assertNotIn("cryptography==46.0.7", lock)
+
+    def test_release_workflow_is_manual_isolated_and_attested(self):
+        source = (ROOT / ".github/workflows/publish.yml").read_text(encoding="utf-8")
+        workflow = yaml.load(source, Loader=yaml.BaseLoader)
+        self.assertEqual(set(workflow["on"]), {"workflow_dispatch"})
+        self.assertEqual(workflow["permissions"], {"contents": "read"})
+        self.assertEqual(
+            set(workflow["jobs"]),
+            {
+                "build-and-smoke",
+                "publish-testpypi",
+                "verify-testpypi",
+                "publish-pypi",
+            },
+        )
+        for name, job in workflow["jobs"].items():
+            permissions = job.get("permissions", {})
+            if name.startswith("publish-"):
+                self.assertEqual(permissions, {"id-token": "write"})
+                publish_steps = [step for step in job["steps"] if "pypi-publish@" in step.get("uses", "")]
+                self.assertEqual(len(publish_steps), 1)
+                self.assertEqual(publish_steps[0]["with"]["attestations"], "true")
+            else:
+                self.assertNotIn("id-token", permissions)
+        self.assertEqual(workflow["jobs"]["publish-testpypi"]["needs"], "build-and-smoke")
+        self.assertEqual(workflow["jobs"]["verify-testpypi"]["needs"], "publish-testpypi")
+        self.assertEqual(workflow["jobs"]["publish-pypi"]["needs"], "verify-testpypi")
+        self.assertIn("inputs.publish_pypi", workflow["jobs"]["publish-pypi"]["if"])
+        self.assertEqual(workflow["jobs"]["publish-pypi"]["environment"]["name"], "pypi")
+        self.assertIn("test.pypi.org", source)
+        self.assertIn('test "$GITHUB_REF_TYPE" = "tag"', source)
+        self.assertIn('test "$GITHUB_REF_NAME" = "v$RELEASE_VERSION"', source)
+        self.assertIn("fresh_wheel_smoke.py", source)
+        self.assertIn("--require-hashes -r requirements-release.lock", source)
+        self.assertIn("--require-hashes -r requirements-governance.lock", source)
+        self.assertNotIn("skip-existing", source)
+        uses = re.findall(r"uses:\s*([^\s#]+)", source)
+        self.assertTrue(uses)
+        self.assertTrue(
+            all(re.fullmatch(r"[^@\s]+@[0-9a-f]{40}", value) for value in uses),
+            uses,
+        )
+        guard = json.loads((ROOT / ".sddgov/ci-cost-guard.json").read_text(encoding="utf-8"))
+        self.assertEqual(guard["workflow_controls"]["exempt_workflows"], ["publish.yml"])
+
+        systemd = (ROOT / "services/sddgov-broker.service").read_text(encoding="utf-8")
+        for required in (
+            "NoNewPrivileges=true",
+            "CapabilityBoundingSet=",
+            "PrivateDevices=true",
+            "ProtectSystem=strict",
+            "ProtectKernelTunables=true",
+            "RestrictAddressFamilies=AF_UNIX",
+        ):
+            self.assertIn(required, systemd)
 
     def test_collector_playbooks_preserve_safe_reproduction_context(self):
         browser = (ROOT / "collectors/browser-playwright.md").read_text(encoding="utf-8")

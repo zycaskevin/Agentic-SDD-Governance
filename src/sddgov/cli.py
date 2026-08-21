@@ -28,7 +28,8 @@ from .merge_gate import (
     compute_gate_metadata_digest,
     verify_merge,
 )
-from .pilot import run_synthetic_muse_pilot
+from .pilot import run_quick_demo, run_synthetic_muse_pilot
+from .broker import broker_readiness, serve_broker
 from .reviewer import bootstrap_reviewer, export_trust, sign_protected_review
 from .schema_validation import check_schema, load_schema, validate_instance
 
@@ -145,6 +146,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser = SDGArgumentParser(prog="sddgov")
     parser.add_argument("--version", action="version", version=__version__)
     sub = parser.add_subparsers(dest="command", required=True)
+    broker = sub.add_parser("broker", help="Inspect or run the independent L3 nonce Broker")
+    broker_commands = broker.add_subparsers(dest="broker_command", required=True)
+    broker_doctor = broker_commands.add_parser(
+        "doctor", help="Read-only readiness checks for L3 trust and Broker controls"
+    )
+    broker_doctor.add_argument("--path", type=Path, default=Path.cwd())
+    broker_serve = broker_commands.add_parser(
+        "serve", help="Run the root-owned Broker on the fixed platform socket"
+    )
+    broker_serve.add_argument("--socket-group", default="sddgov")
     _evidence_parser(sub)
     _ci_parser(sub)
     _autonomy_parsers(sub)
@@ -267,6 +278,10 @@ def build_parser() -> argparse.ArgumentParser:
         "synthetic-muse", help="Run the offline synthetic Muse/Hermes pilot"
     )
     synthetic_muse.add_argument("--output", type=Path)
+    quick_demo = pilot_sub.add_parser(
+        "quick", help="Run the 30-second offline allow/block/evidence demo"
+    )
+    quick_demo.add_argument("--output", type=Path)
     validate = sub.add_parser("validate", help="Validate repository governance assets")
     validate.add_argument("path", nargs="?", type=Path, default=Path.cwd())
     return parser
@@ -331,6 +346,13 @@ def _validate_repo(root: Path) -> list[str]:
 
 
 def run(args: argparse.Namespace) -> int:
+    if args.command == "broker":
+        if args.broker_command == "doctor":
+            result = broker_readiness(args.path)
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return 0 if result["ok"] else 1
+        serve_broker(args.socket_group)
+        return 0
     if args.command == "init":
         created = init_project(args.path, args.profile)
         print(json.dumps({"ok": True, "created": [str(p) for p in created]}, ensure_ascii=False, indent=2))
@@ -374,7 +396,11 @@ def run(args: argparse.Namespace) -> int:
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
     if args.command == "pilot":
-        result = run_synthetic_muse_pilot(args.output)
+        result = (
+            run_synthetic_muse_pilot(args.output)
+            if args.pilot_command == "synthetic-muse"
+            else run_quick_demo(args.output)
+        )
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0 if result["verdict"] == "PASS" else 1
     if args.command == "autonomy":
