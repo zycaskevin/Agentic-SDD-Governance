@@ -1,0 +1,222 @@
+Script started on [REDACTED_PHONE_OR_NUMBER]:30:57+08:00 [COMMAND=".venv/bin/python -m unittest tests.test_release_environment tests.test_evidence_flow tests.test_broker tests.test_monorepo_benchmark tests.test_repository_contract -v" <not executed on terminal>]
+test_api_read_does_not_retry_a_non_rate_limit_403 (tests.test_release_environment.ReleaseEnvironmentTests.test_api_read_does_not_retry_a_non_rate_limit_403) ... FAIL
+test_api_read_does_not_retry_non_transient_http_error (tests.test_release_environment.ReleaseEnvironmentTests.test_api_read_does_not_retry_non_transient_http_error) ... ok
+test_api_read_retries_only_transient_failures_with_bounded_backoff (tests.test_release_environment.ReleaseEnvironmentTests.test_api_read_retries_only_transient_failures_with_bounded_backoff) ... ok
+test_exact_protected_tag_passes (tests.test_release_environment.ReleaseEnvironmentTests.test_exact_protected_tag_passes) ... ok
+test_incomplete_policy_page_fails_closed (tests.test_release_environment.ReleaseEnvironmentTests.test_incomplete_policy_page_fails_closed) ... ok
+test_missing_review_or_broad_policy_fails_closed (tests.test_release_environment.ReleaseEnvironmentTests.test_missing_review_or_broad_policy_fails_closed) ... ok
+test_rate_limit_retry_honors_retry_after_and_closes_response (tests.test_release_environment.ReleaseEnvironmentTests.test_rate_limit_retry_honors_retry_after_and_closes_response) ... ok
+test_rate_limit_retry_uses_reset_or_bounded_secondary_delay (tests.test_release_environment.ReleaseEnvironmentTests.test_rate_limit_retry_uses_reset_or_bounded_secondary_delay) ... ok
+test_repository_slug_rejects_normalizable_or_invalid_paths (tests.test_release_environment.ReleaseEnvironmentTests.test_repository_slug_rejects_normalizable_or_invalid_paths) ... ok
+test_attach_rejects_atomic_control_document_replacement (tests.test_evidence_flow.EvidenceFlowTests.test_attach_rejects_atomic_control_document_replacement) ... ok
+test_attach_verification_and_read_share_one_dep_snapshot (tests.test_evidence_flow.EvidenceFlowTests.test_attach_verification_and_read_share_one_dep_snapshot) ... ok
+test_attachment_cleanup_preserves_later_writer_at_claim_boundary (tests.test_evidence_flow.EvidenceFlowTests.test_attachment_cleanup_preserves_later_writer_at_claim_boundary) ... ok
+test_attachment_publish_never_clobbers_a_later_writer (tests.test_evidence_flow.EvidenceFlowTests.test_attachment_publish_never_clobbers_a_later_writer) ... ok
+test_attachment_rechecks_verified_artifact_before_publication (tests.test_evidence_flow.EvidenceFlowTests.test_attachment_rechecks_verified_artifact_before_publication) ... ok
+test_attachment_staging_cleans_up_on_controlled_interruption (tests.test_evidence_flow.EvidenceFlowTests.test_attachment_staging_cleans_up_on_controlled_interruption) ... ok
+test_binary_evidence_blocks_verification (tests.test_evidence_flow.EvidenceFlowTests.test_binary_evidence_blocks_verification) ... ok
+test_browser_har_collector_cannot_hide_behind_text_label (tests.test_evidence_flow.EvidenceFlowTests.test_browser_har_collector_cannot_hide_behind_text_label) ... ok
+test_collect_after_redaction_fails_without_staling_the_report (tests.test_evidence_flow.EvidenceFlowTests.test_collect_after_redaction_fails_without_staling_the_report) ... ERROR
+test_collect_bounds_the_redaction_report_probe_before_source_read (tests.test_evidence_flow.EvidenceFlowTests.test_collect_bounds_the_redaction_report_probe_before_source_read) ... FAIL
+test_collect_failure_removes_unregistered_raw_artifact (tests.test_evidence_flow.EvidenceFlowTests.test_collect_failure_removes_unregistered_raw_artifact) ... ok
+test_collect_post_publish_failure_is_treated_as_committed (tests.test_evidence_flow.EvidenceFlowTests.test_collect_post_publish_failure_is_treated_as_committed) ... ok
+test_collect_preserves_later_manifest_writer_and_removes_owned_raw (tests.test_evidence_flow.EvidenceFlowTests.test_collect_preserves_later_manifest_writer_and_removes_owned_raw) ... ok
+test_collect_rename_boundary_preserves_later_manifest_writer (tests.test_evidence_flow.EvidenceFlowTests.test_collect_rename_boundary_preserves_later_manifest_writer) ... ok
+test_collector_input_parent_replacement_fails_closed (tests.test_evidence_flow.EvidenceFlowTests.test_collector_input_parent_replacement_fails_closed) ... ok
+test_collector_keeps_verified_dirfd_during_parent_replacement (tests.test_evidence_flow.EvidenceFlowTests.test_collector_keeps_verified_dirfd_during_parent_replacement) ... ok
+test_collector_rejects_hardlinked_source (tests.test_evidence_flow.EvidenceFlowTests.test_collector_rejects_hardlinked_source) ... ok
+test_collector_rejects_oversized_input_before_publication (tests.test_evidence_flow.EvidenceFlowTests.test_collector_rejects_oversized_input_before_publication) ... ok
+test_collector_rejects_platform_normalized_or_symlinked_destinations (tests.test_evidence_flow.EvidenceFlowTests.test_collector_rejects_platform_normalized_or_symlinked_destinations) ... ok
+test_collector_rejects_symlink_source_and_duplicate_label (tests.test_evidence_flow.EvidenceFlowTests.test_collector_rejects_symlink_source_and_duplicate_label) ... ok
+test_consistent_manifest_tampering_cannot_forge_redaction_provenance (tests.test_evidence_flow.EvidenceFlowTests.test_consistent_manifest_tampering_cannot_forge_redaction_provenance) ... ok
+test_control_files_and_attachment_outputs_reject_symlinks (tests.test_evidence_flow.EvidenceFlowTests.test_control_files_and_attachment_outputs_reject_symlinks) ... ok
+test_control_writes_fail_closed_when_dep_parent_is_replaced (tests.test_evidence_flow.EvidenceFlowTests.test_control_writes_fail_closed_when_dep_parent_is_replaced) ... ok
+test_custom_attachment_output_parent_replacement_fails_closed (tests.test_evidence_flow.EvidenceFlowTests.test_custom_attachment_output_parent_replacement_fails_closed) ... ok
+test_custom_attachment_preserves_later_writer_when_control_changes (tests.test_evidence_flow.EvidenceFlowTests.test_custom_attachment_preserves_later_writer_when_control_changes) ... ok
+test_custom_attachment_publishes_to_an_absent_output (tests.test_evidence_flow.EvidenceFlowTests.test_custom_attachment_publishes_to_an_absent_output) ... ok
+test_default_attachment_preserves_later_writer_when_control_changes (tests.test_evidence_flow.EvidenceFlowTests.test_default_attachment_preserves_later_writer_when_control_changes) ... ok
+test_dep_id_cannot_escape_evidence_root (tests.test_evidence_flow.EvidenceFlowTests.test_dep_id_cannot_escape_evidence_root) ... ok
+test_dep_root_rejects_an_intermediate_symlink_component (tests.test_evidence_flow.EvidenceFlowTests.test_dep_root_rejects_an_intermediate_symlink_component) ... ok
+test_every_raw_artifact_must_be_in_files_or_blocked (tests.test_evidence_flow.EvidenceFlowTests.test_every_raw_artifact_must_be_in_files_or_blocked) ... ok
+test_full_red_to_proof_flow (tests.test_evidence_flow.EvidenceFlowTests.test_full_red_to_proof_flow) ... ok
+test_har_with_body_is_blocked_by_default (tests.test_evidence_flow.EvidenceFlowTests.test_har_with_body_is_blocked_by_default) ... ok
+test_link_boundary_control_update_blocks_attachment_publication (tests.test_evidence_flow.EvidenceFlowTests.test_link_boundary_control_update_blocks_attachment_publication) ... ok
+test_lowercase_rfc3339_separators_are_accepted (tests.test_evidence_flow.EvidenceFlowTests.test_lowercase_rfc3339_separators_are_accepted) ... ok
+test_make_dep_fails_closed_when_evidence_root_is_replaced (tests.test_evidence_flow.EvidenceFlowTests.test_make_dep_fails_closed_when_evidence_root_is_replaced) ... ok
+test_raw_zone_is_owner_only (tests.test_evidence_flow.EvidenceFlowTests.test_raw_zone_is_owner_only) ... ok
+test_redact_artifact_post_publish_failure_cleans_owned_output (tests.test_evidence_flow.EvidenceFlowTests.test_redact_artifact_post_publish_failure_cleans_owned_output) ... ok
+test_redact_cleanup_preserves_output_later_writer_at_claim_boundary (tests.test_evidence_flow.EvidenceFlowTests.test_redact_cleanup_preserves_output_later_writer_at_claim_boundary) ... ok
+test_redact_failure_removes_unregistered_shareable_artifacts (tests.test_evidence_flow.EvidenceFlowTests.test_redact_failure_removes_unregistered_shareable_artifacts) ... ok
+test_redact_preserves_later_manifest_writer (tests.test_evidence_flow.EvidenceFlowTests.test_redact_preserves_later_manifest_writer) ... ok
+test_redact_report_post_publish_failure_completes_consistent_commit (tests.test_evidence_flow.EvidenceFlowTests.test_redact_report_post_publish_failure_completes_consistent_commit) ... ok
+test_redaction_keeps_verified_output_dirfd_during_parent_replacement (tests.test_evidence_flow.EvidenceFlowTests.test_redaction_keeps_verified_output_dirfd_during_parent_replacement) ... ok
+test_redaction_rejects_fifo_without_blocking_or_mutation (tests.test_evidence_flow.EvidenceFlowTests.test_redaction_rejects_fifo_without_blocking_or_mutation) ... ok
+test_redaction_rejects_per_file_symlinks (tests.test_evidence_flow.EvidenceFlowTests.test_redaction_rejects_per_file_symlinks) ... ok
+test_regular_file_reader_requests_nonblocking_open (tests.test_evidence_flow.EvidenceFlowTests.test_regular_file_reader_requests_nonblocking_open) ... ok
+test_same_inode_same_size_control_rewrite_blocks_attachment (tests.test_evidence_flow.EvidenceFlowTests.test_same_inode_same_size_control_rewrite_blocks_attachment) ... ok
+test_shared_cleanup_tolerates_concurrent_pending_disappearance (tests.test_evidence_flow.EvidenceFlowTests.test_shared_cleanup_tolerates_concurrent_pending_disappearance) ... ok
+test_strict_verify_rejects_pending_attachment_residue (tests.test_evidence_flow.EvidenceFlowTests.test_strict_verify_rejects_pending_attachment_residue) ... ok
+test_summary_cannot_reference_raw_evidence (tests.test_evidence_flow.EvidenceFlowTests.test_summary_cannot_reference_raw_evidence) ... ok
+test_summary_datetime_formats_are_enforced (tests.test_evidence_flow.EvidenceFlowTests.test_summary_datetime_formats_are_enforced) ... ok
+test_summary_rejects_unknown_root_history_and_attachment_fields (tests.test_evidence_flow.EvidenceFlowTests.test_summary_rejects_unknown_root_history_and_attachment_fields) ... ok
+test_transition_fails_closed_on_incomplete_template (tests.test_evidence_flow.EvidenceFlowTests.test_transition_fails_closed_on_incomplete_template) ... ok
+test_transition_post_publish_failure_is_treated_as_committed (tests.test_evidence_flow.EvidenceFlowTests.test_transition_post_publish_failure_is_treated_as_committed) ... ok
+test_transition_preserves_later_summary_writer (tests.test_evidence_flow.EvidenceFlowTests.test_transition_preserves_later_summary_writer) ... ok
+test_unknown_extension_cannot_bypass_deterministic_redaction (tests.test_evidence_flow.EvidenceFlowTests.test_unknown_extension_cannot_bypass_deterministic_redaction) ... ok
+test_valid_json_evidence_is_labeled_application_json (tests.test_evidence_flow.EvidenceFlowTests.test_valid_json_evidence_is_labeled_application_json) ... FAIL
+test_verifier_fails_closed_when_artifact_parent_is_replaced (tests.test_evidence_flow.EvidenceFlowTests.test_verifier_fails_closed_when_artifact_parent_is_replaced) ... ok
+test_workflow_history_must_be_exact_nonduplicated_phase_prefix (tests.test_evidence_flow.EvidenceFlowTests.test_workflow_history_must_be_exact_nonduplicated_phase_prefix) ... ok
+test_connection_reply_uses_a_fresh_send_deadline (tests.test_broker.BrokerTests.test_connection_reply_uses_a_fresh_send_deadline) ... ok
+test_corrupt_or_duplicate_ledger_records_fail_closed (tests.test_broker.BrokerTests.test_corrupt_or_duplicate_ledger_records_fail_closed) ... ok
+test_health_is_read_only_and_nonce_is_consumed_once (tests.test_broker.BrokerTests.test_health_is_read_only_and_nonce_is_consumed_once) ... ok
+test_ledger_initialization_creates_and_validation_checks_the_store (tests.test_broker.BrokerTests.test_ledger_initialization_creates_and_validation_checks_the_store) ... ok
+test_ledger_scan_uses_a_bounded_record_read (tests.test_broker.BrokerTests.test_ledger_scan_uses_a_bounded_record_read) ... FAIL
+test_malformed_requests_fail_closed_without_ledger_write (tests.test_broker.BrokerTests.test_malformed_requests_fail_closed_without_ledger_write) ... ok
+test_nonce_ledger_fails_cleanly_without_posix_locking (tests.test_broker.BrokerTests.test_nonce_ledger_fails_cleanly_without_posix_locking) ... ok
+test_partial_connection_deadline_allows_next_valid_request (tests.test_broker.BrokerTests.test_partial_connection_deadline_allows_next_valid_request) ... ok
+test_readiness_aggregates_not_ready_check_details (tests.test_broker.BrokerTests.test_readiness_aggregates_not_ready_check_details) ... ok
+test_readiness_reports_all_required_controls (tests.test_broker.BrokerTests.test_readiness_reports_all_required_controls) ... ok
+test_real_approver_store_contract_and_repository_boundary (tests.test_broker.BrokerTests.test_real_approver_store_contract_and_repository_boundary) ... ok
+test_receive_request_enforces_one_monotonic_deadline (tests.test_broker.BrokerTests.test_receive_request_enforces_one_monotonic_deadline) ... ok
+test_receive_request_rejects_a_record_over_the_size_limit (tests.test_broker.BrokerTests.test_receive_request_rejects_a_record_over_the_size_limit) ... ok
+test_receive_request_returns_at_newline_without_waiting_for_eof (tests.test_broker.BrokerTests.test_receive_request_returns_at_newline_without_waiting_for_eof) ... ok
+test_rejected_connection_logs_only_the_safe_error (tests.test_broker.BrokerTests.test_rejected_connection_logs_only_the_safe_error) ... FAIL
+test_repeated_accept_failures_terminate_the_daemon (tests.test_broker.BrokerTests.test_repeated_accept_failures_terminate_the_daemon) ... L3 Broker transient accept failure: synthetic persistent accept failure
+L3 Broker transient accept failure: synthetic persistent accept failure
+L3 Broker transient accept failure: synthetic persistent accept failure
+L3 Broker transient accept failure: synthetic persistent accept failure
+L3 Broker transient accept failure: synthetic persistent accept failure
+L3 Broker transient accept failure: synthetic persistent accept failure
+FAIL
+test_request_size_limit_is_pinned (tests.test_broker.BrokerTests.test_request_size_limit_is_pinned) ... ok
+test_service_signals_remove_only_the_bound_socket_and_allow_restart (tests.test_broker.BrokerTests.test_service_signals_remove_only_the_bound_socket_and_allow_restart) ... ok
+test_socket_access_uses_real_path_chmod (tests.test_broker.BrokerTests.test_socket_access_uses_real_path_chmod) ... ok
+test_transient_accept_error_does_not_kill_the_daemon (tests.test_broker.BrokerTests.test_transient_accept_error_does_not_kill_the_daemon) ... ok
+test_monorepo_benchmark (unittest.loader._FailedTest.test_monorepo_benchmark) ... ERROR
+test_repository_contract (unittest.loader._FailedTest.test_repository_contract) ... ERROR
+
+======================================================================
+ERROR: test_collect_after_redaction_fails_without_staling_the_report (tests.test_evidence_flow.EvidenceFlowTests.test_collect_after_redaction_fails_without_staling_the_report)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 216, in test_collect_after_redaction_fails_without_staling_the_report
+    collect(self.dep, "terminal", later)
+  File "[REDACTED_LOCAL_PATH]", line 824, in collect
+    raise FileExistsError(
+FileExistsError: Evidence collection is closed after redaction; create a new DEP
+
+======================================================================
+ERROR: test_monorepo_benchmark (unittest.loader._FailedTest.test_monorepo_benchmark)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_monorepo_benchmark
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/unittest/loader.py", line 137, in loadTestsFromName
+    module = __import__(module_name)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "[REDACTED_LOCAL_PATH]", line 12, in <module>
+    from scripts.benchmark_monorepo_rollback import setup_timeout_seconds
+ImportError: cannot import name 'setup_timeout_seconds' from 'scripts.benchmark_monorepo_rollback' ([REDACTED_LOCAL_PATH])
+
+
+======================================================================
+ERROR: test_repository_contract (unittest.loader._FailedTest.test_repository_contract)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_repository_contract
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/unittest/loader.py", line 137, in loadTestsFromName
+    module = __import__(module_name)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "[REDACTED_LOCAL_PATH]", line 9, in <module>
+    from sddgov import _require_supported_python
+ImportError: cannot import name '_require_supported_python' from 'sddgov' ([REDACTED_LOCAL_PATH])
+
+
+======================================================================
+FAIL: test_api_read_does_not_retry_a_non_rate_limit_403 (tests.test_release_environment.ReleaseEnvironmentTests.test_api_read_does_not_retry_a_non_rate_limit_403)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 172, in test_api_read_does_not_retry_a_non_rate_limit_403
+    self.assertEqual(urlopen.call_count, 1)
+AssertionError: 3 != 1
+
+======================================================================
+FAIL: test_collect_bounds_the_redaction_report_probe_before_source_read (tests.test_evidence_flow.EvidenceFlowTests.test_collect_bounds_the_redaction_report_probe_before_source_read)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 243, in test_collect_bounds_the_redaction_report_probe_before_source_read
+    self.assertEqual(observed, [redaction_module.MAX_REDACTION_FILE_BYTES])
+AssertionError: Lists differ: [None] != [10485760]
+
+First differing element 0:
+None
+10485760
+
+- [None]
++ [10485760]
+
+======================================================================
+FAIL: test_valid_json_evidence_is_labeled_application_json (tests.test_evidence_flow.EvidenceFlowTests.test_valid_json_evidence_is_labeled_application_json)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 250, in test_valid_json_evidence_is_labeled_application_json
+    self.assertEqual(manifest["raw"][0]["media_type"], "application/json")
+AssertionError: 'text/plain; charset=utf-8' != 'application/json'
+- text/plain; charset=utf-8
++ application/json
+
+
+======================================================================
+FAIL: test_ledger_scan_uses_a_bounded_record_read (tests.test_broker.BrokerTests.test_ledger_scan_uses_a_bounded_record_read)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 132, in test_ledger_scan_uses_a_bounded_record_read
+    self.assertEqual(NonceLedger._scan_locked(ledger_file.fileno()), set())
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "[REDACTED_LOCAL_PATH]", line 133, in _scan_locked
+    for line in handle:
+  File "[REDACTED_LOCAL_PATH]", line 122, in __iter__
+    raise AssertionError("unbounded iterator read")
+AssertionError: unbounded iterator read
+
+======================================================================
+FAIL: test_rejected_connection_logs_only_the_safe_error (tests.test_broker.BrokerTests.test_rejected_connection_logs_only_the_safe_error)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 460, in test_rejected_connection_logs_only_the_safe_error
+    self.assertIn("broker request must be exactly one newline-terminated record", rendered)
+AssertionError: 'broker request must be exactly one newline-terminated record' not found in 'None'
+
+======================================================================
+FAIL: test_repeated_accept_failures_terminate_the_daemon (tests.test_broker.BrokerTests.test_repeated_accept_failures_terminate_the_daemon)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 514, in serve_broker
+    connection, _ = server.accept()
+                    ^^^^^^^^^^^^^^^
+  File "[REDACTED_LOCAL_PATH]", line 719, in accept
+    raise OSError("synthetic persistent accept failure")
+OSError: synthetic persistent accept failure
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 744, in test_repeated_accept_failures_terminate_the_daemon
+    serve_broker("sddgov")
+  File "[REDACTED_LOCAL_PATH]", line 525, in serve_broker
+    time.sleep(0.1)
+  File "/usr/lib/python3.12/unittest/mock.py", line 1134, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1138, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1197, in _execute_mock_call
+    raise result
+AssertionError: accept loop did not stop
+
+----------------------------------------------------------------------
+Ran 89 tests in 1.766s
+
+FAILED (failures=6, errors=3)
+
+Script done on [REDACTED_PHONE_OR_NUMBER]:30:59+08:00 [COMMAND_EXIT_CODE="1"]
