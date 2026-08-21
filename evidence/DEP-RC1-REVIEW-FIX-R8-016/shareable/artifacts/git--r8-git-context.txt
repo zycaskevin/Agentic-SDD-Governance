@@ -1,0 +1,14 @@
+R8 immutable implementation topology
+
+Trusted Base: 1a5a0b214eccc2b9edd076fd5e2f222c4a456725
+Implementation: 753a2f8aa089e6e7e4d6cb6c2de157f64193f0f5
+Implementation parent: 1a5a0b214eccc2b9edd076fd5e2f222c4a456725
+Branch: feat/rc1-readiness-r8
+Predecessor Evidence commits:
+- 99fa163 (R6 Evidence)
+- 8309ca2 (R6 provenance correction)
+- ce683c2 (R7 Evidence and rollback proof)
+
+The R8 implementation is one single-parent commit based directly on trusted Base.
+R6, R7, and R8 Evidence remain audit-only descendants. No existing PR history was
+force-pushed or rewritten.

@@ -1,0 +1,136 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-REVIEW-FIX-R8-016",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r8-red-tests.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "b5f22823e828d1607313d5841a59d201500df4a6acc411f794673fdd402bff9b",
+      "size": 57472,
+      "collected_at": "2026-08-21T17:09:41Z",
+      "shareable": false
+    },
+    {
+      "collector": "git",
+      "path": "private/raw/git--r8-review-bindings.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "7377f776c7c8921c02bdaa76ba8e9faa80f1494c32d6f2fa7ab76a10356ab518",
+      "size": 1745,
+      "collected_at": "2026-08-21T17:09:42Z",
+      "shareable": false
+    },
+    {
+      "collector": "git",
+      "path": "private/raw/git--r8-git-context.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "fe24b969cc6874765acae42dd3bc32b52ec5c9ef7e69f2dfe8c4438af6104bf8",
+      "size": 570,
+      "collected_at": "2026-08-21T17:09:42Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r8-local-green.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "b5275d9626a4cd645c0c3f28bae980a8d34ff47e350872f871007e5fbf6d5af5",
+      "size": 48666,
+      "collected_at": "2026-08-21T17:09:42Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r8-package-proof.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "a4b1848cbc49dff46f5e18628794f06c5898bde0c8ef9481cd665a9555fbc624",
+      "size": 1015,
+      "collected_at": "2026-08-21T17:09:42Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r8-release-bundle.json",
+      "source_suffix": ".json",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "c173a5d76313e68917bcdfe316f7a477cef38571c1b42f31d9ac99e9cb77250d",
+      "size": 303,
+      "collected_at": "2026-08-21T17:09:42Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r8-fresh-wheel-smoke.json",
+      "source_suffix": ".json",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "cf49fdc97f2132bd516dba20a71c02362ec1023463502b5e9ad6936dc19f3e63",
+      "size": 517,
+      "collected_at": "2026-08-21T17:09:42Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r8-rollback-drill.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "0a82c554594484e5ff6f9180541ba0d80a283e80c4f7c6562709da81d7cbeb24",
+      "size": 91446,
+      "collected_at": "2026-08-21T17:09:42Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/git--r8-git-context.txt",
+      "sha256": "fe24b969cc6874765acae42dd3bc32b52ec5c9ef7e69f2dfe8c4438af6104bf8",
+      "size": 570,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/git--r8-review-bindings.txt",
+      "sha256": "7377f776c7c8921c02bdaa76ba8e9faa80f1494c32d6f2fa7ab76a10356ab518",
+      "size": 1745,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r8-fresh-wheel-smoke.json",
+      "sha256": "cf49fdc97f2132bd516dba20a71c02362ec1023463502b5e9ad6936dc19f3e63",
+      "size": 517,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r8-local-green.txt",
+      "sha256": "370c6dcc18aa8fffd3aee65a746e446e337b6a807e9a8d54e3f461499b2c1ef7",
+      "size": 48581,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r8-package-proof.txt",
+      "sha256": "a4b1848cbc49dff46f5e18628794f06c5898bde0c8ef9481cd665a9555fbc624",
+      "size": 1015,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r8-red-tests.txt",
+      "sha256": "51bb30d87b61f37d361e4e01918bac0f8dc08a90d16dafa4fdb20671288597e9",
+      "size": 55315,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r8-release-bundle.json",
+      "sha256": "c173a5d76313e68917bcdfe316f7a477cef38571c1b42f31d9ac99e9cb77250d",
+      "size": 303,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r8-rollback-drill.txt",
+      "sha256": "f0939a3e96dc311f22ec90a4703104cfe5dad0430fc4121ce01659a596e03e54",
+      "size": 90774,
+      "shareable": true
+    }
+  ]
+}
