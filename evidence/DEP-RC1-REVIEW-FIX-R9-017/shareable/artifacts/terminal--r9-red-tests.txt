@@ -1,0 +1,151 @@
+Script started on [REDACTED_PHONE_OR_NUMBER]:33:12+08:00 [COMMAND=".venv/bin/python -m unittest tests.test_ci_guard.CICostGuardTests.test_write_permission_exception_must_name_an_existing_workflow tests.test_release_environment.ReleaseEnvironmentTests.test_rate_limit_retry_honors_retry_after_and_closes_response tests.test_release_environment.ReleaseEnvironmentTests.test_repository_slug_rejects_normalizable_or_invalid_paths tests.test_release_bundle.ReleaseBundleTests.test_nested_dependency_wheel_path_fails_with_precise_error tests.test_release_bundle.ReleaseBundleTests.test_open_directory_retains_input_and_output_generation tests.test_release_bundle.ReleaseBundleTests.test_smoke_cli_writes_failure_report_to_a_new_parent tests.test_evidence_flow.EvidenceFlowTests.test_collector_rejects_oversized_input_before_publication tests.test_monorepo_benchmark.MonorepoRollbackBenchmarkTests.test_cli_writes_json_report_when_benchmark_execution_fails tests.test_monorepo_benchmark.MonorepoRollbackBenchmarkTests.test_git_version_probe_has_a_bounded_timeout tests.test_repository_contract.RepositoryContractTests.test_english_readme_exposes_first_run_and_governance_tables tests.test_repository_contract.RepositoryContractTests.test_rollback_runbook_fetches_live_protected_branch" <not executed on terminal>]
+FEFFFFEF{
+  "schema_version": "1.0",
+  "benchmark": "exact-tree-rollback-monorepo",
+  "cases": [],
+  "decision": {
+    "state": "benchmark_error",
+    "blocking": true,
+    "optimize_required": false,
+    "action": "repair the benchmark run before making a latency decision"
+  },
+  "claim_allowed": false,
+  "error": "synthetic benchmark failure"
+}
+FFFE
+======================================================================
+ERROR: test_rate_limit_retry_honors_retry_after_and_closes_response (tests.test_release_environment.ReleaseEnvironmentTests.test_rate_limit_retry_honors_retry_after_and_closes_response)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 121, in test_rate_limit_retry_honors_retry_after_and_closes_response
+    result = _get_json("https://api.github.example.invalid", "token")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "[REDACTED_LOCAL_PATH]", line 87, in _get_json
+    with urllib.request.urlopen(request, timeout=30) as response:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1134, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1138, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1197, in _execute_mock_call
+    raise result
+urllib.error.HTTPError: HTTP Error 429: synthetic rate limit
+
+======================================================================
+ERROR: test_smoke_cli_writes_failure_report_to_a_new_parent (tests.test_release_bundle.ReleaseBundleTests.test_smoke_cli_writes_failure_report_to_a_new_parent)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 372, in test_smoke_cli_writes_failure_report_to_a_new_parent
+    status = smoke_main()
+             ^^^^^^^^^^^^
+  File "[REDACTED_LOCAL_PATH]", line 335, in main
+    args.output.write_text(rendered, encoding="utf-8")
+  File "/usr/lib/python3.12/pathlib.py", line 1049, in write_text
+    with self.open(mode='w', encoding=encoding, errors=errors, newline=newline) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1015, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/tmp/tmpevxhw7by/nested/reports/smoke.json'
+
+======================================================================
+ERROR: test_rollback_runbook_fetches_live_protected_branch (tests.test_repository_contract.RepositoryContractTests.test_rollback_runbook_fetches_live_protected_branch)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 693, in test_rollback_runbook_fetches_live_protected_branch
+    fetch = runbook.index("git fetch --prune origin main")
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: substring not found
+
+======================================================================
+FAIL: test_write_permission_exception_must_name_an_existing_workflow (tests.test_ci_guard.CICostGuardTests.test_write_permission_exception_must_name_an_existing_workflow)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 364, in test_write_permission_exception_must_name_an_existing_workflow
+    self.assertFalse(report["ok"])
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_repository_slug_rejects_normalizable_or_invalid_paths (tests.test_release_environment.ReleaseEnvironmentTests.test_repository_slug_rejects_normalizable_or_invalid_paths) (repository='owner/..')
+----------------------------------------------------------------------
+ValueError: environment protection_rules are unavailable; environment must have exactly one required_reviewers rule; environment must explicitly disallow administrator bypass; environment deployment branch policy is unavailable; environment deployment policy inventory is unavailable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 130, in test_repository_slug_rejects_normalizable_or_invalid_paths
+    with self.subTest(repository=repository), self.assertRaisesRegex(
+AssertionError: "owner/name" does not match "environment protection_rules are unavailable; environment must have exactly one required_reviewers rule; environment must explicitly disallow administrator bypass; environment deployment branch policy is unavailable; environment deployment policy inventory is unavailable"
+
+======================================================================
+FAIL: test_repository_slug_rejects_normalizable_or_invalid_paths (tests.test_release_environment.ReleaseEnvironmentTests.test_repository_slug_rejects_normalizable_or_invalid_paths)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 136, in test_repository_slug_rejects_normalizable_or_invalid_paths
+    get_json.assert_not_called()
+  File "/usr/lib/python3.12/unittest/mock.py", line 905, in assert_not_called
+    raise AssertionError(msg)
+AssertionError: Expected '_get_json' to not have been called. Called 2 times.
+Calls: [call('https://api.github.com/repos/owner/../environments/testpypi', 'token'),
+ call('https://api.github.com/repos/owner/../environments/testpypi/deployment-branch-policies?per_page=100', 'token'),
+ call().get('protection_rules'),
+ call().get('can_admins_bypass'),
+ call().get('deployment_branch_policy'),
+ call().get('branch_policies')].
+
+======================================================================
+FAIL: test_nested_dependency_wheel_path_fails_with_precise_error (tests.test_release_bundle.ReleaseBundleTests.test_nested_dependency_wheel_path_fails_with_precise_error)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 156, in test_nested_dependency_wheel_path_fails_with_precise_error
+    with self.assertRaisesRegex(ValueError, "direct children"):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_open_directory_retains_input_and_output_generation (tests.test_release_bundle.ReleaseBundleTests.test_open_directory_retains_input_and_output_generation)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 288, in test_open_directory_retains_input_and_output_generation
+    self.assertIsNotNone(open_directory)
+AssertionError: unexpectedly None
+
+======================================================================
+FAIL: test_collector_rejects_oversized_input_before_publication (tests.test_evidence_flow.EvidenceFlowTests.test_collector_rejects_oversized_input_before_publication)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 674, in test_collector_rejects_oversized_input_before_publication
+    with self.assertRaisesRegex(ValueError, "collector input exceeds"):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_cli_writes_json_report_when_benchmark_execution_fails (tests.test_monorepo_benchmark.MonorepoRollbackBenchmarkTests.test_cli_writes_json_report_when_benchmark_execution_fails)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 93, in test_cli_writes_json_report_when_benchmark_execution_fails
+    self.assertIn("environment", document)
+AssertionError: 'environment' not found in {'schema_version': '1.0', 'benchmark': 'exact-tree-rollback-monorepo', 'cases': [], 'decision': {'state': 'benchmark_error', 'blocking': True, 'optimize_required': False, 'action': 'repair the benchmark run before making a latency decision'}, 'claim_allowed': False, 'error': 'synthetic benchmark failure'}
+
+======================================================================
+FAIL: test_git_version_probe_has_a_bounded_timeout (tests.test_monorepo_benchmark.MonorepoRollbackBenchmarkTests.test_git_version_probe_has_a_bounded_timeout)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 115, in test_git_version_probe_has_a_bounded_timeout
+    self.assertEqual(run.call_args.kwargs["timeout"], 30)
+AssertionError: None != 30
+
+======================================================================
+FAIL: test_english_readme_exposes_first_run_and_governance_tables (tests.test_repository_contract.RepositoryContractTests.test_english_readme_exposes_first_run_and_governance_tables)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 67, in test_english_readme_exposes_first_run_and_governance_tables
+    self.assertIn("sddgov pilot quick", controlled)
+AssertionError: 'sddgov pilot quick' not found in '\n\nFor a controlled offline installation on Linux x86_64 with CPython 3.12, download the inventoried runtime bundle and registry checksum from the matching GitHub Release, then let the machine verify the archive and every file inside it:\n\n```bash\nset -eu\nmkdir -p sdg-release\ngh release download v0.2.0rc1 \\\n  --repo zycaskevin/Agentic-SDD-Governance \\\n  --pattern \'*-offline-linux-x86_64-py312.zip\' \\\n  --pattern \'SHA256SUMS.txt\' \\\n  --dir sdg-release\n\narchive_count=$(find sdg-release -maxdepth 1 -type f -name \'*-offline-linux-x86_64-py312.zip\' | wc -l | tr -d \' \')\ntest "$archive_count" -eq 1\nverified_archive=$(find sdg-release -maxdepth 1 -type f -name \'*-offline-linux-x86_64-py312.zip\' -print -quit)\n(cd sdg-release && awk -v name="$(basename "$verified_archive")" \'NF == 2 && $2 == name { print }\' SHA256SUMS.txt > offline.SHA256SUMS)\n(cd sdg-release && test "$(wc -l < offline.SHA256SUMS | tr -d \' \')" -eq 1)\n(cd sdg-release && sha256sum -c offline.SHA256SUMS)\npython3.12 -c \'import sys; assert sys.implementation.name == "cpython" and sys.version_info[:2] == (3, 12)\'\npython3.12 -m zipfile -e "$verified_archive" sdg-release/extracted\n\nbundle_count=$(find sdg-release/extracted -mindepth 1 -maxdepth 1 -type d -name \'*-offline-linux-x86_64-py312\' | wc -l | tr -d \' \')\ntest "$bundle_count" -eq 1\nbundle_root=$(find sdg-release/extracted -mindepth 1 -maxdepth 1 -type d -name \'*-offline-linux-x86_64-py312\' -print -quit)\n(cd "$bundle_root" && sha256sum -c SHA256SUMS.txt)\nwheel_count=$(find "$bundle_root/distributions" -maxdepth 1 -type f -name \'*-py3-none-any.whl\' | wc -l | tr -d \' \')\ntest "$wheel_count" -eq 1\nproject_wheel=$(find "$bundle_root/distributions" -maxdepth 1 -type f -name \'*-py3-none-any.whl\' -print -quit)\n\npython3.12 -m venv .venv-sddgov\n.venv-sddgov/bin/python -m pip install \\\n  --no-index --find-links "$bundle_root/wheelhouse" --require-hashes \\\n  -r "$bundle_root/requirements-governance.lock"\n.venv-sddgov/bin/python -m pip install --no-index --no-deps "$project_wheel"\n.venv-sddgov/bin/sddgov --version\n```\n\nThe RC1 offline dependency bundle is intentionally platform-specific. macOS, Windows, other architectures, and other Python versions should use the exact PyPI RC in an isolated online environment until a matching reviewed bundle is published. Private Release downloads require an authenticated GitHub CLI. Never paste a token or checksum into chat for human validation.\n\n'
+
+----------------------------------------------------------------------
+Ran 11 tests in 0.043s
+
+FAILED (failures=9, errors=3)
+
+Script done on [REDACTED_PHONE_OR_NUMBER]:33:12+08:00 [COMMAND_EXIT_CODE="1"]
