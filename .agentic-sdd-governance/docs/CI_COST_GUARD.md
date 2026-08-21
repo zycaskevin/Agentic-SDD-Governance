@@ -20,16 +20,20 @@ sddgov ci verify .
 sddgov ci local-gate .
 ```
 
-`verify` checks the contract and automatic GitHub-hosted workflows. `local-gate` first verifies those controls, then runs every configured local command sequentially and stops on the first failure.
+`verify` checks the contract and GitHub-hosted workflows. `local-gate` first verifies those controls, then runs every configured local command sequentially and stops on the first failure.
 
 ## Workflow controls
 
-Automatic hosted workflows must:
+All hosted workflows must declare concurrency and per-job timeouts. Automatic
+hosted workflows must additionally cancel stale runs. Pull-request workflows
+must avoid allocating runners for Draft PRs. Every workflow must declare
+read-only default permissions.
 
-- declare read-only default permissions;
-- cancel stale runs for the same PR or ref;
-- avoid allocating runners for Draft PRs;
-- set `timeout-minutes` for every hosted job.
+Release jobs that require OIDC or GitHub Release publication must use
+`workflow_controls.write_permission_exceptions` to name the exact workflow,
+job, and write-capable permission. The verifier rejects unknown jobs, unused
+exceptions, and any other write permission. Do not exempt the whole release
+workflow: that also disables its timeout, concurrency, and permission checks.
 
 `hosted.post_merge_verification` accepts only `manual_only` or `automatic`.
 For schema `1.0`, an omitted field retains the legacy `automatic` behavior so

@@ -1021,6 +1021,29 @@ jobs:
             )
         )
 
+    def test_audit_descendants_after_rollback_commit_are_allowed(self):
+        reviews = self.root / ".sddgov/reviews"
+        reviews.mkdir(parents=True, exist_ok=True)
+        (reviews / "REV-AUDIT.json").write_text("{}\n")
+        (self.root / ".sddgov/merge-gate.json").write_text("{}\n")
+        _run(
+            self.root,
+            "git",
+            "add",
+            ".sddgov/merge-gate.json",
+            ".sddgov/reviews/REV-AUDIT.json",
+        )
+        _run(self.root, "git", "commit", "-qm", "later audit data")
+        reviewed_head = _run(self.root, "git", "rev-parse", "HEAD")
+        self.assertTrue(
+            _rollback_ref_is_cleanly_revertible(
+                self.root,
+                self.implementation,
+                base_sha=self.base,
+                reviewed_head_sha=reviewed_head,
+            )
+        )
+
     @patch("sddgov.merge_gate.verify_dep", return_value=[])
     def test_v2_rollback_ref_must_exist_in_the_candidate_range(self, _verify):
         rollback = self.root / "evidence/DEP-1/rollback.md"

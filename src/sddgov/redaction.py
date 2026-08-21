@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import codecs
 import hashlib
 import json
 import os
@@ -44,11 +45,27 @@ RULES: tuple[Rule, ...] = (
     Rule("card-like", re.compile(r"(?<!\d)(?:\d[ -]?){13,19}(?!\d)"), "[REDACTED_CARD_OR_NUMBER]"),
 )
 
+STREAM_RULES: tuple[Rule, ...] = tuple(
+    rule for rule in RULES if rule.rule_id != "private-key"
+)
+
 
 TEXT_SUFFIXES = {
     ".txt", ".log", ".json", ".jsonl", ".yaml", ".yml", ".xml", ".md",
     ".csv", ".tsv", ".html", ".js", ".ts", ".dart", ".sh",
 }
+
+MAX_REDACTION_FILE_BYTES = 10 * 1024 * 1024
+MAX_LOGICAL_LINE_CHARACTERS = 1024 * 1024
+STREAM_CHUNK_BYTES = 64 * 1024
+MAX_PRIVATE_KEY_MARKER_CHARACTERS = 4096
+PRIVATE_KEY_BEGIN = re.compile(
+    r"-----BEGIN [^-]*(?:PRIVATE KEY|OPENSSH PRIVATE KEY)-----", re.I
+)
+PRIVATE_KEY_END = re.compile(
+    r"-----END [^-]*(?:PRIVATE KEY|OPENSSH PRIVATE KEY)-----", re.I
+)
+PRIVATE_KEY_MARKER_PREFIX = re.compile(r"-----BEGIN|-----END", re.I)
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -67,6 +84,94 @@ def redact_text(text: str) -> tuple[str, dict[str, int]]:
     return output, counts
 
 
+def _merge_counts(total: dict[str, int], added: dict[str, int]) -> None:
+    for key, value in added.items():
+        total[key] = total.get(key, 0) + value
+
+
+class _StreamingTextRedactor:
+    def __init__(self) -> None:
+        self.in_private_key = False
+        self.marker_fragment = ""
+        self.counts: dict[str, int] = {}
+
+    def _hold_incomplete_marker(self, text: str, prefix: str) -> tuple[str, str]:
+        marker = -1
+        for match in PRIVATE_KEY_MARKER_PREFIX.finditer(text):
+            if match.group(0).casefold() == prefix.casefold():
+                marker = match.start()
+        if marker < 0 or "-----" in text[marker + len(prefix) :]:
+            return text, ""
+        fragment = text[marker:]
+        if len(fragment) > MAX_PRIVATE_KEY_MARKER_CHARACTERS:
+            raise ValueError("private key marker exceeds the streaming safety limit")
+        return text[:marker], fragment
+
+    def _private_keys(self, text: str) -> str:
+        output: list[str] = []
+        remaining = self.marker_fragment + text
+        self.marker_fragment = ""
+        while remaining:
+            if self.in_private_key:
+                end = PRIVATE_KEY_END.search(remaining)
+                if end is None:
+                    _, self.marker_fragment = self._hold_incomplete_marker(
+                        remaining, "-----END"
+                    )
+                    return "".join(output)
+                self.in_private_key = False
+                remaining = remaining[end.end() :]
+                continue
+            begin = PRIVATE_KEY_BEGIN.search(remaining)
+            if begin is None:
+                safe, self.marker_fragment = self._hold_incomplete_marker(
+                    remaining, "-----BEGIN"
+                )
+                output.append(safe)
+                break
+            output.append(remaining[: begin.start()])
+            output.append("[REDACTED_PRIVATE_KEY]")
+            self.counts["private-key"] = self.counts.get("private-key", 0) + 1
+            remaining = remaining[begin.end() :]
+            end = PRIVATE_KEY_END.search(remaining)
+            if end is None:
+                self.in_private_key = True
+                break
+            remaining = remaining[end.end() :]
+        return "".join(output)
+
+    def redact_line(self, line: str) -> str:
+        without_private_keys = self._private_keys(line)
+        cleaned = without_private_keys
+        counts: dict[str, int] = {}
+        for rule in STREAM_RULES:
+            cleaned, count = rule.pattern.subn(rule.replacement, cleaned)
+            if count:
+                counts[rule.rule_id] = count
+        if PROVIDER_CREDENTIAL_PATTERN.search(cleaned):
+            raise ValueError("unredacted known provider credential identifier")
+        _merge_counts(self.counts, counts)
+        return cleaned
+
+    def finish(self) -> str:
+        if self.in_private_key:
+            raise ValueError("unterminated private key block in redaction source")
+        trailing = self.marker_fragment
+        self.marker_fragment = ""
+        if not trailing:
+            return ""
+        cleaned = trailing
+        counts: dict[str, int] = {}
+        for rule in STREAM_RULES:
+            cleaned, count = rule.pattern.subn(rule.replacement, cleaned)
+            if count:
+                counts[rule.rule_id] = count
+        if PROVIDER_CREDENTIAL_PATTERN.search(cleaned):
+            raise ValueError("unredacted known provider credential identifier")
+        _merge_counts(self.counts, counts)
+        return cleaned
+
+
 def _open_directory(path: Path, label: str) -> int:
     flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
     try:
@@ -80,49 +185,147 @@ def _open_directory(path: Path, label: str) -> int:
     return descriptor
 
 
-def _write_at(
-    directory_fd: int,
+def _stream_text_at(
+    source_descriptor: int,
+    output_directory_fd: int,
     name: str,
-    data: bytes,
-    published_outputs: dict[str, tuple[int, int]] | None = None,
-) -> None:
+    published_outputs: dict[str, tuple[int, int]] | None,
+) -> tuple[str, int, str, int, dict[str, int]]:
     try:
-        existing = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+        existing = os.stat(name, dir_fd=output_directory_fd, follow_symlinks=False)
     except FileNotFoundError:
         existing = None
     if existing is not None and stat.S_ISLNK(existing.st_mode):
         raise ValueError(f"redaction destination must not be a symlink: {name}")
     if existing is not None and not stat.S_ISREG(existing.st_mode):
         raise ValueError(f"redaction destination must be a regular file: {name}")
+
     temporary = f".{name}.{secrets.token_hex(16)}.tmp"
-    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
-    descriptor = -1
+    output_descriptor = -1
+    source_digest = hashlib.sha256()
+    output_digest = hashlib.sha256()
+    source_size = 0
+    output_size = 0
+    decoder = codecs.getincrementaldecoder("utf-8")("strict")
+    pending = ""
+    redactor = _StreamingTextRedactor()
     try:
-        descriptor = os.open(temporary, flags, 0o600, dir_fd=directory_fd)
-        view = memoryview(data)
-        while view:
-            written = os.write(descriptor, view)
-            view = view[written:]
-        os.fsync(descriptor)
-        os.close(descriptor)
-        descriptor = -1
+        output_descriptor = os.open(
+            temporary,
+            os.O_WRONLY
+            | os.O_CREAT
+            | os.O_EXCL
+            | getattr(os, "O_NOFOLLOW", 0),
+            0o600,
+            dir_fd=output_directory_fd,
+        )
+
+        def publish_text(value: str) -> None:
+            nonlocal output_size
+            encoded = value.encode("utf-8")
+            _write_all = memoryview(encoded)
+            while _write_all:
+                written = os.write(output_descriptor, _write_all)
+                if written <= 0:
+                    raise OSError("redaction output write made no progress")
+                _write_all = _write_all[written:]
+            output_digest.update(encoded)
+            output_size += len(encoded)
+
+        while True:
+            chunk = os.read(source_descriptor, STREAM_CHUNK_BYTES)
+            if not chunk:
+                break
+            source_size += len(chunk)
+            if source_size > MAX_REDACTION_FILE_BYTES:
+                raise ValueError(
+                    f"redaction source exceeds {MAX_REDACTION_FILE_BYTES} bytes: {name}; collect a bounded excerpt or summary"
+                )
+            source_digest.update(chunk)
+            pending += decoder.decode(chunk, final=False)
+            while True:
+                newline = pending.find("\n")
+                if newline < 0:
+                    if len(pending) > MAX_LOGICAL_LINE_CHARACTERS:
+                        raise ValueError(
+                            f"redaction source has a logical line exceeding {MAX_LOGICAL_LINE_CHARACTERS} characters: {name}"
+                        )
+                    break
+                line = pending[: newline + 1]
+                pending = pending[newline + 1 :]
+                if len(line) - 1 > MAX_LOGICAL_LINE_CHARACTERS:
+                    raise ValueError(
+                        f"redaction source has a logical line exceeding {MAX_LOGICAL_LINE_CHARACTERS} characters: {name}"
+                    )
+                publish_text(redactor.redact_line(line))
+        pending += decoder.decode(b"", final=True)
+        if len(pending) > MAX_LOGICAL_LINE_CHARACTERS:
+            raise ValueError(
+                f"redaction source has a logical line exceeding {MAX_LOGICAL_LINE_CHARACTERS} characters: {name}"
+            )
+        if pending:
+            publish_text(redactor.redact_line(pending))
+        publish_text(redactor.finish())
+        os.fsync(output_descriptor)
+        temporary_metadata = os.fstat(output_descriptor)
         os.replace(
             temporary,
             name,
-            src_dir_fd=directory_fd,
-            dst_dir_fd=directory_fd,
+            src_dir_fd=output_directory_fd,
+            dst_dir_fd=output_directory_fd,
         )
-        published = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+        published = os.stat(name, dir_fd=output_directory_fd, follow_symlinks=False)
+        if (
+            not stat.S_ISREG(published.st_mode)
+            or published.st_nlink != 1
+            or (published.st_dev, published.st_ino)
+            != (temporary_metadata.st_dev, temporary_metadata.st_ino)
+        ):
+            raise ValueError(f"redaction destination changed during publish: {name}")
         if published_outputs is not None:
             published_outputs[name] = (published.st_dev, published.st_ino)
-        os.fsync(directory_fd)
+        os.fsync(output_directory_fd)
+        return (
+            source_digest.hexdigest(),
+            source_size,
+            output_digest.hexdigest(),
+            output_size,
+            redactor.counts,
+        )
     finally:
-        if descriptor >= 0:
-            os.close(descriptor)
+        if output_descriptor >= 0:
+            os.close(output_descriptor)
         try:
-            os.unlink(temporary, dir_fd=directory_fd)
+            os.unlink(temporary, dir_fd=output_directory_fd)
         except FileNotFoundError:
             pass
+
+
+def _hash_descriptor(descriptor: int, name: str) -> tuple[str, int]:
+    digest = hashlib.sha256()
+    size = 0
+    while True:
+        chunk = os.read(descriptor, STREAM_CHUNK_BYTES)
+        if not chunk:
+            break
+        size += len(chunk)
+        if size > MAX_REDACTION_FILE_BYTES:
+            raise ValueError(
+                f"redaction source exceeds {MAX_REDACTION_FILE_BYTES} bytes: {name}; collect a bounded excerpt or summary"
+            )
+        digest.update(chunk)
+    return digest.hexdigest(), size
+
+
+def _source_identity(metadata: os.stat_result) -> tuple[int, int, int, int, int, int]:
+    return (
+        metadata.st_dev,
+        metadata.st_ino,
+        metadata.st_size,
+        metadata.st_mtime_ns,
+        metadata.st_ctime_ns,
+        metadata.st_nlink,
+    )
 
 
 def redact_files(
@@ -184,59 +387,78 @@ def redact_files(
                     raise ValueError(
                         f"redaction source must be a non-linked regular file: {rel_name}"
                     )
-                chunks: list[bytes] = []
-                while True:
-                    chunk = os.read(descriptor, 1024 * 1024)
-                    if not chunk:
-                        break
-                    chunks.append(chunk)
-                raw = b"".join(chunks)
+                if current.st_size > MAX_REDACTION_FILE_BYTES:
+                    raise ValueError(
+                        f"redaction source exceeds {MAX_REDACTION_FILE_BYTES} bytes: {rel_name}; collect a bounded excerpt or summary"
+                    )
+                artifact_metadata = (metadata_by_name or {}).get(rel_name, {})
+                is_har = (
+                    artifact_metadata.get("collector") == "browser-har"
+                    or artifact_metadata.get("media_type") == "application/har+json"
+                    or source.suffix.lower() == ".har"
+                )
+                if is_har or source.suffix.lower() not in TEXT_SUFFIXES:
+                    source_sha256, source_size = _hash_descriptor(descriptor, rel_name)
+                    report["blocked"].append({
+                        "file": rel_name,
+                        "reason": (
+                            "har_requires_dedicated_body_stripping"
+                            if is_har
+                            else "binary_requires_manual_visual_redaction"
+                        ),
+                        "sha256": source_sha256,
+                        "size": source_size,
+                    })
+                else:
+                    try:
+                        (
+                            source_sha256,
+                            source_size,
+                            output_sha256,
+                            output_size,
+                            counts,
+                        ) = _stream_text_at(
+                            descriptor,
+                            active_output_fd,
+                            rel_name,
+                            published_outputs,
+                        )
+                    except UnicodeDecodeError:
+                        os.lseek(descriptor, 0, os.SEEK_SET)
+                        source_sha256, source_size = _hash_descriptor(
+                            descriptor, rel_name
+                        )
+                        report["blocked"].append({
+                            "file": rel_name,
+                            "reason": "non_utf8_requires_manual_review",
+                            "sha256": source_sha256,
+                            "size": source_size,
+                        })
+                    else:
+                        _merge_counts(report["totals"], counts)
+                        report["files"].append({
+                            "source": rel_name,
+                            "output": rel_name,
+                            "source_sha256": source_sha256,
+                            "source_size": source_size,
+                            "output_sha256": output_sha256,
+                            "output_size": output_size,
+                            "redactions": counts,
+                        })
+                after = os.fstat(descriptor)
+                leaf = os.stat(
+                    rel_name, dir_fd=active_source_fd, follow_symlinks=False
+                )
+                if (
+                    _source_identity(before) != _source_identity(current)
+                    or _source_identity(current) != _source_identity(after)
+                    or _source_identity(after) != _source_identity(leaf)
+                ):
+                    raise ValueError(f"redaction source changed during read: {rel_name}")
             finally:
                 os.close(descriptor)
                 if owned_source_fd:
                     os.close(active_source_fd)
-            artifact_metadata = (metadata_by_name or {}).get(rel_name, {})
-            is_har = (
-                artifact_metadata.get("collector") == "browser-har"
-                or artifact_metadata.get("media_type") == "application/har+json"
-                or source.suffix.lower() == ".har"
-            )
-            if is_har or source.suffix.lower() not in TEXT_SUFFIXES:
-                report["blocked"].append({
-                    "file": rel_name,
-                    "reason": (
-                        "har_requires_dedicated_body_stripping"
-                        if is_har
-                        else "binary_requires_manual_visual_redaction"
-                    ),
-                    "sha256": sha256_bytes(raw),
-                    "size": len(raw),
-                })
-                continue
-            try:
-                text = raw.decode("utf-8")
-            except UnicodeDecodeError:
-                report["blocked"].append({
-                    "file": rel_name,
-                    "reason": "non_utf8_requires_manual_review",
-                    "sha256": sha256_bytes(raw),
-                    "size": len(raw),
-                })
-                continue
-            cleaned, counts = redact_text(text)
-            encoded = cleaned.encode("utf-8")
-            _write_at(active_output_fd, rel_name, encoded, published_outputs)
-            for key, value in counts.items():
-                report["totals"][key] = report["totals"].get(key, 0) + value
-            report["files"].append({
-                "source": rel_name,
-                "output": rel_name,
-                "source_sha256": sha256_bytes(raw),
-                "source_size": len(raw),
-                "output_sha256": sha256_bytes(encoded),
-                "output_size": len(encoded),
-                "redactions": counts,
-            })
     finally:
         if owned_output_fd:
             os.close(active_output_fd)
