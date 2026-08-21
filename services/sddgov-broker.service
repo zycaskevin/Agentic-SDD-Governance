@@ -1,0 +1,36 @@
+[Unit]
+Description=Agentic SDD Governance L3 nonce broker
+After=local-fs.target
+
+[Service]
+Type=simple
+User=root
+# Security contract: Group= must equal the --socket-group argument below.
+Group=sddgov
+UMask=0007
+RuntimeDirectory=sddgov
+RuntimeDirectoryMode=0750
+StateDirectory=sddgov
+StateDirectoryMode=0700
+ExecStart=/opt/sddgov/venv/bin/sddgov broker serve --socket-group sddgov
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectClock=true
+ProtectControlGroups=true
+ProtectKernelLogs=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+LockPersonality=true
+RestrictSUIDSGID=true
+ReadWritePaths=/run/sddgov /var/lib/sddgov
+RestrictAddressFamilies=AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

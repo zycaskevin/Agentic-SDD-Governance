@@ -611,7 +611,11 @@ def _rollback_ref_is_cleanly_revertible(
         for path in rollback_paths
     ):
         return False
-    if any(not path.startswith("evidence/") for path in descendant_paths):
+    if any(
+        path != ".sddgov/merge-gate.json"
+        and not path.startswith(("evidence/", ".sddgov/reviews/"))
+        for path in descendant_paths
+    ):
         return False
     try:
         objects_text = _git(root, "rev-parse", "--git-path", "objects")
