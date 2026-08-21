@@ -1,0 +1,7 @@
+source_commit=8459285df7e9d6c20039e2e9a752d561390e3ae2
+source_tree=425542bf90126dc39972112d7be7a981a3d42f18
+source_parent=1a5a0b214eccc2b9edd076fd5e2f222c4a456725
+source_committed_at=2026-08-21T21:43:10+08:00
+100f84374439ebf555efebb48a2450c1b6daae7911191cc4533e899f205c9052  dist/agentic_sdd_governance-0.2.0rc1-py3-none-any.whl
+2bb19c2a9fcd0dd91a1eab287a5d13ee8504c9faf880ebe4d4f1e431c2a57892  dist/agentic_sdd_governance-0.2.0rc1.tar.gz
+432b63fe1b136a827c08a842d4e882e16cb5914abe4df01777bd3ca52fc6ae30  release/agentic-sdd-governance-0.2.0rc1-offline-linux-aarch64-py312.zip

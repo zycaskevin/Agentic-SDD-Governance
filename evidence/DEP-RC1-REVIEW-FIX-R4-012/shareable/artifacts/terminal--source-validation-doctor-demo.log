@@ -1,0 +1,51 @@
+[OK] governance kernel, profiles, evidence schema, skill, and lifecycle docs
+{
+  "ok": true,
+  "project": "/tmp/sddgov-r4-proof.w7SfHP/repository",
+  "contract": ".sddgov/ci-cost-guard.json",
+  "hosted_budget": {
+    "max_runs_per_work_package": 1,
+    "max_reruns_per_revision": 1,
+    "expected_minutes": 5,
+    "full_matrix": "manual_or_ready_for_review",
+    "post_merge_verification": "manual_only"
+  },
+  "workflows": [
+    {
+      "workflow": "governance.yml",
+      "automatic": true,
+      "hosted_jobs": [
+        "verify"
+      ]
+    },
+    {
+      "workflow": "publish.yml",
+      "automatic": false,
+      "hosted_jobs": [
+        "build-and-smoke",
+        "publish-github-release",
+        "publish-pypi",
+        "publish-testpypi",
+        "verify-testpypi"
+      ]
+    }
+  ],
+  "errors": []
+}
+{
+  "ok": true,
+  "project": "/tmp/sddgov-r4-proof.w7SfHP/repository",
+  "agent": "codex",
+  "profile": "team-standard",
+  "governance_version": "0.2.0rc1",
+  "managed_file_count": 71,
+  "errors": [],
+  "warnings": []
+}
+Agentic SDD Governance — offline quick demo
+[PASS] Routine L1 engineering: CONTINUE
+[PASS] Disguised destructive Production action: BLOCKED
+[PASS] Synthetic credential in Evidence: REDACTED
+[PASS] Binary Evidence without reviewed derivative: BLOCKED
+[PASS] Installed Agent + strict DEP: VERIFIED
+Verdict: PASS

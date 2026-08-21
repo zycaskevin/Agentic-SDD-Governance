@@ -1,0 +1,152 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-REVIEW-FIX-R4-012",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--coderabbit-pr25-inline.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "cb4e71eb5e974c1a288af0c05d8f60ca8b760fa602b40070680633048a4e593c",
+      "size": 2378,
+      "collected_at": "2026-08-21T13:49:00Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--coderabbit-pr25-review-meta.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "e9b5ba1b1ca604138e9bdda4271a93abdccceaa42f00316a5c8be55d90022fd8",
+      "size": 159,
+      "collected_at": "2026-08-21T13:49:00Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--implementation-full-tests.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "11a9efd4e3903bc865f16357fbba6f02a3a51b41092dec79f3bb1efdc7a31b8c",
+      "size": 41373,
+      "collected_at": "2026-08-21T13:49:01Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--source-validation-doctor-demo.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "cd6c3af2d80958f862645f1f48be6c11cde96755a47ba91cb721dbb7cf04808a",
+      "size": 1343,
+      "collected_at": "2026-08-21T13:49:01Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--package-build-twine.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "8910ceb33672de04967d22c097753145a3ba27e0ffd014da98d8849b9f5bb860",
+      "size": 55041,
+      "collected_at": "2026-08-21T13:49:01Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--package-provenance-sha256.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "9965ab0ac4cdd9894c372ab18ca9b210b6ec0ed34a663ba11de2cf3c642f5e28",
+      "size": 577,
+      "collected_at": "2026-08-21T13:49:01Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--release-bundle-aarch64.json",
+      "source_suffix": ".json",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "c173a5d76313e68917bcdfe316f7a477cef38571c1b42f31d9ac99e9cb77250d",
+      "size": 303,
+      "collected_at": "2026-08-21T13:49:02Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--fresh-wheel-smoke-aarch64.json",
+      "source_suffix": ".json",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "a80c271306cedebb05f1c559882b3972ba271869b0ddbfda171ce4cba00204f7",
+      "size": 461,
+      "collected_at": "2026-08-21T13:49:02Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--rollback-drill.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "b3728bb04141b2838090062a025bd7666c1af38e90b5700d29fea126df10c8ef",
+      "size": 35647,
+      "collected_at": "2026-08-21T13:49:02Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--coderabbit-pr25-inline.txt",
+      "sha256": "cb4e71eb5e974c1a288af0c05d8f60ca8b760fa602b40070680633048a4e593c",
+      "size": 2378,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--coderabbit-pr25-review-meta.txt",
+      "sha256": "ac549b06f6beb7056839caa1612f2b59f159fdd3e1f6939dd3ed497ee303b558",
+      "size": 175,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--fresh-wheel-smoke-aarch64.json",
+      "sha256": "a80c271306cedebb05f1c559882b3972ba271869b0ddbfda171ce4cba00204f7",
+      "size": 461,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--implementation-full-tests.log",
+      "sha256": "11a9efd4e3903bc865f16357fbba6f02a3a51b41092dec79f3bb1efdc7a31b8c",
+      "size": 41373,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--package-build-twine.log",
+      "sha256": "8910ceb33672de04967d22c097753145a3ba27e0ffd014da98d8849b9f5bb860",
+      "size": 55041,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--package-provenance-sha256.log",
+      "sha256": "9965ab0ac4cdd9894c372ab18ca9b210b6ec0ed34a663ba11de2cf3c642f5e28",
+      "size": 577,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--release-bundle-aarch64.json",
+      "sha256": "c173a5d76313e68917bcdfe316f7a477cef38571c1b42f31d9ac99e9cb77250d",
+      "size": 303,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--rollback-drill.log",
+      "sha256": "b3728bb04141b2838090062a025bd7666c1af38e90b5700d29fea126df10c8ef",
+      "size": 35647,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--source-validation-doctor-demo.log",
+      "sha256": "cd6c3af2d80958f862645f1f48be6c11cde96755a47ba91cb721dbb7cf04808a",
+      "size": 1343,
+      "shareable": true
+    }
+  ]
+}

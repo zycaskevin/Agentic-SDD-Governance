@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-REVIEW-FIX-R4-012",
+  "issue": "22",
+  "sdd_references": [
+    "work-packages/WP-RC1-READINESS-008.md"
+  ],
+  "risk_level": "L1",
+  "created_at": "2026-08-21T13:48:29Z",
+  "updated_at": "2026-08-21T13:50:59Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-21T13:48:29Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-21T13:49:24Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-21T13:50:01Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-21T13:50:44Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-21T13:50:59Z"
+      }
+    ]
+  },
+  "expected_behavior": "The RC1 candidate renders fail-closed demo results, keeps rollback audit descendants consistent with the verifier, preserves index-safe streaming redaction, rejects blank CI exception names, isolates offline dependency resolution, and records exact review and rollback object identities without rewriting sealed historical Evidence.",
+  "actual_behavior": "CodeRabbit review 5d45ef30-25b5-46a3-8166-1101bb006099 on PR 25 reported 11 actionable findings and 6 nitpicks, including a suppressed FAIL transcript, an audit-path verifier mismatch, Unicode case-expansion index drift, incomplete schema constraints, ambient PIP configuration, and ambiguous R3 Evidence object/format limitations.",
+  "environment": {
+    "commit": "8459285df7e9d6c20039e2e9a752d561390e3ae2",
+    "branch": "feat/rc1-readiness-r4",
+    "runtime": "Linux aarch64, Python 3.12, Git disposable clones, offline dependency wheelhouse"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}
