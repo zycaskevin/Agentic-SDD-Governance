@@ -1,0 +1,8 @@
+Script started on [REDACTED_PHONE_OR_NUMBER]:35:10+08:00 [COMMAND=".venv/bin/python -m twine check /tmp/sddgov-r2-release.Uevvkz/dist/*" <not executed on terminal>]
+Checking 
+/tmp/sddgov-r2-release.Uevvkz/dist/agentic_sdd_governance-0.2.0rc1-py3-none-any.
+whl: PASSED
+Checking 
+/tmp/sddgov-r2-release.Uevvkz/dist/agentic_sdd_governance-0.2.0rc1.tar.gz: PASSED
+
+Script done on [REDACTED_PHONE_OR_NUMBER]:35:10+08:00 [COMMAND_EXIT_CODE="0"]

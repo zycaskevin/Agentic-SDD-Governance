@@ -1,0 +1,4 @@
+Script started on [REDACTED_PHONE_OR_NUMBER]:35:40+08:00 [COMMAND="env PYTHONPATH=/tmp/sddgov-old-gate-revert.K79t0g/repo/src /home/zycas/Documents/Codex/[REDACTED_PHONE_OR_NUMBER]/https-github-com-zycaskevin-agentic-sdd/work/Agentic-SDD-Governance/.venv/bin/python -m sddgov.cli merge verify . --base-ref 1a5a0b214eccc2b9edd076fd5e2f222c4a456725" <not executed on terminal>]
+[ERROR] merge gate head_sha is not the exact reviewed Head or has non-audit descendants
+
+Script done on [REDACTED_PHONE_OR_NUMBER]:35:41+08:00 [COMMAND_EXIT_CODE="3"]

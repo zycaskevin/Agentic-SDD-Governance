@@ -1,0 +1,37 @@
+CodeRabbit review: https://github.com/zycaskevin/Agentic-SDD-Governance/pull/23
+Reviewed base: 1a5a0b214eccc2b9edd076fd5e2f222c4a456725
+Reviewed head: ed2e8a686ff853858f3b45bd5f3db453dc5a8138
+
+[broker-signal] exit=1
+SIGTERM_handler_present= False
+
+[release-bundle] exit=1
+artifact_path= dist/
+locked_runtime_dependencies_published= False
+
+[benchmark-threshold] exit=1
+override_exit= 0
+override_accepted= True
+
+[red-artifact] exit=1
+red_artifact_bytes= 0
+
+[manual-fingerprint] exit=1
+human_checksum_comparison_present= True
+
+[stream-rule-order] exit=1
+index_coupled_stream_rules= True
+
+[trusted-key-example] exit=1
+example_decodes_to_32_bytes= False
+
+[demo-prerequisites] exit=1
+python3_check= False
+signal_cleanup= False
+
+[logical-line-tests] exit=1
+logical_line_limit_covered= False
+
+All checks used only committed public source and synthetic local fixtures. No
+credential, private key, registry token, Production data, or real user data was
+read or included.

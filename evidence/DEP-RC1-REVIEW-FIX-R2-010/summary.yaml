@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-REVIEW-FIX-R2-010",
+  "issue": "22",
+  "sdd_references": [
+    "WP-RC1-READINESS-008"
+  ],
+  "risk_level": "L1",
+  "created_at": "2026-08-21T12:07:47Z",
+  "updated_at": "2026-08-21T12:37:38Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-21T12:07:47Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-21T12:11:27Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-21T12:12:53Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-21T12:37:33Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-21T12:37:38Z"
+      }
+    ]
+  },
+  "expected_behavior": "The Broker cleans its owned socket on normal signals; RC1 artifacts preserve a hash-locked offline dependency set; benchmark thresholds, Evidence provenance, key ceremony, streaming redaction, and demo cleanup remain fail-closed and machine-verifiable.",
+  "actual_behavior": "CodeRabbit and deterministic local checks found missing Broker signal handling, a dist-only uploaded artifact, a caller-overridable benchmark threshold, a zero-byte Red log, human checksum comparison, an invalid public-key placeholder, positional redaction-rule coupling, missing logical-line tests, and incomplete demo prerequisites.",
+  "environment": {
+    "commit": "387b7d6052068ada9d07a9fbaadaf35758c42a5c",
+    "branch": "feat/rc1-readiness-r2",
+    "runtime": "Python 3.12.3; Git 2.43.0; Linux aarch64; synthetic local fixtures; no Production data or credentials"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}

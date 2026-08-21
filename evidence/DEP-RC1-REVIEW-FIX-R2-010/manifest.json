@@ -1,0 +1,136 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-REVIEW-FIX-R2-010",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--coderabbit-review-red.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "fed9841911bbb825e5fa561bdf30c106eb9a2e08eb555369cab2c7ed7650c03e",
+      "size": 961,
+      "collected_at": "2026-08-21T12:11:04Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--full-tests.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "0c08d589473f5e4836f95fb31857806ac2751f84abd2a9aa7221886de631cc60",
+      "size": 39686,
+      "collected_at": "2026-08-21T12:35:57Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--source-validation.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "c57e9d1391a2bf9f73db5481bdfad95950480d62537fcb30bd73fad23e996e76",
+      "size": 255,
+      "collected_at": "2026-08-21T12:35:58Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--installed-doctor.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "3c4328a74c5a88702113cf2edb05fc6b40a4fbfe1a6d02e97e7419a78d35022c",
+      "size": 473,
+      "collected_at": "2026-08-21T12:35:58Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--distribution-check.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "4dee5edebb021a61c59f50581e9f3fd7f2307b8145343478dc82d91f930e75cf",
+      "size": 418,
+      "collected_at": "2026-08-21T12:35:58Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--fresh-wheel-smoke.json",
+      "source_suffix": ".json",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "a80c271306cedebb05f1c559882b3972ba271869b0ddbfda171ce4cba00204f7",
+      "size": 461,
+      "collected_at": "2026-08-21T12:35:58Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--release-bundle.json",
+      "source_suffix": ".json",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "c173a5d76313e68917bcdfe316f7a477cef38571c1b42f31d9ac99e9cb77250d",
+      "size": 303,
+      "collected_at": "2026-08-21T12:35:58Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--old-gate-revert.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "60ab9b414adb578fbaca5937102eb2de5cb5b87cbbbf0e113f381165f0d9802b",
+      "size": 502,
+      "collected_at": "2026-08-21T12:35:59Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--coderabbit-review-red.log",
+      "sha256": "fed9841911bbb825e5fa561bdf30c106eb9a2e08eb555369cab2c7ed7650c03e",
+      "size": 961,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--distribution-check.log",
+      "sha256": "131b53a8f17b0eb0c2a5639f94d5cb30219d595123dba373497881f5fc80fab7",
+      "size": 444,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--fresh-wheel-smoke.json",
+      "sha256": "a80c271306cedebb05f1c559882b3972ba271869b0ddbfda171ce4cba00204f7",
+      "size": 461,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--full-tests.log",
+      "sha256": "c53f8b3d75346e898ab5331632c24d8f47107c5f69912b4f02df7164e28bbfc4",
+      "size": 39712,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--installed-doctor.log",
+      "sha256": "6e225abe933211a6d3aa9c476c52567b83a7c0069c9b6459119175b4bba98f35",
+      "size": 515,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--old-gate-revert.log",
+      "sha256": "9f80a66ba2926eb22f8654e0d066f3c92576a31ecf8f079603c5006fe8ef454f",
+      "size": 544,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--release-bundle.json",
+      "sha256": "c173a5d76313e68917bcdfe316f7a477cef38571c1b42f31d9ac99e9cb77250d",
+      "size": 303,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--source-validation.log",
+      "sha256": "420d3d40d47803eeffb982e49eff9d5bdf14f2f8c4ae2c65fbde60250cb355db",
+      "size": 281,
+      "shareable": true
+    }
+  ]
+}

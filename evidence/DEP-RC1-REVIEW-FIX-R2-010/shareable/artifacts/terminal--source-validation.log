@@ -1,0 +1,4 @@
+Script started on [REDACTED_PHONE_OR_NUMBER]:34:56+08:00 [COMMAND=".venv/bin/sddgov validate ." <not executed on terminal>]
+[OK] governance kernel, profiles, evidence schema, skill, and lifecycle docs
+
+Script done on [REDACTED_PHONE_OR_NUMBER]:34:57+08:00 [COMMAND_EXIT_CODE="0"]

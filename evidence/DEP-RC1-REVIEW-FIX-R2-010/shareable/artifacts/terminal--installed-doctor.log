@@ -1,0 +1,13 @@
+Script started on [REDACTED_PHONE_OR_NUMBER]:35:01+08:00 [COMMAND=".venv/bin/sddgov doctor ." <not executed on terminal>]
+{
+  "ok": true,
+  "project": "/home/zycas/Documents/Codex/[REDACTED_PHONE_OR_NUMBER]/https-github-com-zycaskevin-agentic-sdd/work/Agentic-SDD-Governance",
+  "agent": "codex",
+  "profile": "team-standard",
+  "governance_version": "0.2.0rc1",
+  "managed_file_count": 71,
+  "errors": [],
+  "warnings": []
+}
+
+Script done on [REDACTED_PHONE_OR_NUMBER]:35:01+08:00 [COMMAND_EXIT_CODE="0"]
