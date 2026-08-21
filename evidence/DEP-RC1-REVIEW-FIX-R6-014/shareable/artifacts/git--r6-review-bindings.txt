@@ -1,0 +1,19 @@
+pr=https://github.com/zycaskevin/Agentic-SDD-Governance/pull/27
+head=7bd6a110768b1f98b6807d5337ed94c315379309
+review_node=PRR_kwDOTx8IyM8AAAABKbNgjQ submitted=2026-08-21T14:56:44Z state=COMMENTED
+PRRT_kwDOTx8IyM6bMc2k	.agentic-sdd-governance/docs/CI_COST_GUARD.md	24	https://github.com/zycaskevin/Agentic-SDD-Governance/pull/27#discussion_r3831257693	7bd6a110768b1f98b6807d5337ed94c315379309
+PRRT_kwDOTx8IyM6bMc2r	.github/workflows/publish.yml	155	https://github.com/zycaskevin/Agentic-SDD-Governance/pull/27#discussion_r3831257701	7bd6a110768b1f98b6807d5337ed94c315379309
+PRRT_kwDOTx8IyM6bMc2u	.github/workflows/publish.yml	158	https://github.com/zycaskevin/Agentic-SDD-Governance/pull/27#discussion_r3831257704	7bd6a110768b1f98b6807d5337ed94c315379309
+PRRT_kwDOTx8IyM6bMc2y	.sddgov/merge-gate.json	11	https://github.com/zycaskevin/Agentic-SDD-Governance/pull/27#discussion_r3831257710	7bd6a110768b1f98b6807d5337ed94c315379309
+PRRT_kwDOTx8IyM6bMc24	README.md	101	https://github.com/zycaskevin/Agentic-SDD-Governance/pull/27#discussion_r3831257718	7bd6a110768b1f98b6807d5337ed94c315379309
+PRRT_kwDOTx8IyM6bMc2-	README.md	165	https://github.com/zycaskevin/Agentic-SDD-Governance/pull/27#discussion_r3831257726	7bd6a110768b1f98b6807d5337ed94c315379309
+PRRT_kwDOTx8IyM6bMc3C	README.md	209	https://github.com/zycaskevin/Agentic-SDD-Governance/pull/27#discussion_r3831257731	7bd6a110768b1f98b6807d5337ed94c315379309
+PRRT_kwDOTx8IyM6bMc3S	README.zh-TW.md	99	https://github.com/zycaskevin/Agentic-SDD-Governance/pull/27#discussion_r3831257755	7bd6a110768b1f98b6807d5337ed94c315379309
+PRRT_kwDOTx8IyM6bMc3W	schemas/ci-cost-guard.schema.json	60	https://github.com/zycaskevin/Agentic-SDD-Governance/pull/27#discussion_r3831257759	7bd6a110768b1f98b6807d5337ed94c315379309
+PRRT_kwDOTx8IyM6bMc3d	scripts/fresh_wheel_smoke.py	170	https://github.com/zycaskevin/Agentic-SDD-Governance/pull/27#discussion_r3831257770	7bd6a110768b1f98b6807d5337ed94c315379309
+PRRT_kwDOTx8IyM6bMc3h	scripts/prepare_release_bundle.py	87	https://github.com/zycaskevin/Agentic-SDD-Governance/pull/27#discussion_r3831257776	7bd6a110768b1f98b6807d5337ed94c315379309
+PRRT_kwDOTx8IyM6bMc3l	src/sddgov/broker.py	371	https://github.com/zycaskevin/Agentic-SDD-Governance/pull/27#discussion_r3831257783	7bd6a110768b1f98b6807d5337ed94c315379309
+PRRT_kwDOTx8IyM6bMc3v	src/sddgov/broker.py	513	https://github.com/zycaskevin/Agentic-SDD-Governance/pull/27#discussion_r3831257801	7bd6a110768b1f98b6807d5337ed94c315379309
+PRRT_kwDOTx8IyM6bMc33	src/sddgov/cli.py	297	https://github.com/zycaskevin/Agentic-SDD-Governance/pull/27#discussion_r3831257813	7bd6a110768b1f98b6807d5337ed94c315379309
+PRRT_kwDOTx8IyM6bMc3-	src/sddgov/redaction.py	296	https://github.com/zycaskevin/Agentic-SDD-Governance/pull/27#discussion_r3831257820	7bd6a110768b1f98b6807d5337ed94c315379309
+PRRT_kwDOTx8IyM6bMc4C	src/sddgov/resources/governance/policies/protected-files.yaml	31	https://github.com/zycaskevin/Agentic-SDD-Governance/pull/27#discussion_r3831257828	7bd6a110768b1f98b6807d5337ed94c315379309
