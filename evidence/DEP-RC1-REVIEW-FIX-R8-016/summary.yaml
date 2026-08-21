@@ -1,0 +1,87 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-REVIEW-FIX-R8-016",
+  "issue": "https://github.com/zycaskevin/Agentic-SDD-Governance/issues/22",
+  "sdd_references": [
+    "work-packages/WP-RC1-READINESS-008.md"
+  ],
+  "risk_level": "L1",
+  "created_at": "2026-08-21T17:09:10Z",
+  "updated_at": "2026-08-21T17:11:08Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-21T17:09:10Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-21T17:11:07Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-21T17:11:07Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-21T17:11:08Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-21T17:11:08Z"
+      }
+    ]
+  },
+  "expected_behavior": "The RC1 candidate must descriptor-bind every validated release input through hashing, parsing, and copying; preserve Broker availability after transient accept failures; reject blank or duplicate CI exemptions; redact slash-separated Windows paths and partial private-key delimiters; close Evidence collection before reading new input; validate every runtime module; preserve Red evidence before returning test failure; keep tracked Proof DEP checks fail closed; and distinguish rollback-proof correctness from latency optimization.",
+  "actual_behavior": "The exact CodeRabbit review on PR 29 Head 1849aa933c82e90b3e6eb194eaf6fde05e21e2dc reported 11 actionable findings and 14 nitpicks. The 157-test focused Red run reproduced 10 failures and 5 errors across closure ordering, CI contracts, service hardening, documentation ordering, source validation, Broker availability, release input binding, retry behavior, and benchmark decisions. The bounded fixes then passed 310 current tests with 2 explicit skips, descriptor-bound package and fresh-wheel proof, and an isolated Base rollback drill with 229 tests and 2 explicit skips.",
+  "environment": {
+    "commit": "753a2f8aa089e6e7e4d6cb6c2de157f64193f0f5",
+    "branch": "feat/rc1-readiness-r8",
+    "runtime": "Linux aarch64, Python 3.12; 310 tests executed with 2 explicit skips in current Local Green; 229 Base tests executed with 2 explicit skips in an isolated rollback drill; 0.2.0rc1 source, descriptor-bound wheel, locked 10-wheel offline bundle, and fresh-wheel proof."
+  },
+  "root_cause_status": "confirmed",
+  "attachments": [
+    {
+      "path": "shareable/artifacts/git--r8-git-context.txt",
+      "sha256": "fe24b969cc6874765acae42dd3bc32b52ec5c9ef7e69f2dfe8c4438af6104bf8",
+      "collector": "git"
+    },
+    {
+      "path": "shareable/artifacts/git--r8-review-bindings.txt",
+      "sha256": "7377f776c7c8921c02bdaa76ba8e9faa80f1494c32d6f2fa7ab76a10356ab518",
+      "collector": "git"
+    },
+    {
+      "path": "shareable/artifacts/terminal--r8-fresh-wheel-smoke.json",
+      "sha256": "cf49fdc97f2132bd516dba20a71c02362ec1023463502b5e9ad6936dc19f3e63",
+      "collector": "terminal"
+    },
+    {
+      "path": "shareable/artifacts/terminal--r8-local-green.txt",
+      "sha256": "370c6dcc18aa8fffd3aee65a746e446e337b6a807e9a8d54e3f461499b2c1ef7",
+      "collector": "terminal"
+    },
+    {
+      "path": "shareable/artifacts/terminal--r8-package-proof.txt",
+      "sha256": "a4b1848cbc49dff46f5e18628794f06c5898bde0c8ef9481cd665a9555fbc624",
+      "collector": "terminal"
+    },
+    {
+      "path": "shareable/artifacts/terminal--r8-red-tests.txt",
+      "sha256": "51bb30d87b61f37d361e4e01918bac0f8dc08a90d16dafa4fdb20671288597e9",
+      "collector": "terminal"
+    },
+    {
+      "path": "shareable/artifacts/terminal--r8-release-bundle.json",
+      "sha256": "c173a5d76313e68917bcdfe316f7a477cef38571c1b42f31d9ac99e9cb77250d",
+      "collector": "terminal"
+    },
+    {
+      "path": "shareable/artifacts/terminal--r8-rollback-drill.txt",
+      "sha256": "f0939a3e96dc311f22ec90a4703104cfe5dad0430fc4121ce01659a596e03e54",
+      "collector": "terminal"
+    }
+  ]
+}
