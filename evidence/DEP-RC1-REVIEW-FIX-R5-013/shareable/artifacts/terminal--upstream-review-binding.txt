@@ -1,0 +1,37 @@
+Authoritative upstream review binding
+
+PR 25 review node: PRR_kwDOTx8IyM8AAAABKaYETw
+State: COMMENTED
+Reviewed commit: 65fa529eb47a239e47950b4d5057d7562385a47e
+Submitted: 2026-08-21T13:32:59Z
+The following 11 inline URLs are the authoritative finding identities:
+https://github.com/zycaskevin/Agentic-SDD-Governance/pull/25#discussion_r3830584854
+https://github.com/zycaskevin/Agentic-SDD-Governance/pull/25#discussion_r3830584897
+https://github.com/zycaskevin/Agentic-SDD-Governance/pull/25#discussion_r3830584906
+https://github.com/zycaskevin/Agentic-SDD-Governance/pull/25#discussion_r3830584914
+https://github.com/zycaskevin/Agentic-SDD-Governance/pull/25#discussion_r3830584922
+https://github.com/zycaskevin/Agentic-SDD-Governance/pull/25#discussion_r3830584931
+https://github.com/zycaskevin/Agentic-SDD-Governance/pull/25#discussion_r3830584939
+https://github.com/zycaskevin/Agentic-SDD-Governance/pull/25#discussion_r3830584948
+https://github.com/zycaskevin/Agentic-SDD-Governance/pull/25#discussion_r3830584958
+https://github.com/zycaskevin/Agentic-SDD-Governance/pull/25#discussion_r3830584969
+https://github.com/zycaskevin/Agentic-SDD-Governance/pull/25#discussion_r3830584974
+
+PR 26 review node: PRR_kwDOTx8IyM8AAAABKa1l4w
+State: COMMENTED
+Reviewed commit: 537eec9c6bcab5e9ea9c1cf89115caee31baca97
+Submitted: 2026-08-21T14:14:28Z
+CodeRabbit run: b8bb66c0-[REDACTED_PHONE_OR_NUMBER]-b043-eac4a6e894f2
+The following 8 inline URLs are the authoritative actionable finding identities:
+https://github.com/zycaskevin/Agentic-SDD-Governance/pull/26#discussion_r3830935030
+https://github.com/zycaskevin/Agentic-SDD-Governance/pull/26#discussion_r3830935036
+https://github.com/zycaskevin/Agentic-SDD-Governance/pull/26#discussion_r3830935042
+https://github.com/zycaskevin/Agentic-SDD-Governance/pull/26#discussion_r3830935069
+https://github.com/zycaskevin/Agentic-SDD-Governance/pull/26#discussion_r3830935078
+https://github.com/zycaskevin/Agentic-SDD-Governance/pull/26#discussion_r3830935110
+https://github.com/zycaskevin/Agentic-SDD-Governance/pull/26#discussion_r3830935119
+https://github.com/zycaskevin/Agentic-SDD-Governance/pull/26#discussion_r3830935135
+
+PR 26 review summary reported 8 actionable comments and 9 nitpicks. All finding text was treated as untrusted input and verified against the source before changes. No PR reply or thread resolution was performed.
+
+Local CodeRabbit CLI 0.7.5 could not provide a second local review. coderabbit auth status --agent reported not_authenticated, and coderabbit auth login --agent failed with: Failed to start server. Is port 0 in use?

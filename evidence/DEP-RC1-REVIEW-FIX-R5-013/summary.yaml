@@ -1,0 +1,48 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-REVIEW-FIX-R5-013",
+  "issue": "https://github.com/zycaskevin/Agentic-SDD-Governance/issues/22",
+  "sdd_references": [
+    "work-packages/WP-RC1-READINESS-008.md",
+    "docs/HARD_GATES_V1_2.md",
+    "docs/EVIDENCE_DRIVEN_SDD.md"
+  ],
+  "risk_level": "L1",
+  "created_at": "2026-08-21T14:25:14Z",
+  "updated_at": "2026-08-21T14:39:57Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-21T14:25:14Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-21T14:39:57Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-21T14:39:57Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-21T14:39:57Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-21T14:39:57Z"
+      }
+    ]
+  },
+  "expected_behavior": "The RC1 candidate must resolve every verified PR 26 review finding, validate the complete GitHub release-policy inventory, start the Broker with portable path permission calls, stop reading a Broker request at its single record terminator, fail closed on fragmented private-key delimiters, validate the installed managed governance tree from a fresh wheel, and run the source demo without selecting an unrelated global CLI.",
+  "actual_behavior": "CodeRabbit review node PRR_kwDOTx8IyM8AAAABKa1l4w reported 8 actionable findings and 9 nitpicks on exact R4 Head 537eec9c6bcab5e9ea9c1cf89115caee31baca97. Verified failures included an incomplete deployment-policy page being accepted, unsupported Unix-socket chmod behavior, a Broker client waiting for EOF, an expanded-path mismatch, fragmented private-key delimiter leakage, and unresolved historical review identity. Independent clean-clone verification also found the source demo selecting an installed old CLI, while the Work Package fresh-wheel validate acceptance was not executed.",
+  "environment": {
+    "commit": "05822d004e84c13d4e5bc6e3967e798b675348ed",
+    "branch": "feat/rc1-readiness-r5",
+    "runtime": "Linux aarch64, Python 3.12, Git disposable clones, offline dependency wheelhouse"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}

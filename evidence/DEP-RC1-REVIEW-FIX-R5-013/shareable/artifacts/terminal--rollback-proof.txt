@@ -1,0 +1,10 @@
+R5 disposable rollback proof
+
+Implementation commit reverted: 05822d004e84c13d4e5bc6e3967e798b675348ed
+Rollback clone: /tmp/sddgov-r5-rollback.KJsuPO/repo
+Result tree: 7b48daf1558a6ca3e02f20654663292a39772fce
+Expected Base tree: 7b48daf1558a6ca3e02f20654663292a39772fce
+Exact tree equality: PASS
+Reverted governance version: 0.2.0-experimental.8
+Reverted Doctor: PASS with 66 managed files
+Reverted tests: 229 passed, 2 environment-specific tests skipped

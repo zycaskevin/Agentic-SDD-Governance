@@ -1,0 +1,28 @@
+R5 exact implementation Green verification
+
+Implementation commit: 05822d004e84c13d4e5bc6e3967e798b675348ed
+Implementation tree: a45f863785de71d6af39705401b482b9ec4e6aab
+Base commit: 1a5a0b214eccc2b9edd076fd5e2f222c4a456725
+Base tree: 7b48daf1558a6ca3e02f20654663292a39772fce
+Verification clone: /tmp/sddgov-r5-final-verify.p6LfbS/repo
+
+Results:
+- 278 unit/integration tests passed; 2 environment-specific Unix-socket/historical-ref tests skipped.
+- source repository validate passed.
+- CI Guard verify passed.
+- current-install Doctor passed with 71 managed files.
+- Local Green passed both declared commands; durations 5.992 seconds and 0.124 seconds.
+- source-checkout offline demo passed all 5 boundaries in 0.20 seconds.
+- wheel and sdist passed twine check.
+- offline release bundle contained 10 dependency wheels and 12 inventoried files.
+- fresh wheel smoke passed version, offline inventory, Codex and Hermes setup, Doctor, installed managed-tree validate, and quick pilot without source-checkout import.
+
+Artifact SHA-256:
+- wheel e81ac551ad3474a0dfc81b58970ff026c9639189b6eda1d630671412c3872b38
+- sdist 363054a48a5393d1e42de20b02e0aa838c9656a245a7a4f69a9a1cbd5d17e59e
+- linux-aarch64-py312 offline archive 1595ba7ad665f79f227e50869be06e314ddaa5e2ac89a348a018b2b27b83049c
+
+Limitations:
+- local artifact proof is Linux aarch64 with CPython 3.12, not the publish workflow's Linux x86_64 runner;
+- the execution sandbox forbids native Unix socket creation, so the existing native-socket tests remain skipped and the socket chmod regression uses the real path chmod call with controlled socket metadata;
+- no GitHub release environment, ruleset, RC tag, GitHub Release, TestPyPI/PyPI upload, root Broker install, or real Owner key was created.

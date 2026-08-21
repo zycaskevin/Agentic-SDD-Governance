@@ -1,0 +1,14 @@
+R5 deterministic Red reproduction
+
+Baseline implementation under review: ca4dc4cfc38423227052d9aba1fe418a981e5165
+
+Targeted tests before the fixes reported:
+- release environment total_count mismatch was accepted instead of reporting an incomplete policy inventory;
+- ~/synthetic.whl raised FileNotFoundError because the unexpanded path was statted;
+- fresh_wheel_smoke.py contained no installed-wheel validate invocation;
+- the Broker startup helper did not exist and the production os.chmod(..., follow_symlinks=False) probe failed on Linux;
+- a delimiter split as four dashes, newline, then -BEGIN PRIVATE KEY was published unchanged, including synthetic-private-material.
+
+After the first implementation commit was tested from a clean clone, ./demo/run.sh selected a globally installed old sddgov CLI and returned parser exit 2 because that CLI had no pilot command. The new wheel smoke passed, proving the failure was source demo interpreter selection rather than pilot logic.
+
+No real credential, private key, user data, Production nonce, or root service was used.

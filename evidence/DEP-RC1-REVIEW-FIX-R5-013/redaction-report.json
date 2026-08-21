@@ -1,0 +1,49 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "terminal--r5-green.txt",
+      "output": "terminal--r5-green.txt",
+      "source_sha256": "019be4ca4a8500fa14dcac41208685793fd04ee1b49421cf6eeb1487be80b7cf",
+      "source_size": 1750,
+      "output_sha256": "019be4ca4a8500fa14dcac41208685793fd04ee1b49421cf6eeb1487be80b7cf",
+      "output_size": 1750,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--r5-red.txt",
+      "output": "terminal--r5-red.txt",
+      "source_sha256": "1656943f92dcfaa530f8b6a1ca1caf99ee044d74f4ae04f5aa91891584abf0bf",
+      "source_size": 1071,
+      "output_sha256": "1656943f92dcfaa530f8b6a1ca1caf99ee044d74f4ae04f5aa91891584abf0bf",
+      "output_size": 1071,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--rollback-proof.txt",
+      "output": "terminal--rollback-proof.txt",
+      "source_sha256": "e17b8b74564db396371c4ac1b677721217f59e08b6653e65bdd7430991229fa5",
+      "source_size": 455,
+      "output_sha256": "e17b8b74564db396371c4ac1b677721217f59e08b6653e65bdd7430991229fa5",
+      "output_size": 455,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--upstream-review-binding.txt",
+      "output": "terminal--upstream-review-binding.txt",
+      "source_sha256": "b8be0cdabcfcd7d50661391c3aedcadce27cb37ad5d755c3ecf8eebe3d722eab",
+      "source_size": 2577,
+      "output_sha256": "61a3c0be353067281d14e7621399e96fe7b5d1c030d0b7fa0d12bfc1efb54956",
+      "output_size": 2594,
+      "redactions": {
+        "phone": 1
+      }
+    }
+  ],
+  "blocked": [],
+  "totals": {
+    "phone": 1
+  },
+  "dep_id": "DEP-RC1-REVIEW-FIX-R5-013",
+  "generated_at": "2026-08-21T14:38:22Z"
+}
