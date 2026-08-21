@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentic-sdd-governance"
-version = "0.2.0.dev8"
+version = "0.2.0rc1"
 description = "Governance and evidence infrastructure for autonomous software engineering"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = ["cryptography>=50,<51", "jsonschema>=4.23,<5", "PyYAML>=6.0,<7"]
+dependencies = ["cryptography>=50,<51", "jsonschema>=4.23,<5", "packaging>=26,<27", "PyYAML>=6.0,<7"]
 
 [project.scripts]
 sddgov = "sddgov.cli:main"
@@ -33,6 +33,7 @@ sddgov = [
   "resources/governance/profiles/*",
   "resources/governance/redaction/*",
   "resources/governance/schemas/*",
+  "resources/governance/services/*",
   "resources/governance/templates/*",
   "resources/governance/skill/agentic-sdd-governance/*",
   "resources/governance/skill/agentic-sdd-governance/agents/*",
