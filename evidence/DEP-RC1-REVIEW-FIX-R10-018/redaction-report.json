@@ -1,0 +1,121 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "git--r10-git-context.txt",
+      "output": "git--r10-git-context.txt",
+      "source_sha256": "702abc99523ae23e9ce70642c24b7cc407dd452822ad63e94865ec60787e324a",
+      "source_size": 1961,
+      "output_sha256": "702abc99523ae23e9ce70642c24b7cc407dd452822ad63e94865ec60787e324a",
+      "output_size": 1961,
+      "redactions": {}
+    },
+    {
+      "source": "git--r10-review-bindings.txt",
+      "output": "git--r10-review-bindings.txt",
+      "source_sha256": "bb8ad5ef9a4f5b9c492ee37cbfe9aeb01833651db59619985129d5caf8142ed5",
+      "source_size": 5896,
+      "output_sha256": "39ed600ff1a25daf2c2471d841417297f0cf5a9af0d3d4d001064dfe54f02b1d",
+      "output_size": 6088,
+      "redactions": {
+        "phone": 12
+      }
+    },
+    {
+      "source": "terminal--r10-fresh-wheel-smoke.json",
+      "output": "terminal--r10-fresh-wheel-smoke.json",
+      "source_sha256": "af1dfdf7b16414cfc8e328f3d32e3bd56039d554c991b8738266c799d0c88872",
+      "source_size": 517,
+      "output_sha256": "af1dfdf7b16414cfc8e328f3d32e3bd56039d554c991b8738266c799d0c88872",
+      "output_size": 517,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--r10-legacy-media-red.txt",
+      "output": "terminal--r10-legacy-media-red.txt",
+      "source_sha256": "e856a0b265218fd6be1bb71865c401e4d6c2ed9e51b643d4ebef8a0a0c029c4f",
+      "source_size": 52572,
+      "output_sha256": "ea6492d69ddcc56816bd95619e62e59cfb79d696095eb6dab244fbf703a42774",
+      "output_size": 52479,
+      "redactions": {
+        "phone": 3,
+        "local-path": 1
+      }
+    },
+    {
+      "source": "terminal--r10-local-green.txt",
+      "output": "terminal--r10-local-green.txt",
+      "source_sha256": "06e7e464be74fbae53558351ab993c824f446d97a1e5cd2d89323afaa2ec3662",
+      "source_size": 52568,
+      "output_sha256": "0245b5514499985d123dedb4a20e5a9006b4acac1f31060cd32ed324e23eba0a",
+      "output_size": 52509,
+      "redactions": {
+        "phone": 3,
+        "local-path": 1
+      }
+    },
+    {
+      "source": "terminal--r10-package-proof.txt",
+      "output": "terminal--r10-package-proof.txt",
+      "source_sha256": "1fee96963d84b6ca96ebae3a52d3e51cde6d2b66686e89eb054d2cc5b72f85ae",
+      "source_size": 56807,
+      "output_sha256": "55afab8a0e3b725c4f23beb4d63130d4725629a04c2c8747d89bacd624314473",
+      "output_size": 56833,
+      "redactions": {
+        "phone": 2
+      }
+    },
+    {
+      "source": "terminal--r10-red-tests.txt",
+      "output": "terminal--r10-red-tests.txt",
+      "source_sha256": "4468b9df18d5df653e0393215dba468544159d4e7ea1eda5c78ea7edad478cc3",
+      "source_size": 23525,
+      "output_sha256": "81564f6707b5e1798030194f994bc581beafc903a8ee07f2dc710f02fd600ccb",
+      "output_size": 21668,
+      "redactions": {
+        "phone": 19,
+        "local-path": 17
+      }
+    },
+    {
+      "source": "terminal--r10-release-bundle.json",
+      "output": "terminal--r10-release-bundle.json",
+      "source_sha256": "98cf46953322abf93be7b3508e18c43ae56f78f5006d173fd8b374daf7058cd1",
+      "source_size": 303,
+      "output_sha256": "98cf46953322abf93be7b3508e18c43ae56f78f5006d173fd8b374daf7058cd1",
+      "output_size": 303,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--r10-rollback-compat-red.txt",
+      "output": "terminal--r10-rollback-compat-red.txt",
+      "source_sha256": "db6eade241643adfca4d776eceb80ddd5d4a6f05c2371c40c642e561504782f7",
+      "source_size": 39235,
+      "output_sha256": "4aae35144601713f33a7c0c4709ae9d9c38b994833808f6379656759d7fc875f",
+      "output_size": 38564,
+      "redactions": {
+        "phone": 9,
+        "local-path": 7
+      }
+    },
+    {
+      "source": "terminal--r10-rollback-drill.txt",
+      "output": "terminal--r10-rollback-drill.txt",
+      "source_sha256": "c963ecc95e537dfe12a3a195847283a1e2c3bba5074f42c400b7026c54b2eed6",
+      "source_size": 88677,
+      "output_sha256": "a3e0e51198c5af1c2320bb4bb0524ae3436c37f7fac78c7c8a8628a5887c3ad2",
+      "output_size": 88702,
+      "redactions": {
+        "phone": 2,
+        "local-path": 1
+      }
+    }
+  ],
+  "blocked": [],
+  "totals": {
+    "phone": 50,
+    "local-path": 27
+  },
+  "dep_id": "DEP-RC1-REVIEW-FIX-R10-018",
+  "generated_at": "2026-08-21T18:54:22Z"
+}
