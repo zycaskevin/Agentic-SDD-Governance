@@ -2,9 +2,8 @@
 
 ## Green command and result
 
-PASS: focused 113-test regression matrix, R6 Local Green with 289 tests
-executed and 2 explicit skips,
-repository validation, locked offline release bundle assembly, and fresh-wheel
+PASS: R6 Local Green with 289 tests executed and 2 explicit skips, repository
+validation, locked offline release bundle assembly, and fresh-wheel
 Codex/Hermes smoke all passed. Two existing
 tests were explicitly skipped because the execution sandbox forbids Unix socket
 creation and lacks one historical rollback object; neither was reported PASS.
