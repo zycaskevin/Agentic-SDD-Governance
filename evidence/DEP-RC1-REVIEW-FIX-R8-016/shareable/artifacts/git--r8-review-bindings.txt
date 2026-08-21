@@ -1,0 +1,21 @@
+PR: https://github.com/zycaskevin/Agentic-SDD-Governance/pull/29
+Base: 1a5a0b214eccc2b9edd076fd5e2f222c4a456725
+Reviewed Head: 1849aa933c82e90b3e6eb194eaf6fde05e21e2dc
+CodeRabbit review: PRR_kwDOTx8IyM8AAAABKcB7hA
+Submitted: 2026-08-21T16:39:05Z
+State: COMMENTED
+Actionable review threads:
+- PRRT_kwDOTx8IyM6bOY6P https://github.com/zycaskevin/Agentic-SDD-Governance/pull/29#discussion_r3832001604
+- PRRT_kwDOTx8IyM6bOY6T https://github.com/zycaskevin/Agentic-SDD-Governance/pull/29#discussion_r3832001611
+- PRRT_kwDOTx8IyM6bOY6k https://github.com/zycaskevin/Agentic-SDD-Governance/pull/29#discussion_r3832001637
+- PRRT_kwDOTx8IyM6bOY6u https://github.com/zycaskevin/Agentic-SDD-Governance/pull/29#discussion_r3832001650
+- PRRT_kwDOTx8IyM6bOY62 https://github.com/zycaskevin/Agentic-SDD-Governance/pull/29#discussion_r3832001659
+- PRRT_kwDOTx8IyM6bOY68 https://github.com/zycaskevin/Agentic-SDD-Governance/pull/29#discussion_r3832001667
+- PRRT_kwDOTx8IyM6bOY7A https://github.com/zycaskevin/Agentic-SDD-Governance/pull/29#discussion_r3832001674
+- PRRT_kwDOTx8IyM6bOY7D https://github.com/zycaskevin/Agentic-SDD-Governance/pull/29#discussion_r3832001677
+- PRRT_kwDOTx8IyM6bOY7G https://github.com/zycaskevin/Agentic-SDD-Governance/pull/29#discussion_r3832001682
+- PRRT_kwDOTx8IyM6bOY7J https://github.com/zycaskevin/Agentic-SDD-Governance/pull/29#discussion_r3832001687
+The redaction thread contains two consolidated findings, for 11 actionable findings total.
+Review also reported 14 nitpicks; release isolation, failure reporting, bounded retries,
+service hardening, deterministic manifest order, and test false-positive risks are accepted.
+SystemCallFilter=@system-service remains deferred until a real target-runtime root service rehearsal.
