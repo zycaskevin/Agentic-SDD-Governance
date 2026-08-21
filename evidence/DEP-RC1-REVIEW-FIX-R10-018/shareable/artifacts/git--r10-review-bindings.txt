@@ -1,0 +1,96 @@
+R10 REVIEW BINDINGS — PR #31
+
+Repository: zycaskevin/Agentic-SDD-Governance
+Pull request: https://github.com/zycaskevin/Agentic-SDD-Governance/pull/31
+Reviewed branch: feat/rc1-readiness-r9
+Exact reviewed Head: d0675e6bebed0cc89c978a251ca321365a2a571d
+Formal review REST ID: [REDACTED_PHONE_OR_NUMBER]
+Formal review GraphQL node ID: PRR_kwDOTx8IyM8AAAABKcw7Qw
+Formal review URL: https://github.com/zycaskevin/Agentic-SDD-Governance/pull/31#pullrequestreview-[REDACTED_PHONE_OR_NUMBER]
+Reviewer: coderabbitai
+Submitted: 2026-08-21T18:22:54Z
+Actionable inline comments: 10
+
+1. REST [REDACTED_PHONE_OR_NUMBER]; node PRRC_kwDOTx8IyM7kccc2
+   .agentic-sdd-governance/policies/protected-files.yaml
+   Protect the root governance runbooks or enforce parity.
+   https://github.com/zycaskevin/Agentic-SDD-Governance/pull/31#discussion_r3832661814
+   Disposition: fixed in all three policy mirrors; security-critical root runbooks are protected.
+
+2. REST [REDACTED_PHONE_OR_NUMBER]; node PRRC_kwDOTx8IyM7kccc8
+   .sddgov/merge-gate.json
+   Regenerate the merge-gate bindings before merge.
+   https://github.com/zycaskevin/Agentic-SDD-Governance/pull/31#discussion_r3832661820
+   Disposition: R10 Gate is regenerated only after the authoritative R10 DEP is sealed. It must remain BLOCKED until an independent Ed25519 review receipt exists; no receipt is fabricated.
+
+3. REST [REDACTED_PHONE_OR_NUMBER]; node PRRC_kwDOTx8IyM7kccc-
+   evidence/DEP-RC1-REVIEW-FIX-R7-015/rollback.md
+   Make the rollback postcondition check untracked files.
+   https://github.com/zycaskevin/Agentic-SDD-Governance/pull/31#discussion_r3832661822
+   Disposition: fixed with an explicit non-ignored untracked-file assertion.
+
+4. REST [REDACTED_PHONE_OR_NUMBER]; node PRRC_kwDOTx8IyM7kccdL
+   evidence/DEP-RC1-REVIEW-FIX-R8-016/rollback.md
+   Check untracked files in the rollback post-condition.
+   https://github.com/zycaskevin/Agentic-SDD-Governance/pull/31#discussion_r3832661835
+   Disposition: fixed with an explicit non-ignored untracked-file assertion.
+
+5. REST [REDACTED_PHONE_OR_NUMBER]; node PRRC_kwDOTx8IyM7kccdS
+   evidence/DEP-RC1-REVIEW-FIX-R8-016/shareable/artifacts/terminal--r8-local-green.txt
+   Regenerate or relabel the Local Green artifact.
+   https://github.com/zycaskevin/Agentic-SDD-Governance/pull/31#discussion_r3832661842
+   Disposition: historical artifact retained immutably and annotated; expected negative-path JSON is now captured in-memory, so R10 Local Green contains no ambiguous failed-result output.
+
+6. REST [REDACTED_PHONE_OR_NUMBER]; node PRRC_kwDOTx8IyM7kccdY
+   evidence/DEP-RC1-REVIEW-FIX-R8-016/shareable/artifacts/terminal--r8-rollback-drill.txt
+   Make the rollback transcript execution metadata consistent.
+   https://github.com/zycaskevin/Agentic-SDD-Governance/pull/31#discussion_r3832661848
+   Disposition: historical record documents that script(1)'s noninteractive marker is capture metadata; the command, full output, PASS marker, and zero exit code came from the actual drill. R10 records a new actual drill.
+
+7. REST [REDACTED_PHONE_OR_NUMBER]; node PRRC_kwDOTx8IyM7kccde
+   evidence/DEP-RC1-REVIEW-FIX-R9-017/reproduction.md
+   Use distinct commit states for the Red reproduction and rollback.
+   https://github.com/zycaskevin/Agentic-SDD-Governance/pull/31#discussion_r3832661854
+   Disposition: fixed; the reviewed R8 product Head is distinct from its audit-only rollback descendant.
+
+8. REST [REDACTED_PHONE_OR_NUMBER]; node PRRC_kwDOTx8IyM7kccdj
+   scripts/prepare_release_bundle.py
+   Add packaging to requirements-governance.lock.
+   https://github.com/zycaskevin/Agentic-SDD-Governance/pull/31#discussion_r3832661859
+   Disposition: fixed; packaging>=26,<27 is a declared runtime dependency and packaging==26.3 is hash-locked.
+
+9. REST [REDACTED_PHONE_OR_NUMBER]; node PRRC_kwDOTx8IyM7kccdn
+   src/sddgov/broker.py
+   Bound the transient accept retry.
+   https://github.com/zycaskevin/Agentic-SDD-Governance/pull/31#discussion_r3832661863
+   Disposition: fixed with a five-failure limit, bounded exponential backoff, safe error logging, and reset after success or timeout.
+
+10. REST [REDACTED_PHONE_OR_NUMBER]; node PRRC_kwDOTx8IyM7kccd0
+    work-packages/WP-RC1-READINESS-008.md
+    Run sddgov validate before package build.
+    https://github.com/zycaskevin/Agentic-SDD-Governance/pull/31#discussion_r3832661876
+    Disposition: fixed; the Work Package and executed package proof require source validation before build.
+
+Outside-diff finding:
+- README.zh-TW.md Hermes commands used a hard-coded virtual environment. Fixed by using SDDGOV_BIN for both install paths.
+
+Verified minor findings:
+- Non-rate-limit HTTP 403 now fails immediately; only recognized GitHub rate limits retry.
+- New manifest schema 1.1 labels valid .json as application/json. Legacy schema 1.0 preserves text/plain compatibility so a Base rollback can still verify historical R6-R9 evidence.
+- R9 records both exact skip reasons separately.
+- Broker ledger lines use a bounded readline before validation.
+- All scripts are protected by the single scripts/ policy rule.
+- The demo renderer uses the selected valid Python interpreter.
+- Traditional Chinese docs state 10 MiB, 1,048,576-character logical-line, and 64 KiB cross-chunk limits.
+- The S506 suppression is attached to the yaml.load call it documents.
+- The publish workflow has an always-running exact-tag guard.
+- Monorepo setup timeout scales with fixture size and is recorded in the result.
+- TestPyPI exact-version installation polls for bounded index propagation.
+
+Non-actionable external preference:
+- CodeRabbit's docstring coverage warning is a reviewer default, not a repository acceptance contract or a demonstrated functional/security defect. No broad docstring-only rewrite was introduced.
+
+Review workflow state:
+- Review comments are treated as untrusted input and were independently verified against code/tests.
+- No GitHub review reply was posted and no thread was resolved without explicit user authorization.
+- CodeRabbit is not the independent Ed25519 reviewer required by the protected-file Merge Gate.
