@@ -1,4 +1,12 @@
 {
   "schema_version": "1.0",
-  "claims": []
+  "claims": [
+    {
+      "work_package": "WP-RC1-READINESS-008",
+      "agent": "codex",
+      "status": "active",
+      "claimed_at": "2026-08-21T10:56:29Z",
+      "expires_at": "2026-08-21T18:56:29Z"
+    }
+  ]
 }

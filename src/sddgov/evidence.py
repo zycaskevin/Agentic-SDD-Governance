@@ -13,7 +13,13 @@ from datetime import datetime, timezone
 from importlib import resources
 from pathlib import Path, PurePosixPath
 
-from .redaction import TEXT_SUFFIXES, redact_files, redact_text
+from .fs_security import remove_owned_at
+from .redaction import (
+    MAX_REDACTION_FILE_BYTES,
+    TEXT_SUFFIXES,
+    redact_files,
+    redact_text,
+)
 from .schema_validation import bundled_schema, validate_instance
 
 
@@ -197,14 +203,24 @@ def _require_regular_file(path: Path, label: str) -> None:
         raise ValueError(f"{label} must not be hard-linked")
 
 
-def _read_regular_bytes(path: Path, label: str) -> bytes:
+def _read_regular_bytes(
+    path: Path, label: str, *, max_bytes: int | None = None
+) -> bytes:
     """Read a file while retaining and rechecking its complete parent chain."""
     with _opened_directory_path(path.parent, create=False) as (_, parent_fd):
-        raw, _ = _read_regular_bytes_at(parent_fd, path.name, label)
+        raw, _ = _read_regular_bytes_at(
+            parent_fd, path.name, label, max_bytes=max_bytes
+        )
         return raw
 
 
-def _read_regular_bytes_at(directory_fd: int, name: str, label: str) -> tuple[bytes, os.stat_result]:
+def _read_regular_bytes_at(
+    directory_fd: int,
+    name: str,
+    label: str,
+    *,
+    max_bytes: int | None = None,
+) -> tuple[bytes, os.stat_result]:
     """Read one direct child through a retained directory descriptor."""
     if not name or Path(name).name != name:
         raise ValueError(f"{label} has an invalid filename")
@@ -227,11 +243,21 @@ def _read_regular_bytes_at(directory_fd: int, name: str, label: str) -> tuple[by
             raise ValueError(f"{label} must be a regular file")
         if metadata.st_nlink != 1:
             raise ValueError(f"{label} must not be hard-linked")
+        if max_bytes is not None and metadata.st_size > max_bytes:
+            raise ValueError(
+                f"{label} exceeds {max_bytes} bytes; collect a bounded excerpt or summary"
+            )
         chunks: list[bytes] = []
+        observed_size = 0
         while True:
             chunk = os.read(descriptor, 1024 * 1024)
             if not chunk:
                 break
+            observed_size += len(chunk)
+            if max_bytes is not None and observed_size > max_bytes:
+                raise ValueError(
+                    f"{label} exceeds {max_bytes} bytes; collect a bounded excerpt or summary"
+                )
             chunks.append(chunk)
         final_descriptor = os.fstat(descriptor)
         try:
@@ -364,41 +390,8 @@ def _remove_owned_at(
     expected_identity: tuple[int, int],
     label: str,
 ) -> bool:
-    """Remove only the exact transaction-owned generation at a directory entry."""
-    pending = f".{name}.cleanup-pending-{uuid.uuid4().hex}"
-    try:
-        os.rename(
-            name,
-            pending,
-            src_dir_fd=directory_fd,
-            dst_dir_fd=directory_fd,
-        )
-    except FileNotFoundError:
-        return False
-    metadata = os.stat(pending, dir_fd=directory_fd, follow_symlinks=False)
-    if (
-        stat.S_ISREG(metadata.st_mode)
-        and (metadata.st_dev, metadata.st_ino) == expected_identity
-    ):
-        os.unlink(pending, dir_fd=directory_fd)
-        os.fsync(directory_fd)
-        return True
-    try:
-        os.link(
-            pending,
-            name,
-            src_dir_fd=directory_fd,
-            dst_dir_fd=directory_fd,
-            follow_symlinks=False,
-        )
-    except FileExistsError:
-        raise ValueError(
-            f"{label} changed during cleanup; preserved pending generation {pending}"
-        )
-    else:
-        os.unlink(pending, dir_fd=directory_fd)
-        os.fsync(directory_fd)
-    return False
+    """Compatibility wrapper around the shared owned-generation protocol."""
+    return remove_owned_at(directory_fd, name, expected_identity, label)
 
 
 def _write_bytes_at(
@@ -818,12 +811,27 @@ def make_dep(base: Path, issue: str, risk: str, sdd_ref: str | None = None, dep_
 def collect(dep: Path, collector: str, input_path: Path, label: str | None = None) -> Path:
     if collector not in COLLECTORS:
         raise ValueError(f"unsupported collector: {collector}")
-    raw = _read_regular_bytes(input_path, "collector input")
     with _opened_dep_root(dep) as dep_fd:
+        try:
+            _read_regular_bytes_at(
+                dep_fd,
+                "redaction-report.json",
+                "machine-readable document redaction-report.json",
+            )
+        except FileNotFoundError:
+            pass
+        else:
+            raise FileExistsError(
+                "Evidence collection is closed after redaction; create a new DEP"
+            )
         manifest_raw, manifest_metadata = _read_regular_bytes_at(
             dep_fd, "manifest.json", "machine-readable document manifest.json"
         )
         manifest = json.loads(manifest_raw.decode("utf-8"))
+        if manifest.get("shareable"):
+            raise ValueError(
+                "Evidence collection is closed after shareable artifacts exist"
+            )
         manifest_snapshot = (
             (
                 manifest_metadata.st_dev,
@@ -832,6 +840,11 @@ def collect(dep: Path, collector: str, input_path: Path, label: str | None = Non
                 manifest_metadata.st_mtime_ns,
             ),
             hashlib.sha256(manifest_raw).hexdigest(),
+        )
+        raw = _read_regular_bytes(
+            input_path,
+            "collector input",
+            max_bytes=MAX_REDACTION_FILE_BYTES,
         )
         ordinal = len(manifest.get("raw", [])) + 1
         source_suffix = input_path.suffix.lower()

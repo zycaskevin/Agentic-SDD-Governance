@@ -21,6 +21,14 @@ protected:
   - src/sddgov/
   - pyproject.toml
   - requirements-governance.lock
+  - requirements-release.in
+  - requirements-release.lock
+  - scripts/fresh_wheel_smoke.py
+  - scripts/prepare_release_bundle.py
+  - scripts/release_files.py
+  - scripts/check_release_environment.py
+  - scripts/benchmark_monorepo_rollback.py
+  - services/
   - .sddgov/trusted-approvers.json
   - .sddgov/trusted-reviewers.json
 rules:

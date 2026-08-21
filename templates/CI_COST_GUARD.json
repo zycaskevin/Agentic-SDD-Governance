@@ -23,6 +23,7 @@
     "require_job_timeouts": true,
     "require_read_only_permissions": true,
     "skip_draft_pull_requests": true,
-    "exempt_workflows": []
+    "exempt_workflows": [],
+    "write_permission_exceptions": {}
   }
 }
