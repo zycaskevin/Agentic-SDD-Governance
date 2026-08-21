@@ -1,0 +1,7 @@
+ M tests/test_ci_guard.py
+ M tests/test_demo_script.py
+ M tests/test_redaction.py
+ M tests/test_release_bundle.py
+ M tests/test_repository_contract.py
+?? evidence/DEP-RC1-REVIEW-FIX-R7-015/
+5f7488008cded952f4e0470e01d69979a528829f
