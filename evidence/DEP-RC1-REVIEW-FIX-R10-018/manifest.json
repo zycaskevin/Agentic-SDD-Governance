@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.1",
+  "schema_version": "1.0",
   "dep_id": "DEP-RC1-REVIEW-FIX-R10-018",
   "raw": [
     {
@@ -76,7 +76,7 @@
       "collector": "terminal",
       "path": "private/raw/terminal--r10-release-bundle.json",
       "source_suffix": ".json",
-      "media_type": "application/json",
+      "media_type": "text/plain; charset=utf-8",
       "sha256": "98cf46953322abf93be7b3508e18c43ae56f78f5006d173fd8b374daf7058cd1",
       "size": 303,
       "collected_at": "2026-08-21T18:54:22Z",
@@ -86,7 +86,7 @@
       "collector": "terminal",
       "path": "private/raw/terminal--r10-fresh-wheel-smoke.json",
       "source_suffix": ".json",
-      "media_type": "application/json",
+      "media_type": "text/plain; charset=utf-8",
       "sha256": "af1dfdf7b16414cfc8e328f3d32e3bd56039d554c991b8738266c799d0c88872",
       "size": 517,
       "collected_at": "2026-08-21T18:54:22Z",
