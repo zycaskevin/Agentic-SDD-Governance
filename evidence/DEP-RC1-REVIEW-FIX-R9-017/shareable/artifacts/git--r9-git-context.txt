@@ -1,0 +1,17 @@
+Agentic SDD Governance RC1 R9 Git context
+
+Trusted Base: 1a5a0b214eccc2b9edd076fd5e2f222c4a456725
+Atomic implementation commit: dfe51c5606a47641daeab3321651fcb949817d5b
+R9 pre-Evidence audit head: 5120d60ab018edfee75f38c80d4e3abe872d1725
+Branch: feat/rc1-readiness-r9
+
+Topology contract
+
+- dfe51c5606a47641daeab3321651fcb949817d5b is a single-parent child of the trusted Base and contains all non-audit implementation changes.
+- Later commits before R9 Evidence are audit-only Evidence descendants for R6, R7, and R8.
+- The R9 DEP and merge-gate audit are committed after the implementation so Declarative Rollback v3 can revert exactly the immutable implementation commit while retaining audit history.
+- The actual rollback drill starts from 5120d60ab018edfee75f38c80d4e3abe872d1725, performs `git revert --no-commit dfe51c5606a47641daeab3321651fcb949817d5b`, and proves exact trusted-Base equality outside Evidence and gate/review audit paths before reconciliation.
+
+Review provenance
+
+PR #30 CodeRabbit review is bound to R8 commit 115113691d814236df33571475bb8f519fd65b23. Its findings triggered R9. A new R9 review must bind to the R9 DEP commit, not this pre-Evidence audit head.

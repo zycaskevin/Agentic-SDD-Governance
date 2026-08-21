@@ -1,0 +1,603 @@
+Script started on [REDACTED_PHONE_OR_NUMBER]:49:06+08:00 [COMMAND=".venv/bin/python -m build --outdir /tmp/sddgov-r9-final-package-dEZSJM/dist" <not executed on terminal>]
+* Creating isolated environment: venv+pip...
+* Installing packages in isolated environment:
+  - setuptools>=68
+* Getting build dependencies for sdist...
+running egg_info
+writing src/agentic_sdd_governance.egg-info/PKG-INFO
+writing dependency_links to src/agentic_sdd_governance.egg-info/dependency_links.txt
+writing entry points to src/agentic_sdd_governance.egg-info/entry_points.txt
+writing requirements to src/agentic_sdd_governance.egg-info/requires.txt
+writing top-level names to src/agentic_sdd_governance.egg-info/top_level.txt
+reading manifest file 'src/agentic_sdd_governance.egg-info/SOURCES.txt'
+adding license file 'LICENSE'
+writing manifest file 'src/agentic_sdd_governance.egg-info/SOURCES.txt'
+* Building sdist...
+running sdist
+running egg_info
+writing src/agentic_sdd_governance.egg-info/PKG-INFO
+writing dependency_links to src/agentic_sdd_governance.egg-info/dependency_links.txt
+writing entry points to src/agentic_sdd_governance.egg-info/entry_points.txt
+writing requirements to src/agentic_sdd_governance.egg-info/requires.txt
+writing top-level names to src/agentic_sdd_governance.egg-info/top_level.txt
+reading manifest file 'src/agentic_sdd_governance.egg-info/SOURCES.txt'
+adding license file 'LICENSE'
+writing manifest file 'src/agentic_sdd_governance.egg-info/SOURCES.txt'
+running check
+creating agentic_sdd_governance-0.2.0rc1
+creating agentic_sdd_governance-0.2.0rc1/src/agentic_sdd_governance.egg-info
+creating agentic_sdd_governance-0.2.0rc1/src/sddgov
+creating agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/dep
+creating agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance
+creating agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/adapters/codex
+creating agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/adapters/hermes
+creating agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/collectors
+creating agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/core
+creating agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/docs
+creating agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/policies
+creating agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/profiles
+creating agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/redaction
+creating agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/schemas
+creating agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/services
+creating agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/skill/agentic-sdd-governance
+creating agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/skill/agentic-sdd-governance/agents
+creating agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/skill/agentic-sdd-governance/references
+creating agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/templates
+creating agentic_sdd_governance-0.2.0rc1/tests
+copying files to agentic_sdd_governance-0.2.0rc1...
+copying LICENSE -> agentic_sdd_governance-0.2.0rc1
+copying README.md -> agentic_sdd_governance-0.2.0rc1
+copying pyproject.toml -> agentic_sdd_governance-0.2.0rc1
+copying src/agentic_sdd_governance.egg-info/PKG-INFO -> agentic_sdd_governance-0.2.0rc1/src/agentic_sdd_governance.egg-info
+copying src/agentic_sdd_governance.egg-info/SOURCES.txt -> agentic_sdd_governance-0.2.0rc1/src/agentic_sdd_governance.egg-info
+copying src/agentic_sdd_governance.egg-info/dependency_links.txt -> agentic_sdd_governance-0.2.0rc1/src/agentic_sdd_governance.egg-info
+copying src/agentic_sdd_governance.egg-info/entry_points.txt -> agentic_sdd_governance-0.2.0rc1/src/agentic_sdd_governance.egg-info
+copying src/agentic_sdd_governance.egg-info/requires.txt -> agentic_sdd_governance-0.2.0rc1/src/agentic_sdd_governance.egg-info
+copying src/agentic_sdd_governance.egg-info/top_level.txt -> agentic_sdd_governance-0.2.0rc1/src/agentic_sdd_governance.egg-info
+copying src/sddgov/__init__.py -> agentic_sdd_governance-0.2.0rc1/src/sddgov
+copying src/sddgov/autonomy.py -> agentic_sdd_governance-0.2.0rc1/src/sddgov
+copying src/sddgov/benchmark.py -> agentic_sdd_governance-0.2.0rc1/src/sddgov
+copying src/sddgov/broker.py -> agentic_sdd_governance-0.2.0rc1/src/sddgov
+copying src/sddgov/ci_guard.py -> agentic_sdd_governance-0.2.0rc1/src/sddgov
+copying src/sddgov/cli.py -> agentic_sdd_governance-0.2.0rc1/src/sddgov
+copying src/sddgov/evidence.py -> agentic_sdd_governance-0.2.0rc1/src/sddgov
+copying src/sddgov/fs_security.py -> agentic_sdd_governance-0.2.0rc1/src/sddgov
+copying src/sddgov/governance.py -> agentic_sdd_governance-0.2.0rc1/src/sddgov
+copying src/sddgov/installer.py -> agentic_sdd_governance-0.2.0rc1/src/sddgov
+copying src/sddgov/merge_gate.py -> agentic_sdd_governance-0.2.0rc1/src/sddgov
+copying src/sddgov/pilot.py -> agentic_sdd_governance-0.2.0rc1/src/sddgov
+copying src/sddgov/redaction.py -> agentic_sdd_governance-0.2.0rc1/src/sddgov
+copying src/sddgov/reviewer.py -> agentic_sdd_governance-0.2.0rc1/src/sddgov
+copying src/sddgov/schema_validation.py -> agentic_sdd_governance-0.2.0rc1/src/sddgov
+copying src/sddgov/trust.py -> agentic_sdd_governance-0.2.0rc1/src/sddgov
+copying src/sddgov/resources/dep/fix-scope.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/dep
+copying src/sddgov/resources/dep/regression-evidence.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/dep
+copying src/sddgov/resources/dep/reproduction.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/dep
+copying src/sddgov/resources/dep/rollback.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/dep
+copying src/sddgov/resources/dep/root-cause-hypothesis.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/dep
+copying src/sddgov/resources/dep/verification.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/dep
+copying src/sddgov/resources/governance/VERSION -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance
+copying src/sddgov/resources/governance/adapters/codex/AGENTS.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/adapters/codex
+copying src/sddgov/resources/governance/adapters/hermes/AGENTS.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/adapters/hermes
+copying src/sddgov/resources/governance/adapters/hermes/SKILL.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/adapters/hermes
+copying src/sddgov/resources/governance/adapters/hermes/SOUL.example.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/adapters/hermes
+copying src/sddgov/resources/governance/collectors/INTERFACE.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/collectors
+copying src/sddgov/resources/governance/collectors/browser-playwright.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/collectors
+copying src/sddgov/resources/governance/collectors/flutter-android.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/collectors
+copying src/sddgov/resources/governance/collectors/supabase-docker.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/collectors
+copying src/sddgov/resources/governance/collectors/terminal-git.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/collectors
+copying src/sddgov/resources/governance/core/POLICY_KERNEL.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/core
+copying src/sddgov/resources/governance/core/policy-kernel.yaml -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/core
+copying src/sddgov/resources/governance/docs/AUTONOMOUS_DEVELOPMENT_V1_2.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/docs
+copying src/sddgov/resources/governance/docs/CI_COST_GUARD.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/docs
+copying src/sddgov/resources/governance/docs/EVIDENCE_DRIVEN_SDD.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/docs
+copying src/sddgov/resources/governance/docs/HARD_GATES_V1_2.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/docs
+copying src/sddgov/resources/governance/docs/L3_BROKER_OPERATIONS.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/docs
+copying src/sddgov/resources/governance/docs/OWNER_KEY_CEREMONY.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/docs
+copying src/sddgov/resources/governance/docs/ROLLBACK_OPERATIONS.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/docs
+copying src/sddgov/resources/governance/policies/autonomy-policy.json -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/policies
+copying src/sddgov/resources/governance/policies/ci-cost-guard.yaml -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/policies
+copying src/sddgov/resources/governance/policies/escalation-policy.yaml -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/policies
+copying src/sddgov/resources/governance/policies/merge-policy.yaml -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/policies
+copying src/sddgov/resources/governance/policies/protected-files.yaml -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/policies
+copying src/sddgov/resources/governance/profiles/regulated.yaml -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/profiles
+copying src/sddgov/resources/governance/profiles/solo-fast.yaml -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/profiles
+copying src/sddgov/resources/governance/profiles/team-standard.yaml -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/profiles
+copying src/sddgov/resources/governance/redaction/LOCAL_REDACTION_GATEWAY.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/redaction
+copying src/sddgov/resources/governance/redaction/rules.json -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/redaction
+copying src/sddgov/resources/governance/schemas/artifact-lock.schema.json -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/autonomy-policy.schema.json -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/ci-cost-guard.schema.json -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/collector-event.schema.json -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/debug-evidence-package.schema.json -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/decision-record.schema.json -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/external-action-resolution-receipt.schema.json -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/external-action.schema.json -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/governance-event.schema.json -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/merge-gate.schema.json -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/objective-contract.schema.json -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/operation-approval-receipt.schema.json -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/product-decision-approval-receipt.schema.json -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/protected-review-receipt.schema.json -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/runtime-context.schema.json -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/trusted-approvers.schema.json -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/trusted-reviewers.schema.json -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/work-claim.schema.json -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/services/com.sddgov.broker.plist -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/services
+copying src/sddgov/resources/governance/services/sddgov-broker.service -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/services
+copying src/sddgov/resources/governance/skill/agentic-sdd-governance/SKILL.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/skill/agentic-sdd-governance
+copying src/sddgov/resources/governance/skill/agentic-sdd-governance/agents/openai.yaml -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/skill/agentic-sdd-governance/agents
+copying src/sddgov/resources/governance/skill/agentic-sdd-governance/references/autonomy-workflow.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/skill/agentic-sdd-governance/references
+copying src/sddgov/resources/governance/skill/agentic-sdd-governance/references/ci-cost-guard.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/skill/agentic-sdd-governance/references
+copying src/sddgov/resources/governance/skill/agentic-sdd-governance/references/collector-routing.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/skill/agentic-sdd-governance/references
+copying src/sddgov/resources/governance/skill/agentic-sdd-governance/references/dep-contract.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/skill/agentic-sdd-governance/references
+copying src/sddgov/resources/governance/skill/agentic-sdd-governance/references/engineering-records.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/skill/agentic-sdd-governance/references
+copying src/sddgov/resources/governance/skill/agentic-sdd-governance/references/evidence-workflow.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/skill/agentic-sdd-governance/references
+copying src/sddgov/resources/governance/skill/agentic-sdd-governance/references/independent-reviewer.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/skill/agentic-sdd-governance/references
+copying src/sddgov/resources/governance/skill/agentic-sdd-governance/references/review-sharing.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/skill/agentic-sdd-governance/references
+copying src/sddgov/resources/governance/skill/agentic-sdd-governance/references/risk-evidence-matrix.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/skill/agentic-sdd-governance/references
+copying src/sddgov/resources/governance/templates/ACTION_REQUIRED.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/templates
+copying src/sddgov/resources/governance/templates/CHANGELOG_EVIDENCE.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/templates
+copying src/sddgov/resources/governance/templates/CI_COST_GUARD.json -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/templates
+copying src/sddgov/resources/governance/templates/COMMIT_TRAILERS.txt -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/templates
+copying src/sddgov/resources/governance/templates/EXTERNAL_ACTION_RESOLUTION_RECEIPT.json -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/templates
+copying src/sddgov/resources/governance/templates/ISSUE_EVIDENCE.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/templates
+copying src/sddgov/resources/governance/templates/L3_RUNTIME_CONTEXT.json -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/templates
+copying src/sddgov/resources/governance/templates/MERGE_GATE.json -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/templates
+copying src/sddgov/resources/governance/templates/OPERATION_APPROVAL_RECEIPT.json -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/templates
+copying src/sddgov/resources/governance/templates/PRODUCT_DECISION_APPROVAL_RECEIPT.json -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/templates
+copying src/sddgov/resources/governance/templates/PROTECTED_REVIEW_RECEIPT.json -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/templates
+copying src/sddgov/resources/governance/templates/PR_EVIDENCE.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/templates
+copying src/sddgov/resources/governance/templates/TRUSTED_APPROVERS.json -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/templates
+copying src/sddgov/resources/governance/templates/TRUSTED_REVIEWERS.json -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/templates
+copying src/sddgov/resources/governance/templates/WORK_PACKAGE.md -> agentic_sdd_governance-0.2.0rc1/src/sddgov/resources/governance/templates
+copying tests/test_autonomy.py -> agentic_sdd_governance-0.2.0rc1/tests
+copying tests/test_benchmark.py -> agentic_sdd_governance-0.2.0rc1/tests
+copying tests/test_broker.py -> agentic_sdd_governance-0.2.0rc1/tests
+copying tests/test_ci_guard.py -> agentic_sdd_governance-0.2.0rc1/tests
+copying tests/test_demo_script.py -> agentic_sdd_governance-0.2.0rc1/tests
+copying tests/test_evidence_flow.py -> agentic_sdd_governance-0.2.0rc1/tests
+copying tests/test_governance.py -> agentic_sdd_governance-0.2.0rc1/tests
+copying tests/test_installer.py -> agentic_sdd_governance-0.2.0rc1/tests
+copying tests/test_merge_gate.py -> agentic_sdd_governance-0.2.0rc1/tests
+copying tests/test_monorepo_benchmark.py -> agentic_sdd_governance-0.2.0rc1/tests
+copying tests/test_redaction.py -> agentic_sdd_governance-0.2.0rc1/tests
+copying tests/test_release_bundle.py -> agentic_sdd_governance-0.2.0rc1/tests
+copying tests/test_release_environment.py -> agentic_sdd_governance-0.2.0rc1/tests
+copying tests/test_repository_contract.py -> agentic_sdd_governance-0.2.0rc1/tests
+copying tests/test_reviewer.py -> agentic_sdd_governance-0.2.0rc1/tests
+copying tests/test_synthetic_muse_pilot.py -> agentic_sdd_governance-0.2.0rc1/tests
+Writing agentic_sdd_governance-0.2.0rc1/setup.cfg
+Creating tar archive
+removing 'agentic_sdd_governance-0.2.0rc1' (and everything under it)
+* Building wheel from sdist
+* Creating isolated environment: venv+pip...
+* Installing packages in isolated environment:
+  - setuptools>=68
+* Getting build dependencies for wheel...
+running egg_info
+writing src/agentic_sdd_governance.egg-info/PKG-INFO
+writing dependency_links to src/agentic_sdd_governance.egg-info/dependency_links.txt
+writing entry points to src/agentic_sdd_governance.egg-info/entry_points.txt
+writing requirements to src/agentic_sdd_governance.egg-info/requires.txt
+writing top-level names to src/agentic_sdd_governance.egg-info/top_level.txt
+reading manifest file 'src/agentic_sdd_governance.egg-info/SOURCES.txt'
+adding license file 'LICENSE'
+writing manifest file 'src/agentic_sdd_governance.egg-info/SOURCES.txt'
+* Building wheel...
+running bdist_wheel
+running build
+running build_py
+creating build/lib/sddgov
+copying src/sddgov/broker.py -> build/lib/sddgov
+copying src/sddgov/installer.py -> build/lib/sddgov
+copying src/sddgov/fs_security.py -> build/lib/sddgov
+copying src/sddgov/governance.py -> build/lib/sddgov
+copying src/sddgov/__init__.py -> build/lib/sddgov
+copying src/sddgov/benchmark.py -> build/lib/sddgov
+copying src/sddgov/evidence.py -> build/lib/sddgov
+copying src/sddgov/pilot.py -> build/lib/sddgov
+copying src/sddgov/schema_validation.py -> build/lib/sddgov
+copying src/sddgov/reviewer.py -> build/lib/sddgov
+copying src/sddgov/redaction.py -> build/lib/sddgov
+copying src/sddgov/merge_gate.py -> build/lib/sddgov
+copying src/sddgov/cli.py -> build/lib/sddgov
+copying src/sddgov/autonomy.py -> build/lib/sddgov
+copying src/sddgov/ci_guard.py -> build/lib/sddgov
+copying src/sddgov/trust.py -> build/lib/sddgov
+running egg_info
+writing src/agentic_sdd_governance.egg-info/PKG-INFO
+writing dependency_links to src/agentic_sdd_governance.egg-info/dependency_links.txt
+writing entry points to src/agentic_sdd_governance.egg-info/entry_points.txt
+writing requirements to src/agentic_sdd_governance.egg-info/requires.txt
+writing top-level names to src/agentic_sdd_governance.egg-info/top_level.txt
+reading manifest file 'src/agentic_sdd_governance.egg-info/SOURCES.txt'
+adding license file 'LICENSE'
+writing manifest file 'src/agentic_sdd_governance.egg-info/SOURCES.txt'
+creating build/lib/sddgov/resources/dep
+copying src/sddgov/resources/dep/root-cause-hypothesis.md -> build/lib/sddgov/resources/dep
+copying src/sddgov/resources/dep/fix-scope.md -> build/lib/sddgov/resources/dep
+copying src/sddgov/resources/dep/reproduction.md -> build/lib/sddgov/resources/dep
+copying src/sddgov/resources/dep/verification.md -> build/lib/sddgov/resources/dep
+copying src/sddgov/resources/dep/rollback.md -> build/lib/sddgov/resources/dep
+copying src/sddgov/resources/dep/regression-evidence.md -> build/lib/sddgov/resources/dep
+creating build/lib/sddgov/resources/governance
+copying src/sddgov/resources/governance/VERSION -> build/lib/sddgov/resources/governance
+creating build/lib/sddgov/resources/governance/adapters/codex
+copying src/sddgov/resources/governance/adapters/codex/AGENTS.md -> build/lib/sddgov/resources/governance/adapters/codex
+creating build/lib/sddgov/resources/governance/adapters/hermes
+copying src/sddgov/resources/governance/adapters/hermes/AGENTS.md -> build/lib/sddgov/resources/governance/adapters/hermes
+copying src/sddgov/resources/governance/adapters/hermes/SOUL.example.md -> build/lib/sddgov/resources/governance/adapters/hermes
+copying src/sddgov/resources/governance/adapters/hermes/SKILL.md -> build/lib/sddgov/resources/governance/adapters/hermes
+creating build/lib/sddgov/resources/governance/collectors
+copying src/sddgov/resources/governance/collectors/browser-playwright.md -> build/lib/sddgov/resources/governance/collectors
+copying src/sddgov/resources/governance/collectors/terminal-git.md -> build/lib/sddgov/resources/governance/collectors
+copying src/sddgov/resources/governance/collectors/supabase-docker.md -> build/lib/sddgov/resources/governance/collectors
+copying src/sddgov/resources/governance/collectors/flutter-android.md -> build/lib/sddgov/resources/governance/collectors
+copying src/sddgov/resources/governance/collectors/INTERFACE.md -> build/lib/sddgov/resources/governance/collectors
+creating build/lib/sddgov/resources/governance/core
+copying src/sddgov/resources/governance/core/POLICY_KERNEL.md -> build/lib/sddgov/resources/governance/core
+copying src/sddgov/resources/governance/core/policy-kernel.yaml -> build/lib/sddgov/resources/governance/core
+creating build/lib/sddgov/resources/governance/docs
+copying src/sddgov/resources/governance/docs/AUTONOMOUS_DEVELOPMENT_V1_2.md -> build/lib/sddgov/resources/governance/docs
+copying src/sddgov/resources/governance/docs/HARD_GATES_V1_2.md -> build/lib/sddgov/resources/governance/docs
+copying src/sddgov/resources/governance/docs/CI_COST_GUARD.md -> build/lib/sddgov/resources/governance/docs
+copying src/sddgov/resources/governance/docs/EVIDENCE_DRIVEN_SDD.md -> build/lib/sddgov/resources/governance/docs
+copying src/sddgov/resources/governance/docs/ROLLBACK_OPERATIONS.md -> build/lib/sddgov/resources/governance/docs
+copying src/sddgov/resources/governance/docs/L3_BROKER_OPERATIONS.md -> build/lib/sddgov/resources/governance/docs
+copying src/sddgov/resources/governance/docs/OWNER_KEY_CEREMONY.md -> build/lib/sddgov/resources/governance/docs
+creating build/lib/sddgov/resources/governance/policies
+copying src/sddgov/resources/governance/policies/autonomy-policy.json -> build/lib/sddgov/resources/governance/policies
+copying src/sddgov/resources/governance/policies/merge-policy.yaml -> build/lib/sddgov/resources/governance/policies
+copying src/sddgov/resources/governance/policies/escalation-policy.yaml -> build/lib/sddgov/resources/governance/policies
+copying src/sddgov/resources/governance/policies/protected-files.yaml -> build/lib/sddgov/resources/governance/policies
+copying src/sddgov/resources/governance/policies/ci-cost-guard.yaml -> build/lib/sddgov/resources/governance/policies
+creating build/lib/sddgov/resources/governance/profiles
+copying src/sddgov/resources/governance/profiles/team-standard.yaml -> build/lib/sddgov/resources/governance/profiles
+copying src/sddgov/resources/governance/profiles/regulated.yaml -> build/lib/sddgov/resources/governance/profiles
+copying src/sddgov/resources/governance/profiles/solo-fast.yaml -> build/lib/sddgov/resources/governance/profiles
+creating build/lib/sddgov/resources/governance/redaction
+copying src/sddgov/resources/governance/redaction/rules.json -> build/lib/sddgov/resources/governance/redaction
+copying src/sddgov/resources/governance/redaction/LOCAL_REDACTION_GATEWAY.md -> build/lib/sddgov/resources/governance/redaction
+creating build/lib/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/trusted-reviewers.schema.json -> build/lib/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/trusted-approvers.schema.json -> build/lib/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/autonomy-policy.schema.json -> build/lib/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/decision-record.schema.json -> build/lib/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/governance-event.schema.json -> build/lib/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/runtime-context.schema.json -> build/lib/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/merge-gate.schema.json -> build/lib/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/artifact-lock.schema.json -> build/lib/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/operation-approval-receipt.schema.json -> build/lib/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/collector-event.schema.json -> build/lib/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/product-decision-approval-receipt.schema.json -> build/lib/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/objective-contract.schema.json -> build/lib/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/external-action.schema.json -> build/lib/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/protected-review-receipt.schema.json -> build/lib/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/debug-evidence-package.schema.json -> build/lib/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/external-action-resolution-receipt.schema.json -> build/lib/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/ci-cost-guard.schema.json -> build/lib/sddgov/resources/governance/schemas
+copying src/sddgov/resources/governance/schemas/work-claim.schema.json -> build/lib/sddgov/resources/governance/schemas
+creating build/lib/sddgov/resources/governance/services
+copying src/sddgov/resources/governance/services/com.sddgov.broker.plist -> build/lib/sddgov/resources/governance/services
+copying src/sddgov/resources/governance/services/sddgov-broker.service -> build/lib/sddgov/resources/governance/services
+creating build/lib/sddgov/resources/governance/templates
+copying src/sddgov/resources/governance/templates/OPERATION_APPROVAL_RECEIPT.json -> build/lib/sddgov/resources/governance/templates
+copying src/sddgov/resources/governance/templates/TRUSTED_REVIEWERS.json -> build/lib/sddgov/resources/governance/templates
+copying src/sddgov/resources/governance/templates/PROTECTED_REVIEW_RECEIPT.json -> build/lib/sddgov/resources/governance/templates
+copying src/sddgov/resources/governance/templates/PR_EVIDENCE.md -> build/lib/sddgov/resources/governance/templates
+copying src/sddgov/resources/governance/templates/WORK_PACKAGE.md -> build/lib/sddgov/resources/governance/templates
+copying src/sddgov/resources/governance/templates/TRUSTED_APPROVERS.json -> build/lib/sddgov/resources/governance/templates
+copying src/sddgov/resources/governance/templates/CHANGELOG_EVIDENCE.md -> build/lib/sddgov/resources/governance/templates
+copying src/sddgov/resources/governance/templates/PRODUCT_DECISION_APPROVAL_RECEIPT.json -> build/lib/sddgov/resources/governance/templates
+copying src/sddgov/resources/governance/templates/MERGE_GATE.json -> build/lib/sddgov/resources/governance/templates
+copying src/sddgov/resources/governance/templates/L3_RUNTIME_CONTEXT.json -> build/lib/sddgov/resources/governance/templates
+copying src/sddgov/resources/governance/templates/ISSUE_EVIDENCE.md -> build/lib/sddgov/resources/governance/templates
+copying src/sddgov/resources/governance/templates/COMMIT_TRAILERS.txt -> build/lib/sddgov/resources/governance/templates
+copying src/sddgov/resources/governance/templates/EXTERNAL_ACTION_RESOLUTION_RECEIPT.json -> build/lib/sddgov/resources/governance/templates
+copying src/sddgov/resources/governance/templates/ACTION_REQUIRED.md -> build/lib/sddgov/resources/governance/templates
+copying src/sddgov/resources/governance/templates/CI_COST_GUARD.json -> build/lib/sddgov/resources/governance/templates
+creating build/lib/sddgov/resources/governance/skill/agentic-sdd-governance
+copying src/sddgov/resources/governance/skill/agentic-sdd-governance/SKILL.md -> build/lib/sddgov/resources/governance/skill/agentic-sdd-governance
+creating build/lib/sddgov/resources/governance/skill/agentic-sdd-governance/agents
+copying src/sddgov/resources/governance/skill/agentic-sdd-governance/agents/openai.yaml -> build/lib/sddgov/resources/governance/skill/agentic-sdd-governance/agents
+creating build/lib/sddgov/resources/governance/skill/agentic-sdd-governance/references
+copying src/sddgov/resources/governance/skill/agentic-sdd-governance/references/autonomy-workflow.md -> build/lib/sddgov/resources/governance/skill/agentic-sdd-governance/references
+copying src/sddgov/resources/governance/skill/agentic-sdd-governance/references/review-sharing.md -> build/lib/sddgov/resources/governance/skill/agentic-sdd-governance/references
+copying src/sddgov/resources/governance/skill/agentic-sdd-governance/references/collector-routing.md -> build/lib/sddgov/resources/governance/skill/agentic-sdd-governance/references
+copying src/sddgov/resources/governance/skill/agentic-sdd-governance/references/independent-reviewer.md -> build/lib/sddgov/resources/governance/skill/agentic-sdd-governance/references
+copying src/sddgov/resources/governance/skill/agentic-sdd-governance/references/engineering-records.md -> build/lib/sddgov/resources/governance/skill/agentic-sdd-governance/references
+copying src/sddgov/resources/governance/skill/agentic-sdd-governance/references/ci-cost-guard.md -> build/lib/sddgov/resources/governance/skill/agentic-sdd-governance/references
+copying src/sddgov/resources/governance/skill/agentic-sdd-governance/references/evidence-workflow.md -> build/lib/sddgov/resources/governance/skill/agentic-sdd-governance/references
+copying src/sddgov/resources/governance/skill/agentic-sdd-governance/references/dep-contract.md -> build/lib/sddgov/resources/governance/skill/agentic-sdd-governance/references
+copying src/sddgov/resources/governance/skill/agentic-sdd-governance/references/risk-evidence-matrix.md -> build/lib/sddgov/resources/governance/skill/agentic-sdd-governance/references
+installing to build/bdist.linux-aarch64/wheel
+running install
+running install_lib
+creating build/bdist.linux-aarch64/wheel
+creating build/bdist.linux-aarch64/wheel/sddgov
+copying build/lib/sddgov/broker.py -> build/bdist.linux-aarch64/wheel/./sddgov
+copying build/lib/sddgov/installer.py -> build/bdist.linux-aarch64/wheel/./sddgov
+copying build/lib/sddgov/fs_security.py -> build/bdist.linux-aarch64/wheel/./sddgov
+copying build/lib/sddgov/governance.py -> build/bdist.linux-aarch64/wheel/./sddgov
+copying build/lib/sddgov/__init__.py -> build/bdist.linux-aarch64/wheel/./sddgov
+copying build/lib/sddgov/benchmark.py -> build/bdist.linux-aarch64/wheel/./sddgov
+copying build/lib/sddgov/evidence.py -> build/bdist.linux-aarch64/wheel/./sddgov
+copying build/lib/sddgov/pilot.py -> build/bdist.linux-aarch64/wheel/./sddgov
+copying build/lib/sddgov/schema_validation.py -> build/bdist.linux-aarch64/wheel/./sddgov
+copying build/lib/sddgov/reviewer.py -> build/bdist.linux-aarch64/wheel/./sddgov
+copying build/lib/sddgov/redaction.py -> build/bdist.linux-aarch64/wheel/./sddgov
+copying build/lib/sddgov/merge_gate.py -> build/bdist.linux-aarch64/wheel/./sddgov
+creating build/bdist.linux-aarch64/wheel/sddgov/resources
+creating build/bdist.linux-aarch64/wheel/sddgov/resources/dep
+copying build/lib/sddgov/resources/dep/root-cause-hypothesis.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/dep
+copying build/lib/sddgov/resources/dep/fix-scope.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/dep
+copying build/lib/sddgov/resources/dep/reproduction.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/dep
+copying build/lib/sddgov/resources/dep/verification.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/dep
+copying build/lib/sddgov/resources/dep/rollback.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/dep
+copying build/lib/sddgov/resources/dep/regression-evidence.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/dep
+creating build/bdist.linux-aarch64/wheel/sddgov/resources/governance
+creating build/bdist.linux-aarch64/wheel/sddgov/resources/governance/adapters
+creating build/bdist.linux-aarch64/wheel/sddgov/resources/governance/adapters/hermes
+copying build/lib/sddgov/resources/governance/adapters/hermes/AGENTS.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/adapters/hermes
+copying build/lib/sddgov/resources/governance/adapters/hermes/SOUL.example.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/adapters/hermes
+copying build/lib/sddgov/resources/governance/adapters/hermes/SKILL.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/adapters/hermes
+creating build/bdist.linux-aarch64/wheel/sddgov/resources/governance/adapters/codex
+copying build/lib/sddgov/resources/governance/adapters/codex/AGENTS.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/adapters/codex
+creating build/bdist.linux-aarch64/wheel/sddgov/resources/governance/core
+copying build/lib/sddgov/resources/governance/core/POLICY_KERNEL.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/core
+copying build/lib/sddgov/resources/governance/core/policy-kernel.yaml -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/core
+creating build/bdist.linux-aarch64/wheel/sddgov/resources/governance/policies
+copying build/lib/sddgov/resources/governance/policies/autonomy-policy.json -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/policies
+copying build/lib/sddgov/resources/governance/policies/merge-policy.yaml -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/policies
+copying build/lib/sddgov/resources/governance/policies/escalation-policy.yaml -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/policies
+copying build/lib/sddgov/resources/governance/policies/protected-files.yaml -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/policies
+copying build/lib/sddgov/resources/governance/policies/ci-cost-guard.yaml -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/policies
+creating build/bdist.linux-aarch64/wheel/sddgov/resources/governance/skill
+creating build/bdist.linux-aarch64/wheel/sddgov/resources/governance/skill/agentic-sdd-governance
+creating build/bdist.linux-aarch64/wheel/sddgov/resources/governance/skill/agentic-sdd-governance/agents
+copying build/lib/sddgov/resources/governance/skill/agentic-sdd-governance/agents/openai.yaml -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/skill/agentic-sdd-governance/agents
+creating build/bdist.linux-aarch64/wheel/sddgov/resources/governance/skill/agentic-sdd-governance/references
+copying build/lib/sddgov/resources/governance/skill/agentic-sdd-governance/references/autonomy-workflow.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/skill/agentic-sdd-governance/references
+copying build/lib/sddgov/resources/governance/skill/agentic-sdd-governance/references/review-sharing.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/skill/agentic-sdd-governance/references
+copying build/lib/sddgov/resources/governance/skill/agentic-sdd-governance/references/collector-routing.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/skill/agentic-sdd-governance/references
+copying build/lib/sddgov/resources/governance/skill/agentic-sdd-governance/references/independent-reviewer.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/skill/agentic-sdd-governance/references
+copying build/lib/sddgov/resources/governance/skill/agentic-sdd-governance/references/engineering-records.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/skill/agentic-sdd-governance/references
+copying build/lib/sddgov/resources/governance/skill/agentic-sdd-governance/references/ci-cost-guard.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/skill/agentic-sdd-governance/references
+copying build/lib/sddgov/resources/governance/skill/agentic-sdd-governance/references/evidence-workflow.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/skill/agentic-sdd-governance/references
+copying build/lib/sddgov/resources/governance/skill/agentic-sdd-governance/references/dep-contract.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/skill/agentic-sdd-governance/references
+copying build/lib/sddgov/resources/governance/skill/agentic-sdd-governance/references/risk-evidence-matrix.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/skill/agentic-sdd-governance/references
+copying build/lib/sddgov/resources/governance/skill/agentic-sdd-governance/SKILL.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/skill/agentic-sdd-governance
+creating build/bdist.linux-aarch64/wheel/sddgov/resources/governance/redaction
+copying build/lib/sddgov/resources/governance/redaction/rules.json -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/redaction
+copying build/lib/sddgov/resources/governance/redaction/LOCAL_REDACTION_GATEWAY.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/redaction
+creating build/bdist.linux-aarch64/wheel/sddgov/resources/governance/profiles
+copying build/lib/sddgov/resources/governance/profiles/team-standard.yaml -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/profiles
+copying build/lib/sddgov/resources/governance/profiles/regulated.yaml -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/profiles
+copying build/lib/sddgov/resources/governance/profiles/solo-fast.yaml -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/profiles
+creating build/bdist.linux-aarch64/wheel/sddgov/resources/governance/collectors
+copying build/lib/sddgov/resources/governance/collectors/browser-playwright.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/collectors
+copying build/lib/sddgov/resources/governance/collectors/terminal-git.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/collectors
+copying build/lib/sddgov/resources/governance/collectors/supabase-docker.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/collectors
+copying build/lib/sddgov/resources/governance/collectors/flutter-android.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/collectors
+copying build/lib/sddgov/resources/governance/collectors/INTERFACE.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/collectors
+creating build/bdist.linux-aarch64/wheel/sddgov/resources/governance/docs
+copying build/lib/sddgov/resources/governance/docs/AUTONOMOUS_DEVELOPMENT_V1_2.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/docs
+copying build/lib/sddgov/resources/governance/docs/HARD_GATES_V1_2.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/docs
+copying build/lib/sddgov/resources/governance/docs/CI_COST_GUARD.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/docs
+copying build/lib/sddgov/resources/governance/docs/EVIDENCE_DRIVEN_SDD.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/docs
+copying build/lib/sddgov/resources/governance/docs/ROLLBACK_OPERATIONS.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/docs
+copying build/lib/sddgov/resources/governance/docs/L3_BROKER_OPERATIONS.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/docs
+copying build/lib/sddgov/resources/governance/docs/OWNER_KEY_CEREMONY.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/docs
+creating build/bdist.linux-aarch64/wheel/sddgov/resources/governance/schemas
+copying build/lib/sddgov/resources/governance/schemas/trusted-reviewers.schema.json -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/schemas
+copying build/lib/sddgov/resources/governance/schemas/trusted-approvers.schema.json -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/schemas
+copying build/lib/sddgov/resources/governance/schemas/autonomy-policy.schema.json -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/schemas
+copying build/lib/sddgov/resources/governance/schemas/decision-record.schema.json -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/schemas
+copying build/lib/sddgov/resources/governance/schemas/governance-event.schema.json -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/schemas
+copying build/lib/sddgov/resources/governance/schemas/runtime-context.schema.json -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/schemas
+copying build/lib/sddgov/resources/governance/schemas/merge-gate.schema.json -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/schemas
+copying build/lib/sddgov/resources/governance/schemas/artifact-lock.schema.json -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/schemas
+copying build/lib/sddgov/resources/governance/schemas/operation-approval-receipt.schema.json -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/schemas
+copying build/lib/sddgov/resources/governance/schemas/collector-event.schema.json -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/schemas
+copying build/lib/sddgov/resources/governance/schemas/product-decision-approval-receipt.schema.json -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/schemas
+copying build/lib/sddgov/resources/governance/schemas/objective-contract.schema.json -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/schemas
+copying build/lib/sddgov/resources/governance/schemas/external-action.schema.json -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/schemas
+copying build/lib/sddgov/resources/governance/schemas/protected-review-receipt.schema.json -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/schemas
+copying build/lib/sddgov/resources/governance/schemas/debug-evidence-package.schema.json -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/schemas
+copying build/lib/sddgov/resources/governance/schemas/external-action-resolution-receipt.schema.json -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/schemas
+copying build/lib/sddgov/resources/governance/schemas/ci-cost-guard.schema.json -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/schemas
+copying build/lib/sddgov/resources/governance/schemas/work-claim.schema.json -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/schemas
+creating build/bdist.linux-aarch64/wheel/sddgov/resources/governance/services
+copying build/lib/sddgov/resources/governance/services/com.sddgov.broker.plist -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/services
+copying build/lib/sddgov/resources/governance/services/sddgov-broker.service -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/services
+copying build/lib/sddgov/resources/governance/VERSION -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance
+creating build/bdist.linux-aarch64/wheel/sddgov/resources/governance/templates
+copying build/lib/sddgov/resources/governance/templates/OPERATION_APPROVAL_RECEIPT.json -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/templates
+copying build/lib/sddgov/resources/governance/templates/TRUSTED_REVIEWERS.json -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/templates
+copying build/lib/sddgov/resources/governance/templates/PROTECTED_REVIEW_RECEIPT.json -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/templates
+copying build/lib/sddgov/resources/governance/templates/PR_EVIDENCE.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/templates
+copying build/lib/sddgov/resources/governance/templates/WORK_PACKAGE.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/templates
+copying build/lib/sddgov/resources/governance/templates/TRUSTED_APPROVERS.json -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/templates
+copying build/lib/sddgov/resources/governance/templates/CHANGELOG_EVIDENCE.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/templates
+copying build/lib/sddgov/resources/governance/templates/PRODUCT_DECISION_APPROVAL_RECEIPT.json -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/templates
+copying build/lib/sddgov/resources/governance/templates/MERGE_GATE.json -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/templates
+copying build/lib/sddgov/resources/governance/templates/L3_RUNTIME_CONTEXT.json -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/templates
+copying build/lib/sddgov/resources/governance/templates/ISSUE_EVIDENCE.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/templates
+copying build/lib/sddgov/resources/governance/templates/COMMIT_TRAILERS.txt -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/templates
+copying build/lib/sddgov/resources/governance/templates/EXTERNAL_ACTION_RESOLUTION_RECEIPT.json -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/templates
+copying build/lib/sddgov/resources/governance/templates/ACTION_REQUIRED.md -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/templates
+copying build/lib/sddgov/resources/governance/templates/CI_COST_GUARD.json -> build/bdist.linux-aarch64/wheel/./sddgov/resources/governance/templates
+copying build/lib/sddgov/cli.py -> build/bdist.linux-aarch64/wheel/./sddgov
+copying build/lib/sddgov/autonomy.py -> build/bdist.linux-aarch64/wheel/./sddgov
+copying build/lib/sddgov/ci_guard.py -> build/bdist.linux-aarch64/wheel/./sddgov
+copying build/lib/sddgov/trust.py -> build/bdist.linux-aarch64/wheel/./sddgov
+running install_egg_info
+Copying src/agentic_sdd_governance.egg-info to build/bdist.linux-aarch64/wheel/./agentic_sdd_governance-0.2.0rc1-py3.12.egg-info
+running install_scripts
+creating build/bdist.linux-aarch64/wheel/agentic_sdd_governance-0.2.0rc1.dist-info/WHEEL
+creating '/tmp/sddgov-r9-final-package-dEZSJM/dist/.tmp-hp53ipy0/agentic_sdd_governance-0.2.0rc1-py3-none-any.whl' and adding 'build/bdist.linux-aarch64/wheel' to it
+adding 'agentic_sdd_governance-0.2.0rc1.dist-info/licenses/LICENSE'
+adding 'sddgov/__init__.py'
+adding 'sddgov/autonomy.py'
+adding 'sddgov/benchmark.py'
+adding 'sddgov/broker.py'
+adding 'sddgov/ci_guard.py'
+adding 'sddgov/cli.py'
+adding 'sddgov/evidence.py'
+adding 'sddgov/fs_security.py'
+adding 'sddgov/governance.py'
+adding 'sddgov/installer.py'
+adding 'sddgov/merge_gate.py'
+adding 'sddgov/pilot.py'
+adding 'sddgov/redaction.py'
+adding 'sddgov/reviewer.py'
+adding 'sddgov/schema_validation.py'
+adding 'sddgov/trust.py'
+adding 'sddgov/resources/dep/fix-scope.md'
+adding 'sddgov/resources/dep/regression-evidence.md'
+adding 'sddgov/resources/dep/reproduction.md'
+adding 'sddgov/resources/dep/rollback.md'
+adding 'sddgov/resources/dep/root-cause-hypothesis.md'
+adding 'sddgov/resources/dep/verification.md'
+adding 'sddgov/resources/governance/VERSION'
+adding 'sddgov/resources/governance/adapters/codex/AGENTS.md'
+adding 'sddgov/resources/governance/adapters/hermes/AGENTS.md'
+adding 'sddgov/resources/governance/adapters/hermes/SKILL.md'
+adding 'sddgov/resources/governance/adapters/hermes/SOUL.example.md'
+adding 'sddgov/resources/governance/collectors/INTERFACE.md'
+adding 'sddgov/resources/governance/collectors/browser-playwright.md'
+adding 'sddgov/resources/governance/collectors/flutter-android.md'
+adding 'sddgov/resources/governance/collectors/supabase-docker.md'
+adding 'sddgov/resources/governance/collectors/terminal-git.md'
+adding 'sddgov/resources/governance/core/POLICY_KERNEL.md'
+adding 'sddgov/resources/governance/core/policy-kernel.yaml'
+adding 'sddgov/resources/governance/docs/AUTONOMOUS_DEVELOPMENT_V1_2.md'
+adding 'sddgov/resources/governance/docs/CI_COST_GUARD.md'
+adding 'sddgov/resources/governance/docs/EVIDENCE_DRIVEN_SDD.md'
+adding 'sddgov/resources/governance/docs/HARD_GATES_V1_2.md'
+adding 'sddgov/resources/governance/docs/L3_BROKER_OPERATIONS.md'
+adding 'sddgov/resources/governance/docs/OWNER_KEY_CEREMONY.md'
+adding 'sddgov/resources/governance/docs/ROLLBACK_OPERATIONS.md'
+adding 'sddgov/resources/governance/policies/autonomy-policy.json'
+adding 'sddgov/resources/governance/policies/ci-cost-guard.yaml'
+adding 'sddgov/resources/governance/policies/escalation-policy.yaml'
+adding 'sddgov/resources/governance/policies/merge-policy.yaml'
+adding 'sddgov/resources/governance/policies/protected-files.yaml'
+adding 'sddgov/resources/governance/profiles/regulated.yaml'
+adding 'sddgov/resources/governance/profiles/solo-fast.yaml'
+adding 'sddgov/resources/governance/profiles/team-standard.yaml'
+adding 'sddgov/resources/governance/redaction/LOCAL_REDACTION_GATEWAY.md'
+adding 'sddgov/resources/governance/redaction/rules.json'
+adding 'sddgov/resources/governance/schemas/artifact-lock.schema.json'
+adding 'sddgov/resources/governance/schemas/autonomy-policy.schema.json'
+adding 'sddgov/resources/governance/schemas/ci-cost-guard.schema.json'
+adding 'sddgov/resources/governance/schemas/collector-event.schema.json'
+adding 'sddgov/resources/governance/schemas/debug-evidence-package.schema.json'
+adding 'sddgov/resources/governance/schemas/decision-record.schema.json'
+adding 'sddgov/resources/governance/schemas/external-action-resolution-receipt.schema.json'
+adding 'sddgov/resources/governance/schemas/external-action.schema.json'
+adding 'sddgov/resources/governance/schemas/governance-event.schema.json'
+adding 'sddgov/resources/governance/schemas/merge-gate.schema.json'
+adding 'sddgov/resources/governance/schemas/objective-contract.schema.json'
+adding 'sddgov/resources/governance/schemas/operation-approval-receipt.schema.json'
+adding 'sddgov/resources/governance/schemas/product-decision-approval-receipt.schema.json'
+adding 'sddgov/resources/governance/schemas/protected-review-receipt.schema.json'
+adding 'sddgov/resources/governance/schemas/runtime-context.schema.json'
+adding 'sddgov/resources/governance/schemas/trusted-approvers.schema.json'
+adding 'sddgov/resources/governance/schemas/trusted-reviewers.schema.json'
+adding 'sddgov/resources/governance/schemas/work-claim.schema.json'
+adding 'sddgov/resources/governance/services/com.sddgov.broker.plist'
+adding 'sddgov/resources/governance/services/sddgov-broker.service'
+adding 'sddgov/resources/governance/skill/agentic-sdd-governance/SKILL.md'
+adding 'sddgov/resources/governance/skill/agentic-sdd-governance/agents/openai.yaml'
+adding 'sddgov/resources/governance/skill/agentic-sdd-governance/references/autonomy-workflow.md'
+adding 'sddgov/resources/governance/skill/agentic-sdd-governance/references/ci-cost-guard.md'
+adding 'sddgov/resources/governance/skill/agentic-sdd-governance/references/collector-routing.md'
+adding 'sddgov/resources/governance/skill/agentic-sdd-governance/references/dep-contract.md'
+adding 'sddgov/resources/governance/skill/agentic-sdd-governance/references/engineering-records.md'
+adding 'sddgov/resources/governance/skill/agentic-sdd-governance/references/evidence-workflow.md'
+adding 'sddgov/resources/governance/skill/agentic-sdd-governance/references/independent-reviewer.md'
+adding 'sddgov/resources/governance/skill/agentic-sdd-governance/references/review-sharing.md'
+adding 'sddgov/resources/governance/skill/agentic-sdd-governance/references/risk-evidence-matrix.md'
+adding 'sddgov/resources/governance/templates/ACTION_REQUIRED.md'
+adding 'sddgov/resources/governance/templates/CHANGELOG_EVIDENCE.md'
+adding 'sddgov/resources/governance/templates/CI_COST_GUARD.json'
+adding 'sddgov/resources/governance/templates/COMMIT_TRAILERS.txt'
+adding 'sddgov/resources/governance/templates/EXTERNAL_ACTION_RESOLUTION_RECEIPT.json'
+adding 'sddgov/resources/governance/templates/ISSUE_EVIDENCE.md'
+adding 'sddgov/resources/governance/templates/L3_RUNTIME_CONTEXT.json'
+adding 'sddgov/resources/governance/templates/MERGE_GATE.json'
+adding 'sddgov/resources/governance/templates/OPERATION_APPROVAL_RECEIPT.json'
+adding 'sddgov/resources/governance/templates/PRODUCT_DECISION_APPROVAL_RECEIPT.json'
+adding 'sddgov/resources/governance/templates/PROTECTED_REVIEW_RECEIPT.json'
+adding 'sddgov/resources/governance/templates/PR_EVIDENCE.md'
+adding 'sddgov/resources/governance/templates/TRUSTED_APPROVERS.json'
+adding 'sddgov/resources/governance/templates/TRUSTED_REVIEWERS.json'
+adding 'sddgov/resources/governance/templates/WORK_PACKAGE.md'
+adding 'agentic_sdd_governance-0.2.0rc1.dist-info/METADATA'
+adding 'agentic_sdd_governance-0.2.0rc1.dist-info/WHEEL'
+adding 'agentic_sdd_governance-0.2.0rc1.dist-info/entry_points.txt'
+adding 'agentic_sdd_governance-0.2.0rc1.dist-info/top_level.txt'
+adding 'agentic_sdd_governance-0.2.0rc1.dist-info/RECORD'
+removing build/bdist.linux-aarch64/wheel
+Successfully built agentic_sdd_governance-0.2.0rc1.tar.gz and agentic_sdd_governance-0.2.0rc1-py3-none-any.whl
+
+Script done on [REDACTED_PHONE_OR_NUMBER]:49:08+08:00 [COMMAND_EXIT_CODE="0"]
+Script started on [REDACTED_PHONE_OR_NUMBER]:49:14+08:00 [COMMAND=".venv/bin/python -m twine check /tmp/sddgov-r9-final-package-dEZSJM/dist/agentic_sdd_governance-0.2.0rc1-py3-none-any.whl /tmp/sddgov-r9-final-package-dEZSJM/dist/agentic_sdd_governance-0.2.0rc1.tar.gz" <not executed on terminal>]
+Checking
+/tmp/sddgov-r9-final-package-dEZSJM/dist/agentic_sdd_governance-0.2.0rc1-py3-non
+e-any.whl: PASSED
+Checking
+/tmp/sddgov-r9-final-package-dEZSJM/dist/agentic_sdd_governance-0.2.0rc1.tar.gz:PASSED
+
+Script done on [REDACTED_PHONE_OR_NUMBER]:49:14+08:00 [COMMAND_EXIT_CODE="0"]
+Script started on [REDACTED_PHONE_OR_NUMBER]:49:22+08:00 [COMMAND=".venv/bin/python scripts/prepare_release_bundle.py --dist /tmp/sddgov-r9-final-package-dEZSJM/dist --wheelhouse /tmp/sddgov-r8-package-giedzD/release/offline/wheelhouse --lock requirements-governance.lock --output /tmp/sddgov-r9-final-package-dEZSJM/release --version 0.2.0rc1 --platform-label linux-aarch64-py312 --report /tmp/sddgov-r9-final-package-dEZSJM/release-bundle.json" <not executed on terminal>]
+{
+  "ok": true,
+  "version": "0.2.0rc1",
+  "platform_label": "linux-aarch64-py312",
+  "project_wheel": "agentic_sdd_governance-0.2.0rc1-py3-none-any.whl",
+  "dependency_wheel_count": 10,
+  "offline_archive": "agentic-sdd-governance-0.2.0rc1-offline-linux-aarch64-py312.zip",
+  "public_asset_count": 4
+}
+
+Script done on [REDACTED_PHONE_OR_NUMBER]:49:22+08:00 [COMMAND_EXIT_CODE="0"]
+Script started on [REDACTED_PHONE_OR_NUMBER]:49:28+08:00 [COMMAND=".venv/bin/python scripts/fresh_wheel_smoke.py --wheel /tmp/sddgov-r9-final-package-dEZSJM/dist/agentic_sdd_governance-0.2.0rc1-py3-none-any.whl --expected-version 0.2.0rc1 --bundle-root /tmp/sddgov-r9-final-package-dEZSJM/release/offline --output /tmp/sddgov-r9-final-package-dEZSJM/fresh-wheel-smoke.json" <not executed on terminal>]
+{
+  "ok": true,
+  "verdict": "PASS",
+  "wheel": "agentic_sdd_governance-0.2.0rc1-py3-none-any.whl",
+  "version": "0.2.0rc1",
+  "source_checkout_imported": false,
+  "offline_bundle_verified": true,
+  "bundle_file_count": 12,
+  "doctors": {
+    "codex": {
+      "ok": true,
+      "validation": "PASS",
+      "managed_file_count": 71
+    },
+    "hermes": {
+      "ok": true,
+      "validation": "PASS",
+      "managed_file_count": 71
+    }
+  },
+  "quick_demo": {
+    "verdict": "PASS",
+    "real_data_used": false
+  }
+}
+
+Script done on [REDACTED_PHONE_OR_NUMBER]:49:32+08:00 [COMMAND_EXIT_CODE="0"]
+Script started on [REDACTED_PHONE_OR_NUMBER]:49:45+08:00 [COMMAND="sha256sum /tmp/sddgov-r9-final-package-dEZSJM/dist/agentic_sdd_governance-0.2.0rc1-py3-none-any.whl /tmp/sddgov-r9-final-package-dEZSJM/dist/agentic_sdd_governance-0.2.0rc1.tar.gz /tmp/sddgov-r9-final-package-dEZSJM/release/agentic-sdd-governance-0.2.0rc1-offline-linux-aarch64-py312.zip /tmp/sddgov-r9-final-package-dEZSJM/release/SHA256SUMS.txt /tmp/sddgov-r9-final-package-dEZSJM/release-bundle.json /tmp/sddgov-r9-final-package-dEZSJM/fresh-wheel-smoke.json" <not executed on terminal>]
+6c03c446949339c4eadeb3efdcbdd628f1fe14b1e8dc81613a1c3aba865835c5  /tmp/sddgov-r9-final-package-dEZSJM/dist/agentic_sdd_governance-0.2.0rc1-py3-none-any.whl
+559b4eeea3696cc74a8dcd72854f637e620be13122153f9abc36dc9ee1e3696d  /tmp/sddgov-r9-final-package-dEZSJM/dist/agentic_sdd_governance-0.2.0rc1.tar.gz
+68f362c62d440ad98f4d0f563889eb619948be47a49d5ee6768a9cfe03b932f8  /tmp/sddgov-r9-final-package-dEZSJM/release/agentic-sdd-governance-0.2.0rc1-offline-linux-aarch64-py312.zip
+54ff910f0c56cda40dc122440c3d2ac12a95628d3179252e3c06ad495a444303  /tmp/sddgov-r9-final-package-dEZSJM/release/SHA256SUMS.txt
+c173a5d76313e68917bcdfe316f7a477cef38571c1b42f31d9ac99e9cb77250d  /tmp/sddgov-r9-final-package-dEZSJM/release-bundle.json
+cf49fdc97f2132bd516dba20a71c02362ec1023463502b5e9ad6936dc19f3e63  /tmp/sddgov-r9-final-package-dEZSJM/fresh-wheel-smoke.json
+
+Script done on [REDACTED_PHONE_OR_NUMBER]:49:45+08:00 [COMMAND_EXIT_CODE="0"]
