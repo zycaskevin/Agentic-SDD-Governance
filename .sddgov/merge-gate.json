@@ -1,13 +1,13 @@
 {
   "schema_version": "1.0",
-  "base_sha": "4c2a1ca27c49e0db00550300ab5b2e3c6658a4eb",
-  "head_sha": "6f4de5e9825452a40821c2bd5401b0fcfc9897e7",
+  "base_sha": "55d480a09764827e89531eef75bb7c5f21ab18cd",
+  "head_sha": "ed1bdfe4f868077981c28d50a4f177142ddb4345",
   "risk_level": "L1",
-  "builder_id": "codex-release-notes-builder",
-  "change_digest": "5c5f87179467ffcf6acaccb7f150d2514d4c14f9ee128177ab55f15bc366eeff",
+  "builder_id": "codex-local-green-serialization-builder",
+  "change_digest": "2d5fa2ca31bb4ce06cbb5c311b660184a5678ab70f48594e809bd61ed6c80dee",
   "deps": [
-    "evidence/DEP-EXP9-RELEASE-NOTES-017"
+    "evidence/DEP-SDG-CI-LOCK-016"
   ],
-  "rollback_path": "evidence/DEP-EXP9-RELEASE-NOTES-017/rollback.md",
-  "protected_file_review": null
+  "rollback_path": "evidence/DEP-SDG-CI-LOCK-016/rollback.md",
+  "protected_file_review": ".sddgov/reviews/REV-SDG-CI-LOCK-001.json"
 }
