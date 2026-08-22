@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-REVIEW-FIX-R20-028",
+  "issue": "PR #41 independent and CodeRabbit reviews found unresolved R19 path, transaction, workflow, and subprocess boundaries",
+  "sdd_references": [
+    "work-packages/WP-RC1-READINESS-008.md"
+  ],
+  "risk_level": "L1",
+  "created_at": "2026-08-22T06:48:20Z",
+  "updated_at": "2026-08-22T06:49:14Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-22T06:48:20Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-22T06:49:14Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-22T06:49:14Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-22T06:49:14Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-22T06:49:14Z"
+      }
+    ]
+  },
+  "expected_behavior": "Native WSL UNC paths are masked; multi-file redaction is one replacement-safe transaction; Darwin aliases are shared; source Green precedes packaging; Broker shutdown drains pipes; the demo requires Python 3.10 or newer.",
+  "actual_behavior": "R19 independently reproduced five correctness/security gaps and three valid minor contract gaps across those boundaries.",
+  "environment": {
+    "commit": "a229f2f1499518883e6e9a87972870b28ee38863",
+    "branch": "feat/rc1-readiness-r20-final",
+    "runtime": "Python 3.12 on Linux aarch64; hosted Ubuntu and macOS-15 required before signature"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}

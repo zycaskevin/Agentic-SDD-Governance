@@ -14,6 +14,7 @@ from .autonomy import (
     import_external_action_resolution,
     import_operation_approval,
     import_product_approval,
+    verify_product_decision,
     lock_artifact,
     record_decision,
     verify_artifact,
@@ -21,14 +22,16 @@ from .autonomy import (
 from .ci_guard import run_local_gate, verify_guard
 from .evidence import attach, collect, make_dep, redact, transition, verify
 from .governance import claim_work, emit_event, enqueue_external_action, init_project, project_status
-from .installer import AGENTS, doctor, setup_agent, uninstall_agent
+from .installer import AGENTS, doctor, resource_files, setup_agent, uninstall_agent
 from .merge_gate import (
     DEFAULT_GATE,
     compute_change_digest,
     compute_gate_metadata_digest,
     verify_merge,
 )
-from .pilot import run_synthetic_muse_pilot
+from .pilot import run_quick_demo, run_synthetic_muse_pilot
+from .broker import BROKER_SOCKET_GROUP, broker_readiness, serve_broker
+from .owner_approval import build_product_approval_card
 from .reviewer import bootstrap_reviewer, export_trust, sign_protected_review
 from .schema_validation import check_schema, load_schema, validate_instance
 
@@ -123,6 +126,19 @@ def _autonomy_parsers(subparsers) -> None:
     )
     import_product.add_argument("receipt", type=Path)
     import_product.add_argument("--path", type=Path, default=Path.cwd())
+    verify_product = decision_commands.add_parser(
+        "verify-product",
+        help="Reverify one stored L2 signature, row, audience, and exact request",
+    )
+    verify_product.add_argument("decision_id")
+    verify_product.add_argument("request", help="Repository-relative L2 request JSON")
+    verify_product.add_argument("--path", type=Path, default=Path.cwd())
+    show_product = decision_commands.add_parser(
+        "show-product-approval",
+        help="Validate and render one bounded L2 Owner approval card",
+    )
+    show_product.add_argument("request", help="Repository-relative L2 request JSON")
+    show_product.add_argument("--path", type=Path, default=Path.cwd())
     import_approval = decision_commands.add_parser(
         "import-operation-approval",
         help="Verify and import one trusted owner-signed L3 approval receipt",
@@ -145,6 +161,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser = SDGArgumentParser(prog="sddgov")
     parser.add_argument("--version", action="version", version=__version__)
     sub = parser.add_subparsers(dest="command", required=True)
+    broker = sub.add_parser("broker", help="Inspect or run the independent L3 nonce Broker")
+    broker_commands = broker.add_subparsers(dest="broker_command", required=True)
+    broker_doctor = broker_commands.add_parser(
+        "doctor", help="Read-only readiness checks for L3 trust and Broker controls"
+    )
+    broker_doctor.add_argument("--path", type=Path, default=Path.cwd())
+    broker_serve = broker_commands.add_parser(
+        "serve", help="Run the root-owned Broker on the fixed platform socket"
+    )
+    broker_serve.add_argument("--socket-group", default=BROKER_SOCKET_GROUP)
     _evidence_parser(sub)
     _ci_parser(sub)
     _autonomy_parsers(sub)
@@ -267,13 +293,25 @@ def build_parser() -> argparse.ArgumentParser:
         "synthetic-muse", help="Run the offline synthetic Muse/Hermes pilot"
     )
     synthetic_muse.add_argument("--output", type=Path)
+    quick_demo = pilot_sub.add_parser(
+        "quick", help="Run the 30-second offline allow/block/evidence demo"
+    )
+    quick_demo.add_argument("--output", type=Path)
     validate = sub.add_parser("validate", help="Validate repository governance assets")
     validate.add_argument("path", nargs="?", type=Path, default=Path.cwd())
     return parser
 
 
 def _validate_repo(root: Path) -> list[str]:
-    required = (
+    source_tree = (root / "pyproject.toml").is_file() and (
+        root / "src/sddgov/cli.py"
+    ).is_file()
+    installed = root / ".agentic-sdd-governance"
+    if not source_tree and installed.is_dir():
+        root = installed
+
+    managed_required = (
+        "VERSION",
         "core/POLICY_KERNEL.md", "core/policy-kernel.yaml",
         "profiles/solo-fast.yaml", "profiles/team-standard.yaml", "profiles/regulated.yaml",
         "schemas/debug-evidence-package.schema.json", "schemas/collector-event.schema.json",
@@ -284,26 +322,64 @@ def _validate_repo(root: Path) -> list[str]:
         "policies/protected-files.yaml",
         "schemas/autonomy-policy.schema.json", "schemas/decision-record.schema.json",
         "schemas/artifact-lock.schema.json", "policies/autonomy-policy.json",
-        "schemas/trusted-approvers.schema.json", "schemas/operation-approval-receipt.schema.json",
+        "schemas/trusted-approvers.schema.json",
+        "schemas/trusted-approver-domains.schema.json",
+        "schemas/operation-approval-receipt.schema.json",
         "schemas/product-decision-approval-receipt.schema.json",
         "schemas/trusted-reviewers.schema.json", "schemas/protected-review-receipt.schema.json",
-        "schemas/merge-gate.schema.json", "src/sddgov/merge_gate.py",
-        "src/sddgov/reviewer.py",
+        "schemas/merge-gate.schema.json",
         "schemas/ci-cost-guard.schema.json", "policies/ci-cost-guard.yaml",
+        "docs/EVIDENCE_DRIVEN_SDD.md", "docs/CI_COST_GUARD.md",
+        "docs/AUTONOMOUS_DEVELOPMENT_V1_2.md", "templates/ACTION_REQUIRED.md",
+        "docs/HARD_GATES_V1_2.md", "docs/L3_BROKER_OPERATIONS.md",
+        "docs/OWNER_KEY_CEREMONY.md", "docs/ROLLBACK_OPERATIONS.md",
+        "templates/EXTERNAL_ACTION_RESOLUTION_RECEIPT.json",
+        "templates/PRODUCT_DECISION_APPROVAL_RECEIPT.json",
+        "templates/TRUSTED_APPROVER_DOMAINS.json",
+        "templates/CI_COST_GUARD.json",
+        "services/com.sddgov.broker.plist", "services/sddgov-broker.service",
+    )
+    source_required = (
+        "src/sddgov/merge_gate.py", "src/sddgov/reviewer.py",
+        "src/sddgov/ci_guard.py",
+        "src/sddgov/installer.py",
+        "src/sddgov/broker.py",
+        "src/sddgov/pilot.py",
+        "src/sddgov/owner_approval.py",
+        "src/sddgov/owner_cli.py",
+        "src/sddgov/resources/governance/VERSION",
+        "src/sddgov/resources/governance/skill/agentic-sdd-governance/SKILL.md",
         "skill/agentic-sdd-governance/SKILL.md",
         "skill/agentic-sdd-governance/references/ci-cost-guard.md",
         "skill/agentic-sdd-governance/references/independent-reviewer.md",
-        "docs/EVIDENCE_DRIVEN_SDD.md", "docs/AGENT_INSTALLATION.md", "docs/CI_COST_GUARD.md",
-        "docs/AUTONOMOUS_DEVELOPMENT_V1_2.md", "templates/ACTION_REQUIRED.md",
-        "templates/EXTERNAL_ACTION_RESOLUTION_RECEIPT.json",
-        "templates/PRODUCT_DECISION_APPROVAL_RECEIPT.json",
-        "templates/CI_COST_GUARD.json", "src/sddgov/ci_guard.py",
-        "src/sddgov/installer.py",
-        "src/sddgov/resources/governance/VERSION",
-        "src/sddgov/resources/governance/skill/agentic-sdd-governance/SKILL.md",
-        "CHANGELOG.md", "docs/ROADMAP.md",
+        "docs/AGENT_INSTALLATION.md", "CHANGELOG.md", "docs/ROADMAP.md",
+    )
+    required = (
+        managed_required + source_required
+        if source_tree
+        else ("manifest.json",) + managed_required
     )
     errors = [f"missing {item}" for item in required if not (root / item).is_file()]
+    if source_tree:
+        try:
+            embedded_assets = resource_files()
+        except (OSError, ValueError) as exc:
+            errors.append(f"cannot inspect embedded governance assets: {exc}")
+        else:
+            for relative, embedded in embedded_assets.items():
+                canonical = root / relative
+                if not canonical.is_file():
+                    errors.append(f"missing embedded governance source: {relative}")
+                    continue
+                try:
+                    source = canonical.read_bytes()
+                except OSError as exc:
+                    errors.append(f"cannot read embedded governance source {relative}: {exc}")
+                    continue
+                if source != embedded:
+                    errors.append(
+                        f"embedded governance asset differs from source: {relative}"
+                    )
     skill = root / "skill/agentic-sdd-governance/SKILL.md"
     if skill.is_file() and len(skill.read_text(encoding="utf-8").splitlines()) > 500:
         errors.append("SKILL.md exceeds 500 lines")
@@ -331,6 +407,15 @@ def _validate_repo(root: Path) -> list[str]:
 
 
 def run(args: argparse.Namespace) -> int:
+    if args.command == "broker":
+        if args.broker_command == "doctor":
+            result = broker_readiness(args.path)
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return 0 if result["ok"] else 1
+        if args.broker_command == "serve":
+            serve_broker(args.socket_group)
+            return 0
+        raise ValueError(f"unknown broker command: {args.broker_command}")
     if args.command == "init":
         created = init_project(args.path, args.profile)
         print(json.dumps({"ok": True, "created": [str(p) for p in created]}, ensure_ascii=False, indent=2))
@@ -374,7 +459,11 @@ def run(args: argparse.Namespace) -> int:
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
     if args.command == "pilot":
-        result = run_synthetic_muse_pilot(args.output)
+        result = (
+            run_synthetic_muse_pilot(args.output)
+            if args.pilot_command == "synthetic-muse"
+            else run_quick_demo(args.output)
+        )
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0 if result["verdict"] == "PASS" else 1
     if args.command == "autonomy":
@@ -416,6 +505,20 @@ def run(args: argparse.Namespace) -> int:
             )
         elif args.decision_command == "import-product-approval":
             result = import_product_approval(args.path, args.receipt)
+        elif args.decision_command == "show-product-approval":
+            _request, card = build_product_approval_card(args.path, args.request)
+            result = {
+                "state": "ACTION_REQUIRED",
+                "requires_response": True,
+                "approval_card": card,
+                "next_action": "select_one_displayed_option; SDG handles receipt construction and signing",
+            }
+        elif args.decision_command == "verify-product":
+            result = verify_product_decision(
+                args.path,
+                args.decision_id,
+                args.request,
+            )
         else:
             result = import_operation_approval(args.path, args.receipt)
         print(json.dumps(result, ensure_ascii=False, indent=2))
@@ -472,7 +575,7 @@ def run(args: argparse.Namespace) -> int:
         if errors:
             print("\n".join(f"[ERROR] {e}" for e in errors), file=sys.stderr)
             return 1
-        print("[OK] governance kernel, profiles, evidence schema, skill, and lifecycle docs")
+        print("[OK] managed governance contracts and lifecycle assets")
         return 0
     if args.command == "benchmark":
         print(json.dumps(compare(args.screenshot, args.evidence), ensure_ascii=False, indent=2))

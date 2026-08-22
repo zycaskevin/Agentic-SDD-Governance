@@ -1,0 +1,14 @@
+R15 REVIEW BINDINGS
+Trusted Base: 1a5a0b214eccc2b9edd076fd5e2f222c4a456725
+Atomic product: d2a3632a8e281552ac117a5b7db47fa73cb8f29f
+Atomic parent: 1a5a0b214eccc2b9edd076fd5e2f222c4a456725
+Branch: feat/rc1-readiness-r15
+Authoritative DEP: evidence/DEP-RC1-REVIEW-FIX-R15-023
+Rollback ref: d2a3632a8e281552ac117a5b7db47fa73cb8f29f
+
+Every descendant between the atomic product and pre-R15-DEP Head f9ad29cf4f6344b7c0fdb8bb311626646d9b713f is single-parent and changes only evidence/**.
+R15 adds per-commit and per-parent-edge validation so transient policy changes cannot be hidden by a later net-diff reversal or merge.
+
+Normative platform contracts:
+Linux renameat2 RENAME_NOREPLACE: https://man7.org/linux/man-pages/man2/renameat2.2.html
+Apple renameatx_np RENAME_EXCL source: https://raw.githubusercontent.com/apple-oss-distributions/xnu/main/bsd/sys/stdio.h

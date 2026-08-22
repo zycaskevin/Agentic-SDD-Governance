@@ -1,0 +1,25 @@
+R8 PACKAGE PROOF
+
+Source implementation commit: 753a2f8aa089e6e7e4d6cb6c2de157f64193f0f5
+Trusted Base: 1a5a0b214eccc2b9edd076fd5e2f222c4a456725
+Python: 3.12
+Platform: Linux aarch64
+
+python -m build --no-isolation: PASS
+python -m twine check wheel and sdist: PASS
+prepare_release_bundle.py: PASS
+fresh_wheel_smoke.py: PASS
+Locked dependency wheels: 10
+Offline bundle files verified: 12
+Source checkout imported by fresh wheel: false
+Codex setup/doctor/validate: PASS
+Hermes setup/doctor/validate: PASS
+Synthetic quick demo with real_data_used=false: PASS
+
+SHA-256:
+a21db7a6f6ae4952fe8f00e3c5c7dbc519fa44e5adfe2a9ee19452efaa031a3b  agentic_sdd_governance-0.2.0rc1-py3-none-any.whl
+836c8c6c6cb50fe7a66437267ecedea29b16dea30b20029358aec39c0a84166a  agentic_sdd_governance-0.2.0rc1.tar.gz
+e837d11865c6e8883e2cb559366d29392d34e341efd46a9d5207d24d0d3d0c92  agentic-sdd-governance-0.2.0rc1-offline-linux-aarch64-py312.zip
+97463a65cc5c2620791b9f8413a1759b4e2fa45a39dbc93c7bd3eab52f1e76be  SHA256SUMS.txt
+
+PACKAGE_PROOF=PASS

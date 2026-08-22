@@ -1,0 +1,30 @@
+R19 PACKAGE PROOF
+
+Candidate build:
+python -m build --no-isolation --outdir <isolated-dist>
+Successfully built agentic_sdd_governance-0.2.0rc1.tar.gz and
+agentic_sdd_governance-0.2.0rc1-py3-none-any.whl.
+
+Twine:
+wheel PASSED
+sdist PASSED
+
+Hash-locked offline release bundle:
+version=0.2.0rc1
+platform_label=linux-aarch64-py312
+dependency_wheel_count=10
+public_asset_count=4
+offline archive generated
+
+Checkout-free fresh-wheel smoke:
+ok=true
+verdict=PASS
+source_checkout_imported=false
+offline_bundle_verified=true
+bundle_file_count=13
+bundle_payload_file_count=12
+Codex Doctor=PASS, managed_file_count=71
+Hermes Doctor=PASS, managed_file_count=71
+quick demo=PASS, real_data_used=false
+native Broker=PASS, platform=linux
+

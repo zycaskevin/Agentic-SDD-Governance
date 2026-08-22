@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.2.0rc1 — 2026-08-21 release candidate
+
+### Added
+
+- Added an offline 30-second `sddgov pilot quick` demonstration and executable `demo/run.sh` that show routine continuation, dangerous-action blocking, credential redaction, binary fail-closed behavior, and strict DEP verification without real data.
+- Added an isolated manual TestPyPI → registry round-trip verification → optional PyPI Trusted Publishing workflow with OIDC, attestations, full-SHA-pinned Actions, hash-locked release tooling, and a fresh-wheel Codex/Hermes smoke test.
+- Added a root-owned L3 Broker service with an append-only fsynced nonce ledger, health protocol, replay rejection, systemd/launchd templates, and read-only `sddgov broker doctor` readiness checks.
+- Added Owner key ceremony, per-trust-domain custody, rotation, revocation, loss recovery, WSL2/macOS Broker operations, squash mapping, and audited break-glass rollback runbooks.
+- Added a synthetic exact-tree rollback benchmark for 1k/10k/50k-file repositories with an explicit no-marketing claim boundary.
+
+### Security
+
+- Added a 10 MiB source-file and 1 MiB logical-line limit to the Local Redaction Gateway, plus 64 KiB streaming UTF-8 redaction that preserves credential and private-key state across I/O chunk boundaries.
+- Made oversized files fail before regex processing or publication and made unterminated private-key blocks fail closed.
+- Preserved full Base-tree rollback equality after the 50k-file benchmark stayed far below the predeclared p95 threshold; no affected-path-only weakening was introduced.
+- Protected release locks, fresh-wheel smoke code, and Broker service templates under the independent-review policy.
+- Preserved experimental.9's stricter fail-closed Draft guard parser while accepting only a fully bound flat PR-event conjunction.
+
+### Changed
+
+- Aligned English and Traditional Chinese first-run, Profile, authority-level, installation, upgrade, documentation, release, and limitation guidance.
+- Promoted package and Governance resource versions from experimental.9 to `0.2.0rc1`.
+- Kept external publication, real Owner key creation, root Broker installation, and sensitive-runtime pilots outside local autonomous authority.
+
 ## 0.2.0-experimental.9 — 2026-08-22 CI Cost Guard patch
 
 ### Fixed

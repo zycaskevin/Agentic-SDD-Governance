@@ -1,0 +1,30 @@
+R21 RED CONTRACT
+
+Reviewed predecessor: R20 candidate / PR #42.
+
+Expected:
+- every staged public byte sequence is bound to the descriptor-written inode,
+  size, and digest before no-clobber publication;
+- failed cleanup atomically claims only the owned generation and preserves a
+  later writer, including close-failure and near-NAME_MAX boundaries;
+- streaming redaction fails closed on newline-split sensitive fields and masks
+  native plus JSON-escaped WSL UNC paths;
+- trusted output dirfds cause no pathname mutation;
+- Broker cleanup preserves a replacement socket at the claim boundary;
+- release downloads are reverified after every fetch, and control-plane files
+  have a readable least-privilege mode plus a concrete clock deadline.
+
+Actual on R20:
+- independent review reproduced unbound Evidence control/attachment staging,
+  stat-to-unlink cleanup races, pre-commit close residues, a supplied-dirfd
+  pathname mutation, newline and escaped-UNC redaction gaps, and incomplete
+  release/control-plane provenance contracts.
+- CodeRabbit findings independently confirmed the cross-line, control-mode,
+  clock-deadline, NAME_MAX, and repeated-download gaps.
+
+R21 acceptance:
+- focused replacement, close, symlink, hardlink, FIFO, cross-line, escaped-UNC,
+  workflow, and release-inventory regressions pass;
+- the complete repository suite, Validate, CI Guard, Local Green, package,
+  fresh-wheel, native Linux/macOS, rollback, and trusted-Base checks pass;
+- a new independent exact-Head receipt is required before merge.

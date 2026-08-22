@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "terminal--r19-local-green.txt",
+      "output": "terminal--r19-local-green.txt",
+      "source_sha256": "c885e7035d05f3f8c5e9e7a579c58b3fd5705cd7fe1f4ed22c91e58d5ab2cc39",
+      "source_size": 1407,
+      "output_sha256": "c885e7035d05f3f8c5e9e7a579c58b3fd5705cd7fe1f4ed22c91e58d5ab2cc39",
+      "output_size": 1407,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--r19-package-proof.txt",
+      "output": "terminal--r19-package-proof.txt",
+      "source_sha256": "586939f72336679b791eaafc775a452265b0cfe3a5d3b24f337cd4004d306027",
+      "source_size": 722,
+      "output_sha256": "586939f72336679b791eaafc775a452265b0cfe3a5d3b24f337cd4004d306027",
+      "output_size": 722,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--r19-review-red.txt",
+      "output": "terminal--r19-review-red.txt",
+      "source_sha256": "e3852c57284791e3774f834e377244090e62292f674cce16f28b50a262aac29d",
+      "source_size": 1643,
+      "output_sha256": "e3852c57284791e3774f834e377244090e62292f674cce16f28b50a262aac29d",
+      "output_size": 1643,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--r19-rollback-proof.txt",
+      "output": "terminal--r19-rollback-proof.txt",
+      "source_sha256": "6bcc854a9b96291e25801b6c83d35d8e2a5a7d4524034feb6a7ecebe8309f3da",
+      "source_size": 1127,
+      "output_sha256": "6bcc854a9b96291e25801b6c83d35d8e2a5a7d4524034feb6a7ecebe8309f3da",
+      "output_size": 1127,
+      "redactions": {}
+    }
+  ],
+  "blocked": [],
+  "totals": {},
+  "dep_id": "DEP-RC1-REVIEW-FIX-R19-027",
+  "generated_at": "2026-08-22T06:08:39Z"
+}

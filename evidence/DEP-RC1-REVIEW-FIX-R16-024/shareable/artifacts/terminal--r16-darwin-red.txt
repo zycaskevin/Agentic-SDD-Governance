@@ -1,0 +1,15 @@
+R16 RED — PR #37 native Darwin failure
+Base: 1a5a0b214eccc2b9edd076fd5e2f222c4a456725
+Gate Head: a4febd560a35bc7908fd0dcda54cbf5d0d471e70
+Hosted run: [REDACTED_PHONE_OR_NUMBER]
+
+native-af-unix (ubuntu-latest): PASS
+native-af-unix (macos-15): FAIL
+macOS result: 6 tests; 1 passed; 3 failures; 2 errors
+shared root cause: OSError: AF_UNIX path too long
+failure site: server.bind(str(staging_path)) before publication/no-clobber
+
+The direct identity socket was short enough and passed. Five nested staging
+cases used the runner's long default temporary root and failed before the
+reviewed publication semantics. The workflow also set PYTHONPATH=src, so it did
+not prove native behavior from the installed candidate wheel.

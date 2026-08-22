@@ -1,0 +1,104 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-REVIEW-FIX-R6-014",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r6-red-tests.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "3f4d8829e5ec0d220dbaae839df9d74ee56050c40c6949e8c3043c58bb52e4c7",
+      "size": 49312,
+      "collected_at": "2026-08-21T15:24:35Z",
+      "shareable": false
+    },
+    {
+      "collector": "git",
+      "path": "private/raw/git--r6-red-context.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "23f1c6c52c9ec6824ca6f7079a7a04238382568ef21259b5b2ca59bb3ddca708",
+      "size": 537,
+      "collected_at": "2026-08-21T15:24:35Z",
+      "shareable": false
+    },
+    {
+      "collector": "git",
+      "path": "private/raw/git--r6-review-bindings.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "2c03e9377c67c37c36d37057c90f492ebed76fcafe8183ea94078740f9954177",
+      "size": 3025,
+      "collected_at": "2026-08-21T15:24:35Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r6-local-green.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "edc78594390dc786bf76f22dc62063fc45ae704a861fb474bbc59a12d4bd9872",
+      "size": 44826,
+      "collected_at": "2026-08-21T15:24:36Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r6-release-bundle.json",
+      "source_suffix": ".json",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "c173a5d76313e68917bcdfe316f7a477cef38571c1b42f31d9ac99e9cb77250d",
+      "size": 303,
+      "collected_at": "2026-08-21T15:24:36Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r6-fresh-wheel-smoke.json",
+      "source_suffix": ".json",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "cf49fdc97f2132bd516dba20a71c02362ec1023463502b5e9ad6936dc19f3e63",
+      "size": 517,
+      "collected_at": "2026-08-21T15:24:36Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/git--r6-red-context.txt",
+      "sha256": "23f1c6c52c9ec6824ca6f7079a7a04238382568ef21259b5b2ca59bb3ddca708",
+      "size": 537,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/git--r6-review-bindings.txt",
+      "sha256": "2c03e9377c67c37c36d37057c90f492ebed76fcafe8183ea94078740f9954177",
+      "size": 3025,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r6-fresh-wheel-smoke.json",
+      "sha256": "cf49fdc97f2132bd516dba20a71c02362ec1023463502b5e9ad6936dc19f3e63",
+      "size": 517,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r6-local-green.txt",
+      "sha256": "04fb952b3f449d34a8d4717c88e60a270cfb46f310afc8cc3a71249710822173",
+      "size": 44741,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r6-red-tests.txt",
+      "sha256": "fdadbeda468fc04af4a163e200525aa113a642d684e582f27be4e7adc31457d1",
+      "size": 47623,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r6-release-bundle.json",
+      "sha256": "c173a5d76313e68917bcdfe316f7a477cef38571c1b42f31d9ac99e9cb77250d",
+      "size": 303,
+      "shareable": true
+    }
+  ]
+}

@@ -7,7 +7,8 @@
     },
     "commands": [
       ["python3", "-m", "unittest", "discover", "-s", "tests", "-v"],
-      ["python3", "-m", "sddgov.cli", "validate", "."]
+      ["python3", "-m", "sddgov.cli", "validate", "."],
+      ["python3", "-m", "sddgov.cli", "decision", "verify-product", "DEC-RC1-APPROVER-AUTHORITY-R22", "work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.request.json", "--path", "."]
     ]
   },
   "hosted": {
@@ -23,6 +24,13 @@
     "require_job_timeouts": true,
     "require_read_only_permissions": true,
     "skip_draft_pull_requests": true,
-    "exempt_workflows": []
+    "exempt_workflows": [],
+    "write_permission_exceptions": {
+      "publish.yml": {
+        "publish-testpypi": ["id-token"],
+        "publish-github-release": ["contents"],
+        "publish-pypi": ["id-token"]
+      }
+    }
   }
 }

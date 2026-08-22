@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "bindings": [
+    {
+      "approver_id": "replace-with-owner-id",
+      "repository_id": "github.com/replace-owner/replace-repository",
+      "repository_root": "/replace/with/exact/repository/root",
+      "trust_domain": "replace-with-one-repository-trust-domain",
+      "status": "active"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+R15 ROLLBACK DRILL
+Reviewed product state: atomic d2a3632a8e281552ac117a5b7db47fa73cb8f29f plus Evidence-only descendants
+Command: git revert --no-commit d2a3632a8e281552ac117a5b7db47fa73cb8f29f
+Result outside evidence/**, .sddgov/merge-gate.json, .sddgov/reviews/**: exact Base 1a5a0b214eccc2b9edd076fd5e2f222c4a456725 PASS
+
+Fresh Base governance venv installed requirements-governance.lock with --require-hashes: PASS
+pip check: PASS
+setup-agent Codex team-standard: PASS; 66 managed files
+Doctor: PASS; no errors or warnings
+Validate: PASS
+Base unittest discover: 229 tests PASS (2 explicit sandbox/history skips)
+Base build --no-isolation: PASS
+Base Twine wheel/sdist check: PASS
+Fresh Base consumer: locked dependencies + Base wheel PASS
+Base wheel version: 0.2.0-experimental.8
+Base consumer pip check/setup-agent/Doctor: PASS

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentic-sdd-governance"
-version = "0.2.0.dev9"
+version = "0.2.0rc1"
 description = "Governance and evidence infrastructure for autonomous software engineering"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -16,12 +16,14 @@ evidence = "sddgov.cli:evidence_main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
+script-files = ["scripts/sddgov-owner"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
 sddgov = [
+  "owner_launcher.sh",
   "resources/dep/*",
   "resources/governance/*",
   "resources/governance/adapters/codex/*",
@@ -33,6 +35,7 @@ sddgov = [
   "resources/governance/profiles/*",
   "resources/governance/redaction/*",
   "resources/governance/schemas/*",
+  "resources/governance/services/*",
   "resources/governance/templates/*",
   "resources/governance/skill/agentic-sdd-governance/*",
   "resources/governance/skill/agentic-sdd-governance/agents/*",

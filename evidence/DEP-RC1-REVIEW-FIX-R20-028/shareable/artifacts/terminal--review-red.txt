@@ -1,0 +1,10 @@
+Independent review verdict for R19: FAIL and no signature.
+
+Reproduced boundaries:
+- Native Windows WSL UNC paths for wsl.localhost and wsl$ remained unredacted.
+- The native workflow built distributions before source tests and validation.
+- Installed-Broker shutdown waited before draining stdout and stderr pipes.
+- Evidence collection handled one Darwin system alias but not the fixed temporary-system alias.
+- A later multi-file redaction failure left an earlier output published.
+
+Valid minor findings also required Python 3.10 demo selection, removal of a fake socket assertion, and canonical string ordering for the withdrawal registry completeness check.
