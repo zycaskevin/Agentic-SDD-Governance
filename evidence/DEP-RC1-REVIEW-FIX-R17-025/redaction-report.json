@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "terminal--r17-review-red.txt",
+      "output": "terminal--r17-review-red.txt",
+      "source_sha256": "62f234243377b1f5c5882320998f8480c85bde0d0799f1ff36feca9c8ada7c0b",
+      "source_size": 994,
+      "output_sha256": "62f234243377b1f5c5882320998f8480c85bde0d0799f1ff36feca9c8ada7c0b",
+      "output_size": 994,
+      "redactions": {}
+    }
+  ],
+  "blocked": [],
+  "totals": {},
+  "dep_id": "DEP-RC1-REVIEW-FIX-R17-025",
+  "generated_at": "2026-08-22T04:24:59Z"
+}

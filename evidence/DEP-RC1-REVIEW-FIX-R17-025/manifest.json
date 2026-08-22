@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.1",
+  "dep_id": "DEP-RC1-REVIEW-FIX-R17-025",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r17-review-red.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "62f234243377b1f5c5882320998f8480c85bde0d0799f1ff36feca9c8ada7c0b",
+      "size": 994,
+      "collected_at": "2026-08-22T04:24:30Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--r17-review-red.txt",
+      "sha256": "62f234243377b1f5c5882320998f8480c85bde0d0799f1ff36feca9c8ada7c0b",
+      "size": 994,
+      "shareable": true
+    }
+  ]
+}
