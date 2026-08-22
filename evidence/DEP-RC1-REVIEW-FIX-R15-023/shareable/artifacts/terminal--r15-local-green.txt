@@ -1,0 +1,15 @@
+R15 LOCAL GREEN
+Atomic product: d2a3632a8e281552ac117a5b7db47fa73cb8f29f
+Atomic parent: 1a5a0b214eccc2b9edd076fd5e2f222c4a456725
+Environment: Python 3.12, no-system-site venv, both requirements locks installed with --require-hashes
+
+pip check: PASS
+unittest discover -s tests -v: 379 tests PASS; sandbox/native skips documented
+native real-AF_UNIX suite outside restricted sandbox: 6 tests PASS; ResourceWarning treated as error
+sddgov validate: PASS
+sddgov ci verify: PASS (governance, publish, broker-native workflows)
+sddgov ci local-gate: PASS; resolved interpreter is the isolated venv Python
+
+Native coverage includes fd/path identity distinction, health, SIGTERM cleanup,
+two restarts, first staging-stat failure, replacement preservation/connectability,
+post-listen failure, and platform-native atomic no-clobber publication.
