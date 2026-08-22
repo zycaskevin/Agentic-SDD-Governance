@@ -17,9 +17,9 @@
       "path": "private/raw/terminal--artifact-2.txt",
       "source_suffix": ".txt",
       "media_type": "text/plain; charset=utf-8",
-      "sha256": "dc81d22164eca6ac05955d6c37cf5581c040952bd56f618340e79bd20c3e808f",
-      "size": 3566,
-      "collected_at": "2026-08-22T16:24:55Z",
+      "sha256": "613e302397eeb3e4aca42c46a827d85b7b54de639455a54a2b93e5f90fbbf767",
+      "size": 4165,
+      "collected_at": "2026-08-22T17:35:57Z",
       "shareable": false
     },
     {
@@ -27,9 +27,9 @@
       "path": "private/raw/terminal--exact-head-local-green.txt",
       "source_suffix": ".txt",
       "media_type": "text/plain; charset=utf-8",
-      "sha256": "075bd673688ab4f8761097c73425e813c15ce268858b53a0e1628213909935a5",
-      "size": 623,
-      "collected_at": "2026-08-22T17:08:32Z",
+      "sha256": "35a8ce1b6a45e1b693b7c4f08e44426a1109502450c504fbd13bfc48e6943d8e",
+      "size": 619,
+      "collected_at": "2026-08-22T17:35:57Z",
       "shareable": false
     }
   ],
@@ -42,14 +42,14 @@
     },
     {
       "path": "shareable/artifacts/terminal--artifact-2.txt",
-      "sha256": "dc81d22164eca6ac05955d6c37cf5581c040952bd56f618340e79bd20c3e808f",
-      "size": 3566,
+      "sha256": "613e302397eeb3e4aca42c46a827d85b7b54de639455a54a2b93e5f90fbbf767",
+      "size": 4165,
       "shareable": true
     },
     {
       "path": "shareable/artifacts/terminal--exact-head-local-green.txt",
-      "sha256": "075bd673688ab4f8761097c73425e813c15ce268858b53a0e1628213909935a5",
-      "size": 623,
+      "sha256": "35a8ce1b6a45e1b693b7c4f08e44426a1109502450c504fbd13bfc48e6943d8e",
+      "size": 619,
       "shareable": true
     }
   ]

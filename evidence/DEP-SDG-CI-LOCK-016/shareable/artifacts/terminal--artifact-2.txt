@@ -1,3 +1,5 @@
+Command: PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_ci_guard*.py' -v
+Exact commit: 8dc0aba63fea0a31a3622b371e7f533a9e7ae510
 test_ci_contract_symlink_and_hardlink_are_rejected (test_ci_guard.CICostGuardTests.test_ci_contract_symlink_and_hardlink_are_rejected) ... ok
 test_comments_cannot_fake_types_or_hide_job_write_permissions (test_ci_guard.CICostGuardTests.test_comments_cannot_fake_types_or_hide_job_write_permissions) ... ok
 test_contract_rejects_shell_string_and_local_failure (test_ci_guard.CICostGuardTests.test_contract_rejects_shell_string_and_local_failure) ... ok
@@ -12,6 +14,9 @@ test_manual_only_push_cannot_hide_behind_workflow_exemption (test_ci_guard.CICos
 test_missing_controls_fail_closed (test_ci_guard.CICostGuardTests.test_missing_controls_fail_closed) ... ok
 test_non_mapping_job_fails_closed (test_ci_guard.CICostGuardTests.test_non_mapping_job_fails_closed) ... ok
 test_runner_and_concurrency_values_are_semantically_validated (test_ci_guard.CICostGuardTests.test_runner_and_concurrency_values_are_semantically_validated) ... ok
+test_stricter_conjunction_binds_pull_request_target_event_family (test_ci_guard.CICostGuardTests.test_stricter_conjunction_binds_pull_request_target_event_family) ... ok
+test_stricter_draft_guard_grammar_fails_closed (test_ci_guard.CICostGuardTests.test_stricter_draft_guard_grammar_fails_closed) ... ok
+test_stricter_flat_conjunction_may_require_non_draft_pr (test_ci_guard.CICostGuardTests.test_stricter_flat_conjunction_may_require_non_draft_pr) ... ok
 test_v1_contract_defaults_missing_post_merge_policy_to_automatic (test_ci_guard.CICostGuardTests.test_v1_contract_defaults_missing_post_merge_policy_to_automatic) ... ok
 test_verify_and_local_gate (test_ci_guard.CICostGuardTests.test_verify_and_local_gate) ... green
 ok
@@ -25,6 +30,6 @@ test_lock_serializes_competing_processes (test_ci_guard_lock.LocalGateLockTests.
 test_run_local_gate_enters_lock_before_verification_and_commands (test_ci_guard_lock.LocalGateLockTests.test_run_local_gate_enters_lock_before_verification_and_commands) ... ok
 
 ----------------------------------------------------------------------
-Ran 24 tests in 0.083s
+Ran 27 tests in 0.171s
 
 OK

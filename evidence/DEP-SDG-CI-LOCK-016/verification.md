@@ -2,13 +2,13 @@
 
 ## Green command and result
 
-The focused CI Guard suite passed all `24` tests. Targeted changed-file Ruff
+The focused CI Guard suite passed all `27` tests. Targeted changed-file Ruff
 safety rules (`E4,E7,E9,F`), source validation, managed-copy parity, and diff
 checks passed. The exact committed
-head `8f50d66464bf36eaf4d8476ee853261f2bf5c81e` then passed the complete
-repository Local Green Gate: `237` tests passed, one platform-dependent test
-was skipped, and governance source validation passed. The post-run worktree was
-clean.
+head `8dc0aba63fea0a31a3622b371e7f533a9e7ae510` then passed the complete
+repository Local Green Gate: `237` total tests, comprising `236` passed and one
+platform-dependent skip; governance source validation also passed. The
+post-run worktree was clean.
 
 ## Before/after evidence
 
@@ -18,10 +18,10 @@ Proof is preserved in
 `shareable/artifacts/terminal--exact-head-local-green.txt`.
 
 Before: independent `run_local_gate` callers had no shared critical section.
-After: a real child process receives the expected nonblocking contention while
-the parent holds the lock and succeeds after release; verification and commands
-run inside the critical section; symlink/permissive records fail closed; inner
-failure releases the descriptor lock.
+After: the same real child process reports ready, remains blocked while the
+parent holds the lock, acquires it after release, and exits successfully;
+verification and commands run inside the critical section; symlink/permissive
+records fail closed; inner failure releases the descriptor lock.
 
 ## Remaining limitations
 

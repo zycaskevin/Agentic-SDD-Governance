@@ -1,10 +1,10 @@
 Evidence type: safe derivative of the complete local Green output
 Repository: $WORKTREE
 Branch: codex/local-green-global-serialization-ready
-Exact commit: 8f50d66464bf36eaf4d8476ee853261f2bf5c81e
+Exact commit: 8dc0aba63fea0a31a3622b371e7f533a9e7ae510
 Command: PYTHONPATH=src python -m sddgov.cli ci local-gate .
 Exit status: 0
-Unit suite: 237 tests run; 237 passed; 1 platform-dependent test skipped
+Unit suite: 237 total; 236 passed; 1 platform-dependent test skipped
 Governance source validation: PASS
 Local Green result: PASS
 Post-run tracked and untracked status: clean

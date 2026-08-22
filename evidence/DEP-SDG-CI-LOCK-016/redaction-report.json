@@ -13,24 +13,24 @@
     {
       "source": "terminal--artifact-2.txt",
       "output": "terminal--artifact-2.txt",
-      "source_sha256": "dc81d22164eca6ac05955d6c37cf5581c040952bd56f618340e79bd20c3e808f",
-      "source_size": 3566,
-      "output_sha256": "dc81d22164eca6ac05955d6c37cf5581c040952bd56f618340e79bd20c3e808f",
-      "output_size": 3566,
+      "source_sha256": "613e302397eeb3e4aca42c46a827d85b7b54de639455a54a2b93e5f90fbbf767",
+      "source_size": 4165,
+      "output_sha256": "613e302397eeb3e4aca42c46a827d85b7b54de639455a54a2b93e5f90fbbf767",
+      "output_size": 4165,
       "redactions": {}
     },
     {
       "source": "terminal--exact-head-local-green.txt",
       "output": "terminal--exact-head-local-green.txt",
-      "source_sha256": "075bd673688ab4f8761097c73425e813c15ce268858b53a0e1628213909935a5",
-      "source_size": 623,
-      "output_sha256": "075bd673688ab4f8761097c73425e813c15ce268858b53a0e1628213909935a5",
-      "output_size": 623,
+      "source_sha256": "35a8ce1b6a45e1b693b7c4f08e44426a1109502450c504fbd13bfc48e6943d8e",
+      "source_size": 619,
+      "output_sha256": "35a8ce1b6a45e1b693b7c4f08e44426a1109502450c504fbd13bfc48e6943d8e",
+      "output_size": 619,
       "redactions": {}
     }
   ],
   "blocked": [],
   "totals": {},
   "dep_id": "DEP-SDG-CI-LOCK-016",
-  "generated_at": "2026-08-22T17:09:17Z"
+  "generated_at": "2026-08-22T17:37:18Z"
 }
