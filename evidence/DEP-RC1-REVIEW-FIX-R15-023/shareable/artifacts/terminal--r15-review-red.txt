@@ -1,0 +1,17 @@
+R15 RED — exact independent R14 blocker reproduction
+Base: 1a5a0b214eccc2b9edd076fd5e2f222c4a456725
+Rejected reviewed Head: 93e4eed7a811aaa3d195a80c789468349add0292
+
+Real Linux AF_UNIX bind:
+fd_identity=(9, 86676007)
+path_identity=(66306, [REDACTED_PHONE_OR_NUMBER])
+both_are_sockets=True
+identities_equal=False
+
+Exact R14 reviewer reproduction:
+serve_exception=ValueError: L3 Broker socket path changed immediately after bind
+socket_path_survives=True
+
+The old Broker compared fstat(fd) with lstat(path). The old BrokerTests class
+globally mocked the identity helper, so candidate serve_broker was never tested
+with both real objects. Formal R14 verdict: FAIL; no receipt was created.
