@@ -1,0 +1,152 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-REVIEW-FIX-R14-022",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r14-review-red.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "1d9c58c0eaf19ad2154528e7dd7636a21326dd2af8d36ca06fc1a77787d5f796",
+      "size": 1050,
+      "collected_at": "2026-08-22T02:43:41Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r14-local-green.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "16d980124468aae432a1b51f47495f262b4532b6b9daa5d39729163d76bc67e8",
+      "size": 57778,
+      "collected_at": "2026-08-22T02:43:41Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r14-ci-verify.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "d274fe5a022b905cc42b60e1450d02e98b2d86865ebc5b0899b2a89f2293b542",
+      "size": 1030,
+      "collected_at": "2026-08-22T02:43:42Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r14-local-gate.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "93d3ac08c5692c0943299e56258e4dbb5e5d529c90a7cf54e40f9ae69f310ae7",
+      "size": 58698,
+      "collected_at": "2026-08-22T02:43:42Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r14-package-proof.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "0c684d2e04c7eec93783197a482c1e82234c78d292a94b49504bb02c6bb6e737",
+      "size": 57157,
+      "collected_at": "2026-08-22T02:43:42Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r14-release-bundle.json",
+      "source_suffix": ".json",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "c173a5d76313e68917bcdfe316f7a477cef38571c1b42f31d9ac99e9cb77250d",
+      "size": 303,
+      "collected_at": "2026-08-22T02:43:43Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r14-fresh-wheel-smoke.json",
+      "source_suffix": ".json",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "ed4454db10adff0fbf2e0b7e1cda4d0b295f9b757c358a47d1eba05b58521a1a",
+      "size": 552,
+      "collected_at": "2026-08-22T02:43:43Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r14-rollback-drill.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "44dfb97035ed4ae710c49d74f8a89c89086dcd29674e4275b1136cdcf088e9de",
+      "size": 105046,
+      "collected_at": "2026-08-22T02:43:44Z",
+      "shareable": false
+    },
+    {
+      "collector": "git",
+      "path": "private/raw/git--r14-review-bindings.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "7183971875cab8e07a2a1792993d6b950a92361b783926fb162afdca888c2fde",
+      "size": 19347,
+      "collected_at": "2026-08-22T02:43:44Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/git--r14-review-bindings.txt",
+      "sha256": "7183971875cab8e07a2a1792993d6b950a92361b783926fb162afdca888c2fde",
+      "size": 19347,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r14-ci-verify.txt",
+      "sha256": "d274fe5a022b905cc42b60e1450d02e98b2d86865ebc5b0899b2a89f2293b542",
+      "size": 1030,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r14-fresh-wheel-smoke.json",
+      "sha256": "ed4454db10adff0fbf2e0b7e1cda4d0b295f9b757c358a47d1eba05b58521a1a",
+      "size": 552,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r14-local-gate.txt",
+      "sha256": "93d3ac08c5692c0943299e56258e4dbb5e5d529c90a7cf54e40f9ae69f310ae7",
+      "size": 58698,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r14-local-green.txt",
+      "sha256": "16d980124468aae432a1b51f47495f262b4532b6b9daa5d39729163d76bc67e8",
+      "size": 57778,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r14-package-proof.txt",
+      "sha256": "0c684d2e04c7eec93783197a482c1e82234c78d292a94b49504bb02c6bb6e737",
+      "size": 57157,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r14-release-bundle.json",
+      "sha256": "c173a5d76313e68917bcdfe316f7a477cef38571c1b42f31d9ac99e9cb77250d",
+      "size": 303,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r14-review-red.txt",
+      "sha256": "1d9c58c0eaf19ad2154528e7dd7636a21326dd2af8d36ca06fc1a77787d5f796",
+      "size": 1050,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r14-rollback-drill.txt",
+      "sha256": "44dfb97035ed4ae710c49d74f8a89c89086dcd29674e4275b1136cdcf088e9de",
+      "size": 105046,
+      "shareable": true
+    }
+  ]
+}

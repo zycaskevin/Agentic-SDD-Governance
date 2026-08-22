@@ -1,0 +1,296 @@
+Script started on [REDACTED_PHONE_OR_NUMBER]:39:26+08:00 [COMMAND="git status --short --branch" <not executed on terminal>]
+## feat/rc1-readiness-r14
+
+Script done on [REDACTED_PHONE_OR_NUMBER]:39:26+08:00 [COMMAND_EXIT_CODE="0"]
+Script started on [REDACTED_PHONE_OR_NUMBER]:39:27+08:00 [COMMAND="git rev-parse HEAD" <not executed on terminal>]
+10b58ba024f5898c42fca8e57eb00b7e08f467fb
+
+Script done on [REDACTED_PHONE_OR_NUMBER]:39:27+08:00 [COMMAND_EXIT_CODE="0"]
+Script started on [REDACTED_PHONE_OR_NUMBER]:39:27+08:00 [COMMAND="git rev-parse 9e8bd708fbfea7a995d6256a4b2e5f9e04d2c9d7^" <not executed on terminal>]
+1a5a0b214eccc2b9edd076fd5e2f222c4a456725
+
+Script done on [REDACTED_PHONE_OR_NUMBER]:39:27+08:00 [COMMAND_EXIT_CODE="0"]
+Script started on [REDACTED_PHONE_OR_NUMBER]:39:27+08:00 [COMMAND="git log --format='%H %P %s' --first-parent 1a5a0b214eccc2b9edd076fd5e2f222c4a456725..HEAD" <not executed on terminal>]
+10b58ba024f5898c42fca8e57eb00b7e08f467fb cc608237e63f0532aefb0dd3f41a335878494244 evidence: seal rc1 r13 review fixes
+cc608237e63f0532aefb0dd3f41a335878494244 a1d612b443ba0626bc3479eb15bebd42a1abfa82 evidence: record rc1 r13 green proof inputs
+a1d612b443ba0626bc3479eb15bebd42a1abfa82 aeb0a81f8b19a499f1d436dc2ef31d65d30e8058 evidence: seal rc1 r12 review fixes
+aeb0a81f8b19a499f1d436dc2ef31d65d30e8058 5dd4be10b2ad1d3f39d052a50aec629be5658a83 docs: correct reviewed evidence claims
+5dd4be10b2ad1d3f39d052a50aec629be5658a83 30e8c7c36852aaa9ce2d7f0bd022fb17ecb9457e evidence: seal rc1 r11 review fixes
+30e8c7c36852aaa9ce2d7f0bd022fb17ecb9457e f00409597f4f0d2dd580ff48e4c36964c62ee058 docs: correct r6 falsification and proof claims
+f00409597f4f0d2dd580ff48e4c36964c62ee058 2900d3c2f486f0b0caea59a8c867104aba65525b docs: preserve r10 evidence rollback compatibility
+2900d3c2f486f0b0caea59a8c867104aba65525b 5ff6c0a71518f64dc9d49828674f0f99cebb7316 evidence: seal rc1 r10 review fixes
+5ff6c0a71518f64dc9d49828674f0f99cebb7316 96873696dcab91c099e12b5b18f5e569d0cdd169 docs: preserve legacy evidence media compatibility
+96873696dcab91c099e12b5b18f5e569d0cdd169 bcdd5d603f8c5d70896038dd27bf9548c705eba1 docs: correct predecessor evidence provenance
+bcdd5d603f8c5d70896038dd27bf9548c705eba1 7f3642c0d02acf5335d5fc2769c28dbf7c10a46c evidence: seal rc1 r9 review fixes
+7f3642c0d02acf5335d5fc2769c28dbf7c10a46c 966c5f70f92d4129104cfefcb6368dbed980ef75 docs: bind R8 review and rollback proof
+966c5f70f92d4129104cfefcb6368dbed980ef75 b1f781034932fd6e6d37878d646cbf76f56f7ff6 docs: bind R7 review and rollback proof
+b1f781034932fd6e6d37878d646cbf76f56f7ff6 c908715aba482bc4d4588166fcc57427cf2fc276 docs: correct R6 shareable evidence provenance
+c908715aba482bc4d4588166fcc57427cf2fc276 9e8bd708fbfea7a995d6256a4b2e5f9e04d2c9d7 docs: bind R6 review-hardening evidence
+9e8bd708fbfea7a995d6256a4b2e5f9e04d2c9d7 1a5a0b214eccc2b9edd076fd5e2f222c4a456725 feat: prepare rc1 governance release
+
+Script done on [REDACTED_PHONE_OR_NUMBER]:39:27+08:00 [COMMAND_EXIT_CODE="0"]
+Script started on [REDACTED_PHONE_OR_NUMBER]:39:27+08:00 [COMMAND="git diff-tree --no-commit-id --name-only -r 9e8bd708fbfea7a995d6256a4b2e5f9e04d2c9d7..HEAD" <not executed on terminal>]
+evidence/DEP-RC1-REVIEW-FIX-R10-018/attach-pr-e719807e5be91bb8.md
+evidence/DEP-RC1-REVIEW-FIX-R10-018/fix-scope.md
+evidence/DEP-RC1-REVIEW-FIX-R10-018/manifest.json
+evidence/DEP-RC1-REVIEW-FIX-R10-018/redaction-report.json
+evidence/DEP-RC1-REVIEW-FIX-R10-018/regression-evidence.md
+evidence/DEP-RC1-REVIEW-FIX-R10-018/reproduction.md
+evidence/DEP-RC1-REVIEW-FIX-R10-018/rollback.md
+evidence/DEP-RC1-REVIEW-FIX-R10-018/root-cause-hypothesis.md
+evidence/DEP-RC1-REVIEW-FIX-R10-018/shareable/artifacts/git--r10-git-context.txt
+evidence/DEP-RC1-REVIEW-FIX-R10-018/shareable/artifacts/git--r10-review-bindings.txt
+evidence/DEP-RC1-REVIEW-FIX-R10-018/shareable/artifacts/terminal--r10-fresh-wheel-smoke.json
+evidence/DEP-RC1-REVIEW-FIX-R10-018/shareable/artifacts/terminal--r10-legacy-media-red.txt
+evidence/DEP-RC1-REVIEW-FIX-R10-018/shareable/artifacts/terminal--r10-local-green.txt
+evidence/DEP-RC1-REVIEW-FIX-R10-018/shareable/artifacts/terminal--r10-package-proof.txt
+evidence/DEP-RC1-REVIEW-FIX-R10-018/shareable/artifacts/terminal--r10-red-tests.txt
+evidence/DEP-RC1-REVIEW-FIX-R10-018/shareable/artifacts/terminal--r10-release-bundle.json
+evidence/DEP-RC1-REVIEW-FIX-R10-018/shareable/artifacts/terminal--r10-rollback-compat-red.txt
+evidence/DEP-RC1-REVIEW-FIX-R10-018/shareable/artifacts/terminal--r10-rollback-drill.txt
+evidence/DEP-RC1-REVIEW-FIX-R10-018/summary.yaml
+evidence/DEP-RC1-REVIEW-FIX-R10-018/verification.md
+evidence/DEP-RC1-REVIEW-FIX-R11-019/attach-pr-6d7fadf35e645557.md
+evidence/DEP-RC1-REVIEW-FIX-R11-019/fix-scope.md
+evidence/DEP-RC1-REVIEW-FIX-R11-019/manifest.json
+evidence/DEP-RC1-REVIEW-FIX-R11-019/redaction-report.json
+evidence/DEP-RC1-REVIEW-FIX-R11-019/regression-evidence.md
+evidence/DEP-RC1-REVIEW-FIX-R11-019/reproduction.md
+evidence/DEP-RC1-REVIEW-FIX-R11-019/rollback.md
+evidence/DEP-RC1-REVIEW-FIX-R11-019/root-cause-hypothesis.md
+evidence/DEP-RC1-REVIEW-FIX-R11-019/shareable/artifacts/git--r11-git-context.txt
+evidence/DEP-RC1-REVIEW-FIX-R11-019/shareable/artifacts/git--r11-review-bindings.txt
+evidence/DEP-RC1-REVIEW-FIX-R11-019/shareable/artifacts/terminal--r11-fresh-wheel-smoke.json
+evidence/DEP-RC1-REVIEW-FIX-R11-019/shareable/artifacts/terminal--r11-local-green.txt
+evidence/DEP-RC1-REVIEW-FIX-R11-019/shareable/artifacts/terminal--r11-package-proof.txt
+evidence/DEP-RC1-REVIEW-FIX-R11-019/shareable/artifacts/terminal--r11-red-tests.txt
+evidence/DEP-RC1-REVIEW-FIX-R11-019/shareable/artifacts/terminal--r11-release-bundle.json
+evidence/DEP-RC1-REVIEW-FIX-R11-019/shareable/artifacts/terminal--r11-rollback-drill.txt
+evidence/DEP-RC1-REVIEW-FIX-R11-019/summary.yaml
+evidence/DEP-RC1-REVIEW-FIX-R11-019/verification.md
+evidence/DEP-RC1-REVIEW-FIX-R12-020/attach-pr-e01b9fb9b7c4f4b9.md
+evidence/DEP-RC1-REVIEW-FIX-R12-020/fix-scope.md
+evidence/DEP-RC1-REVIEW-FIX-R12-020/manifest.json
+evidence/DEP-RC1-REVIEW-FIX-R12-020/redaction-report.json
+evidence/DEP-RC1-REVIEW-FIX-R12-020/regression-evidence.md
+evidence/DEP-RC1-REVIEW-FIX-R12-020/reproduction.md
+evidence/DEP-RC1-REVIEW-FIX-R12-020/rollback.md
+evidence/DEP-RC1-REVIEW-FIX-R12-020/root-cause-hypothesis.md
+evidence/DEP-RC1-REVIEW-FIX-R12-020/shareable/artifacts/git--r12-git-context.txt
+evidence/DEP-RC1-REVIEW-FIX-R12-020/shareable/artifacts/git--r12-review-bindings.txt
+evidence/DEP-RC1-REVIEW-FIX-R12-020/shareable/artifacts/terminal--r12-fresh-wheel-smoke.json
+evidence/DEP-RC1-REVIEW-FIX-R12-020/shareable/artifacts/terminal--r12-local-green.txt
+evidence/DEP-RC1-REVIEW-FIX-R12-020/shareable/artifacts/terminal--r12-package-proof.txt
+evidence/DEP-RC1-REVIEW-FIX-R12-020/shareable/artifacts/terminal--r12-red-tests.txt
+evidence/DEP-RC1-REVIEW-FIX-R12-020/shareable/artifacts/terminal--r12-release-bundle.json
+evidence/DEP-RC1-REVIEW-FIX-R12-020/shareable/artifacts/terminal--r12-rollback-drill.txt
+evidence/DEP-RC1-REVIEW-FIX-R12-020/summary.yaml
+evidence/DEP-RC1-REVIEW-FIX-R12-020/verification.md
+evidence/DEP-RC1-REVIEW-FIX-R13-021/fix-scope.md
+evidence/DEP-RC1-REVIEW-FIX-R13-021/manifest.json
+evidence/DEP-RC1-REVIEW-FIX-R13-021/redaction-report.json
+evidence/DEP-RC1-REVIEW-FIX-R13-021/regression-evidence.md
+evidence/DEP-RC1-REVIEW-FIX-R13-021/reproduction.md
+evidence/DEP-RC1-REVIEW-FIX-R13-021/rollback.md
+evidence/DEP-RC1-REVIEW-FIX-R13-021/root-cause-hypothesis.md
+evidence/DEP-RC1-REVIEW-FIX-R13-021/shareable/artifacts/terminal--r13-ci-verify.txt
+evidence/DEP-RC1-REVIEW-FIX-R13-021/shareable/artifacts/terminal--r13-fresh-wheel-smoke.json
+evidence/DEP-RC1-REVIEW-FIX-R13-021/shareable/artifacts/terminal--r13-independent-review-red.txt
+evidence/DEP-RC1-REVIEW-FIX-R13-021/shareable/artifacts/terminal--r13-local-gate.txt
+evidence/DEP-RC1-REVIEW-FIX-R13-021/shareable/artifacts/terminal--r13-local-green.txt
+evidence/DEP-RC1-REVIEW-FIX-R13-021/shareable/artifacts/terminal--r13-package-proof.txt
+evidence/DEP-RC1-REVIEW-FIX-R13-021/shareable/artifacts/terminal--r13-release-bundle.json
+evidence/DEP-RC1-REVIEW-FIX-R13-021/shareable/artifacts/terminal--r13-release-venv-red.txt
+evidence/DEP-RC1-REVIEW-FIX-R13-021/shareable/artifacts/terminal--r13-rollback-drill.txt
+evidence/DEP-RC1-REVIEW-FIX-R13-021/summary.yaml
+evidence/DEP-RC1-REVIEW-FIX-R13-021/verification.md
+evidence/DEP-RC1-REVIEW-FIX-R6-014/fix-scope.md
+evidence/DEP-RC1-REVIEW-FIX-R6-014/manifest.json
+evidence/DEP-RC1-REVIEW-FIX-R6-014/redaction-report.json
+evidence/DEP-RC1-REVIEW-FIX-R6-014/regression-evidence.md
+evidence/DEP-RC1-REVIEW-FIX-R6-014/reproduction.md
+evidence/DEP-RC1-REVIEW-FIX-R6-014/rollback.md
+evidence/DEP-RC1-REVIEW-FIX-R6-014/root-cause-hypothesis.md
+evidence/DEP-RC1-REVIEW-FIX-R6-014/shareable/artifacts/git--r6-red-context.txt
+evidence/DEP-RC1-REVIEW-FIX-R6-014/shareable/artifacts/git--r6-review-bindings.txt
+evidence/DEP-RC1-REVIEW-FIX-R6-014/shareable/artifacts/terminal--r6-fresh-wheel-smoke.json
+evidence/DEP-RC1-REVIEW-FIX-R6-014/shareable/artifacts/terminal--r6-local-green.txt
+evidence/DEP-RC1-REVIEW-FIX-R6-014/shareable/artifacts/terminal--r6-red-tests.txt
+evidence/DEP-RC1-REVIEW-FIX-R6-014/shareable/artifacts/terminal--r6-release-bundle.json
+evidence/DEP-RC1-REVIEW-FIX-R6-014/summary.yaml
+evidence/DEP-RC1-REVIEW-FIX-R6-014/verification.md
+evidence/DEP-RC1-REVIEW-FIX-R7-015/fix-scope.md
+evidence/DEP-RC1-REVIEW-FIX-R7-015/manifest.json
+evidence/DEP-RC1-REVIEW-FIX-R7-015/redaction-report.json
+evidence/DEP-RC1-REVIEW-FIX-R7-015/regression-evidence.md
+evidence/DEP-RC1-REVIEW-FIX-R7-015/reproduction.md
+evidence/DEP-RC1-REVIEW-FIX-R7-015/rollback.md
+evidence/DEP-RC1-REVIEW-FIX-R7-015/root-cause-hypothesis.md
+evidence/DEP-RC1-REVIEW-FIX-R7-015/shareable/artifacts/git--r7-red-context.txt
+evidence/DEP-RC1-REVIEW-FIX-R7-015/shareable/artifacts/git--r7-review-bindings.txt
+evidence/DEP-RC1-REVIEW-FIX-R7-015/shareable/artifacts/terminal--r7-escaped-path-red.txt
+evidence/DEP-RC1-REVIEW-FIX-R7-015/shareable/artifacts/terminal--r7-fresh-wheel-smoke.json
+evidence/DEP-RC1-REVIEW-FIX-R7-015/shareable/artifacts/terminal--r7-local-green.txt
+evidence/DEP-RC1-REVIEW-FIX-R7-015/shareable/artifacts/terminal--r7-package-proof.txt
+evidence/DEP-RC1-REVIEW-FIX-R7-015/shareable/artifacts/terminal--r7-red-tests.txt
+evidence/DEP-RC1-REVIEW-FIX-R7-015/shareable/artifacts/terminal--r7-release-bundle.json
+evidence/DEP-RC1-REVIEW-FIX-R7-015/shareable/artifacts/terminal--r7-rollback-drill.txt
+evidence/DEP-RC1-REVIEW-FIX-R7-015/summary.yaml
+evidence/DEP-RC1-REVIEW-FIX-R7-015/verification.md
+evidence/DEP-RC1-REVIEW-FIX-R8-016/fix-scope.md
+evidence/DEP-RC1-REVIEW-FIX-R8-016/manifest.json
+evidence/DEP-RC1-REVIEW-FIX-R8-016/redaction-report.json
+evidence/DEP-RC1-REVIEW-FIX-R8-016/regression-evidence.md
+evidence/DEP-RC1-REVIEW-FIX-R8-016/reproduction.md
+evidence/DEP-RC1-REVIEW-FIX-R8-016/rollback.md
+evidence/DEP-RC1-REVIEW-FIX-R8-016/root-cause-hypothesis.md
+evidence/DEP-RC1-REVIEW-FIX-R8-016/shareable/artifacts/git--r8-git-context.txt
+evidence/DEP-RC1-REVIEW-FIX-R8-016/shareable/artifacts/git--r8-review-bindings.txt
+evidence/DEP-RC1-REVIEW-FIX-R8-016/shareable/artifacts/terminal--r8-fresh-wheel-smoke.json
+evidence/DEP-RC1-REVIEW-FIX-R8-016/shareable/artifacts/terminal--r8-local-green.txt
+evidence/DEP-RC1-REVIEW-FIX-R8-016/shareable/artifacts/terminal--r8-package-proof.txt
+evidence/DEP-RC1-REVIEW-FIX-R8-016/shareable/artifacts/terminal--r8-red-tests.txt
+evidence/DEP-RC1-REVIEW-FIX-R8-016/shareable/artifacts/terminal--r8-release-bundle.json
+evidence/DEP-RC1-REVIEW-FIX-R8-016/shareable/artifacts/terminal--r8-rollback-drill.txt
+evidence/DEP-RC1-REVIEW-FIX-R8-016/summary.yaml
+evidence/DEP-RC1-REVIEW-FIX-R8-016/verification.md
+evidence/DEP-RC1-REVIEW-FIX-R9-017/fix-scope.md
+evidence/DEP-RC1-REVIEW-FIX-R9-017/manifest.json
+evidence/DEP-RC1-REVIEW-FIX-R9-017/redaction-report.json
+evidence/DEP-RC1-REVIEW-FIX-R9-017/regression-evidence.md
+evidence/DEP-RC1-REVIEW-FIX-R9-017/reproduction.md
+evidence/DEP-RC1-REVIEW-FIX-R9-017/rollback.md
+evidence/DEP-RC1-REVIEW-FIX-R9-017/root-cause-hypothesis.md
+evidence/DEP-RC1-REVIEW-FIX-R9-017/shareable/artifacts/git--r9-git-context.txt
+evidence/DEP-RC1-REVIEW-FIX-R9-017/shareable/artifacts/git--r9-review-bindings.txt
+evidence/DEP-RC1-REVIEW-FIX-R9-017/shareable/artifacts/terminal--r9-fresh-wheel-smoke.json
+evidence/DEP-RC1-REVIEW-FIX-R9-017/shareable/artifacts/terminal--r9-local-green.txt
+evidence/DEP-RC1-REVIEW-FIX-R9-017/shareable/artifacts/terminal--r9-package-proof.txt
+evidence/DEP-RC1-REVIEW-FIX-R9-017/shareable/artifacts/terminal--r9-red-tests.txt
+evidence/DEP-RC1-REVIEW-FIX-R9-017/shareable/artifacts/terminal--r9-release-bundle.json
+evidence/DEP-RC1-REVIEW-FIX-R9-017/shareable/artifacts/terminal--r9-rollback-drill.txt
+evidence/DEP-RC1-REVIEW-FIX-R9-017/summary.yaml
+evidence/DEP-RC1-REVIEW-FIX-R9-017/verification.md
+
+Script done on [REDACTED_PHONE_OR_NUMBER]:39:27+08:00 [COMMAND_EXIT_CODE="0"]
+Script started on [REDACTED_PHONE_OR_NUMBER]:39:28+08:00 [COMMAND="git diff --name-only 1a5a0b214eccc2b9edd076fd5e2f222c4a456725..9e8bd708fbfea7a995d6256a4b2e5f9e04d2c9d7" <not executed on terminal>]
+.agentic-sdd-governance/VERSION
+.agentic-sdd-governance/core/policy-kernel.yaml
+.agentic-sdd-governance/docs/CI_COST_GUARD.md
+.agentic-sdd-governance/docs/HARD_GATES_V1_2.md
+.agentic-sdd-governance/docs/L3_BROKER_OPERATIONS.md
+.agentic-sdd-governance/docs/OWNER_KEY_CEREMONY.md
+.agentic-sdd-governance/docs/ROLLBACK_OPERATIONS.md
+.agentic-sdd-governance/manifest.json
+.agentic-sdd-governance/policies/protected-files.yaml
+.agentic-sdd-governance/redaction/LOCAL_REDACTION_GATEWAY.md
+.agentic-sdd-governance/redaction/rules.json
+.agentic-sdd-governance/schemas/ci-cost-guard.schema.json
+.agentic-sdd-governance/services/com.sddgov.broker.plist
+.agentic-sdd-governance/services/sddgov-broker.service
+.agentic-sdd-governance/templates/CI_COST_GUARD.json
+.github/workflows/publish.yml
+.sddgov/ci-cost-guard.json
+.sddgov/events.jsonl
+.sddgov/project.json
+.sddgov/work-claims.json
+CHANGELOG.md
+README.md
+README.zh-TW.md
+RELEASE_NOTES.md
+VERSION
+benchmarks/monorepo-rollback/README.md
+benchmarks/monorepo-rollback/latest-result.json
+core/policy-kernel.yaml
+demo/run.sh
+docs/CI_COST_GUARD.md
+docs/HARD_GATES_V1_2.md
+docs/L3_BROKER_OPERATIONS.md
+docs/OWNER_KEY_CEREMONY.md
+docs/PUBLIC_RELEASE_CHECKLIST.zh-TW.md
+docs/ROADMAP.md
+docs/ROLLBACK_OPERATIONS.md
+docs/USER_GUIDE.zh-TW.md
+policies/protected-files.yaml
+pyproject.toml
+redaction/LOCAL_REDACTION_GATEWAY.md
+redaction/rules.json
+requirements-release.in
+requirements-release.lock
+schemas/ci-cost-guard.schema.json
+scripts/benchmark_monorepo_rollback.py
+scripts/check_release_environment.py
+scripts/fresh_wheel_smoke.py
+scripts/prepare_release_bundle.py
+scripts/release_files.py
+services/com.sddgov.broker.plist
+services/sddgov-broker.service
+src/sddgov/__init__.py
+src/sddgov/autonomy.py
+src/sddgov/broker.py
+src/sddgov/ci_guard.py
+src/sddgov/cli.py
+src/sddgov/evidence.py
+src/sddgov/fs_security.py
+src/sddgov/installer.py
+src/sddgov/merge_gate.py
+src/sddgov/pilot.py
+src/sddgov/redaction.py
+src/sddgov/resources/governance/VERSION
+src/sddgov/resources/governance/core/policy-kernel.yaml
+src/sddgov/resources/governance/docs/CI_COST_GUARD.md
+src/sddgov/resources/governance/docs/HARD_GATES_V1_2.md
+src/sddgov/resources/governance/docs/L3_BROKER_OPERATIONS.md
+src/sddgov/resources/governance/docs/OWNER_KEY_CEREMONY.md
+src/sddgov/resources/governance/docs/ROLLBACK_OPERATIONS.md
+src/sddgov/resources/governance/policies/protected-files.yaml
+src/sddgov/resources/governance/redaction/LOCAL_REDACTION_GATEWAY.md
+src/sddgov/resources/governance/redaction/rules.json
+src/sddgov/resources/governance/schemas/ci-cost-guard.schema.json
+src/sddgov/resources/governance/services/com.sddgov.broker.plist
+src/sddgov/resources/governance/services/sddgov-broker.service
+src/sddgov/resources/governance/templates/CI_COST_GUARD.json
+src/sddgov/trust.py
+templates/CI_COST_GUARD.json
+tests/test_autonomy.py
+tests/test_broker.py
+tests/test_ci_guard.py
+tests/test_demo_script.py
+tests/test_evidence_flow.py
+tests/test_fs_security.py
+tests/test_installer.py
+tests/test_merge_gate.py
+tests/test_monorepo_benchmark.py
+tests/test_redaction.py
+tests/test_release_bundle.py
+tests/test_release_environment.py
+tests/test_repository_contract.py
+tests/test_synthetic_muse_pilot.py
+work-packages/WP-RC1-READINESS-008.md
+
+Script done on [REDACTED_PHONE_OR_NUMBER]:39:28+08:00 [COMMAND_EXIT_CODE="0"]
+Script started on [REDACTED_PHONE_OR_NUMBER]:39:28+08:00 [COMMAND="git diff --check 1a5a0b214eccc2b9edd076fd5e2f222c4a456725..9e8bd708fbfea7a995d6256a4b2e5f9e04d2c9d7" <not executed on terminal>]
+
+Script done on [REDACTED_PHONE_OR_NUMBER]:39:28+08:00 [COMMAND_EXIT_CODE="0"]
+Script started on [REDACTED_PHONE_OR_NUMBER]:39:28+08:00 [COMMAND="sha256sum requirements-governance.lock requirements-release.lock /tmp/sddgov-r14-package2-v38IJt/dist/agentic_sdd_governance-0.2.0rc1-py3-none-any.whl /tmp/sddgov-r14-package2-v38IJt/dist/agentic_sdd_governance-0.2.0rc1.tar.gz /tmp/sddgov-r14-release-bundle2.json /tmp/sddgov-r14-fresh-wheel-smoke2.json /tmp/sddgov-r14-final-local-green.txt /tmp/sddgov-r14-final-ci-verify.txt /tmp/sddgov-r14-final-local-gate.txt /tmp/sddgov-r14-final-rollback-drill.txt" <not executed on terminal>]
+96e78f8d37e12fcd6c4080f7d4bb47eb2c2c252b9b0864c1bf69bb68f92e1e5c  requirements-governance.lock
+22b228703e47b1284cf2036b16104d28d943eda7ac478f32e0790a8a8f6fc4fe  requirements-release.lock
+dc79901b6d1cc9924b16b1fe0b6dbbe6505d7304ad57e4d2bf7f4a9f383365fb  /tmp/sddgov-r14-package2-v38IJt/dist/agentic_sdd_governance-0.2.0rc1-py3-none-any.whl
+33d75c1e989126ea9832749327a747b60b9e0d4ee7b5a4ff211ebb072ad0a831  /tmp/sddgov-r14-package2-v38IJt/dist/agentic_sdd_governance-0.2.0rc1.tar.gz
+c173a5d76313e68917bcdfe316f7a477cef38571c1b42f31d9ac99e9cb77250d  /tmp/sddgov-r14-release-bundle2.json
+ed4454db10adff0fbf2e0b7e1cda4d0b295f9b757c358a47d1eba05b58521a1a  /tmp/sddgov-r14-fresh-wheel-smoke2.json
+ce7dc323177546a1bf76694a43bd2b6ed2181492fd7f4723299be502fb0e7d90  /tmp/sddgov-r14-final-local-green.txt
+8b009da5038462640efa0f33b089c728b9b76a162ff5f979067b236ddf535b64  /tmp/sddgov-r14-final-ci-verify.txt
+43cb7b0a98b6342131153d79adc7d423d36f8465430cfbf637c641c15cdcf9a5  /tmp/sddgov-r14-final-local-gate.txt
+c100c06928ed0923e8f50cf8eb299442972146c6ca92156314ba58a18362f98f  /tmp/sddgov-r14-final-rollback-drill.txt
+
+Script done on [REDACTED_PHONE_OR_NUMBER]:39:28+08:00 [COMMAND_EXIT_CODE="0"]
+Script started on [REDACTED_PHONE_OR_NUMBER]:39:28+08:00 [COMMAND="/tmp/sddgov-r14-test-venv/bin/python -c 'import setuptools, wheel; print("SETUPTOOLS_VERSION=" + setuptools.__version__); print("WHEEL_VERSION=" + wheel.__version__)'" <not executed on terminal>]
+SETUPTOOLS_VERSION=83.0.0
+WHEEL_VERSION=0.48.0
+
+Script done on [REDACTED_PHONE_OR_NUMBER]:39:29+08:00 [COMMAND_EXIT_CODE="0"]
+Script started on [REDACTED_PHONE_OR_NUMBER]:39:29+08:00 [COMMAND="printf 'REVIEW_BINDINGS=PASS\n'" <not executed on terminal>]
+REVIEW_BINDINGS=PASS
+
+Script done on [REDACTED_PHONE_OR_NUMBER]:39:29+08:00 [COMMAND_EXIT_CODE="0"]
