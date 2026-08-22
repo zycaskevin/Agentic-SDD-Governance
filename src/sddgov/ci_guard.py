@@ -1,15 +1,12 @@
 from __future__ import annotations
 
 import copy
-import fcntl
 import json
 import os
 import re
 import stat
 import subprocess
 import time
-from collections.abc import Iterator
-from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -27,8 +24,6 @@ _SIMPLE_CONJUNCTION_ATOM = re.compile(
     r"(?:'(?:[^'\\\r\n]*)'|\"(?:[^\"\\\r\n]*)\"|-?[0-9]+|true|false)$"
 )
 _DRAFT_FALSE_ATOM = "github.event.pull_request.draft==false"
-LOCAL_GATE_LOCK_DIRECTORY_PREFIX = "sddgov-local-green-v1-"
-LOCAL_GATE_LOCK_NAME = "gate-v1.lock"
 
 
 def _read_contract(root: Path) -> dict[str, Any]:
@@ -581,68 +576,8 @@ def verify_guard(root: Path) -> dict[str, Any]:
     }
 
 
-@contextmanager
-def _local_gate_lock(*, runtime_root: Path | None = None) -> Iterator[Path]:
-    """Serialize complete Local Green gates for the current POSIX user."""
-    if os.name != "posix" or not hasattr(os, "getuid"):
-        raise ValueError("Local Green serialization requires a POSIX user identity")
-    base = (runtime_root if runtime_root is not None else Path("/tmp")).resolve(
-        strict=True
-    )
-    base_info = base.lstat()
-    if not stat.S_ISDIR(base_info.st_mode) or stat.S_ISLNK(base_info.st_mode):
-        raise ValueError("Local Green lock base must be a physical directory")
-    lock_directory = base / f"{LOCAL_GATE_LOCK_DIRECTORY_PREFIX}{os.getuid()}"
-    lock_directory.mkdir(mode=0o700, exist_ok=True)
-    directory_info = lock_directory.lstat()
-    if (
-        not stat.S_ISDIR(directory_info.st_mode)
-        or stat.S_ISLNK(directory_info.st_mode)
-        or stat.S_IMODE(directory_info.st_mode) != 0o700
-        or directory_info.st_uid != os.getuid()
-    ):
-        raise ValueError("Local Green lock directory must be owner-only")
-    required_flags = ("O_CLOEXEC", "O_NOFOLLOW")
-    if any(not hasattr(os, name) for name in required_flags):
-        raise ValueError("Local Green lock flags are unavailable")
-    lock_path = lock_directory / LOCAL_GATE_LOCK_NAME
-    descriptor = os.open(
-        lock_path,
-        os.O_RDWR | os.O_CREAT | os.O_CLOEXEC | os.O_NOFOLLOW,
-        0o600,
-    )
-    locked = False
-    try:
-        opened = os.fstat(descriptor)
-        path_info = lock_path.lstat()
-        if (
-            not stat.S_ISREG(opened.st_mode)
-            or stat.S_IMODE(opened.st_mode) != 0o600
-            or opened.st_uid != os.getuid()
-            or opened.st_nlink != 1
-            or (opened.st_dev, opened.st_ino)
-            != (path_info.st_dev, path_info.st_ino)
-        ):
-            raise ValueError("Local Green lock must be an owner-only regular file")
-        fcntl.flock(descriptor, fcntl.LOCK_EX)
-        locked = True
-        locked_path_info = lock_path.lstat()
-        locked_directory_info = lock_directory.lstat()
-        if (
-            (opened.st_dev, opened.st_ino)
-            != (locked_path_info.st_dev, locked_path_info.st_ino)
-            or (directory_info.st_dev, directory_info.st_ino)
-            != (locked_directory_info.st_dev, locked_directory_info.st_ino)
-        ):
-            raise ValueError("Local Green lock identity changed")
-        yield lock_path
-    finally:
-        if locked:
-            fcntl.flock(descriptor, fcntl.LOCK_UN)
-        os.close(descriptor)
-
-
-def _run_local_gate_locked(root: Path) -> dict[str, Any]:
+def run_local_gate(root: Path) -> dict[str, Any]:
+    root = root.resolve()
     report = verify_guard(root)
     if not report["ok"]:
         raise ValueError("CI Cost Guard verification failed: " + "; ".join(report["errors"]))
@@ -663,9 +598,3 @@ def _run_local_gate_locked(root: Path) -> dict[str, Any]:
         if completed.returncode != 0:
             raise ValueError(f"local Green Gate failed: {command[0]} exited {completed.returncode}")
     return {"ok": True, "project": str(root), "commands": results}
-
-
-def run_local_gate(root: Path) -> dict[str, Any]:
-    root = root.resolve()
-    with _local_gate_lock():
-        return _run_local_gate_locked(root)
