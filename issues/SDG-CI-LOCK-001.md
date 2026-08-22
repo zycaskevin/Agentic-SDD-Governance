@@ -36,6 +36,6 @@ The atomic orchestration implementation is the direct parent of the DEP Proof
 commit, where its exact revision is machine-bound. Deterministic cross-process,
 fail-closed, exception-release, and nested-test-isolation regressions pass. The
 same exact implementation revision passed the complete repository Local Green
-Gate with `234` tests passed, one platform-dependent skip, and governance
+Gate with `237` tests passed, one platform-dependent skip, and governance
 source validation Green. No shared installation, release, merge, or consumer
 runtime mutation was performed.
