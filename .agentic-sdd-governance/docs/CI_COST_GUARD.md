@@ -31,6 +31,13 @@ Automatic hosted workflows must:
 - avoid allocating runners for Draft PRs;
 - set `timeout-minutes` for every hosted job.
 
+Draft skipping accepts either the exact legacy cross-event guard or a stricter
+flat conjunction. A stricter conjunction must contain independent top-level
+comparisons that bind `github.event_name` to the workflow's single PR event
+family and require `github.event.pull_request.draft == false`. Disjunctions,
+parentheses, functions, nested interpolation, incomplete comparisons, and
+missing or mismatched event/Draft atoms fail closed.
+
 `hosted.post_merge_verification` accepts only `manual_only` or `automatic`.
 For schema `1.0`, an omitted field retains the legacy `automatic` behavior so
 an existing governed repository has an explicit migration path. New installs

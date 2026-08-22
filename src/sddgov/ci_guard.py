@@ -18,6 +18,12 @@ CONTRACT_PATH = Path(".sddgov/ci-cost-guard.json")
 WORKFLOW_SUFFIXES = (".yml", ".yaml")
 FULL_MATRIX_VALUES = {"manual", "ready_for_review", "manual_or_ready_for_review", "release"}
 POST_MERGE_VERIFICATION_VALUES = {"manual_only", "automatic"}
+_SIMPLE_CONJUNCTION_ATOM = re.compile(
+    r"^github(?:\.[A-Za-z_][A-Za-z0-9_]*)+"
+    r"(?:==|!=)"
+    r"(?:'(?:[^'\\\r\n]*)'|\"(?:[^\"\\\r\n]*)\"|-?[0-9]+|true|false)$"
+)
+_DRAFT_FALSE_ATOM = "github.event.pull_request.draft==false"
 
 
 def _read_contract(root: Path) -> dict[str, Any]:
@@ -376,7 +382,21 @@ def _draft_condition_is_safe(condition: Any, event_names: set[str]) -> bool:
         f"github.event_name!='{event_name}'||github.event.pull_request.draft==false",
         f'github.event_name!="{event_name}"||github.event.pull_request.draft==false',
     }
-    return compact in accepted
+    if compact in accepted:
+        return True
+    if "||" in compact or "(" in compact or ")" in compact:
+        return False
+    atoms = compact.split("&&")
+    required_event_atoms = {
+        f"github.event_name=='{event_name}'",
+        f'github.event_name=="{event_name}"',
+    }
+    return (
+        len(atoms) >= 2
+        and _DRAFT_FALSE_ATOM in atoms
+        and bool(required_event_atoms.intersection(atoms))
+        and all(_SIMPLE_CONJUNCTION_ATOM.fullmatch(atom) for atom in atoms)
+    )
 
 
 def _valid_runner(value: Any) -> bool:
@@ -494,7 +514,7 @@ def _inspect_workflow(
             condition = job.get("if")
             if not _draft_condition_is_safe(condition, event_names):
                 errors.append(
-                    f"{workflow_name}: pull-request job {job_name} must skip Draft PR runners with the exact guard"
+                    f"{workflow_name}: pull-request job {job_name} must skip Draft PR runners with the exact guard or a stricter fail-closed conjunction"
                 )
     if controls.get("require_job_timeouts"):
         for job_name, job in jobs.items():

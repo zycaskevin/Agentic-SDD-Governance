@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.0-experimental.9 — 2026-08-22 CI Cost Guard patch
+
+### Fixed
+
+- Accept a deliberately bounded flat conjunction only when it independently
+  binds `github.event_name` to the workflow's single PR event family and
+  requires `github.event.pull_request.draft == false`.
+- Keep legacy cross-event Draft guards compatible while rejecting disjunctions,
+  parentheses, functions, nested interpolation, incomplete comparisons,
+  missing event/Draft atoms, and mismatched event families.
+
+### Evidence
+
+- Issue #44; Work Package `WP-CI-STRICTER-DRAFT-GUARDS-008`; full L1 DEP
+  `DEP-CI-STRICTER-DRAFT-GUARDS-016`.
+
 ## 0.2.0-experimental.8 — 2026-08-16 security hardening
 
 ### Security

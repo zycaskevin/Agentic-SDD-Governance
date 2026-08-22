@@ -303,10 +303,10 @@ class RepositoryContractTests(unittest.TestCase):
         }
         self.assertEqual(validate_instance(terminal, schema), [])
 
-    def test_experimental_8_uses_patched_cryptography_line(self):
+    def test_experimental_9_retains_patched_cryptography_line(self):
         pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
         lock = (ROOT / "requirements-governance.lock").read_text(encoding="utf-8")
-        self.assertIn('version = "0.2.0.dev8"', pyproject)
+        self.assertIn('version = "0.2.0.dev9"', pyproject)
         self.assertIn('cryptography>=50,<51', pyproject)
         self.assertIn("cryptography==50.0.0", lock)
         self.assertNotIn("cryptography==46.0.7", lock)
