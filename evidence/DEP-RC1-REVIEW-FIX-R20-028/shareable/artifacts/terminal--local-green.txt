@@ -1,0 +1,7 @@
+R20 local verification summary
+
+- Dual hash-locked governance and release requirements installed together; pip check passed.
+- Full isolated suite: 410 tests passed, 13 expected sandbox/native skips.
+- Candidate Validate, CI verify, and Local Green passed.
+- Native Linux AF_UNIX suite: 8 tests passed with 1 expected installed-wheel provenance skip.
+- Focused regression coverage includes WSL UNC quoted/unquoted and streaming forms, per-call redaction cleanup for symlink/disappeared/open failures, later-writer preservation, the Darwin temporary-system alias, demo interpreter selection, workflow order, and pipe draining above a pipe buffer.

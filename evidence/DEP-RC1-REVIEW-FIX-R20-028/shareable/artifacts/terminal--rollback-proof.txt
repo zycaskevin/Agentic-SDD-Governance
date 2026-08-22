@@ -1,0 +1,6 @@
+R20 rollback proof
+
+- Atomic product commit d663d77af38aaae4fa067b2380376dbe3c75f886 has exact Base 1a5a0b214eccc2b9edd076fd5e2f222c4a456725 as parent.
+- A fresh full local clone at the R19 Evidence descendant applied git revert --no-commit to the atomic product commit without conflict.
+- The resulting non-audit product tree had no differences from exact Base.
+- Reverted Base Validate passed and the complete Base suite passed 229 tests with 1 expected sandbox skip.
