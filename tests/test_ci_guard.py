@@ -4,9 +4,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest import mock
 
-from sddgov import ci_guard
 from sddgov.ci_guard import run_local_gate, verify_guard
 
 
@@ -68,16 +66,9 @@ class CICostGuardTests(unittest.TestCase):
     def test_verify_and_local_gate(self):
         with tempfile.TemporaryDirectory() as temporary:
             project = Path(temporary)
-            runtime_root = project / "runtime"
-            runtime_root.mkdir()
             _write_project(project, _contract([sys.executable, "-c", "print('green')"]), GOOD_WORKFLOW)
             self.assertTrue(verify_guard(project)["ok"])
-            with mock.patch.object(
-                ci_guard,
-                "_local_gate_lock",
-                return_value=ci_guard._local_gate_lock(runtime_root=runtime_root),
-            ):
-                result = run_local_gate(project)
+            result = run_local_gate(project)
             self.assertTrue(result["ok"])
             self.assertEqual(result["commands"][0]["returncode"], 0)
 
@@ -481,20 +472,9 @@ jobs:
 
         with tempfile.TemporaryDirectory() as temporary:
             project = Path(temporary)
-            runtime_root = project / "runtime"
-            runtime_root.mkdir()
             contract = _contract([sys.executable, "-c", "raise SystemExit(7)"])
             _write_project(project, contract, GOOD_WORKFLOW)
-            with (
-                mock.patch.object(
-                    ci_guard,
-                    "_local_gate_lock",
-                    return_value=ci_guard._local_gate_lock(
-                        runtime_root=runtime_root
-                    ),
-                ),
-                self.assertRaisesRegex(ValueError, "local Green Gate failed"),
-            ):
+            with self.assertRaisesRegex(ValueError, "local Green Gate failed"):
                 run_local_gate(project)
 
 

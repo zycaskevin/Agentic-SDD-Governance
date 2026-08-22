@@ -20,7 +20,7 @@ sddgov ci verify .
 sddgov ci local-gate .
 ```
 
-`verify` checks the contract and automatic GitHub-hosted workflows. `local-gate` first acquires one owner-only current-user coordination lock, then verifies those controls, runs every configured local command sequentially, and stops on the first failure. Independent Local Green invocations for the same POSIX user wait rather than execute repository-controlled gates concurrently; the lock does not retry, skip, or change any configured command.
+`verify` checks the contract and automatic GitHub-hosted workflows. `local-gate` first verifies those controls, then runs every configured local command sequentially and stops on the first failure.
 
 ## Workflow controls
 
