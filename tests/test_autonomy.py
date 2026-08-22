@@ -83,7 +83,9 @@ def operation_payload(operation_id, category="high_risk_operation", effects=None
 class AutonomyTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
         self.trust_temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.trust_temporary.cleanup)
         self.root = Path(self.temporary.name)
         self.trust_path = Path(self.trust_temporary.name) / "trusted-approvers.json"
         self.runtime_context_path = Path(self.trust_temporary.name) / "runtime-context.json"
@@ -100,28 +102,29 @@ class AutonomyTests(unittest.TestCase):
             "sddgov.autonomy.L3_RUNTIME_CONTEXT_FILE", self.runtime_context_path
         )
         self.runtime_context.start()
-        self.trust_environment = patch.dict(
-            "os.environ", {"SDDGOV_TRUSTED_APPROVERS_FILE": str(self.trust_path)}
-        )
+        self.addCleanup(self.runtime_context.stop)
+        self.trust_environment = patch.dict("os.environ", {}, clear=False)
         self.trust_environment.start()
+        self.addCleanup(self.trust_environment.stop)
+        os.environ.pop("SDDGOV_TRUSTED_APPROVERS_FILE", None)
+        os.environ.pop("SDDGOV_TRUSTED_BASE_REF", None)
+        self.trust_authority_path = patch(
+            "sddgov.trust.TRUSTED_APPROVERS_FILE", self.trust_path
+        )
+        self.trust_authority_path.start()
+        self.addCleanup(self.trust_authority_path.stop)
         init_project(self.root, "team-standard")
         self.control_plane_loader = patch(
             "sddgov.autonomy.load_control_plane_json",
             side_effect=lambda path, _label: json.loads(Path(path).read_text()),
         )
         self.control_plane_loader.start()
+        self.addCleanup(self.control_plane_loader.stop)
         self.nonce_broker = patch(
             "sddgov.autonomy._consume_nonce_via_control_plane", return_value=True
         )
         self.nonce_broker.start()
-
-    def tearDown(self):
-        self.nonce_broker.stop()
-        self.control_plane_loader.stop()
-        self.runtime_context.stop()
-        self.trust_environment.stop()
-        self.trust_temporary.cleanup()
-        self.temporary.cleanup()
+        self.addCleanup(self.nonce_broker.stop)
 
     def _signed_operation_approval(
         self,
@@ -451,7 +454,7 @@ class AutonomyTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "duplicate approver_id"):
             import_operation_approval(self.root, path)
 
-    def test_repo_local_approver_store_is_not_an_authority_source(self):
+    def test_empty_caller_approver_override_is_rejected(self):
         path, _ = self._signed_operation_approval()
         repository_store = self.root / ".sddgov/trusted-approvers.json"
         repository_store.write_text(self.trust_path.read_text())
@@ -462,7 +465,7 @@ class AutonomyTests(unittest.TestCase):
                 "SDDGOV_TRUSTED_BASE_REF": "",
             },
         ):
-            with self.assertRaisesRegex(ValueError, "separate control-plane"):
+            with self.assertRaisesRegex(ValueError, "caller override"):
                 import_operation_approval(self.root, path)
 
     def test_same_uid_external_approver_store_is_not_owner_authority(self):
@@ -488,7 +491,7 @@ class AutonomyTests(unittest.TestCase):
                 "SDDGOV_TRUSTED_BASE_REF": "a" * 40,
             },
         ):
-            with self.assertRaisesRegex(ValueError, "separate control-plane"):
+            with self.assertRaisesRegex(ValueError, "caller override"):
                 import_operation_approval(self.root, path)
 
     def test_adversarial_receipt_encodings_fail_closed(self):

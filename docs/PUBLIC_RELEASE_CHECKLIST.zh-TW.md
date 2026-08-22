@@ -43,6 +43,13 @@ Repository 現在已是 Public。本文件保留公開前的歷史判斷，同�
 - 未取得再散布權利的第三方 Source、Asset、Prompt、Template、Schema 或 Brand material。
 - 仍含敏感內容的 Screenshot、HAR、Playwright Trace、Video、Crash archive 或其他 Binary evidence。
 
+## RC1 Release helper 平台與重現性界線
+
+- 共同的 descriptor-relative transaction boundary（包含 `src/sddgov/fs_security.py`、Evidence 寫入與 `scripts/release_files.py`）只支援 Linux 與 macOS；完整原生 Windows 治理流程不在 RC1 支援矩陣內，應使用 WSL2，Release helper 則會在入口以明確訊息 fail closed，不會退回較弱的 pathname I/O。
+- `open_directory(..., create=True)` 只建立最末端的 output 目錄；所有父目錄必須事先存在並由呼叫端決定，避免工具靜默擴張寫入範圍。
+- 正式 package proof 必須先以 `requirements-release.lock` 的 hash-locked 工具建立環境，再用 `python -m build --no-isolation`。`pyproject.toml` 的 `setuptools>=68` 是一般建置相容性下限；單獨執行具隔離環境且可浮動 backend 的 `python -m build` 不構成位元級可重現建置證明。
+- 現有 proof 證明的是已記錄環境中的 build、metadata、Twine、bundle inventory 與 fresh-wheel 行為；除非另有兩次獨立建置的 byte-for-byte 證據，不宣稱 artifact reproducibility。
+
 ## 公開前命令清單
 
 ```bash

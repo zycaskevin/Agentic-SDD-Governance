@@ -80,6 +80,7 @@ class EvidenceFlowTests(unittest.TestCase):
         transition(self.dep, "proof")
 
         self.assertEqual(verify(self.dep, strict=True), [])
+
         block = attach(self.dep, "pr")
         block_text = block.read_text(encoding="utf-8")
         self.assertIn("DEP-TEST-128", block_text)
@@ -102,6 +103,32 @@ class EvidenceFlowTests(unittest.TestCase):
         self.assertTrue(
             any("missing artifact" in error for error in verify(self.dep, strict=True))
         )
+
+    @unittest.skipUnless(sys.platform == "darwin", "requires native Darwin aliases")
+    def test_collect_accepts_the_darwin_tmp_system_alias(self):
+        with tempfile.TemporaryDirectory(dir="/tmp") as temporary:
+            source = Path(temporary) / "darwin-alias.log"
+            source.write_text("synthetic evidence\n", encoding="utf-8")
+            collected = collect(self.dep, "terminal", source)
+        self.assertTrue(collected.is_file())
+
+    def test_verifier_rejects_oversized_control_before_parsing(self):
+        manifest = self.dep / "manifest.json"
+        manifest.write_text("{" + " " * 128 + "}", encoding="utf-8")
+        with patch("sddgov.evidence.MAX_DEP_CONTROL_FILE_BYTES", 64):
+            errors = verify(self.dep)
+        self.assertTrue(any("exceeds 64 bytes" in error for error in errors), errors)
+
+    def test_verifier_rejects_oversized_artifact_before_digesting(self):
+        self._complete("reproduction.md", "Synthetic failure is reproducible.")
+        source = self.root / "bounded.log"
+        source.write_text("x" * 128 + "\n", encoding="utf-8")
+        collect(self.dep, "terminal", source)
+        redact(self.dep)
+        transition(self.dep, "evidence")
+        with patch("sddgov.evidence.MAX_DEP_ARTIFACT_BYTES", 64):
+            errors = verify(self.dep)
+        self.assertTrue(any("exceeds 64 bytes" in error for error in errors), errors)
 
     def test_transition_fails_closed_on_incomplete_template(self):
         with self.assertRaisesRegex(ValueError, "cannot enter evidence"):
@@ -158,7 +185,11 @@ class EvidenceFlowTests(unittest.TestCase):
             return original(path, flags, *args, **kwargs)
 
         with patch("sddgov.evidence.os.open", side_effect=inspect_flags):
-            evidence_module._read_regular_bytes(source, "collector input")
+            evidence_module._read_regular_bytes(
+                source,
+                "collector input",
+                max_bytes=evidence_module.MAX_DEP_ARTIFACT_BYTES,
+            )
         self.assertTrue(observed_flags)
         self.assertTrue(observed_flags[0] & getattr(os, "O_NONBLOCK", 0))
 
@@ -197,6 +228,77 @@ class EvidenceFlowTests(unittest.TestCase):
         manifest = json.loads((self.dep / "manifest.json").read_text(encoding="utf-8"))
         self.assertEqual(manifest["raw"][0]["path"], f"private/raw/{destination.name}")
         self.assertTrue(destination.is_file())
+
+    def test_collect_after_redaction_fails_without_staling_the_report(self):
+        first = self.root / "first-collection.log"
+        first.write_text("synthetic first collection\n", encoding="utf-8")
+        collect(self.dep, "terminal", first)
+        redact(self.dep)
+        manifest_before = (self.dep / "manifest.json").read_bytes()
+        report_before = (self.dep / "redaction-report.json").read_bytes()
+        raw_before = sorted(path.name for path in (self.dep / "private/raw").iterdir())
+
+        later = self.root / "later-collection.log"
+        later.write_text("synthetic later collection\n", encoding="utf-8")
+        with patch(
+            "sddgov.evidence._read_regular_bytes",
+            side_effect=AssertionError("closed DEP read collector input"),
+        ), self.assertRaisesRegex(ValueError, "closed after redaction"):
+            collect(self.dep, "terminal", later)
+
+        self.assertEqual((self.dep / "manifest.json").read_bytes(), manifest_before)
+        self.assertEqual(
+            (self.dep / "redaction-report.json").read_bytes(), report_before
+        )
+        self.assertEqual(
+            sorted(path.name for path in (self.dep / "private/raw").iterdir()),
+            raw_before,
+        )
+
+    def test_collect_bounds_the_redaction_report_probe_before_source_read(self):
+        source = self.root / "bounded-report-probe.log"
+        source.write_text("synthetic evidence\n", encoding="utf-8")
+        original = evidence_module._read_regular_bytes_at
+        observed = []
+
+        def inspect_report(directory_fd, name, label, **kwargs):
+            if name == "redaction-report.json":
+                observed.append(kwargs.get("max_bytes"))
+            return original(directory_fd, name, label, **kwargs)
+
+        with patch(
+            "sddgov.evidence._read_regular_bytes_at", side_effect=inspect_report
+        ):
+            collect(self.dep, "terminal", source)
+
+        self.assertEqual(observed, [evidence_module.MAX_DEP_CONTROL_FILE_BYTES])
+
+    def test_valid_json_evidence_is_labeled_application_json(self):
+        source = self.root / "release-report.json"
+        source.write_text('{"ok":true}\n', encoding="utf-8")
+        collect(self.dep, "terminal", source)
+        manifest = json.loads((self.dep / "manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(manifest["schema_version"], "1.1")
+        self.assertEqual(manifest["raw"][0]["media_type"], "application/json")
+        self.assertFalse(any("media_type" in error for error in verify(self.dep)))
+
+    def test_json_media_type_compatibility_is_limited_to_legacy_manifests(self):
+        source = self.root / "legacy-release-report.json"
+        source.write_text('{"ok":true}\n', encoding="utf-8")
+        collect(self.dep, "terminal", source)
+        manifest_path = self.dep / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["raw"][0]["media_type"] = "text/plain; charset=utf-8"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        self.assertTrue(
+            any("media_type mismatch" in error for error in verify(self.dep, strict=True))
+        )
+
+        manifest["schema_version"] = "1.0"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        self.assertFalse(
+            any("media_type" in error for error in verify(self.dep, strict=True))
+        )
 
     def test_collect_preserves_later_manifest_writer_and_removes_owned_raw(self):
         source = self.root / "later-writer-collect.log"
@@ -266,14 +368,14 @@ class EvidenceFlowTests(unittest.TestCase):
         source.write_text("password=synthetic\n", encoding="utf-8")
         collect(self.dep, "terminal", source)
         manifest_before = (self.dep / "manifest.json").read_bytes()
-        original = redaction_module._write_at
+        original = redaction_module._stream_text_at
 
-        def fail_after_output(directory_fd, name, data, published_outputs=None):
-            original(directory_fd, name, data, published_outputs)
+        def fail_after_output(source_fd, directory_fd, name, published_outputs=None):
+            original(source_fd, directory_fd, name, published_outputs)
             raise OSError("synthetic output fsync failure")
 
         with (
-            patch("sddgov.redaction._write_at", side_effect=fail_after_output),
+            patch("sddgov.redaction._stream_text_at", side_effect=fail_after_output),
             self.assertRaisesRegex(OSError, "output fsync failure"),
         ):
             redact(self.dep)
@@ -413,20 +515,43 @@ class EvidenceFlowTests(unittest.TestCase):
         parked = self.dep / "shareable/artifacts-parked"
         outside = self.root / "outside-output"
         outside.mkdir()
-        original = redaction_module._write_at
+        original = redaction_module._stream_text_at
 
-        def replace_parent(directory_fd, name, data, published_outputs=None):
+        def replace_parent(source_fd, directory_fd, name, published_outputs=None):
             shareable.rename(parked)
             shareable.symlink_to(outside, target_is_directory=True)
-            return original(directory_fd, name, data, published_outputs)
+            return original(source_fd, directory_fd, name, published_outputs)
 
         with (
-            patch("sddgov.redaction._write_at", side_effect=replace_parent),
+            patch("sddgov.redaction._stream_text_at", side_effect=replace_parent),
             self.assertRaisesRegex(ValueError, "changed during operation"),
         ):
             redact(self.dep)
         self.assertEqual(list(outside.iterdir()), [])
         self.assertFalse((parked / "terminal--artifact-1.log").exists())
+
+    def test_redaction_does_not_mutate_replaced_output_path_before_dirfd_use(self):
+        source = self.root / "source-before-dirfd.log"
+        source.write_text("password=synthetic", encoding="utf-8")
+        collect(self.dep, "terminal", source)
+        shareable = self.dep / "shareable/artifacts"
+        parked = self.dep / "shareable/artifacts-parked"
+        outside = self.root / "outside-before-dirfd"
+        outside.mkdir()
+        original = evidence_module.redact_files
+
+        def replace_before_redaction(*args, **kwargs):
+            shareable.rename(parked)
+            shareable.symlink_to(outside, target_is_directory=True)
+            return original(*args, **kwargs)
+
+        with patch(
+            "sddgov.evidence.redact_files", side_effect=replace_before_redaction
+        ), self.assertRaisesRegex(ValueError, "changed during operation"):
+            redact(self.dep)
+
+        self.assertEqual(list(outside.iterdir()), [])
+        self.assertEqual(list(parked.iterdir()), [])
 
     def test_transition_preserves_later_summary_writer(self):
         self._complete("reproduction.md", "Synthetic failure is reproducible.")
@@ -489,13 +614,13 @@ class EvidenceFlowTests(unittest.TestCase):
         original = evidence_module._read_regular_bytes_at
         replaced = False
 
-        def replace_parent(directory_fd, name, label):
+        def replace_parent(directory_fd, name, label, **kwargs):
             nonlocal replaced
             if not replaced and label.startswith("artifact shareable/artifacts/"):
                 replaced = True
                 shareable.rename(parked)
                 shareable.symlink_to(outside, target_is_directory=True)
-            return original(directory_fd, name, label)
+            return original(directory_fd, name, label, **kwargs)
 
         with patch(
             "sddgov.evidence._read_regular_bytes_at", side_effect=replace_parent
@@ -563,6 +688,166 @@ class EvidenceFlowTests(unittest.TestCase):
                     sentinel.read_text(encoding="utf-8"), "do not overwrite\n"
                 )
 
+    def test_control_stage_replacement_fails_closed_for_every_publication_mode(self):
+        for mode in ("default", "must-not-exist", "expected-snapshot"):
+            for replacement_kind in ("regular", "symlink", "hardlink"):
+                with self.subTest(mode=mode, replacement_kind=replacement_kind):
+                    output_parent = self.root / f"control-swap-{mode}-{replacement_kind}"
+                    output_parent.mkdir()
+                    destination = output_parent / "control.json"
+                    expected_snapshot = None
+                    if mode == "expected-snapshot":
+                        destination.write_bytes(b'{"generation":"old"}\n')
+                        metadata = destination.stat()
+                        expected_snapshot = (
+                            (
+                                metadata.st_dev,
+                                metadata.st_ino,
+                                metadata.st_size,
+                                metadata.st_mtime_ns,
+                            ),
+                            hashlib.sha256(destination.read_bytes()).hexdigest(),
+                        )
+                    directory_fd = os.open(
+                        output_parent,
+                        os.O_RDONLY | getattr(os, "O_DIRECTORY", 0),
+                    )
+                    original_link = os.link
+                    swapped = False
+
+                    def replace_before_claim(src, dst, *args, **kwargs):
+                        nonlocal swapped
+                        if (
+                            not swapped
+                            and str(src).startswith(".sddgov.control-stage-")
+                            and str(dst).startswith(".sddgov.control-new-")
+                        ):
+                            swapped = True
+                            os.unlink(src, dir_fd=directory_fd)
+                            if replacement_kind == "regular":
+                                fd = os.open(
+                                    src,
+                                    os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                                    0o600,
+                                    dir_fd=directory_fd,
+                                )
+                                try:
+                                    os.write(fd, b'{"generation":"forged"}\n')
+                                finally:
+                                    os.close(fd)
+                            elif replacement_kind == "symlink":
+                                os.symlink("attacker-target", src, dir_fd=directory_fd)
+                            else:
+                                attacker_name = ".attacker-control-source"
+                                fd = os.open(
+                                    attacker_name,
+                                    os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                                    0o600,
+                                    dir_fd=directory_fd,
+                                )
+                                try:
+                                    os.write(fd, b'{"generation":"forged-hardlink"}\n')
+                                finally:
+                                    os.close(fd)
+                                original_link(
+                                    attacker_name,
+                                    src,
+                                    src_dir_fd=directory_fd,
+                                    dst_dir_fd=directory_fd,
+                                    follow_symlinks=False,
+                                )
+                        return original_link(src, dst, *args, **kwargs)
+
+                    try:
+                        with (
+                            patch(
+                                "sddgov.evidence.os.link",
+                                side_effect=replace_before_claim,
+                            ),
+                            self.assertRaises(ValueError),
+                        ):
+                            evidence_module._write_bytes_at(
+                                directory_fd,
+                                destination.name,
+                                b'{"generation":"trusted-new"}\n',
+                                "test control",
+                                expected_snapshot=expected_snapshot,
+                                must_not_exist=mode == "must-not-exist",
+                            )
+                    finally:
+                        os.close(directory_fd)
+                    self.assertTrue(swapped)
+                    if mode == "expected-snapshot":
+                        self.assertEqual(
+                            destination.read_bytes(), b'{"generation":"old"}\n'
+                        )
+                    else:
+                        self.assertFalse(destination.exists())
+                    entries = list(output_parent.iterdir())
+                    self.assertTrue(
+                        any(
+                            path.is_symlink()
+                            or (path.is_file() and b"forged" in path.read_bytes())
+                            for path in entries
+                        ),
+                        entries,
+                    )
+
+    def test_transition_rejects_a_valid_forged_summary_staging_generation(self):
+        self._complete("reproduction.md", "Synthetic failure is reproducible.")
+        source = self.root / "forged-transition.log"
+        source.write_text("password=synthetic\n", encoding="utf-8")
+        collect(self.dep, "terminal", source)
+        redact(self.dep)
+        original_summary = (self.dep / "summary.yaml").read_bytes()
+        original_link = os.link
+        swapped = False
+
+        def replace_summary_stage(src, dst, *args, **kwargs):
+            nonlocal swapped
+            if (
+                not swapped
+                and str(src).startswith(".sddgov.control-stage-")
+                and str(dst).startswith(".sddgov.control-new-")
+            ):
+                directory_fd = kwargs["src_dir_fd"]
+                staged = os.open(src, os.O_RDONLY, dir_fd=directory_fd)
+                try:
+                    forged = json.loads(os.read(staged, 1024 * 1024).decode("utf-8"))
+                finally:
+                    os.close(staged)
+                forged["issue"] = "FORGED-ISSUE"
+                os.unlink(src, dir_fd=directory_fd)
+                replacement = os.open(
+                    src,
+                    os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                    0o600,
+                    dir_fd=directory_fd,
+                )
+                try:
+                    os.write(
+                        replacement,
+                        (json.dumps(forged, ensure_ascii=False, indent=2) + "\n").encode(
+                            "utf-8"
+                        ),
+                    )
+                finally:
+                    os.close(replacement)
+                swapped = True
+            return original_link(src, dst, *args, **kwargs)
+
+        with (
+            patch("sddgov.evidence.os.link", side_effect=replace_summary_stage),
+            self.assertRaises(ValueError),
+        ):
+            transition(self.dep, "evidence")
+        self.assertTrue(swapped)
+        self.assertEqual((self.dep / "summary.yaml").read_bytes(), original_summary)
+        self.assertNotIn(
+            "FORGED-ISSUE",
+            (self.dep / "summary.yaml").read_text(encoding="utf-8"),
+        )
+
     def test_dep_id_cannot_escape_evidence_root(self):
         with self.assertRaisesRegex(ValueError, "DEP ID"):
             make_dep(
@@ -622,13 +907,13 @@ class EvidenceFlowTests(unittest.TestCase):
         original = evidence_module._read_regular_bytes_at
         replaced = False
 
-        def replace_parent(directory_fd, name, label):
+        def replace_parent(directory_fd, name, label, **kwargs):
             nonlocal replaced
             if not replaced and label == "collector input":
                 replaced = True
                 source_parent.rename(parked)
                 source_parent.symlink_to(outside, target_is_directory=True)
-            return original(directory_fd, name, label)
+            return original(directory_fd, name, label, **kwargs)
 
         with (
             patch(
@@ -640,6 +925,46 @@ class EvidenceFlowTests(unittest.TestCase):
         manifest = json.loads((self.dep / "manifest.json").read_text(encoding="utf-8"))
         self.assertEqual(manifest["raw"], [])
         self.assertEqual(list((self.dep / "private/raw").iterdir()), [])
+
+    def test_collector_rejects_oversized_input_before_publication(self):
+        source = self.root / "oversized.log"
+        with source.open("wb") as handle:
+            handle.truncate(redaction_module.MAX_REDACTION_FILE_BYTES + 1)
+        with self.assertRaisesRegex(ValueError, "collector input exceeds"):
+            collect(self.dep, "terminal", source)
+        manifest = json.loads((self.dep / "manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(manifest["raw"], [])
+        self.assertEqual(list((self.dep / "private/raw").iterdir()), [])
+
+    def test_shared_cleanup_tolerates_concurrent_pending_disappearance(self):
+        directory = self.root / "cleanup"
+        directory.mkdir()
+        target = directory / "artifact.log"
+        target.write_text("owned\n", encoding="utf-8")
+        metadata = target.stat()
+        descriptor = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        original = os.stat
+
+        def disappear(name, *args, **kwargs):
+            if isinstance(name, str) and ".cleanup-pending-" in name:
+                try:
+                    os.unlink(name, dir_fd=descriptor)
+                except FileNotFoundError:
+                    pass
+                raise FileNotFoundError(name)
+            return original(name, *args, **kwargs)
+
+        try:
+            with patch("sddgov.fs_security.os.stat", side_effect=disappear):
+                redaction_module._reconcile_failed_publication(
+                    descriptor,
+                    target.name,
+                    (metadata.st_dev, metadata.st_ino),
+                )
+        finally:
+            os.close(descriptor)
+        self.assertFalse(target.exists())
+        self.assertEqual(list(directory.iterdir()), [])
 
     def test_attach_verification_and_read_share_one_dep_snapshot(self):
         self._prepare_attachable_dep()
@@ -660,6 +985,7 @@ class EvidenceFlowTests(unittest.TestCase):
         ):
             attach(self.dep, "pr")
         self.assertEqual(list(outside.glob("attach-pr-*.md")), [])
+        self.assertEqual(list(parked.glob("attach-pr-*.md")), [])
 
     def test_attach_rejects_atomic_control_document_replacement(self):
         self._prepare_attachable_dep()
@@ -729,7 +1055,339 @@ class EvidenceFlowTests(unittest.TestCase):
                 )
         finally:
             os.close(directory_fd)
-        self.assertEqual(list(output_parent.glob(".proof.md.pending-*")), [])
+        self.assertEqual(list(output_parent.glob(".sddgov.attachment-stage-*")), [])
+
+    def test_attachment_stage_close_failure_is_owned_and_replacement_safe(self):
+        for replace_stage in (False, True):
+            with self.subTest(replace_stage=replace_stage):
+                output_parent = self.root / f"attachment-close-{replace_stage}"
+                output_parent.mkdir()
+                directory_fd = os.open(
+                    output_parent,
+                    os.O_RDONLY | getattr(os, "O_DIRECTORY", 0),
+                )
+                original_close = os.close
+                injected = False
+
+                def close_then_fail(descriptor):
+                    nonlocal injected
+                    metadata = os.fstat(descriptor)
+                    if not injected and stat.S_ISREG(metadata.st_mode):
+                        injected = True
+                        original_close(descriptor)
+                        if replace_stage:
+                            stage_name = next(
+                                name
+                                for name in os.listdir(directory_fd)
+                                if name.startswith(".sddgov.attachment-stage-")
+                            )
+                            os.unlink(stage_name, dir_fd=directory_fd)
+                            replacement = os.open(
+                                stage_name,
+                                os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                                0o600,
+                                dir_fd=directory_fd,
+                            )
+                            try:
+                                os.write(replacement, b"later attachment writer\n")
+                            finally:
+                                original_close(replacement)
+                        raise OSError("synthetic attachment close failure")
+                    return original_close(descriptor)
+
+                try:
+                    with (
+                        patch("sddgov.evidence.os.close", side_effect=close_then_fail),
+                        self.assertRaisesRegex(OSError, "attachment close failure"),
+                    ):
+                        evidence_module._stage_attachment_at(
+                            directory_fd,
+                            "proof.md",
+                            b"synthetic proof\n",
+                        )
+                finally:
+                    original_close(directory_fd)
+                stages = list(output_parent.glob(".sddgov.attachment-stage-*"))
+                if replace_stage:
+                    self.assertEqual(len(stages), 1)
+                    self.assertEqual(stages[0].read_bytes(), b"later attachment writer\n")
+                else:
+                    self.assertEqual(stages, [])
+
+    def test_control_stage_close_failure_is_owned_and_replacement_safe(self):
+        for replace_stage in (False, True):
+            with self.subTest(replace_stage=replace_stage):
+                output_parent = self.root / f"control-close-{replace_stage}"
+                output_parent.mkdir()
+                directory_fd = os.open(
+                    output_parent,
+                    os.O_RDONLY | getattr(os, "O_DIRECTORY", 0),
+                )
+                original_close = os.close
+                injected = False
+
+                def close_then_fail(descriptor):
+                    nonlocal injected
+                    metadata = os.fstat(descriptor)
+                    if not injected and stat.S_ISREG(metadata.st_mode):
+                        injected = True
+                        original_close(descriptor)
+                        if replace_stage:
+                            stage_name = next(
+                                name
+                                for name in os.listdir(directory_fd)
+                                if name.startswith(".sddgov.control-stage-")
+                            )
+                            os.unlink(stage_name, dir_fd=directory_fd)
+                            replacement = os.open(
+                                stage_name,
+                                os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                                0o600,
+                                dir_fd=directory_fd,
+                            )
+                            try:
+                                os.write(replacement, b"later control writer\n")
+                            finally:
+                                original_close(replacement)
+                        raise OSError("synthetic control close failure")
+                    return original_close(descriptor)
+
+                try:
+                    with (
+                        patch("sddgov.evidence.os.close", side_effect=close_then_fail),
+                        self.assertRaisesRegex(OSError, "control close failure"),
+                    ):
+                        evidence_module._write_bytes_at(
+                            directory_fd,
+                            "control.json",
+                            b'{"trusted":true}\n',
+                            "test control",
+                        )
+                finally:
+                    original_close(directory_fd)
+                self.assertFalse((output_parent / "control.json").exists())
+                stages = list(output_parent.glob(".sddgov.control-stage-*"))
+                if replace_stage:
+                    self.assertEqual(len(stages), 1)
+                    self.assertEqual(stages[0].read_bytes(), b"later control writer\n")
+                else:
+                    self.assertEqual(stages, [])
+
+    def test_attach_directory_close_failure_does_not_reverse_commit(self):
+        self._prepare_attachable_dep()
+        output = self._default_attachment_path(self.dep)
+        original_publish = evidence_module._publish_verified_attachment_at
+        original_close = os.close
+        committed = False
+        injected = False
+        later_directory_closes = 0
+
+        def publish_then_mark(*args, **kwargs):
+            nonlocal committed
+            result = original_publish(*args, **kwargs)
+            committed = True
+            return result
+
+        def close_directory_then_fail(descriptor):
+            nonlocal injected, later_directory_closes
+            metadata = os.fstat(descriptor)
+            is_directory = stat.S_ISDIR(metadata.st_mode)
+            if committed and is_directory and not injected:
+                injected = True
+                original_close(descriptor)
+                raise OSError("synthetic post-commit directory close failure")
+            if injected and is_directory:
+                later_directory_closes += 1
+            return original_close(descriptor)
+
+        with (
+            patch(
+                "sddgov.evidence._publish_verified_attachment_at",
+                side_effect=publish_then_mark,
+            ),
+            patch("sddgov.evidence.os.close", side_effect=close_directory_then_fail),
+        ):
+            returned = attach(self.dep, "pr")
+        self.assertTrue(injected)
+        self.assertGreater(later_directory_closes, 0)
+        self.assertEqual(returned, output)
+        self.assertTrue(output.is_file())
+
+    def test_transition_directory_close_failure_does_not_reverse_commit(self):
+        self._complete("reproduction.md", "Synthetic failure is reproducible.")
+        source = self.root / "transition-close.log"
+        source.write_text("password=synthetic\n", encoding="utf-8")
+        collect(self.dep, "terminal", source)
+        redact(self.dep)
+        original_write = evidence_module._write_bytes_at
+        original_close = os.close
+        committed = False
+        injected = False
+        later_directory_closes = 0
+
+        def write_then_mark(directory_fd, name, *args, **kwargs):
+            nonlocal committed
+            result = original_write(directory_fd, name, *args, **kwargs)
+            if name == "summary.yaml":
+                committed = True
+            return result
+
+        def close_directory_then_fail(descriptor):
+            nonlocal injected, later_directory_closes
+            metadata = os.fstat(descriptor)
+            is_directory = stat.S_ISDIR(metadata.st_mode)
+            if committed and is_directory and not injected:
+                injected = True
+                original_close(descriptor)
+                raise OSError("synthetic post-commit directory close failure")
+            if injected and is_directory:
+                later_directory_closes += 1
+            return original_close(descriptor)
+
+        with (
+            patch("sddgov.evidence._write_bytes_at", side_effect=write_then_mark),
+            patch("sddgov.evidence.os.close", side_effect=close_directory_then_fail),
+        ):
+            summary = transition(self.dep, "evidence")
+        self.assertTrue(injected)
+        self.assertGreater(later_directory_closes, 0)
+        self.assertEqual(summary["workflow"]["phase"], "evidence")
+        persisted = json.loads((self.dep / "summary.yaml").read_text(encoding="utf-8"))
+        self.assertEqual(persisted["workflow"]["phase"], "evidence")
+
+    def test_redact_directory_close_failure_does_not_reverse_commit(self):
+        self._complete("reproduction.md", "Synthetic failure is reproducible.")
+        source = self.root / "redact-close.log"
+        source.write_text("password=synthetic\n", encoding="utf-8")
+        collect(self.dep, "terminal", source)
+        original_save = evidence_module._save_at
+        original_close = os.close
+        committed = False
+        injected = False
+        later_directory_closes = 0
+
+        def save_then_mark(directory_fd, name, *args, **kwargs):
+            nonlocal committed
+            result = original_save(directory_fd, name, *args, **kwargs)
+            if name == "manifest.json":
+                committed = True
+            return result
+
+        def close_directory_then_fail(descriptor):
+            nonlocal injected, later_directory_closes
+            metadata = os.fstat(descriptor)
+            is_directory = stat.S_ISDIR(metadata.st_mode)
+            if committed and is_directory and not injected:
+                injected = True
+                original_close(descriptor)
+                raise OSError("synthetic post-commit directory close failure")
+            if injected and is_directory:
+                later_directory_closes += 1
+            return original_close(descriptor)
+
+        with (
+            patch("sddgov.evidence._save_at", side_effect=save_then_mark),
+            patch("sddgov.evidence.os.close", side_effect=close_directory_then_fail),
+        ):
+            report = redact(self.dep)
+        self.assertTrue(injected)
+        self.assertGreater(later_directory_closes, 0)
+        self.assertFalse(report["blocked"])
+        self.assertTrue((self.dep / "redaction-report.json").is_file())
+        self.assertTrue(any((self.dep / "shareable/artifacts").iterdir()))
+
+    def test_attachment_stage_replacement_never_publishes_or_deletes_later_writer(self):
+        for custom in (False, True):
+            for replacement_kind in ("regular", "symlink", "hardlink", "fifo"):
+                with self.subTest(custom=custom, replacement_kind=replacement_kind):
+                    case_root = self.root / f"stage-swap-{custom}-{replacement_kind}"
+                    dep = make_dep(
+                        case_root / "evidence",
+                        issue="ISSUE-ATTACH-STAGE-SWAP",
+                        risk="L1",
+                        dep_id=f"DEP-ATTACH-STAGE-SWAP-{custom}-{replacement_kind}",
+                    )
+                    original_dep = self.dep
+                    self.dep = dep
+                    try:
+                        self._prepare_attachable_dep()
+                    finally:
+                        self.dep = original_dep
+                    if custom:
+                        output_parent = case_root / "custom"
+                        output_parent.mkdir()
+                        output = output_parent / "proof.md"
+                    else:
+                        output_parent = dep
+                        output = self._default_attachment_path(dep)
+                    stage_record: tuple[str, tuple[int, int], int, str, int] | None = None
+                    original_stage = evidence_module._stage_attachment_at
+
+                    def replace_stage(directory_fd, name, data):
+                        nonlocal stage_record
+                        stage_record = original_stage(directory_fd, name, data)
+                        stage_name = stage_record[0]
+                        os.unlink(stage_name, dir_fd=directory_fd)
+                        if replacement_kind == "regular":
+                            fd = os.open(
+                                stage_name,
+                                os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                                0o600,
+                                dir_fd=directory_fd,
+                            )
+                            try:
+                                os.write(fd, b"FORGED ATTACHMENT\n")
+                            finally:
+                                os.close(fd)
+                        elif replacement_kind == "symlink":
+                            os.symlink("attacker-target", stage_name, dir_fd=directory_fd)
+                        elif replacement_kind == "hardlink":
+                            attacker_name = ".attacker-hardlink-source"
+                            fd = os.open(
+                                attacker_name,
+                                os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                                0o600,
+                                dir_fd=directory_fd,
+                            )
+                            try:
+                                os.write(fd, b"FORGED HARDLINK\n")
+                            finally:
+                                os.close(fd)
+                            os.link(
+                                attacker_name,
+                                stage_name,
+                                src_dir_fd=directory_fd,
+                                dst_dir_fd=directory_fd,
+                                follow_symlinks=False,
+                            )
+                        else:
+                            os.mkfifo(stage_name, 0o600, dir_fd=directory_fd)
+                        return stage_record
+
+                    with (
+                        patch(
+                            "sddgov.evidence._stage_attachment_at",
+                            side_effect=replace_stage,
+                        ),
+                        self.assertRaises(ValueError),
+                    ):
+                        attach(dep, "pr", output=output if custom else None)
+                    self.assertFalse(output.exists())
+                    self.assertIsNotNone(stage_record)
+                    stage_path = output_parent / stage_record[0]
+                    preserved = [stage_path, *output_parent.glob(".sddgov.attachment-claim-*")]
+                    preserved = [
+                        path for path in preserved if path.exists() or path.is_symlink()
+                    ]
+                    self.assertTrue(preserved, list(output_parent.iterdir()))
+                    if replacement_kind == "regular":
+                        self.assertTrue(
+                            any(path.read_bytes() == b"FORGED ATTACHMENT\n" for path in preserved)
+                        )
+                    elif replacement_kind == "fifo":
+                        self.assertTrue(
+                            any(stat.S_ISFIFO(path.lstat().st_mode) for path in preserved)
+                        )
 
     def test_strict_verify_rejects_pending_attachment_residue(self):
         self._prepare_attachable_dep()
@@ -740,6 +1398,21 @@ class EvidenceFlowTests(unittest.TestCase):
             any("pending Evidence transaction" in error for error in errors),
             errors,
         )
+
+    def test_strict_verify_rejects_redaction_stage_and_claim_residue(self):
+        for name in (
+            ".sddgov.redaction-stage-interrupted",
+            ".sddgov.redaction-claim-interrupted",
+        ):
+            with self.subTest(name=name):
+                residue = self.dep / name
+                residue.write_text("incomplete transaction\n", encoding="utf-8")
+                errors = verify(self.dep, strict=True)
+                self.assertTrue(
+                    any("pending Evidence transaction" in error for error in errors),
+                    errors,
+                )
+                residue.unlink()
 
     def test_default_attachment_preserves_later_writer_when_control_changes(self):
         self._prepare_attachable_dep()
@@ -975,6 +1648,52 @@ class EvidenceFlowTests(unittest.TestCase):
         ):
             attach(self.dep, "pr", output=output)
         self.assertEqual(external.read_text(encoding="utf-8"), "do not overwrite\n")
+        self.assertFalse((parked / output.name).exists())
+
+    def test_attachment_parent_revalidation_preserves_a_later_writer(self):
+        self._prepare_attachable_dep()
+        output_parent = self.root / "attachment-revalidation-output"
+        output_parent.mkdir()
+        output = output_parent / "custom.md"
+        parked = self.root / "attachment-revalidation-parked"
+        outside = self.root / "attachment-revalidation-outside"
+        outside.mkdir()
+        later = self.root / "attachment-revalidation-later.md"
+        later.write_text("preserve attachment later writer\n", encoding="utf-8")
+        original_stage = evidence_module._stage_attachment_at
+        original_publish = evidence_module._publish_verified_attachment_at
+        moved = False
+
+        def move_parent_before_stage(directory_fd, name, data):
+            nonlocal moved
+            if not moved:
+                moved = True
+                output_parent.rename(parked)
+                output_parent.symlink_to(outside, target_is_directory=True)
+            return original_stage(directory_fd, name, data)
+
+        def replace_after_publication(*args, **kwargs):
+            identity = original_publish(*args, **kwargs)
+            later.replace(parked / output.name)
+            return identity
+
+        with (
+            patch(
+                "sddgov.evidence._stage_attachment_at",
+                side_effect=move_parent_before_stage,
+            ),
+            patch(
+                "sddgov.evidence._publish_verified_attachment_at",
+                side_effect=replace_after_publication,
+            ),
+            self.assertRaisesRegex(ValueError, "directory path changed"),
+        ):
+            attach(self.dep, "pr", output=output)
+        self.assertEqual(list(outside.iterdir()), [])
+        self.assertEqual(
+            (parked / output.name).read_text(encoding="utf-8"),
+            "preserve attachment later writer\n",
+        )
 
     def test_collector_rejects_symlink_source_and_duplicate_label(self):
         first = self.root / "first.log"

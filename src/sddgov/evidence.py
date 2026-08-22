@@ -6,14 +6,19 @@ import json
 import os
 import re
 import stat
-import sys
 import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from importlib import resources
 from pathlib import Path, PurePosixPath
 
-from .redaction import TEXT_SUFFIXES, redact_files, redact_text
+from .fs_security import canonicalize_platform_path, remove_owned_at
+from .redaction import (
+    MAX_REDACTION_FILE_BYTES,
+    TEXT_SUFFIXES,
+    redact_files,
+    redact_text,
+)
 from .schema_validation import bundled_schema, validate_instance
 
 
@@ -22,8 +27,12 @@ COLLECTORS = {
     "android-logcat", "supabase-log", "docker-log", "terminal", "git",
 }
 PHASES = ("red", "evidence", "fix", "green", "proof")
+MANIFEST_SCHEMA_VERSION = "1.1"
+LEGACY_MANIFEST_SCHEMA_VERSION = "1.0"
 DEP_ID_PATTERN = re.compile(r"^DEP-[A-Za-z0-9._-]+$")
 SHA256_PATTERN = re.compile(r"^[a-f0-9]{64}$")
+MAX_DEP_CONTROL_FILE_BYTES = 1024 * 1024
+MAX_DEP_ARTIFACT_BYTES = MAX_REDACTION_FILE_BYTES
 REQUIRED_DOCS = {
     "red": ("reproduction.md",),
     "evidence": ("reproduction.md", "redaction-report.json"),
@@ -41,12 +50,22 @@ def _resource_dir():
     return resources.files("sddgov").joinpath("resources/dep")
 
 
+def _close_directory_descriptors(descriptors: list[int]) -> None:
+    """Close every read-only directory fd without reversing committed work."""
+    while descriptors:
+        descriptor = descriptors.pop()
+        try:
+            os.close(descriptor)
+        except OSError:
+            # A directory close error cannot roll back an already-published
+            # generation and close(2) must never be retried after an error.
+            pass
+
+
 @contextmanager
-def _opened_directory_path(path: Path, *, create: bool):
+def _opened_directory_path(path: Path, *, create: bool, on_change=None):
     """Walk an absolute directory path without following mutable components."""
-    candidate = path if path.is_absolute() else Path.cwd() / path
-    if sys.platform == "darwin" and candidate.parts[:2] == ("/", "var"):
-        candidate = Path("/private/var").joinpath(*candidate.parts[2:])
+    candidate = canonicalize_platform_path(path)
     if any(part in {"", ".", ".."} for part in candidate.parts[1:]):
         raise ValueError("directory path is not normalized")
     directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
@@ -64,6 +83,8 @@ def _opened_directory_path(path: Path, *, create: bool):
                 os.mkdir(part, 0o755, dir_fd=descriptors[-1])
                 child = os.open(part, directory_flags, dir_fd=descriptors[-1])
             except OSError as exc:
+                if on_change is not None:
+                    on_change(descriptors[-1])
                 raise ValueError(
                     f"directory path cannot be opened safely: {candidate}"
                 ) from exc
@@ -89,18 +110,23 @@ def _opened_directory_path(path: Path, *, create: bool):
                 or not stat.S_ISDIR(current.st_mode)
                 or (current.st_dev, current.st_ino) != (opened.st_dev, opened.st_ino)
             ):
+                if on_change is not None:
+                    on_change(descriptors[-1])
                 raise ValueError(
                     f"directory path changed during operation: {candidate}"
                 )
     finally:
-        for descriptor in reversed(descriptors):
-            os.close(descriptor)
+        _close_directory_descriptors(descriptors)
 
 
 @contextmanager
-def _opened_dep_root(dep: Path):
+def _opened_dep_root(dep: Path, *, on_change=None):
     try:
-        with _opened_directory_path(dep, create=False) as (_, descriptor):
+        with _opened_directory_path(
+            dep,
+            create=False,
+            on_change=on_change,
+        ) as (_, descriptor):
             yield descriptor
     except FileNotFoundError as exc:
         raise ValueError("DEP root must be an existing safe directory path") from exc
@@ -159,8 +185,7 @@ def _opened_zone_at(
                     on_change(descriptors[-1])
                 raise ValueError(f"evidence zone changed during operation: {relative}")
     finally:
-        for descriptor in reversed(descriptors):
-            os.close(descriptor)
+        _close_directory_descriptors(descriptors)
 
 
 @contextmanager
@@ -197,14 +222,22 @@ def _require_regular_file(path: Path, label: str) -> None:
         raise ValueError(f"{label} must not be hard-linked")
 
 
-def _read_regular_bytes(path: Path, label: str) -> bytes:
+def _read_regular_bytes(path: Path, label: str, *, max_bytes: int) -> bytes:
     """Read a file while retaining and rechecking its complete parent chain."""
     with _opened_directory_path(path.parent, create=False) as (_, parent_fd):
-        raw, _ = _read_regular_bytes_at(parent_fd, path.name, label)
+        raw, _ = _read_regular_bytes_at(
+            parent_fd, path.name, label, max_bytes=max_bytes
+        )
         return raw
 
 
-def _read_regular_bytes_at(directory_fd: int, name: str, label: str) -> tuple[bytes, os.stat_result]:
+def _read_regular_bytes_at(
+    directory_fd: int,
+    name: str,
+    label: str,
+    *,
+    max_bytes: int,
+) -> tuple[bytes, os.stat_result]:
     """Read one direct child through a retained directory descriptor."""
     if not name or Path(name).name != name:
         raise ValueError(f"{label} has an invalid filename")
@@ -227,11 +260,21 @@ def _read_regular_bytes_at(directory_fd: int, name: str, label: str) -> tuple[by
             raise ValueError(f"{label} must be a regular file")
         if metadata.st_nlink != 1:
             raise ValueError(f"{label} must not be hard-linked")
+        if metadata.st_size > max_bytes:
+            raise ValueError(
+                f"{label} exceeds {max_bytes} bytes; collect a bounded excerpt or summary"
+            )
         chunks: list[bytes] = []
+        observed_size = 0
         while True:
             chunk = os.read(descriptor, 1024 * 1024)
             if not chunk:
                 break
+            observed_size += len(chunk)
+            if observed_size > max_bytes:
+                raise ValueError(
+                    f"{label} exceeds {max_bytes} bytes; collect a bounded excerpt or summary"
+                )
             chunks.append(chunk)
         final_descriptor = os.fstat(descriptor)
         try:
@@ -277,7 +320,10 @@ def _read_regular_bytes_at(directory_fd: int, name: str, label: str) -> tuple[by
 
 def _load_at(directory_fd: int, name: str) -> dict:
     raw, _ = _read_regular_bytes_at(
-        directory_fd, name, f"machine-readable document {name}"
+        directory_fd,
+        name,
+        f"machine-readable document {name}",
+        max_bytes=MAX_DEP_CONTROL_FILE_BYTES,
     )
     return json.loads(raw.decode("utf-8"))
 
@@ -309,7 +355,10 @@ def _capture_artifact_snapshot(
                 path = row.get("path")
                 name = Path(str(path)).name
                 raw, metadata = _read_regular_bytes_at(
-                    zone_fd, name, f"verified artifact {path}"
+                    zone_fd,
+                    name,
+                    f"verified artifact {path}",
+                    max_bytes=MAX_DEP_ARTIFACT_BYTES,
                 )
                 digest = hashlib.sha256(raw).hexdigest()
                 if len(raw) != row.get("size") or digest != row.get("sha256"):
@@ -344,6 +393,7 @@ def _require_artifact_snapshot(
                         zone_fd,
                         PurePosixPath(path).name,
                         f"verified artifact {path}",
+                        max_bytes=MAX_DEP_ARTIFACT_BYTES,
                     )
                 except (OSError, ValueError) as exc:
                     raise ValueError(f"verified artifact changed: {path}") from exc
@@ -364,41 +414,8 @@ def _remove_owned_at(
     expected_identity: tuple[int, int],
     label: str,
 ) -> bool:
-    """Remove only the exact transaction-owned generation at a directory entry."""
-    pending = f".{name}.cleanup-pending-{uuid.uuid4().hex}"
-    try:
-        os.rename(
-            name,
-            pending,
-            src_dir_fd=directory_fd,
-            dst_dir_fd=directory_fd,
-        )
-    except FileNotFoundError:
-        return False
-    metadata = os.stat(pending, dir_fd=directory_fd, follow_symlinks=False)
-    if (
-        stat.S_ISREG(metadata.st_mode)
-        and (metadata.st_dev, metadata.st_ino) == expected_identity
-    ):
-        os.unlink(pending, dir_fd=directory_fd)
-        os.fsync(directory_fd)
-        return True
-    try:
-        os.link(
-            pending,
-            name,
-            src_dir_fd=directory_fd,
-            dst_dir_fd=directory_fd,
-            follow_symlinks=False,
-        )
-    except FileExistsError:
-        raise ValueError(
-            f"{label} changed during cleanup; preserved pending generation {pending}"
-        )
-    else:
-        os.unlink(pending, dir_fd=directory_fd)
-        os.fsync(directory_fd)
-    return False
+    """Compatibility wrapper around the shared owned-generation protocol."""
+    return remove_owned_at(directory_fd, name, expected_identity, label)
 
 
 def _write_bytes_at(
@@ -431,7 +448,10 @@ def _write_bytes_at(
         if current is None:
             raise ValueError(f"{label} changed before publication: {name}")
         observed_raw, observed_metadata = _read_regular_bytes_at(
-            directory_fd, name, label
+            directory_fd,
+            name,
+            label,
+            max_bytes=MAX_DEP_CONTROL_FILE_BYTES,
         )
         observed_identity = (
             observed_metadata.st_dev,
@@ -444,11 +464,67 @@ def _write_bytes_at(
             or hashlib.sha256(observed_raw).hexdigest() != expected_snapshot[1]
         ):
             raise ValueError(f"{label} changed before publication: {name}")
-    temporary = f".{name}.tmp-{uuid.uuid4().hex}"
-    claimed = f".{name}.control-pending-{uuid.uuid4().hex}"
+    temporary = f".sddgov.control-stage-{uuid.uuid4().hex}"
+    staged_claim = f".sddgov.control-new-{uuid.uuid4().hex}"
+    old_claim = f".sddgov.control-old-{uuid.uuid4().hex}"
     descriptor = -1
-    claimed_exists = False
-    preserve_claim = False
+    staging_guard = -1
+    staged_identity: tuple[int, int] | None = None
+    staged_verified = False
+    old_identity: tuple[int, int] | None = None
+    old_claim_exists = False
+    published = False
+    committed = False
+    encoded_digest = hashlib.sha256(encoded).hexdigest()
+
+    def require_exact(
+        candidate: str,
+        identity: tuple[int, int],
+        size: int,
+        digest: str,
+        candidate_label: str,
+    ) -> os.stat_result:
+        raw, metadata = _read_regular_bytes_at(
+            directory_fd,
+            candidate,
+            candidate_label,
+            max_bytes=max(size, 0),
+        )
+        if (
+            (metadata.st_dev, metadata.st_ino) != identity
+            or metadata.st_size != size
+            or hashlib.sha256(raw).hexdigest() != digest
+        ):
+            raise ValueError(f"{label} changed before publication: {name}")
+        return metadata
+
+    def restore_old_claim() -> None:
+        nonlocal old_claim_exists
+        if not old_claim_exists:
+            return
+        try:
+            os.link(
+                old_claim,
+                name,
+                src_dir_fd=directory_fd,
+                dst_dir_fd=directory_fd,
+                follow_symlinks=False,
+            )
+        except FileExistsError:
+            return
+        if old_identity is None:
+            return
+        try:
+            _remove_owned_at(
+                directory_fd,
+                old_claim,
+                old_identity,
+                label,
+            )
+        except (OSError, ValueError):
+            return
+        old_claim_exists = False
+
     try:
         descriptor = os.open(
             temporary,
@@ -456,113 +532,208 @@ def _write_bytes_at(
             0o600,
             dir_fd=directory_fd,
         )
+        opened = os.fstat(descriptor)
+        staged_identity = (opened.st_dev, opened.st_ino)
+        if not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1:
+            raise ValueError(f"{label} staging file is unsafe: {name}")
         view = memoryview(encoded)
         while view:
             written = os.write(descriptor, view)
+            if written <= 0:
+                raise OSError(f"{label} staging write made no progress")
             view = view[written:]
         os.fsync(descriptor)
-        os.close(descriptor)
+        final_fd = os.fstat(descriptor)
+        final_path = os.stat(
+            temporary,
+            dir_fd=directory_fd,
+            follow_symlinks=False,
+        )
+        if (
+            not stat.S_ISREG(final_path.st_mode)
+            or final_path.st_nlink != 1
+            or (final_fd.st_dev, final_fd.st_ino) != staged_identity
+            or (final_path.st_dev, final_path.st_ino) != staged_identity
+            or final_fd.st_size != len(encoded)
+        ):
+            raise ValueError(f"{label} staging file changed during write: {name}")
+        closing_descriptor = descriptor
+        staging_guard = os.dup(descriptor)
         descriptor = -1
+        os.close(closing_descriptor)
+        os.fsync(directory_fd)
+
+        os.link(
+            temporary,
+            staged_claim,
+            src_dir_fd=directory_fd,
+            dst_dir_fd=directory_fd,
+            follow_symlinks=False,
+        )
+        closing_guard = staging_guard
+        staging_guard = -1
+        try:
+            os.close(closing_guard)
+        except OSError:
+            pass
+        _remove_owned_at(
+            directory_fd,
+            temporary,
+            staged_identity,
+            f"{label} staging file",
+        )
+        require_exact(
+            staged_claim,
+            staged_identity,
+            len(encoded),
+            encoded_digest,
+            f"{label} claimed staging file",
+        )
+        staged_verified = True
+
         if expected_snapshot is not None:
-            os.rename(
+            expected_file_identity = expected_snapshot[0][:2]
+            os.link(
                 name,
-                claimed,
+                old_claim,
                 src_dir_fd=directory_fd,
                 dst_dir_fd=directory_fd,
+                follow_symlinks=False,
             )
-            claimed_exists = True
-            claimed_raw, claimed_metadata = _read_regular_bytes_at(
-                directory_fd, claimed, label
+            old_claim_exists = True
+            _remove_owned_at(
+                directory_fd,
+                name,
+                expected_file_identity,
+                label,
             )
-            claimed_identity = (
-                claimed_metadata.st_dev,
-                claimed_metadata.st_ino,
-                claimed_metadata.st_size,
-                claimed_metadata.st_mtime_ns,
+            old_raw, old_metadata = _read_regular_bytes_at(
+                directory_fd,
+                old_claim,
+                label,
+                max_bytes=MAX_DEP_CONTROL_FILE_BYTES,
+            )
+            old_identity = (old_metadata.st_dev, old_metadata.st_ino)
+            observed_old = (
+                old_metadata.st_dev,
+                old_metadata.st_ino,
+                old_metadata.st_size,
+                old_metadata.st_mtime_ns,
             )
             if (
-                claimed_identity != expected_snapshot[0]
-                or hashlib.sha256(claimed_raw).hexdigest() != expected_snapshot[1]
+                observed_old != expected_snapshot[0]
+                or hashlib.sha256(old_raw).hexdigest() != expected_snapshot[1]
             ):
-                try:
-                    os.link(
-                        claimed,
-                        name,
-                        src_dir_fd=directory_fd,
-                        dst_dir_fd=directory_fd,
-                        follow_symlinks=False,
-                    )
-                except FileExistsError:
-                    preserve_claim = True
-                else:
-                    os.unlink(claimed, dir_fd=directory_fd)
-                    claimed_exists = False
+                restore_old_claim()
                 raise ValueError(f"{label} changed before publication: {name}")
-            try:
-                os.link(
-                    temporary,
-                    name,
-                    src_dir_fd=directory_fd,
-                    dst_dir_fd=directory_fd,
-                    follow_symlinks=False,
-                )
-            except FileExistsError as exc:
-                os.unlink(claimed, dir_fd=directory_fd)
-                claimed_exists = False
+
+        try:
+            os.link(
+                staged_claim,
+                name,
+                src_dir_fd=directory_fd,
+                dst_dir_fd=directory_fd,
+                follow_symlinks=False,
+            )
+        except FileExistsError as exc:
+            if expected_snapshot is not None:
                 raise ValueError(
                     f"{label} received a later writer before publication: {name}"
                 ) from exc
-            os.unlink(temporary, dir_fd=directory_fd)
-            temporary = ""
-            os.unlink(claimed, dir_fd=directory_fd)
-            claimed_exists = False
-        elif must_not_exist:
-            try:
-                os.link(
-                    temporary,
-                    name,
-                    src_dir_fd=directory_fd,
-                    dst_dir_fd=directory_fd,
-                    follow_symlinks=False,
-                )
-            except FileExistsError as exc:
+            if must_not_exist:
                 raise FileExistsError(f"{label} already exists: {name}") from exc
-            os.unlink(temporary, dir_fd=directory_fd)
-            temporary = ""
-        else:
-            os.replace(
-                temporary,
-                name,
-                src_dir_fd=directory_fd,
-                dst_dir_fd=directory_fd,
-            )
-            temporary = ""
-        published = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
-        if published_identity is not None:
-            published_identity.append((published.st_dev, published.st_ino))
+            raise FileExistsError(f"{label} received an unexpected writer: {name}") from exc
+        published = True
+        _remove_owned_at(
+            directory_fd,
+            staged_claim,
+            staged_identity,
+            f"{label} claimed staging file",
+        )
+        staged_claim = ""
+        published_metadata = require_exact(
+            name,
+            staged_identity,
+            len(encoded),
+            encoded_digest,
+            label,
+        )
         os.fsync(directory_fd)
-    finally:
+        published_metadata = require_exact(
+            name,
+            staged_identity,
+            len(encoded),
+            encoded_digest,
+            label,
+        )
+        if published_identity is not None:
+            published_identity.append(
+                (published_metadata.st_dev, published_metadata.st_ino)
+            )
+        committed = True
+        if old_claim_exists and old_identity is not None:
+            try:
+                _remove_owned_at(directory_fd, old_claim, old_identity, label)
+            except (OSError, ValueError):
+                pass
+            else:
+                old_claim_exists = False
+    except BaseException as primary:
+        cleanup_error: BaseException | None = None
         if descriptor >= 0:
-            os.close(descriptor)
-        if temporary:
+            closing_descriptor = descriptor
+            descriptor = -1
             try:
-                os.unlink(temporary, dir_fd=directory_fd)
-            except FileNotFoundError:
-                pass
-        if claimed_exists and not preserve_claim:
+                os.close(closing_descriptor)
+            except BaseException as exc:
+                cleanup_error = exc
+        if published and not committed and staged_identity is not None:
             try:
-                os.link(
-                    claimed,
+                _remove_owned_at(
+                    directory_fd,
                     name,
-                    src_dir_fd=directory_fd,
-                    dst_dir_fd=directory_fd,
-                    follow_symlinks=False,
+                    staged_identity,
+                    label,
                 )
-            except FileExistsError:
-                pass
+            except BaseException as exc:
+                if cleanup_error is None:
+                    cleanup_error = exc
+        if expected_snapshot is not None:
             try:
-                os.unlink(claimed, dir_fd=directory_fd)
-            except FileNotFoundError:
+                restore_old_claim()
+            except BaseException as exc:
+                if cleanup_error is None:
+                    cleanup_error = exc
+        if staging_guard >= 0:
+            closing_guard = staging_guard
+            staging_guard = -1
+            try:
+                os.close(closing_guard)
+            except OSError:
+                pass
+        if cleanup_error is not None:
+            raise primary from cleanup_error
+        raise
+    finally:
+        if staged_identity is not None and temporary:
+            try:
+                _remove_owned_at(
+                    directory_fd,
+                    temporary,
+                    staged_identity,
+                    f"{label} staging file",
+                )
+            except (OSError, ValueError):
+                pass
+        if staged_identity is not None and staged_claim and staged_verified:
+            try:
+                _remove_owned_at(
+                    directory_fd,
+                    staged_claim,
+                    staged_identity,
+                    f"{label} claimed staging file",
+                )
+            except (OSError, ValueError):
                 pass
 
 
@@ -587,7 +758,11 @@ def _save_at(
     )
 
 
-def _stage_attachment_at(output_fd: int, name: str, encoded: bytes) -> str:
+def _stage_attachment_at(
+    output_fd: int,
+    name: str,
+    encoded: bytes,
+) -> tuple[str, tuple[int, int], int, str, int]:
     """Stage attachment bytes without mutating the destination directory entry."""
     if not name or Path(name).name != name:
         raise ValueError("attachment output has an invalid filename")
@@ -605,8 +780,10 @@ def _stage_attachment_at(output_fd: int, name: str, encoded: bytes) -> str:
         )
     if current is not None:
         raise FileExistsError(f"attachment output already exists: {name}")
-    temporary = f".{name}.pending-{uuid.uuid4().hex}"
+    temporary = f".sddgov.attachment-stage-{uuid.uuid4().hex}"
     descriptor = -1
+    staging_guard = -1
+    identity: tuple[int, int] | None = None
     try:
         descriptor = os.open(
             temporary,
@@ -614,21 +791,71 @@ def _stage_attachment_at(output_fd: int, name: str, encoded: bytes) -> str:
             0o600,
             dir_fd=output_fd,
         )
+        opened = os.fstat(descriptor)
+        identity = (opened.st_dev, opened.st_ino)
+        if not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1:
+            raise ValueError("attachment staging file is not a single-linked regular file")
         view = memoryview(encoded)
         while view:
             written = os.write(descriptor, view)
+            if written <= 0:
+                raise OSError("attachment staging write made no progress")
             view = view[written:]
         os.fsync(descriptor)
-    except BaseException:
-        try:
-            os.unlink(temporary, dir_fd=output_fd)
-        except FileNotFoundError:
-            pass
-        raise
-    finally:
+        final_fd = os.fstat(descriptor)
+        final_path = os.stat(temporary, dir_fd=output_fd, follow_symlinks=False)
+        if (
+            not stat.S_ISREG(final_path.st_mode)
+            or final_path.st_nlink != 1
+            or (final_fd.st_dev, final_fd.st_ino) != identity
+            or (final_path.st_dev, final_path.st_ino) != identity
+            or final_fd.st_size != len(encoded)
+        ):
+            raise ValueError("attachment staging file changed during write")
+        closing_descriptor = descriptor
+        staging_guard = os.dup(descriptor)
+        descriptor = -1
+        os.close(closing_descriptor)
+        os.fsync(output_fd)
+    except BaseException as primary:
+        cleanup_error: BaseException | None = None
         if descriptor >= 0:
-            os.close(descriptor)
-    return temporary
+            closing_descriptor = descriptor
+            descriptor = -1
+            try:
+                os.close(closing_descriptor)
+            except BaseException as exc:
+                cleanup_error = exc
+        if identity is not None:
+            try:
+                _remove_owned_at(
+                    output_fd,
+                    temporary,
+                    identity,
+                    "attachment staging file",
+                )
+            except BaseException as exc:
+                if cleanup_error is None:
+                    cleanup_error = exc
+        if staging_guard >= 0:
+            closing_guard = staging_guard
+            staging_guard = -1
+            try:
+                os.close(closing_guard)
+            except OSError:
+                pass
+        if cleanup_error is not None:
+            raise primary from cleanup_error
+        raise
+    if identity is None:  # pragma: no cover - guarded by the successful open/fstat
+        raise RuntimeError("attachment staging identity was not captured")
+    return (
+        temporary,
+        identity,
+        len(encoded),
+        hashlib.sha256(encoded).hexdigest(),
+        staging_guard,
+    )
 
 
 def _publish_verified_attachment_at(
@@ -639,19 +866,63 @@ def _publish_verified_attachment_at(
     control_identities: dict[str, tuple[int, int, int, int]],
     control_snapshot_digest: str,
     artifact_identities: dict[str, tuple[int, int, int, int, str]],
-) -> None:
+) -> tuple[int, int]:
     """Stage, recheck controls, then publish without clobbering another writer."""
-    temporary = _stage_attachment_at(output_fd, name, encoded)
-    staged = os.stat(temporary, dir_fd=output_fd, follow_symlinks=False)
-    staged_identity = (staged.st_dev, staged.st_ino)
+    (
+        temporary,
+        staged_identity,
+        staged_size,
+        staged_digest,
+        staging_guard,
+    ) = _stage_attachment_at(output_fd, name, encoded)
+    claimed = f".sddgov.attachment-claim-{uuid.uuid4().hex}"
+    claim_verified = False
     published = False
     try:
+        # Hard-link first to atomically claim the current staging generation.
+        # A same-UID writer may replace the public staging pathname at any
+        # instant; the private claim remains pinned to exactly what was linked.
+        os.link(
+            temporary,
+            claimed,
+            src_dir_fd=output_fd,
+            dst_dir_fd=output_fd,
+            follow_symlinks=False,
+        )
+        closing_guard = staging_guard
+        staging_guard = -1
+        try:
+            os.close(closing_guard)
+        except OSError:
+            pass
+        _remove_owned_at(
+            output_fd,
+            temporary,
+            staged_identity,
+            "attachment staging file",
+        )
+        def require_exact_attachment(candidate: str, label: str) -> None:
+            raw, metadata = _read_regular_bytes_at(
+                output_fd,
+                candidate,
+                label,
+                max_bytes=staged_size,
+            )
+            if (
+                (metadata.st_dev, metadata.st_ino) != staged_identity
+                or metadata.st_size != staged_size
+                or hashlib.sha256(raw).hexdigest() != staged_digest
+            ):
+                raise ValueError("attachment staging file changed before publication")
+
+        require_exact_attachment(claimed, "claimed attachment staging file")
+        claim_verified = True
         _require_control_snapshot(
             dep_fd, control_identities, control_snapshot_digest
         )
         _require_artifact_snapshot(dep_fd, artifact_identities)
         os.link(
-            temporary,
+            claimed,
             name,
             src_dir_fd=output_fd,
             dst_dir_fd=output_fd,
@@ -662,9 +933,21 @@ def _publish_verified_attachment_at(
             dep_fd, control_identities, control_snapshot_digest
         )
         _require_artifact_snapshot(dep_fd, artifact_identities)
-        os.unlink(temporary, dir_fd=output_fd)
-        temporary = ""
+        _remove_owned_at(
+            output_fd,
+            claimed,
+            staged_identity,
+            "claimed attachment staging file",
+        )
+        claimed = ""
+        require_exact_attachment(name, "published attachment output")
+        _require_control_snapshot(
+            dep_fd, control_identities, control_snapshot_digest
+        )
+        _require_artifact_snapshot(dep_fd, artifact_identities)
+        require_exact_attachment(name, "published attachment output")
         os.fsync(output_fd)
+        return staged_identity
     except BaseException:
         if published:
             _remove_owned_at(
@@ -675,10 +958,30 @@ def _publish_verified_attachment_at(
             )
         raise
     finally:
+        if staging_guard >= 0:
+            try:
+                os.close(staging_guard)
+            except OSError:
+                pass
+        if claimed and claim_verified:
+            try:
+                _remove_owned_at(
+                    output_fd,
+                    claimed,
+                    staged_identity,
+                    "claimed attachment staging file",
+                )
+            except (OSError, ValueError):
+                pass
         if temporary:
             try:
-                os.unlink(temporary, dir_fd=output_fd)
-            except FileNotFoundError:
+                _remove_owned_at(
+                    output_fd,
+                    temporary,
+                    staged_identity,
+                    "attachment staging file",
+                )
+            except (OSError, ValueError):
                 pass
 
 
@@ -696,6 +999,8 @@ def _artifact_media_type(suffix: str, raw: bytes) -> str:
         and isinstance(parsed["log"].get("entries"), list)
     ):
         return "application/har+json"
+    if normalized == ".json" and parsed is not None:
+        return "application/json"
     if normalized in TEXT_SUFFIXES:
         try:
             raw.decode("utf-8")
@@ -806,7 +1111,7 @@ def make_dep(base: Path, issue: str, risk: str, sdd_ref: str | None = None, dep_
                         dep_fd,
                         "manifest.json",
                         {
-                            "schema_version": "1.0",
+                            "schema_version": MANIFEST_SCHEMA_VERSION,
                             "dep_id": dep_id,
                             "raw": [],
                             "shareable": [],
@@ -818,12 +1123,31 @@ def make_dep(base: Path, issue: str, risk: str, sdd_ref: str | None = None, dep_
 def collect(dep: Path, collector: str, input_path: Path, label: str | None = None) -> Path:
     if collector not in COLLECTORS:
         raise ValueError(f"unsupported collector: {collector}")
-    raw = _read_regular_bytes(input_path, "collector input")
     with _opened_dep_root(dep) as dep_fd:
+        try:
+            _read_regular_bytes_at(
+                dep_fd,
+                "redaction-report.json",
+                "machine-readable document redaction-report.json",
+                max_bytes=MAX_DEP_CONTROL_FILE_BYTES,
+            )
+        except FileNotFoundError:
+            pass
+        else:
+            raise ValueError(
+                "Evidence collection is closed after redaction; create a new DEP"
+            )
         manifest_raw, manifest_metadata = _read_regular_bytes_at(
-            dep_fd, "manifest.json", "machine-readable document manifest.json"
+            dep_fd,
+            "manifest.json",
+            "machine-readable document manifest.json",
+            max_bytes=MAX_DEP_CONTROL_FILE_BYTES,
         )
         manifest = json.loads(manifest_raw.decode("utf-8"))
+        if manifest.get("shareable"):
+            raise ValueError(
+                "Evidence collection is closed after shareable artifacts exist"
+            )
         manifest_snapshot = (
             (
                 manifest_metadata.st_dev,
@@ -832,6 +1156,11 @@ def collect(dep: Path, collector: str, input_path: Path, label: str | None = Non
                 manifest_metadata.st_mtime_ns,
             ),
             hashlib.sha256(manifest_raw).hexdigest(),
+        )
+        raw = _read_regular_bytes(
+            input_path,
+            "collector input",
+            max_bytes=MAX_REDACTION_FILE_BYTES,
         )
         ordinal = len(manifest.get("raw", [])) + 1
         source_suffix = input_path.suffix.lower()
@@ -929,20 +1258,27 @@ def collect(dep: Path, collector: str, input_path: Path, label: str | None = Non
             raise
         finally:
             if cleanup_fd is not None:
-                os.close(cleanup_fd)
+                try:
+                    os.close(cleanup_fd)
+                except OSError:
+                    pass
         return destination
 
 
 def redact(dep: Path) -> dict:
     with _opened_dep_root(dep) as dep_fd:
         manifest_before, manifest_metadata = _read_regular_bytes_at(
-            dep_fd, "manifest.json", "machine-readable document manifest.json"
+            dep_fd,
+            "manifest.json",
+            "machine-readable document manifest.json",
+            max_bytes=MAX_DEP_CONTROL_FILE_BYTES,
         )
         try:
             _read_regular_bytes_at(
                 dep_fd,
                 "redaction-report.json",
                 "machine-readable document redaction-report.json",
+                max_bytes=MAX_DEP_CONTROL_FILE_BYTES,
             )
         except FileNotFoundError:
             pass
@@ -1071,6 +1407,7 @@ def redact(dep: Path) -> dict:
                 dep_fd,
                 "redaction-report.json",
                 "machine-readable document redaction-report.json",
+                max_bytes=MAX_DEP_CONTROL_FILE_BYTES,
             )
             if (
                 not report_publication
@@ -1106,7 +1443,10 @@ def redact(dep: Path) -> dict:
             raise
         finally:
             if cleanup_fd is not None:
-                os.close(cleanup_fd)
+                try:
+                    os.close(cleanup_fd)
+                except OSError:
+                    pass
 
 
 def transition(dep: Path, phase: str) -> dict:
@@ -1114,7 +1454,10 @@ def transition(dep: Path, phase: str) -> dict:
         raise ValueError(f"phase must be one of: {', '.join(PHASES)}")
     with _opened_dep_root(dep) as dep_fd:
         summary_raw, summary_metadata = _read_regular_bytes_at(
-            dep_fd, "summary.yaml", "machine-readable document summary.yaml"
+            dep_fd,
+            "summary.yaml",
+            "machine-readable document summary.yaml",
+            max_bytes=MAX_DEP_CONTROL_FILE_BYTES,
         )
         summary = json.loads(summary_raw.decode("utf-8"))
         current = summary["workflow"]["phase"]
@@ -1201,6 +1544,7 @@ def _verify_manifest_artifacts(
                     errors.append(f"{label} source_suffix does not match its immutable path")
                 if kind == "raw" and row.get("media_type") not in {
                     "application/har+json",
+                    "application/json",
                     "application/octet-stream",
                     "text/plain; charset=utf-8",
                 }:
@@ -1239,7 +1583,10 @@ def _verify_manifest_artifacts(
                     continue
                 try:
                     artifact, metadata = _read_regular_bytes_at(
-                        zone_fd, path.name, f"artifact {relative}"
+                        zone_fd,
+                        path.name,
+                        f"artifact {relative}",
+                        max_bytes=MAX_DEP_ARTIFACT_BYTES,
                     )
                 except FileNotFoundError:
                     if not (portable and kind == "raw"):
@@ -1257,7 +1604,13 @@ def _verify_manifest_artifacts(
                     errors.append(f"artifact sha256 mismatch: {relative}")
                 if kind == "raw":
                     detected = _artifact_media_type(row.get("source_suffix", ""), artifact)
-                    if row.get("media_type") != detected:
+                    legacy_json_label = (
+                        manifest.get("schema_version") == LEGACY_MANIFEST_SCHEMA_VERSION
+                        and row.get("source_suffix") == ".json"
+                        and row.get("media_type") == "text/plain; charset=utf-8"
+                        and detected == "application/json"
+                    )
+                    if row.get("media_type") != detected and not legacy_json_label:
                         errors.append(f"artifact media_type mismatch: {relative}")
             if zone_fd is not None:
                 actual, zone_errors = _actual_zone_files_at(zone_fd, zone)
@@ -1378,7 +1731,10 @@ def _verify_redaction_associations(
                     dep_fd, Path("shareable/artifacts"), create=False
                 ) as shareable_fd:
                     output_bytes, _ = _read_regular_bytes_at(
-                        shareable_fd, output_path.name, f"{label} shareable output"
+                        shareable_fd,
+                        output_path.name,
+                        f"{label} shareable output",
+                        max_bytes=MAX_DEP_ARTIFACT_BYTES,
                     )
                 output_text = output_bytes.decode("utf-8")
             except FileNotFoundError:
@@ -1396,7 +1752,10 @@ def _verify_redaction_associations(
                         dep_fd, Path("private/raw"), create=False
                     ) as raw_fd:
                         raw_bytes, _ = _read_regular_bytes_at(
-                            raw_fd, raw_path.name, f"{label} raw source"
+                            raw_fd,
+                            raw_path.name,
+                            f"{label} raw source",
+                            max_bytes=MAX_DEP_ARTIFACT_BYTES,
                         )
                     raw_text = raw_bytes.decode("utf-8")
                 except FileNotFoundError:
@@ -1478,6 +1837,16 @@ def _verify_open(
     for name in os.listdir(dep_fd):
         if (
             name.startswith(".attach-") and ".pending-" in name
+        ) or name.startswith(
+            (
+                ".sddgov.attachment-stage-",
+                ".sddgov.attachment-claim-",
+                ".sddgov.control-stage-",
+                ".sddgov.control-new-",
+                ".sddgov.control-old-",
+                ".sddgov.redaction-stage-",
+                ".sddgov.redaction-claim-",
+            )
         ) or name.startswith(".redact-pending-") or any(
             marker in name
             for marker in (".control-pending-", ".cleanup-pending-")
@@ -1487,7 +1856,9 @@ def _verify_open(
         errors.append("portable verification requires strict mode")
     for name in ("summary.yaml", "manifest.json"):
         try:
-            document, metadata = _read_regular_bytes_at(dep_fd, name, name)
+            document, metadata = _read_regular_bytes_at(
+                dep_fd, name, name, max_bytes=MAX_DEP_CONTROL_FILE_BYTES
+            )
             control_bytes[name] = (control_overrides or {}).get(name, document)
             control_identities[name] = (
                 metadata.st_dev,
@@ -1528,7 +1899,8 @@ def _verify_open(
             errors.append(f"summary missing {field}")
     if (
         set(manifest) != {"schema_version", "dep_id", "raw", "shareable"}
-        or manifest.get("schema_version") != "1.0"
+        or manifest.get("schema_version")
+        not in {LEGACY_MANIFEST_SCHEMA_VERSION, MANIFEST_SCHEMA_VERSION}
     ):
         errors.append("manifest has an invalid root contract")
     if manifest.get("dep_id") != summary.get("dep_id"):
@@ -1552,7 +1924,9 @@ def _verify_open(
         errors.append(f"strict verification requires proof phase, found {phase}")
     for name in REQUIRED_DOCS["proof" if strict else phase]:
         try:
-            document, _ = _read_regular_bytes_at(dep_fd, name, name)
+            document, _ = _read_regular_bytes_at(
+                dep_fd, name, name, max_bytes=MAX_DEP_CONTROL_FILE_BYTES
+            )
         except FileNotFoundError:
             errors.append(f"missing {name}")
             continue
@@ -1626,7 +2000,10 @@ def _require_control_snapshot(
     for name in ("summary.yaml", "manifest.json"):
         try:
             raw, metadata = _read_regular_bytes_at(
-                dep_fd, name, f"verified control document {name}"
+                dep_fd,
+                name,
+                f"verified control document {name}",
+                max_bytes=MAX_DEP_CONTROL_FILE_BYTES,
             )
         except (OSError, ValueError) as exc:
             raise ValueError(f"verified control document changed: {name}") from exc
@@ -1655,50 +2032,81 @@ def verify(dep: Path, strict: bool = False, portable: bool = False) -> list[str]
 def attach(dep: Path, target: str, output: Path | None = None) -> Path:
     if target not in {"issue", "commit", "pr", "changelog"}:
         raise ValueError("target must be issue, commit, pr, or changelog")
-    with _opened_dep_root(dep) as dep_fd:
-        errors, summary, manifest, identities, snapshot_digest = _verify_open(
-            dep, dep_fd, strict=True, portable=False
+    published_name = ""
+    published_identity: tuple[int, int] | None = None
+    cleanup_fd = -1
+
+    def cleanup_attachment(directory_fd: int) -> None:
+        if published_identity is None or not published_name:
+            return
+        active_directory_fd = cleanup_fd if cleanup_fd >= 0 else directory_fd
+        _remove_owned_at(
+            active_directory_fd,
+            published_name,
+            published_identity,
+            "attachment output",
         )
-        if errors:
-            raise ValueError("DEP is not attachable: " + "; ".join(errors))
-        if summary is None or manifest is None or snapshot_digest is None:
-            raise ValueError("DEP verification did not return a control snapshot")
-        artifact_identities = _capture_artifact_snapshot(dep_fd, manifest)
-        lines = [
-            f"Evidence: {summary['dep_id']}",
-            f"Issue: {summary['issue']}",
-            f"SDD: {', '.join(summary.get('sdd_references') or ['n/a'])}",
-            f"Risk: {summary['risk_level']}",
-            f"Control snapshot SHA-256: `{snapshot_digest}`",
-            "Workflow: Red -> Evidence -> Fix -> Green -> Proof",
-            "Verified artifacts:",
-        ]
-        lines.extend(
-            f"- `{row['path']}` (sha256: `{row['sha256']}`)"
-            for row in manifest.get("shareable", [])
-        )
-        lines.extend(["", f"Target: {target}"])
-        encoded = ("\n".join(lines) + "\n").encode("utf-8")
-        if output is None:
-            name = f"attach-{target}-{snapshot_digest[:16]}.md"
-            _publish_verified_attachment_at(
-                dep_fd,
-                dep_fd,
-                name,
-                encoded,
-                identities,
-                snapshot_digest,
-                artifact_identities,
+
+    try:
+        with _opened_dep_root(dep, on_change=cleanup_attachment) as dep_fd:
+            errors, summary, manifest, identities, snapshot_digest = _verify_open(
+                dep, dep_fd, strict=True, portable=False
             )
-            return dep / name
-        with _opened_directory_path(output.parent, create=False) as (_, output_fd):
-            _publish_verified_attachment_at(
-                dep_fd,
-                output_fd,
-                output.name,
-                encoded,
-                identities,
-                snapshot_digest,
-                artifact_identities,
+            if errors:
+                raise ValueError("DEP is not attachable: " + "; ".join(errors))
+            if summary is None or manifest is None or snapshot_digest is None:
+                raise ValueError("DEP verification did not return a control snapshot")
+            artifact_identities = _capture_artifact_snapshot(dep_fd, manifest)
+            lines = [
+                f"Evidence: {summary['dep_id']}",
+                f"Issue: {summary['issue']}",
+                f"SDD: {', '.join(summary.get('sdd_references') or ['n/a'])}",
+                f"Risk: {summary['risk_level']}",
+                f"Control snapshot SHA-256: `{snapshot_digest}`",
+                "Workflow: Red -> Evidence -> Fix -> Green -> Proof",
+                "Verified artifacts:",
+            ]
+            lines.extend(
+                f"- `{row['path']}` (sha256: `{row['sha256']}`)"
+                for row in manifest.get("shareable", [])
             )
-        return output
+            lines.extend(["", f"Target: {target}"])
+            encoded = ("\n".join(lines) + "\n").encode("utf-8")
+            if output is None:
+                published_name = f"attach-{target}-{snapshot_digest[:16]}.md"
+                cleanup_fd = os.dup(dep_fd)
+                published_identity = _publish_verified_attachment_at(
+                    dep_fd,
+                    dep_fd,
+                    published_name,
+                    encoded,
+                    identities,
+                    snapshot_digest,
+                    artifact_identities,
+                )
+                result = dep / published_name
+            else:
+                published_name = output.name
+                with _opened_directory_path(
+                    output.parent,
+                    create=False,
+                    on_change=cleanup_attachment,
+                ) as (_, output_fd):
+                    cleanup_fd = os.dup(output_fd)
+                    published_identity = _publish_verified_attachment_at(
+                        dep_fd,
+                        output_fd,
+                        published_name,
+                        encoded,
+                        identities,
+                        snapshot_digest,
+                        artifact_identities,
+                    )
+                result = output
+        return result
+    finally:
+        if cleanup_fd >= 0:
+            try:
+                os.close(cleanup_fd)
+            except OSError:
+                pass
