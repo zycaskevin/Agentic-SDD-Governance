@@ -7,35 +7,39 @@
     "work-packages/WP-RC1-READINESS-008.md"
   ],
   "risk_level": "L1",
-  "created_at": "2026-08-22T01:28:21Z",
-  "updated_at": "2026-08-22T01:30:08Z",
+  "created_at": "2026-08-22T01:31:27Z",
+  "updated_at": "2026-08-22T01:33:20Z",
   "workflow": {
-    "phase": "green",
+    "phase": "proof",
     "history": [
       {
         "phase": "red",
-        "at": "2026-08-22T01:28:21Z"
+        "at": "2026-08-22T01:31:27Z"
       },
       {
         "phase": "evidence",
-        "at": "2026-08-22T01:30:07Z"
+        "at": "2026-08-22T01:33:19Z"
       },
       {
         "phase": "fix",
-        "at": "2026-08-22T01:30:08Z"
+        "at": "2026-08-22T01:33:19Z"
       },
       {
         "phase": "green",
-        "at": "2026-08-22T01:30:08Z"
+        "at": "2026-08-22T01:33:19Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-22T01:33:20Z"
       }
     ]
   },
   "expected_behavior": "Trusted Base accepts a candidate whose rollback interval contains only evidence audit commits, and the isolated release validation environment passes the complete suite with both hash-locked dependency sets.",
-  "actual_behavior": "PR #34 interleaved Merge Gate commits before reviewed Head and its publish validation venv omitted release requirements, causing trusted-Base rollback rejection and ModuleNotFoundError: packaging.",
+  "actual_behavior": "PR #34 interleaved Merge Gate commits before reviewed Head and its publish validation venv omitted release requirements. R13 rebuilds the candidate directly above Base, passes 357 current tests, package proof, and an actual exact-Base rollback drill with 229 Base tests.",
   "environment": {
     "commit": "096624a529dea88d091777c8012bbdba3346cdbe",
     "branch": "feat/rc1-readiness-r13-final",
-    "runtime": "Linux aarch64; Python 3.12; Git candidate rooted at trusted Base 1a5a0b214eccc2b9edd076fd5e2f222c4a456725"
+    "runtime": "Linux aarch64, CPython 3.12; 357 current tests with two explicit skips; 229 trusted-Base rollback tests with two explicit skips; isolated 0.2.0rc1 build/Twine; locked ten-wheel bundle; fresh-wheel Codex/Hermes proof."
   },
   "root_cause_status": "confirmed",
   "attachments": []

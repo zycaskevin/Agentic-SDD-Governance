@@ -80,6 +80,15 @@
       "output_sha256": "b73962f1d597b9378470f834f7e0cf8f91c4dc9f34dc626d7bc709a23f5747bf",
       "output_size": 958,
       "redactions": {}
+    },
+    {
+      "source": "terminal--r13-rollback-drill.txt",
+      "output": "terminal--r13-rollback-drill.txt",
+      "source_sha256": "58d5873b1e2eb6122a85d3db8fe0ddd31a8a044d930c33aaff8312a150f2e9b9",
+      "source_size": 88718,
+      "output_sha256": "58d5873b1e2eb6122a85d3db8fe0ddd31a8a044d930c33aaff8312a150f2e9b9",
+      "output_size": 88718,
+      "redactions": {}
     }
   ],
   "blocked": [],
@@ -87,5 +96,5 @@
     "phone": 8
   },
   "dep_id": "DEP-RC1-REVIEW-FIX-R13-021",
-  "generated_at": "2026-08-22T01:30:01Z"
+  "generated_at": "2026-08-22T01:32:59Z"
 }
