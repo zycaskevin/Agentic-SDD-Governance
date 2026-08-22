@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "terminal--release-note-privacy-green.txt",
+      "output": "terminal--release-note-privacy-green.txt",
+      "source_sha256": "9d493f98be8d91a7087d363a978320a7d395edaf379d33e529385d4e70432c99",
+      "source_size": 274,
+      "output_sha256": "9d493f98be8d91a7087d363a978320a7d395edaf379d33e529385d4e70432c99",
+      "output_size": 274,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--release-note-privacy-red.txt",
+      "output": "terminal--release-note-privacy-red.txt",
+      "source_sha256": "888e4e025186f6cae1833538cef6db5e548dd7cd074da89e4d742bf84266549f",
+      "source_size": 161,
+      "output_sha256": "888e4e025186f6cae1833538cef6db5e548dd7cd074da89e4d742bf84266549f",
+      "output_size": 161,
+      "redactions": {}
+    }
+  ],
+  "blocked": [],
+  "totals": {},
+  "dep_id": "DEP-EXP9-RELEASE-NOTES-017",
+  "generated_at": "2026-08-22T15:56:35Z"
+}

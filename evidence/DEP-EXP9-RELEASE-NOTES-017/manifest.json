@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-EXP9-RELEASE-NOTES-017",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--release-note-privacy-red.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "888e4e025186f6cae1833538cef6db5e548dd7cd074da89e4d742bf84266549f",
+      "size": 161,
+      "collected_at": "2026-08-22T15:54:14Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--release-note-privacy-green.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "9d493f98be8d91a7087d363a978320a7d395edaf379d33e529385d4e70432c99",
+      "size": 274,
+      "collected_at": "2026-08-22T15:56:02Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--release-note-privacy-green.txt",
+      "sha256": "9d493f98be8d91a7087d363a978320a7d395edaf379d33e529385d4e70432c99",
+      "size": 274,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--release-note-privacy-red.txt",
+      "sha256": "888e4e025186f6cae1833538cef6db5e548dd7cd074da89e4d742bf84266549f",
+      "size": 161,
+      "shareable": true
+    }
+  ]
+}

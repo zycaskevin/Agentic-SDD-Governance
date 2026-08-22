@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-EXP9-RELEASE-NOTES-017",
+  "issue": "46",
+  "sdd_references": [
+    "RELEASE-NOTES-DOWNSTREAM-PRIVACY"
+  ],
+  "risk_level": "L1",
+  "created_at": "2026-08-22T15:53:19Z",
+  "updated_at": "2026-08-22T15:56:35Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-22T15:53:19Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-22T15:54:34Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-22T15:54:45Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-22T15:56:35Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-22T15:56:35Z"
+      }
+    ]
+  },
+  "expected_behavior": "Public release notes describe verified Cost Guard behavior without downstream-specific names, pull-request identifiers, or unpublished-state details.",
+  "actual_behavior": "The installed-wheel verification bullet contains one downstream-specific name, pull-request identifier, and unpublished-state detail.",
+  "environment": {
+    "commit": "4c2a1ca27c49e0db00550300ab5b2e3c6658a4eb",
+    "branch": "codex/fix-exp9-release-note-disclosure",
+    "runtime": "Ubuntu 24.04; Linux aarch64; Python 3.12.3; Agentic SDD Governance 0.2.0-experimental.9 source"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}
