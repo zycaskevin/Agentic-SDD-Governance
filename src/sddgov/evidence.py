@@ -13,7 +13,13 @@ from datetime import datetime, timezone
 from importlib import resources
 from pathlib import Path, PurePosixPath
 
-from .redaction import TEXT_SUFFIXES, redact_files, redact_text
+from .fs_security import remove_owned_at
+from .redaction import (
+    MAX_REDACTION_FILE_BYTES,
+    TEXT_SUFFIXES,
+    redact_files,
+    redact_text,
+)
 from .schema_validation import bundled_schema, validate_instance
 
 
@@ -22,6 +28,8 @@ COLLECTORS = {
     "android-logcat", "supabase-log", "docker-log", "terminal", "git",
 }
 PHASES = ("red", "evidence", "fix", "green", "proof")
+MANIFEST_SCHEMA_VERSION = "1.1"
+LEGACY_MANIFEST_SCHEMA_VERSION = "1.0"
 DEP_ID_PATTERN = re.compile(r"^DEP-[A-Za-z0-9._-]+$")
 SHA256_PATTERN = re.compile(r"^[a-f0-9]{64}$")
 REQUIRED_DOCS = {
@@ -197,14 +205,24 @@ def _require_regular_file(path: Path, label: str) -> None:
         raise ValueError(f"{label} must not be hard-linked")
 
 
-def _read_regular_bytes(path: Path, label: str) -> bytes:
+def _read_regular_bytes(
+    path: Path, label: str, *, max_bytes: int | None = None
+) -> bytes:
     """Read a file while retaining and rechecking its complete parent chain."""
     with _opened_directory_path(path.parent, create=False) as (_, parent_fd):
-        raw, _ = _read_regular_bytes_at(parent_fd, path.name, label)
+        raw, _ = _read_regular_bytes_at(
+            parent_fd, path.name, label, max_bytes=max_bytes
+        )
         return raw
 
 
-def _read_regular_bytes_at(directory_fd: int, name: str, label: str) -> tuple[bytes, os.stat_result]:
+def _read_regular_bytes_at(
+    directory_fd: int,
+    name: str,
+    label: str,
+    *,
+    max_bytes: int | None = None,
+) -> tuple[bytes, os.stat_result]:
     """Read one direct child through a retained directory descriptor."""
     if not name or Path(name).name != name:
         raise ValueError(f"{label} has an invalid filename")
@@ -227,11 +245,21 @@ def _read_regular_bytes_at(directory_fd: int, name: str, label: str) -> tuple[by
             raise ValueError(f"{label} must be a regular file")
         if metadata.st_nlink != 1:
             raise ValueError(f"{label} must not be hard-linked")
+        if max_bytes is not None and metadata.st_size > max_bytes:
+            raise ValueError(
+                f"{label} exceeds {max_bytes} bytes; collect a bounded excerpt or summary"
+            )
         chunks: list[bytes] = []
+        observed_size = 0
         while True:
             chunk = os.read(descriptor, 1024 * 1024)
             if not chunk:
                 break
+            observed_size += len(chunk)
+            if max_bytes is not None and observed_size > max_bytes:
+                raise ValueError(
+                    f"{label} exceeds {max_bytes} bytes; collect a bounded excerpt or summary"
+                )
             chunks.append(chunk)
         final_descriptor = os.fstat(descriptor)
         try:
@@ -364,41 +392,8 @@ def _remove_owned_at(
     expected_identity: tuple[int, int],
     label: str,
 ) -> bool:
-    """Remove only the exact transaction-owned generation at a directory entry."""
-    pending = f".{name}.cleanup-pending-{uuid.uuid4().hex}"
-    try:
-        os.rename(
-            name,
-            pending,
-            src_dir_fd=directory_fd,
-            dst_dir_fd=directory_fd,
-        )
-    except FileNotFoundError:
-        return False
-    metadata = os.stat(pending, dir_fd=directory_fd, follow_symlinks=False)
-    if (
-        stat.S_ISREG(metadata.st_mode)
-        and (metadata.st_dev, metadata.st_ino) == expected_identity
-    ):
-        os.unlink(pending, dir_fd=directory_fd)
-        os.fsync(directory_fd)
-        return True
-    try:
-        os.link(
-            pending,
-            name,
-            src_dir_fd=directory_fd,
-            dst_dir_fd=directory_fd,
-            follow_symlinks=False,
-        )
-    except FileExistsError:
-        raise ValueError(
-            f"{label} changed during cleanup; preserved pending generation {pending}"
-        )
-    else:
-        os.unlink(pending, dir_fd=directory_fd)
-        os.fsync(directory_fd)
-    return False
+    """Compatibility wrapper around the shared owned-generation protocol."""
+    return remove_owned_at(directory_fd, name, expected_identity, label)
 
 
 def _write_bytes_at(
@@ -696,6 +691,8 @@ def _artifact_media_type(suffix: str, raw: bytes) -> str:
         and isinstance(parsed["log"].get("entries"), list)
     ):
         return "application/har+json"
+    if normalized == ".json" and parsed is not None:
+        return "application/json"
     if normalized in TEXT_SUFFIXES:
         try:
             raw.decode("utf-8")
@@ -806,7 +803,7 @@ def make_dep(base: Path, issue: str, risk: str, sdd_ref: str | None = None, dep_
                         dep_fd,
                         "manifest.json",
                         {
-                            "schema_version": "1.0",
+                            "schema_version": MANIFEST_SCHEMA_VERSION,
                             "dep_id": dep_id,
                             "raw": [],
                             "shareable": [],
@@ -818,12 +815,28 @@ def make_dep(base: Path, issue: str, risk: str, sdd_ref: str | None = None, dep_
 def collect(dep: Path, collector: str, input_path: Path, label: str | None = None) -> Path:
     if collector not in COLLECTORS:
         raise ValueError(f"unsupported collector: {collector}")
-    raw = _read_regular_bytes(input_path, "collector input")
     with _opened_dep_root(dep) as dep_fd:
+        try:
+            _read_regular_bytes_at(
+                dep_fd,
+                "redaction-report.json",
+                "machine-readable document redaction-report.json",
+                max_bytes=MAX_REDACTION_FILE_BYTES,
+            )
+        except FileNotFoundError:
+            pass
+        else:
+            raise ValueError(
+                "Evidence collection is closed after redaction; create a new DEP"
+            )
         manifest_raw, manifest_metadata = _read_regular_bytes_at(
             dep_fd, "manifest.json", "machine-readable document manifest.json"
         )
         manifest = json.loads(manifest_raw.decode("utf-8"))
+        if manifest.get("shareable"):
+            raise ValueError(
+                "Evidence collection is closed after shareable artifacts exist"
+            )
         manifest_snapshot = (
             (
                 manifest_metadata.st_dev,
@@ -832,6 +845,11 @@ def collect(dep: Path, collector: str, input_path: Path, label: str | None = Non
                 manifest_metadata.st_mtime_ns,
             ),
             hashlib.sha256(manifest_raw).hexdigest(),
+        )
+        raw = _read_regular_bytes(
+            input_path,
+            "collector input",
+            max_bytes=MAX_REDACTION_FILE_BYTES,
         )
         ordinal = len(manifest.get("raw", [])) + 1
         source_suffix = input_path.suffix.lower()
@@ -1201,6 +1219,7 @@ def _verify_manifest_artifacts(
                     errors.append(f"{label} source_suffix does not match its immutable path")
                 if kind == "raw" and row.get("media_type") not in {
                     "application/har+json",
+                    "application/json",
                     "application/octet-stream",
                     "text/plain; charset=utf-8",
                 }:
@@ -1257,7 +1276,13 @@ def _verify_manifest_artifacts(
                     errors.append(f"artifact sha256 mismatch: {relative}")
                 if kind == "raw":
                     detected = _artifact_media_type(row.get("source_suffix", ""), artifact)
-                    if row.get("media_type") != detected:
+                    legacy_json_label = (
+                        manifest.get("schema_version") == LEGACY_MANIFEST_SCHEMA_VERSION
+                        and row.get("source_suffix") == ".json"
+                        and row.get("media_type") == "text/plain; charset=utf-8"
+                        and detected == "application/json"
+                    )
+                    if row.get("media_type") != detected and not legacy_json_label:
                         errors.append(f"artifact media_type mismatch: {relative}")
             if zone_fd is not None:
                 actual, zone_errors = _actual_zone_files_at(zone_fd, zone)
@@ -1528,7 +1553,8 @@ def _verify_open(
             errors.append(f"summary missing {field}")
     if (
         set(manifest) != {"schema_version", "dep_id", "raw", "shareable"}
-        or manifest.get("schema_version") != "1.0"
+        or manifest.get("schema_version")
+        not in {LEGACY_MANIFEST_SCHEMA_VERSION, MANIFEST_SCHEMA_VERSION}
     ):
         errors.append("manifest has an invalid root contract")
     if manifest.get("dep_id") != summary.get("dep_id"):

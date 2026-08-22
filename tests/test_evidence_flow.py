@@ -198,6 +198,77 @@ class EvidenceFlowTests(unittest.TestCase):
         self.assertEqual(manifest["raw"][0]["path"], f"private/raw/{destination.name}")
         self.assertTrue(destination.is_file())
 
+    def test_collect_after_redaction_fails_without_staling_the_report(self):
+        first = self.root / "first-collection.log"
+        first.write_text("synthetic first collection\n", encoding="utf-8")
+        collect(self.dep, "terminal", first)
+        redact(self.dep)
+        manifest_before = (self.dep / "manifest.json").read_bytes()
+        report_before = (self.dep / "redaction-report.json").read_bytes()
+        raw_before = sorted(path.name for path in (self.dep / "private/raw").iterdir())
+
+        later = self.root / "later-collection.log"
+        later.write_text("synthetic later collection\n", encoding="utf-8")
+        with patch(
+            "sddgov.evidence._read_regular_bytes",
+            side_effect=AssertionError("closed DEP read collector input"),
+        ), self.assertRaisesRegex(ValueError, "closed after redaction"):
+            collect(self.dep, "terminal", later)
+
+        self.assertEqual((self.dep / "manifest.json").read_bytes(), manifest_before)
+        self.assertEqual(
+            (self.dep / "redaction-report.json").read_bytes(), report_before
+        )
+        self.assertEqual(
+            sorted(path.name for path in (self.dep / "private/raw").iterdir()),
+            raw_before,
+        )
+
+    def test_collect_bounds_the_redaction_report_probe_before_source_read(self):
+        source = self.root / "bounded-report-probe.log"
+        source.write_text("synthetic evidence\n", encoding="utf-8")
+        original = evidence_module._read_regular_bytes_at
+        observed = []
+
+        def inspect_report(directory_fd, name, label, **kwargs):
+            if name == "redaction-report.json":
+                observed.append(kwargs.get("max_bytes"))
+            return original(directory_fd, name, label, **kwargs)
+
+        with patch(
+            "sddgov.evidence._read_regular_bytes_at", side_effect=inspect_report
+        ):
+            collect(self.dep, "terminal", source)
+
+        self.assertEqual(observed, [redaction_module.MAX_REDACTION_FILE_BYTES])
+
+    def test_valid_json_evidence_is_labeled_application_json(self):
+        source = self.root / "release-report.json"
+        source.write_text('{"ok":true}\n', encoding="utf-8")
+        collect(self.dep, "terminal", source)
+        manifest = json.loads((self.dep / "manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(manifest["schema_version"], "1.1")
+        self.assertEqual(manifest["raw"][0]["media_type"], "application/json")
+        self.assertFalse(any("media_type" in error for error in verify(self.dep)))
+
+    def test_json_media_type_compatibility_is_limited_to_legacy_manifests(self):
+        source = self.root / "legacy-release-report.json"
+        source.write_text('{"ok":true}\n', encoding="utf-8")
+        collect(self.dep, "terminal", source)
+        manifest_path = self.dep / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["raw"][0]["media_type"] = "text/plain; charset=utf-8"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        self.assertTrue(
+            any("media_type mismatch" in error for error in verify(self.dep, strict=True))
+        )
+
+        manifest["schema_version"] = "1.0"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        self.assertFalse(
+            any("media_type" in error for error in verify(self.dep, strict=True))
+        )
+
     def test_collect_preserves_later_manifest_writer_and_removes_owned_raw(self):
         source = self.root / "later-writer-collect.log"
         source.write_text("synthetic uncommitted evidence\n", encoding="utf-8")
@@ -266,14 +337,14 @@ class EvidenceFlowTests(unittest.TestCase):
         source.write_text("password=synthetic\n", encoding="utf-8")
         collect(self.dep, "terminal", source)
         manifest_before = (self.dep / "manifest.json").read_bytes()
-        original = redaction_module._write_at
+        original = redaction_module._stream_text_at
 
-        def fail_after_output(directory_fd, name, data, published_outputs=None):
-            original(directory_fd, name, data, published_outputs)
+        def fail_after_output(source_fd, directory_fd, name, published_outputs=None):
+            original(source_fd, directory_fd, name, published_outputs)
             raise OSError("synthetic output fsync failure")
 
         with (
-            patch("sddgov.redaction._write_at", side_effect=fail_after_output),
+            patch("sddgov.redaction._stream_text_at", side_effect=fail_after_output),
             self.assertRaisesRegex(OSError, "output fsync failure"),
         ):
             redact(self.dep)
@@ -413,15 +484,15 @@ class EvidenceFlowTests(unittest.TestCase):
         parked = self.dep / "shareable/artifacts-parked"
         outside = self.root / "outside-output"
         outside.mkdir()
-        original = redaction_module._write_at
+        original = redaction_module._stream_text_at
 
-        def replace_parent(directory_fd, name, data, published_outputs=None):
+        def replace_parent(source_fd, directory_fd, name, published_outputs=None):
             shareable.rename(parked)
             shareable.symlink_to(outside, target_is_directory=True)
-            return original(directory_fd, name, data, published_outputs)
+            return original(source_fd, directory_fd, name, published_outputs)
 
         with (
-            patch("sddgov.redaction._write_at", side_effect=replace_parent),
+            patch("sddgov.redaction._stream_text_at", side_effect=replace_parent),
             self.assertRaisesRegex(ValueError, "changed during operation"),
         ):
             redact(self.dep)
@@ -489,13 +560,13 @@ class EvidenceFlowTests(unittest.TestCase):
         original = evidence_module._read_regular_bytes_at
         replaced = False
 
-        def replace_parent(directory_fd, name, label):
+        def replace_parent(directory_fd, name, label, **kwargs):
             nonlocal replaced
             if not replaced and label.startswith("artifact shareable/artifacts/"):
                 replaced = True
                 shareable.rename(parked)
                 shareable.symlink_to(outside, target_is_directory=True)
-            return original(directory_fd, name, label)
+            return original(directory_fd, name, label, **kwargs)
 
         with patch(
             "sddgov.evidence._read_regular_bytes_at", side_effect=replace_parent
@@ -622,13 +693,13 @@ class EvidenceFlowTests(unittest.TestCase):
         original = evidence_module._read_regular_bytes_at
         replaced = False
 
-        def replace_parent(directory_fd, name, label):
+        def replace_parent(directory_fd, name, label, **kwargs):
             nonlocal replaced
             if not replaced and label == "collector input":
                 replaced = True
                 source_parent.rename(parked)
                 source_parent.symlink_to(outside, target_is_directory=True)
-            return original(directory_fd, name, label)
+            return original(directory_fd, name, label, **kwargs)
 
         with (
             patch(
@@ -640,6 +711,46 @@ class EvidenceFlowTests(unittest.TestCase):
         manifest = json.loads((self.dep / "manifest.json").read_text(encoding="utf-8"))
         self.assertEqual(manifest["raw"], [])
         self.assertEqual(list((self.dep / "private/raw").iterdir()), [])
+
+    def test_collector_rejects_oversized_input_before_publication(self):
+        source = self.root / "oversized.log"
+        with source.open("wb") as handle:
+            handle.truncate(redaction_module.MAX_REDACTION_FILE_BYTES + 1)
+        with self.assertRaisesRegex(ValueError, "collector input exceeds"):
+            collect(self.dep, "terminal", source)
+        manifest = json.loads((self.dep / "manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(manifest["raw"], [])
+        self.assertEqual(list((self.dep / "private/raw").iterdir()), [])
+
+    def test_shared_cleanup_tolerates_concurrent_pending_disappearance(self):
+        directory = self.root / "cleanup"
+        directory.mkdir()
+        target = directory / "artifact.log"
+        target.write_text("owned\n", encoding="utf-8")
+        metadata = target.stat()
+        descriptor = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        original = os.stat
+
+        def disappear(name, *args, **kwargs):
+            if isinstance(name, str) and ".cleanup-pending-" in name:
+                try:
+                    os.unlink(name, dir_fd=descriptor)
+                except FileNotFoundError:
+                    pass
+                raise FileNotFoundError(name)
+            return original(name, *args, **kwargs)
+
+        try:
+            with patch("sddgov.fs_security.os.stat", side_effect=disappear):
+                redaction_module._reconcile_failed_publication(
+                    descriptor,
+                    target.name,
+                    (metadata.st_dev, metadata.st_ino),
+                )
+        finally:
+            os.close(descriptor)
+        self.assertFalse(target.exists())
+        self.assertEqual(list(directory.iterdir()), [])
 
     def test_attach_verification_and_read_share_one_dep_snapshot(self):
         self._prepare_attachable_dep()
