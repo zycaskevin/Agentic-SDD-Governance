@@ -1,0 +1,21 @@
+PR #38 independent review verdict: FAIL; no signature created.
+
+Reproduction A (public error masking):
+- bare home input rendered the host home directory unchanged;
+- a home-relative path containing a space retained the suffix "Build/input.whl";
+- expected: no host path or residual path component in public JSON/stdout.
+
+Reproduction B (report publication):
+- prepare_release_bundle.py used Path.mkdir followed by Path.write_text;
+- an existing report symlink was followed and its target could be overwritten;
+- zlib.error was outside the public-error catch boundary.
+
+Reproduction C (governance metadata):
+- WP-RC1-READINESS-008.md classified the work as L1;
+- the current R16 DEP and merge gate classified it as L2;
+- .sddgov/decisions.json contained no owner-signed L2 decision.
+
+Required correction:
+- preserve R6-R16 Evidence without rewriting it;
+- create a new atomic R17 iteration with an authoritative L1 DEP and L1 Gate;
+- retain the independent protected-file reviewer requirement.
