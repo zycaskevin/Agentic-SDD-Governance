@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "terminal--r18-evidence-errata.txt",
+      "output": "terminal--r18-evidence-errata.txt",
+      "source_sha256": "33fcfb2fe715debe0546084163f1ebfad0e9ce9e87f8c548bf5d249d7e889246",
+      "source_size": 1475,
+      "output_sha256": "33fcfb2fe715debe0546084163f1ebfad0e9ce9e87f8c548bf5d249d7e889246",
+      "output_size": 1475,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--r18-review-red.txt",
+      "output": "terminal--r18-review-red.txt",
+      "source_sha256": "78f420fcb627f4b26db94e0e88331976cd895314d5fe4789ae58127000eb7273",
+      "source_size": 1481,
+      "output_sha256": "78f420fcb627f4b26db94e0e88331976cd895314d5fe4789ae58127000eb7273",
+      "output_size": 1481,
+      "redactions": {}
+    }
+  ],
+  "blocked": [],
+  "totals": {},
+  "dep_id": "DEP-RC1-REVIEW-FIX-R18-026",
+  "generated_at": "2026-08-22T05:09:09Z"
+}
