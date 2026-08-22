@@ -1,77 +1,52 @@
-# v0.2.0-experimental.8 Release Notes
+# v0.2.0rc1 Release Notes
 
 ## Outcome
 
-This release completes the experimental.8 Security and Autonomy hardening cycle without turning routine engineering into a human approval workflow.
+`0.2.0rc1` turns the experimental.8 security core into a lower-friction release candidate without weakening its authority boundaries. It adds a 30-second offline demonstration, direct pre-release installation, fresh-wheel validation, an isolated OIDC publication chain, an operable L3 Broker, Owner key lifecycle guidance, streaming redaction, and documented squash/break-glass recovery.
 
-L0/L1 Issue, Branch, implementation, test, Commit, Push, PR, Review, review-fix, CI, Merge, retry, and checksum work remains autonomous. Checkpoints remain informational. Machine-verifiable uncertainty must be resolved through repository evidence, tests, CI, or tools; it cannot be promoted into an owner prompt. A genuine L2 product decision, concrete L3 operation, Operational Action, or subjective Necessary UAT remains fail-closed and bounded.
+This remains an experimental pre-release, not a compliance certification. External publication and real trust-root provisioning are separate controlled actions; this file must not be interpreted as proof that TestPyPI or PyPI publication has already occurred.
 
-The release also closes the verifier, Evidence, filesystem, Rollback, authority-envelope, decision-memory, and first-consumer bootstrap gaps found during the experimental.7 hostile review. The final Security and Autonomy reviews reported P0=0/P1=0 before publication.
+## Install after publication
 
-## Install
-
-Download the wheel and `SHA256SUMS.txt`, then let the machine verify the exact wheel before installation:
+Fast synthetic trial:
 
 ```bash
-set -eu
-mkdir -p sdg-release
-gh release download v0.2.0-experimental.8 \
-  --repo zycaskevin/Agentic-SDD-Governance \
-  --pattern '*.whl' \
-  --pattern 'SHA256SUMS.txt' \
-  --dir sdg-release
-
-wheel_count=$(find sdg-release -maxdepth 1 -type f -name '*.whl' | wc -l | tr -d ' ')
-test "$wheel_count" -eq 1
-wheel_name=$(find sdg-release -maxdepth 1 -type f -name '*.whl' -print -quit)
-test -n "$wheel_name"
-case "$wheel_name" in *-py3-none-any.whl) ;; *) exit 1 ;; esac
-wheel_base=$(basename "$wheel_name")
-checksum_count=$(awk -v name="$wheel_base" '$2 == name { count += 1 } END { print count + 0 }' sdg-release/SHA256SUMS.txt)
-test "$checksum_count" -eq 1
-awk -v name="$wheel_base" '$2 == name { print }' \
-  sdg-release/SHA256SUMS.txt > sdg-release/wheel.SHA256SUMS
-if command -v sha256sum >/dev/null 2>&1; then
-  (cd sdg-release && sha256sum --check --strict wheel.SHA256SUMS)
-else
-  (cd sdg-release && shasum -a 256 --check --strict wheel.SHA256SUMS)
-fi
 python3 -m venv .venv-sddgov
-.venv-sddgov/bin/python -m pip install "$wheel_name"
-test "$(.venv-sddgov/bin/sddgov --version)" = "0.2.0-experimental.8"
+.venv-sddgov/bin/python -m pip install --pre 'agentic-sdd-governance==0.2.0rc1'
+test "$(.venv-sddgov/bin/sddgov --version)" = "0.2.0rc1"
+.venv-sddgov/bin/sddgov pilot quick
 ```
 
-Install the same verified package into Codex or Hermes:
+For a controlled Linux x86_64/CPython 3.12 installation, download the offline bundle and `SHA256SUMS.txt` from `v0.2.0rc1`. Machine verification covers the archive, exact runtime lock, project wheel, and dependency wheelhouse before an offline `--require-hashes` install. Do not ask a human to copy, paste, or visually approve a digest.
 
-```bash
-.venv-sddgov/bin/sddgov setup-agent /path/to/project --agent codex --profile team-standard
-.venv-sddgov/bin/sddgov doctor /path/to/project
+## Main changes
 
-.venv-sddgov/bin/sddgov setup-agent /path/to/hermes-project --agent hermes --profile team-standard
-.venv-sddgov/bin/sddgov doctor /path/to/hermes-project
-```
+- Offline `sddgov pilot quick` and `demo/run.sh` demonstrate authorized routine work, dangerous downgrade blocking, text redaction, binary fail-closed behavior, and strict DEP proof with synthetic data.
+- A manual workflow first verifies protected release environments, builds once, inventories a hash-locked offline dependency bundle, smoke-tests only that set, publishes through the `testpypi` OIDC environment, downloads the exact version back from TestPyPI for a second fresh-environment smoke test against the same bundle, and publishes the same distributions to PyPI only when explicitly selected.
+- Trusted Publishing jobs alone receive `id-token: write`; external Actions use full commit SHAs, release tools are hash-locked, and PyPI attestations are enabled.
+- `sddgov broker doctor` checks platform, non-root Agent identity, root-owned Runtime Context, out-of-band Ed25519 trust, trusted fixed-path socket, and a read-only health response.
+- The Broker provides an append-only root-owned nonce ledger, exact bounded protocol, fsync-before-success, and replay rejection, with reviewed systemd and launchd templates.
+- Owner keys are separated by trust domain and have documented ceremony, rotation, revocation, compromise response, and loss recovery.
+- Text redaction has a 10 MiB file cap, a 1 MiB logical-line cap, and 64 KiB streaming with cross-chunk UTF-8, credential, and private-key handling.
+- Rollback operations document the single-parent proof, atomic feature-branch commit, GitHub squash-SHA mapping, forward recovery, and a time-bounded external break-glass process. There is no verifier bypass flag.
+- A recorded 1k/10k/50k-file synthetic benchmark kept the complete exact Base-tree comparison; the 50k p95 was 0.017217 seconds on the recorded local environment, far below the predeclared 5-second investigation threshold.
 
-## Verified release boundaries
+## Required release transaction
 
-- Final Security review: P0=0, P1=0.
-- Final Autonomy and approval-budget review: P0=0, P1=0.
-- Repository suite: 229 tests with no failures; the sandbox-only AF_UNIX positive path was independently verified outside the restricted sandbox.
-- Python 3.10 and Python 3.12 consumer/verifier paths: passed.
-- `sddgov validate`, `sddgov ci verify`, Local Green, Doctor, and exact Merge Gate: passed.
-- All tracked Proof DEPs: current portable strict verification passed.
-- Rollback drill restored the trusted Base runtime and passed Doctor plus its declared test module.
-- Wheel, sdist, ZIP, and Git bundle safety checks: passed.
-- Fresh-wheel Codex/Hermes installation and offline synthetic Muse pilot: passed with no real data or network use.
-- GitHub-hosted trusted verifier: passed once on the frozen exact PR Head.
-- Branch protection requires the machine `verify` check and does not require a human Reviewer count.
+Before marking this version published:
 
-The Release includes machine-generated `SHA256SUMS.txt` and an independently signed `RELEASE_PROVENANCE.json` that binds the exact merged commit and downloadable artifacts.
+1. Freeze the exact candidate Head and run the complete local suite, `sddgov validate`, CI Cost Guard, current-install Doctor, strict DEP Proof, package build, Twine, and fresh-wheel smoke.
+2. Obtain an independent protected-file review bound to the exact change and gate metadata digests.
+3. Pass the trusted Base Merge verifier and required repository ruleset.
+4. Configure GitHub environments `testpypi`, `github-release`, and `pypi`. Each must require a reviewer, prevent self-review and administrator bypass, and allow only the exact `v0.2.0rc1` tag. Configure environment-scoped PyPI Trusted Publishers for the two registries. Store a fine-grained, read-only repository-administration token separately as the environment-scoped secret `RELEASE_CONFIGURATION_READ_TOKEN` in each of those three protected environments; never expose it as a repository- or organization-level secret. Each preflight executes only after its own exact-tag environment gate admits the job.
+5. Create and protect the exact `v0.2.0rc1` tag at the independently reviewed Merge result. From that tag, start one `publish.yml` run with `publish_pypi=true`; the workflow rejects every branch or mismatched tag. The run publishes TestPyPI first, downloads and smoke-tests that exact version, then waits at the protected `pypi` environment before publishing the same build artifact.
+6. `publish_pypi=false` is TestPyPI-only and consumes that version on TestPyPI. It cannot later be promoted by rerunning this workflow because registries reject duplicate files; bump the candidate version instead. Never use `skip-existing`, because it could verify a different artifact than the one sent to PyPI.
+7. Verify the public PyPI project page, attestations, exact installed version, and offline quick demo from a new environment. Record URLs and immutable workflow/run identifiers in the release evidence.
 
 ## Important limits
 
-- This remains an experimental pre-release, not a stable or compliance-certified framework.
-- The Local Redaction Gateway is a conservative security boundary, not a legal anonymization certification.
-- Binary evidence remains fail-closed until an approved redacted derivative exists.
-- Benchmark fixtures validate the harness; they do not prove debugging superiority.
-- The package is distributed through GitHub Release, not PyPI.
-- Production credentials, payments, destructive data operations, new external access, and subjective UAT remain outside routine L0/L1 authorization.
+- Root Broker installation, Runtime Context, trusted approver store, Owner private keys, and key recovery material remain outside the repository and Agent workspace.
+- Broker `NOT_READY` blocks real L3 operations; it is not a request to substitute a mock or same-UID service.
+- Redaction reduces accidental disclosure but does not certify legal anonymization. Binary Evidence remains fail-closed without an approved derivative.
+- The synthetic monorepo and debugging fixtures validate bounded harness behavior, not superiority or universal capacity.
+- MyHermes or any patient, customer, or payment system still requires an environment-specific key ceremony, Broker rehearsal, synthetic/staging pilot, incident drill, and separate authorization before real data.

@@ -361,6 +361,48 @@ jobs:
         with self.assertRaisesRegex(ValueError, "non-audit descendants"):
             verify_merge(self.root, self.base, run_checks=False)
 
+    @patch("sddgov.merge_gate.verify_dep", return_value=[])
+    def test_restored_non_audit_descendant_still_fails(self, _verify):
+        self._write_gate()
+        transient = self.root / "post-review.py"
+        transient.write_text("unsafe = True\n")
+        _run(self.root, "git", "add", "post-review.py")
+        _run(self.root, "git", "commit", "-qm", "transient product change")
+        transient.unlink()
+        _run(self.root, "git", "add", "-u")
+        _run(self.root, "git", "commit", "-qm", "hide transient product change")
+        with self.assertRaisesRegex(ValueError, "non-audit descendants"):
+            verify_merge(self.root, self.base, run_checks=False)
+
+    @patch("sddgov.merge_gate.verify_dep", return_value=[])
+    def test_merge_parent_cannot_hide_a_non_audit_change(self, _verify):
+        self._write_gate()
+        main_branch = _run(self.root, "git", "branch", "--show-current")
+        _run(self.root, "git", "switch", "-qc", "transient-product")
+        transient = self.root / "post-review.py"
+        transient.write_text("unsafe = True\n")
+        _run(self.root, "git", "add", "post-review.py")
+        _run(self.root, "git", "commit", "-qm", "side product change")
+        transient.unlink()
+        _run(self.root, "git", "add", "-u")
+        _run(self.root, "git", "commit", "-qm", "hide side product change")
+        _run(self.root, "git", "switch", "-q", main_branch)
+        audit = self.root / ".sddgov/reviews/REV-AUDIT.json"
+        audit.write_text("{}\n")
+        _run(self.root, "git", "add", ".sddgov/reviews/REV-AUDIT.json")
+        _run(self.root, "git", "commit", "-qm", "audit descendant")
+        _run(
+            self.root,
+            "git",
+            "merge",
+            "--no-ff",
+            "-qm",
+            "merge side branch with restored product tree",
+            "transient-product",
+        )
+        with self.assertRaisesRegex(ValueError, "non-audit descendants"):
+            verify_merge(self.root, self.base, run_checks=False)
+
     def test_dep_and_rollback_contents_are_inside_change_digest(self):
         before = change_digest(self.root, self.base)
         rollback = self.root / "evidence/DEP-1/rollback.md"
@@ -1013,6 +1055,47 @@ jobs:
         _run(self.root, "git", "commit", "-qm", "later product change")
         reviewed_head = _run(self.root, "git", "rev-parse", "HEAD")
         self.assertFalse(
+            _rollback_ref_is_cleanly_revertible(
+                self.root,
+                self.implementation,
+                base_sha=self.base,
+                reviewed_head_sha=reviewed_head,
+            )
+        )
+
+    def test_restored_non_evidence_descendant_after_rollback_is_rejected(self):
+        transient = self.root / "later-doc.md"
+        transient.write_text("later product change\n")
+        _run(self.root, "git", "add", "later-doc.md")
+        _run(self.root, "git", "commit", "-qm", "transient product change")
+        transient.unlink()
+        _run(self.root, "git", "add", "-u")
+        _run(self.root, "git", "commit", "-qm", "hide transient product change")
+        reviewed_head = _run(self.root, "git", "rev-parse", "HEAD")
+        self.assertFalse(
+            _rollback_ref_is_cleanly_revertible(
+                self.root,
+                self.implementation,
+                base_sha=self.base,
+                reviewed_head_sha=reviewed_head,
+            )
+        )
+
+    def test_audit_descendants_after_rollback_commit_are_allowed(self):
+        reviews = self.root / ".sddgov/reviews"
+        reviews.mkdir(parents=True, exist_ok=True)
+        (reviews / "REV-AUDIT.json").write_text("{}\n")
+        (self.root / ".sddgov/merge-gate.json").write_text("{}\n")
+        _run(
+            self.root,
+            "git",
+            "add",
+            ".sddgov/merge-gate.json",
+            ".sddgov/reviews/REV-AUDIT.json",
+        )
+        _run(self.root, "git", "commit", "-qm", "later audit data")
+        reviewed_head = _run(self.root, "git", "rev-parse", "HEAD")
+        self.assertTrue(
             _rollback_ref_is_cleanly_revertible(
                 self.root,
                 self.implementation,

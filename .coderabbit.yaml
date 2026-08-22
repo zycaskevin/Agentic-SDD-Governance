@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+reviews:
+  path_filters:
+    # Immutable predecessor Evidence is verified by the trusted-Base DEP
+    # verifier and the independent reviewer. Keep the automated review focused
+    # on product code and the current authoritative Evidence package.
+    - "!evidence/DEP-RC1-REVIEW-FIX-R6-014/**"
+    - "!evidence/DEP-RC1-REVIEW-FIX-R7-015/**"
+    - "!evidence/DEP-RC1-REVIEW-FIX-R8-016/**"
+    - "!evidence/DEP-RC1-REVIEW-FIX-R9-017/**"
+    - "!evidence/DEP-RC1-REVIEW-FIX-R10-018/**"
+    - "!evidence/DEP-RC1-REVIEW-FIX-R11-019/**"
+    - "!evidence/DEP-RC1-REVIEW-FIX-R12-020/**"
+    - "!evidence/DEP-RC1-REVIEW-FIX-R13-021/**"
+    - "!evidence/DEP-RC1-REVIEW-FIX-R14-022/**"
+    - "!evidence/DEP-RC1-REVIEW-FIX-R15-023/**"
+    - "!evidence/DEP-RC1-REVIEW-FIX-R16-024/**"
+    - "!evidence/DEP-RC1-REVIEW-FIX-R17-025/**"
+    - "!evidence/DEP-RC1-REVIEW-FIX-R18-026/**"
