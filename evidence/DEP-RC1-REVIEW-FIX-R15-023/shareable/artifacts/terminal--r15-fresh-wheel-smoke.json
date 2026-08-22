@@ -1,0 +1,30 @@
+{
+  "ok": true,
+  "verdict": "PASS",
+  "wheel": "agentic_sdd_governance-0.2.0rc1-py3-none-any.whl",
+  "version": "0.2.0rc1",
+  "source_checkout_imported": false,
+  "offline_bundle_verified": true,
+  "bundle_file_count": 13,
+  "bundle_payload_file_count": 12,
+  "doctors": {
+    "codex": {
+      "ok": true,
+      "validation": "PASS",
+      "managed_file_count": 71
+    },
+    "hermes": {
+      "ok": true,
+      "validation": "PASS",
+      "managed_file_count": 71
+    }
+  },
+  "quick_demo": {
+    "verdict": "PASS",
+    "real_data_used": false
+  },
+  "native_broker": {
+    "status": "PASS",
+    "platform": "linux"
+  }
+}
