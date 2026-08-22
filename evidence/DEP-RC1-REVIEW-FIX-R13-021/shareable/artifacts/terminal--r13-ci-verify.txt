@@ -1,0 +1,37 @@
+Script started on [REDACTED_PHONE_OR_NUMBER]:27:30+08:00 [COMMAND="PYTHONPATH=src /tmp/sddgov-r13-workflow-venv/bin/python -m sddgov.cli ci verify ." <not executed on terminal>]
+{
+  "ok": true,
+  "project": "/tmp/sddgov-r13-final",
+  "contract": ".sddgov/ci-cost-guard.json",
+  "hosted_budget": {
+    "max_runs_per_work_package": 1,
+    "max_reruns_per_revision": 1,
+    "expected_minutes": 5,
+    "full_matrix": "manual_or_ready_for_review",
+    "post_merge_verification": "manual_only"
+  },
+  "workflows": [
+    {
+      "workflow": "governance.yml",
+      "automatic": true,
+      "hosted_jobs": [
+        "verify"
+      ]
+    },
+    {
+      "workflow": "publish.yml",
+      "automatic": false,
+      "hosted_jobs": [
+        "build-and-smoke",
+        "publish-github-release",
+        "publish-pypi",
+        "publish-testpypi",
+        "require-release-tag",
+        "verify-testpypi"
+      ]
+    }
+  ],
+  "errors": []
+}
+
+Script done on [REDACTED_PHONE_OR_NUMBER]:27:31+08:00 [COMMAND_EXIT_CODE="0"]
