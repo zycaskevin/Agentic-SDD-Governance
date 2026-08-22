@@ -63,8 +63,8 @@ Install the same verified package into Codex or Hermes:
 - Two builds from the same immutable source and `SOURCE_DATE_EPOCH` produced a
   byte-identical wheel.
 - A fresh isolated wheel installation returned
-  `0.2.0-experimental.9` and changed the exact unpublished VoiceKey PR #48
-  reproducer from Cost Guard failure to PASS.
+  `0.2.0-experimental.9` and changed the verified stricter fail-closed
+  conjunction from Cost Guard rejection to PASS.
 - Independent protected-file review, exact Merge Gate, one hosted trusted
   verifier run, and artifact publication remain mandatory release gates; these
   notes do not substitute for their receipts.
