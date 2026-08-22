@@ -3,7 +3,7 @@
 rollback_version: 3.0
 target: Issue #46 implementation commit
 rollback_action: git_revert
-rollback_ref: 686f27d34471a771d0d50d47d084c926c5c2da3e
+rollback_ref: bac2a59be8554cfe91fd058d4eed5928ff0c1d42
 reconcile_action: setup_agent_from_reverted_source
 reconcile_agent: codex
 reconcile_profile: team-standard

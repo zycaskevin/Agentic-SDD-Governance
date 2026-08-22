@@ -12,8 +12,8 @@ downstream-specific name, pull-request form, and unpublished-state marker.
 
 ## Contradicting evidence
 
-The exact context is useful for local traceability and already exists in Issue
-#44 Evidence, so deleting it from all records would reduce auditability.
+The exact context is useful for local traceability and already exists in
+Issue #44 Evidence, so deleting it from all records would reduce auditability.
 
 ## Falsification test
 

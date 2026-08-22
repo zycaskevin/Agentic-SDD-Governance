@@ -7,7 +7,9 @@ new bounded conjunction moved from rejection to PASS.
 
 ## Files or components in scope
 
-`RELEASE_NOTES.md`, this Work Package, and this DEP only.
+`RELEASE_NOTES.md`, this Work Package, this DEP, and
+`.sddgov/merge-gate.json` as the audit-only binding for the exact reviewed
+revision.
 
 ## Explicit non-scope
 
