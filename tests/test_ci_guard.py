@@ -260,6 +260,100 @@ jobs:
             self.assertFalse(report["ok"])
             self.assertIn("exact guard", "\n".join(report["errors"]))
 
+    def test_stricter_flat_conjunction_may_require_non_draft_pr(self):
+        conditions = (
+            """github.event_name == 'pull_request' &&
+      github.event.action == 'ready_for_review' &&
+      github.event.pull_request.number == 48 &&
+      github.event.pull_request.draft == false""",
+            "${{ github.event_name == \"pull_request\" && github.event.pull_request.draft == false }}",
+        )
+        legacy = (
+            "github.event_name != 'pull_request' || "
+            "github.event.pull_request.draft == false"
+        )
+        for condition in conditions:
+            with self.subTest(condition=condition), tempfile.TemporaryDirectory() as temporary:
+                project = Path(temporary)
+                stricter = GOOD_WORKFLOW.replace(legacy, condition)
+                _write_project(
+                    project,
+                    _contract([sys.executable, "-c", "pass"]),
+                    stricter,
+                )
+                self.assertTrue(verify_guard(project)["ok"])
+
+    def test_stricter_conjunction_binds_pull_request_target_event_family(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            workflow = GOOD_WORKFLOW.replace(
+                "pull_request:", "pull_request_target:"
+            ).replace(
+                "github.event_name != 'pull_request' || github.event.pull_request.draft == false",
+                "github.event_name == 'pull_request_target' && github.event.pull_request.draft == false",
+            )
+            _write_project(
+                project,
+                _contract([sys.executable, "-c", "pass"]),
+                workflow,
+            )
+            self.assertTrue(verify_guard(project)["ok"])
+
+    def test_stricter_draft_guard_grammar_fails_closed(self):
+        hostile_conditions = {
+            "or bypass": (
+                "github.event.pull_request.draft == false || true"
+            ),
+            "nested or bypass": (
+                "github.event_name == 'pull_request' && "
+                "(github.event.pull_request.draft == false || true)"
+            ),
+            "wrong draft comparison": (
+                "github.event_name == 'pull_request' && "
+                "github.event.pull_request.draft != false"
+            ),
+            "missing event boundary": (
+                "github.event.action == 'ready_for_review' && "
+                "github.event.pull_request.draft == false"
+            ),
+            "wrong event boundary": (
+                "github.event_name == 'push' && "
+                "github.event.pull_request.draft == false"
+            ),
+            "negated draft": (
+                "github.event_name == 'pull_request' && "
+                "!github.event.pull_request.draft"
+            ),
+            "unsupported function": (
+                "contains(github.event.action, 'ready') && "
+                "github.event.pull_request.draft == false"
+            ),
+            "incomplete atom": (
+                "github.event.action && "
+                "github.event.pull_request.draft == false"
+            ),
+            "reversed draft atom": (
+                "false == github.event.pull_request.draft && "
+                "github.event.action == 'ready_for_review'"
+            ),
+        }
+        legacy = (
+            "github.event_name != 'pull_request' || "
+            "github.event.pull_request.draft == false"
+        )
+        for label, condition in hostile_conditions.items():
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as temporary:
+                project = Path(temporary)
+                workflow = GOOD_WORKFLOW.replace(legacy, condition)
+                _write_project(
+                    project,
+                    _contract([sys.executable, "-c", "pass"]),
+                    workflow,
+                )
+                report = verify_guard(project)
+                self.assertFalse(report["ok"])
+                self.assertIn("exact guard", "\n".join(report["errors"]))
+
     def test_runner_and_concurrency_values_are_semantically_validated(self):
         cases = {
             "null runner": GOOD_WORKFLOW.replace(

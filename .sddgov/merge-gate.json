@@ -1,13 +1,13 @@
 {
   "schema_version": "1.0",
-  "base_sha": "dd84c538624cdda4e65d7189821b43747c2c535f",
-  "head_sha": "a29a84fe5eee5f9e599dccc53f441ff791b3ae64",
-  "risk_level": "L0",
-  "builder_id": "codex-builder",
-  "change_digest": "900f43877a0b841d9a401272d6a893396d5c12947da47dcb77dc916a94e9ca5e",
+  "base_sha": "1a5a0b214eccc2b9edd076fd5e2f222c4a456725",
+  "head_sha": "d012d80afd0bb43fb1f1adc5f7c94ae4aae383b1",
+  "risk_level": "L1",
+  "builder_id": "codex-costguard-builder",
+  "change_digest": "1179d44629f071e8e3d1828841e6753287ef191c0e01278d33206a2d7c0c2554",
   "deps": [
-    "evidence/DEP-EXPERIMENTAL8-RELEASE-DOCS-015"
+    "evidence/DEP-CI-STRICTER-DRAFT-GUARDS-016"
   ],
-  "rollback_path": "evidence/DEP-EXPERIMENTAL8-RELEASE-DOCS-015/rollback.md",
-  "protected_file_review": null
+  "rollback_path": "evidence/DEP-CI-STRICTER-DRAFT-GUARDS-016/rollback.md",
+  "protected_file_review": ".sddgov/reviews/REV-CI-STRICTER-DRAFT-GUARDS-016.json"
 }

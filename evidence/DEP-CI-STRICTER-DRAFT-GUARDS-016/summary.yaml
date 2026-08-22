@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-CI-STRICTER-DRAFT-GUARDS-016",
+  "issue": "44",
+  "sdd_references": [
+    "CI-COST-GUARD-STRICT-CONJUNCTION"
+  ],
+  "risk_level": "L1",
+  "created_at": "2026-08-22T15:08:52Z",
+  "updated_at": "2026-08-22T15:21:28Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-22T15:08:52Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-22T15:10:56Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-22T15:11:35Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-22T15:15:28Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-22T15:21:28Z"
+      }
+    ]
+  },
+  "expected_behavior": "CI Cost Guard accepts a fail-closed flat conjunction whose independent top-level atom requires github.event.pull_request.draft == false.",
+  "actual_behavior": "The experimental.8 verifier rejects every conjunction because _draft_condition_is_safe accepts only two exact legacy strings, forcing an opt-in self-hosted job toward an unsafe broader dispatch boundary.",
+  "environment": {
+    "commit": "1a5a0b214eccc2b9edd076fd5e2f222c4a456725",
+    "branch": "codex/fix-stricter-draft-guards",
+    "runtime": "Ubuntu 24.04; Linux aarch64; Python 3.12.3; Agentic SDD Governance 0.2.0-experimental.8 source"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}
