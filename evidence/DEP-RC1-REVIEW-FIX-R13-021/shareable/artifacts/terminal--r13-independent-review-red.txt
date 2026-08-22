@@ -1,0 +1,29 @@
+Independent protected review of PR #34 / R12: FAIL, receipt withheld.
+
+Trusted Base: 1a5a0b214eccc2b9edd076fd5e2f222c4a456725
+Reviewed Head: ab0a572ed8cdfbc15e71133131ba6db5f2c0ed43
+Gate Head: 6a680814aef063e8083f0958e3f5473671e3091f
+
+Blocker 1: the exact trusted Base verifier rejected the rollback record.
+The rollback parser, ref range, and digest passed, but the Base implementation
+of _rollback_ref_is_cleanly_revertible returned false. Commits between the
+atomic rollback ref and reviewed Head modified .sddgov/merge-gate.json. The
+trusted Base permits only evidence/** audit commits in that interval, and the
+candidate verifier cannot authorize a relaxed rule for itself.
+
+Blocker 2: the publish workflow's isolated governance virtual environment
+installed requirements-governance.lock only and then ran the complete test
+suite. tests/test_release_bundle.py imports scripts.prepare_release_bundle,
+which imports packaging from requirements-release.lock. A clean environment
+reproduced ModuleNotFoundError: packaging. Installing both hash-locked files
+made all 357 tests pass.
+
+Reviewer validation that passed after adding the release lock locally:
+- complete 357-test suite
+- Local Green, repository validation, and CI policy verification
+- current and trusted-Base portable DEP verification
+- exact-tree revert drill
+- Broker, security, and service-mirror checks
+
+No signing key, trust registration, review receipt, branch commit, or push was
+performed by the reviewer after these blockers were found.
