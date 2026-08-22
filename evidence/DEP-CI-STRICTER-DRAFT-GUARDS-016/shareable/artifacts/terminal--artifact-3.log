@@ -1,0 +1,8 @@
+command=PYTHONPATH=src python3 -m unittest tests.test_ci_guard -v
+exit_status=0
+tests=22
+positive_stricter_pull_request=PASS
+positive_stricter_pull_request_target=PASS
+legacy_exact_guards=PASS
+hostile_and_unsupported_expressions=REJECTED
+result=OK
