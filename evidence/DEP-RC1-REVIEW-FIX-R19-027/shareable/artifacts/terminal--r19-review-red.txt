@@ -1,0 +1,25 @@
+R19 RED — independent R18 verdict
+
+Exact R18 reviewed candidate: PR #40.
+Verdict: FAIL; no receipt, no signature, no merge authorization.
+
+Reproduced blockers:
+1. write_new_regular_file failure cleanup had stat-to-unlink TOCTOU and deleted a later writer.
+2. benchmark --output followed a leaf symlink and could overwrite its target; parent traversal was not descriptor anchored.
+3. generic secure writer rejected the supported Darwin system-var alias instead of mapping only that fixed alias.
+4. redaction missed canonical Darwin private-var-folders paths.
+5. redaction missed WSL mounted-drive user paths and supported UNC WSL home paths.
+6. installed-wheel Broker health proof accepted READY newline before delayed extra bytes and stopped before EOF.
+7. withdrawal verification suppressed every redaction error for an affected DEP instead of the exact registered artifact.
+8. release_files path walking rejected Darwin system-temp and system-var aliases; hosted macOS did not run full fresh-wheel smoke.
+
+Review coverage gap:
+GitHub CodeRabbit App skipped R18 because the selected change had 312 files, above its 300-file ceiling. No CodeRabbit CLI verdict was available because the local CLI was not authenticated.
+
+Representative deterministic observations:
+cleanup race: swap_triggered=True replacement_preserved=False
+benchmark symlink: process exit=0 and victim content overwritten
+Darwin redaction: canonical path unchanged, match counts empty
+WSL redaction: mounted user path unchanged
+Broker proof: first fragment READY newline returned while EXTRA remained unread
+withdrawal proof: unregistered files[999] failure recorded=False

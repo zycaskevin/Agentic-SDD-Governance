@@ -1,0 +1,72 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-REVIEW-FIX-R19-027",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r19-review-red.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "e3852c57284791e3774f834e377244090e62292f674cce16f28b50a262aac29d",
+      "size": 1643,
+      "collected_at": "2026-08-22T06:08:32Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r19-local-green.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "c885e7035d05f3f8c5e9e7a579c58b3fd5705cd7fe1f4ed22c91e58d5ab2cc39",
+      "size": 1407,
+      "collected_at": "2026-08-22T06:08:33Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r19-package-proof.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "586939f72336679b791eaafc775a452265b0cfe3a5d3b24f337cd4004d306027",
+      "size": 722,
+      "collected_at": "2026-08-22T06:08:33Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r19-rollback-proof.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "6bcc854a9b96291e25801b6c83d35d8e2a5a7d4524034feb6a7ecebe8309f3da",
+      "size": 1127,
+      "collected_at": "2026-08-22T06:08:33Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--r19-local-green.txt",
+      "sha256": "c885e7035d05f3f8c5e9e7a579c58b3fd5705cd7fe1f4ed22c91e58d5ab2cc39",
+      "size": 1407,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r19-package-proof.txt",
+      "sha256": "586939f72336679b791eaafc775a452265b0cfe3a5d3b24f337cd4004d306027",
+      "size": 722,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r19-review-red.txt",
+      "sha256": "e3852c57284791e3774f834e377244090e62292f674cce16f28b50a262aac29d",
+      "size": 1643,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r19-rollback-proof.txt",
+      "sha256": "6bcc854a9b96291e25801b6c83d35d8e2a5a7d4524034feb6a7ecebe8309f3da",
+      "size": 1127,
+      "shareable": true
+    }
+  ]
+}

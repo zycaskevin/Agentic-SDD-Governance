@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-REVIEW-FIX-R19-027",
+  "issue": "PR #40 independent review found eight unresolved R18 security and verification boundaries",
+  "sdd_references": [
+    "work-packages/WP-RC1-READINESS-008.md"
+  ],
+  "risk_level": "L1",
+  "created_at": "2026-08-22T06:06:48Z",
+  "updated_at": "2026-08-22T06:08:53Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-22T06:06:48Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-22T06:08:53Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-22T06:08:53Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-22T06:08:53Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-22T06:08:53Z"
+      }
+    ]
+  },
+  "expected_behavior": "Owned cleanup preserves later writers; reports are descriptor-bound; supported platform paths normalize or redact; health requires exact EOF; withdrawals are artifact-exact; native installed-wheel and automated review cover the candidate.",
+  "actual_behavior": "R18 independently reproduced eight gaps across cleanup, report publication, platform paths, redaction, Broker smoke, withdrawal matching, Darwin release walking, and CodeRabbit coverage.",
+  "environment": {
+    "commit": "d402230cb555e6429f43be645a042b486d03d9fb",
+    "branch": "feat/rc1-readiness-r19-final",
+    "runtime": "Python 3.12 on Linux aarch64; hosted Ubuntu and macOS-15 required before signature"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}
