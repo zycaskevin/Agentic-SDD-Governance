@@ -1,0 +1,56 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-SDG-CI-LOCK-016",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--artifact-1.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "c6d2ea8ffce146215736d61acbc1927b698beb653be537398ec7712ea46bd7ec",
+      "size": 321,
+      "collected_at": "2026-08-22T16:19:28Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--artifact-2.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "0edae411227024ff31ea0b6fb7ca326add2fd33c898ad9c661184398f47cc844",
+      "size": 4165,
+      "collected_at": "2026-08-22T17:47:27Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--exact-head-local-green.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "92a4d4962453b413110423dc51eaf119827fe09e6c61ba99decc939487f2b332",
+      "size": 619,
+      "collected_at": "2026-08-22T17:47:27Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--artifact-1.txt",
+      "sha256": "c6d2ea8ffce146215736d61acbc1927b698beb653be537398ec7712ea46bd7ec",
+      "size": 321,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--artifact-2.txt",
+      "sha256": "0edae411227024ff31ea0b6fb7ca326add2fd33c898ad9c661184398f47cc844",
+      "size": 4165,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--exact-head-local-green.txt",
+      "sha256": "92a4d4962453b413110423dc51eaf119827fe09e6c61ba99decc939487f2b332",
+      "size": 619,
+      "shareable": true
+    }
+  ]
+}

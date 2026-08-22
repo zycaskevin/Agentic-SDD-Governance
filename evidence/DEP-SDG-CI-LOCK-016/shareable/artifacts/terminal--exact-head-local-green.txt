@@ -1,0 +1,11 @@
+Evidence type: safe derivative of the complete local Green output
+Repository: $WORKTREE
+Branch: codex/local-green-global-serialization-ready
+Exact commit: 196685c2680da9a84d4b5efd35dd66f20909f1b4
+Command: PYTHONPATH=src python -m sddgov.cli ci local-gate .
+Exit status: 0
+Unit suite: 237 total; 236 passed; 1 platform-dependent test skipped
+Governance source validation: PASS
+Local Green result: PASS
+Post-run tracked and untracked status: clean
+Disclosure note: this bounded derivative preserves the exact revision, command, result, counts, and validation outcome without sharing a workstation-specific checkout path.

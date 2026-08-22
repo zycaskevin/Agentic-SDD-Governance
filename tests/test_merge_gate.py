@@ -11,6 +11,7 @@ from unittest.mock import patch
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+from sddgov import ci_guard
 from sddgov.merge_gate import (
     _external_trusted_reviewers,
     _first_consumer_base,
@@ -212,7 +213,16 @@ jobs:
         self, _verify, _postcondition
     ):
         self._write_gate()
-        result = verify_merge(self.root, self.base)
+        with (
+            tempfile.TemporaryDirectory() as lock_temporary,
+            patch(
+                "sddgov.ci_guard._local_gate_lock",
+                return_value=ci_guard._local_gate_lock(
+                    runtime_root=Path(lock_temporary)
+                ),
+            ),
+        ):
+            result = verify_merge(self.root, self.base)
         self.assertTrue(result["ok"])
         self.assertEqual(result["state"], "MERGE_READY")
         self.assertEqual(result["protected_files_changed"], ["core/POLICY_KERNEL.md"])
