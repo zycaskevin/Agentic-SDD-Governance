@@ -18,6 +18,7 @@ from typing import Any, Iterable
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
+from .fs_security import canonicalize_platform_path
 from .governance import enqueue_external_action, resolve_external_action
 from .trust import load_control_plane_json, trusted_approvers_path
 
@@ -203,16 +204,28 @@ def _canonical_digest(value: dict[str, Any]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def _read_repository_regular_file(root: Path, relative: PurePosixPath) -> bytes:
+def _read_repository_regular_file(
+    root: Path,
+    relative: PurePosixPath,
+    *,
+    max_bytes: int | None = None,
+) -> bytes:
     """Read a repository file through retained, non-symlink directory descriptors."""
-    candidate_root = root if root.is_absolute() else Path.cwd() / root
-    if sys.platform == "darwin" and candidate_root.parts[:2] == ("/", "var"):
-        candidate_root = Path("/private/var").joinpath(*candidate_root.parts[2:])
+    candidate_root = canonicalize_platform_path(
+        root if root.is_absolute() else Path.cwd() / root
+    )
     directory_parts = list(candidate_root.parts[1:]) + list(relative.parts[:-1])
-    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+    flags = (
+        os.O_RDONLY
+        | getattr(os, "O_DIRECTORY", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_CLOEXEC", 0)
+    )
     descriptors = [os.open(candidate_root.anchor or os.sep, flags)]
     names: list[str] = []
     file_descriptor = -1
+    result: bytes | None = None
+    primary: BaseException | None = None
     try:
         for part in directory_parts:
             try:
@@ -235,7 +248,8 @@ def _read_repository_regular_file(root: Path, relative: PurePosixPath) -> bytes:
                 final_name,
                 os.O_RDONLY
                 | getattr(os, "O_NONBLOCK", 0)
-                | getattr(os, "O_NOFOLLOW", 0),
+                | getattr(os, "O_NOFOLLOW", 0)
+                | getattr(os, "O_CLOEXEC", 0),
                 dir_fd=descriptors[-1],
             )
         except OSError as exc:
@@ -247,12 +261,19 @@ def _read_repository_regular_file(root: Path, relative: PurePosixPath) -> bytes:
             raise ValueError(
                 "product approval assumption must be a non-linked regular file"
             )
+        if max_bytes is not None and metadata.st_size > max_bytes:
+            raise ValueError("repository approval input exceeds the bounded size limit")
         chunks: list[bytes] = []
+        total = 0
         while True:
             chunk = os.read(file_descriptor, 1024 * 1024)
             if not chunk:
                 break
+            total += len(chunk)
+            if max_bytes is not None and total > max_bytes:
+                raise ValueError("repository approval input exceeds the bounded size limit")
             chunks.append(chunk)
+        final_descriptor = os.fstat(file_descriptor)
         try:
             final_entry = os.stat(
                 final_name, dir_fd=descriptors[-1], follow_symlinks=False
@@ -261,8 +282,41 @@ def _read_repository_regular_file(root: Path, relative: PurePosixPath) -> bytes:
             raise ValueError("product approval assumption path changed") from exc
         if (
             stat.S_ISLNK(final_entry.st_mode)
-            or (final_entry.st_dev, final_entry.st_ino)
-            != (metadata.st_dev, metadata.st_ino)
+            or not stat.S_ISREG(final_entry.st_mode)
+            or final_entry.st_nlink != 1
+            or (
+                metadata.st_dev,
+                metadata.st_ino,
+                metadata.st_size,
+                metadata.st_mtime_ns,
+                metadata.st_ctime_ns,
+                metadata.st_nlink,
+            )
+            != (
+                final_descriptor.st_dev,
+                final_descriptor.st_ino,
+                final_descriptor.st_size,
+                final_descriptor.st_mtime_ns,
+                final_descriptor.st_ctime_ns,
+                final_descriptor.st_nlink,
+            )
+            or (
+                metadata.st_dev,
+                metadata.st_ino,
+                metadata.st_size,
+                metadata.st_mtime_ns,
+                metadata.st_ctime_ns,
+                metadata.st_nlink,
+            )
+            != (
+                final_entry.st_dev,
+                final_entry.st_ino,
+                final_entry.st_size,
+                final_entry.st_mtime_ns,
+                final_entry.st_ctime_ns,
+                final_entry.st_nlink,
+            )
+            or total != metadata.st_size
         ):
             raise ValueError("product approval assumption path changed")
         for index, part in enumerate(names):
@@ -280,12 +334,34 @@ def _read_repository_regular_file(root: Path, relative: PurePosixPath) -> bytes:
                 != (opened.st_dev, opened.st_ino)
             ):
                 raise ValueError("product approval assumption path changed")
-        return b"".join(chunks)
-    finally:
-        if file_descriptor >= 0:
-            os.close(file_descriptor)
-        for descriptor in reversed(descriptors):
-            os.close(descriptor)
+        result = b"".join(chunks)
+    except BaseException as exc:
+        primary = exc
+
+    cleanup_error: BaseException | None = None
+    if file_descriptor >= 0:
+        closing_descriptor = file_descriptor
+        file_descriptor = -1
+        try:
+            os.close(closing_descriptor)
+        except BaseException as exc:
+            cleanup_error = exc
+    while descriptors:
+        closing_descriptor = descriptors.pop()
+        try:
+            os.close(closing_descriptor)
+        except BaseException as exc:
+            if cleanup_error is None:
+                cleanup_error = exc
+    if primary is not None:
+        if cleanup_error is not None:
+            raise primary from cleanup_error
+        raise primary
+    if cleanup_error is not None:
+        raise cleanup_error
+    if result is None:
+        raise ValueError("product approval assumption could not be read")
+    return result
 
 
 def _verified_assumptions_digest(root: Path, assumptions: Any) -> str:

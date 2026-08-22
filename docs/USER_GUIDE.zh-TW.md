@@ -176,6 +176,8 @@ SDDGOV_BIN="$(pwd)/.venv-sddgov/bin/sddgov"  # 方法 C 的 checkout 請改用 "
 
 SDG v1.2 預設 `CONTINUE`。Issue、Branch、Commit、feature-branch Push、PR、Review、測試、CI、可恢復 Retry、Integrity verification 與通過必要 Gate 後的 L0/L1 Merge都是工程操作，不是 Owner Approval 點。只有 unresolved L2、concrete L3、Operational Action 或 Necessary UAT 才能輸出嚴格的 `ACTION REQUIRED`。詳見 [`AUTONOMOUS_DEVELOPMENT_V1_2.md`](AUTONOMOUS_DEVELOPMENT_V1_2.md)。
 
+L2 的 Owner 只決定產品或權限語意，不負責審查程式碼、Evidence 或 hash。Agent 以 `sddgov decision show-product-approval` 產生一張有界 A／B 卡；這個 Agent 入口沒有簽章能力。Owner 在獨立安裝、已審查的 `sddgov-owner` 中選一次 A 或 B，工具會自行重建 assumptions、nonce、receipt，透過需要逐次確認的外部 Ed25519 signer 簽署並驗證。Owner 不編輯 JSON、不貼 signature，也不把 private key 交給 Agent。完整 custody 與失敗關閉條件見 [`OWNER_KEY_CEREMONY.md`](OWNER_KEY_CEREMONY.md)。
+
 ### 例行送審不需要每次批准
 
 若 CodeRabbit 或其他 Reviewer 已經為這個公開 Repo 設定完成，Agent 可以自動送出 committed PR diff，以及審查所需的公開 `AGENTS.md`／治理指令。Agent 應自行核對 findings、修正有效問題並重新送審，不應要求 Arthur 逐次批准，也不應讓 Arthur 在不同 Agent 之間複製貼上審查內容。
@@ -212,8 +214,9 @@ SDD
 只選能區分 Root Cause 假設的 Collector。原始輸出放 `private/raw`，不要傾倒無關 Log。
 
 ```bash
-sddgov evidence init --issue ISSUE-123 --risk L1 --sdd CAP-03
+set -eu
 umask 077
+sddgov evidence init --issue ISSUE-123 --risk L1 --sdd CAP-03
 if ! mkdir -p evidence/DEP-.../private/raw; then exit 1; fi
 if ! chmod 700 evidence/DEP-.../private/raw; then exit 1; fi
 test_status=0

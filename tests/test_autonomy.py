@@ -482,6 +482,87 @@ class AutonomyTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Agent runs as root"):
                 load_control_plane_json(self.trust_path, "test authority")
 
+    def test_control_plane_loader_retains_and_rechecks_the_root_owned_path(self):
+        control = self.root / "control-plane"
+        control.mkdir()
+        authority = control / "authority.json"
+        expected = {"schema_version": "1.0", "value": "trusted"}
+        authority.write_text(json.dumps(expected), encoding="utf-8")
+        parked = self.root / "control-plane-parked"
+        real_stat = os.stat
+        real_fstat = os.fstat
+        real_read = os.read
+        moved = False
+
+        def as_root_owned(metadata):
+            values = list(metadata)
+            values[0] = metadata.st_mode & ~0o022
+            values[4] = 0
+            return os.stat_result(values)
+
+        def replace_after_read(descriptor, size):
+            nonlocal moved
+            chunk = real_read(descriptor, size)
+            if not chunk and not moved:
+                moved = True
+                control.rename(parked)
+                control.mkdir()
+            return chunk
+
+        with (
+            patch("sddgov.trust.os.geteuid", return_value=1000),
+            patch(
+                "sddgov.trust.os.stat",
+                side_effect=lambda *args, **kwargs: as_root_owned(
+                    real_stat(*args, **kwargs)
+                ),
+            ),
+            patch(
+                "sddgov.trust.os.fstat",
+                side_effect=lambda descriptor: as_root_owned(real_fstat(descriptor)),
+            ),
+            patch("sddgov.trust.os.read", side_effect=replace_after_read),
+            self.assertRaisesRegex(ValueError, "parent chain changed"),
+        ):
+            load_control_plane_json(authority, "test authority")
+
+        self.assertTrue(moved)
+        self.assertEqual(
+            json.loads((parked / authority.name).read_text(encoding="utf-8")),
+            expected,
+        )
+        self.assertEqual(list(control.iterdir()), [])
+
+    def test_control_plane_loader_bounds_the_root_owned_document(self):
+        control = self.root / "oversized-control-plane"
+        control.mkdir()
+        authority = control / "authority.json"
+        authority.write_bytes(b"{" + b"x" * (1024 * 1024) + b"}")
+        real_stat = os.stat
+        real_fstat = os.fstat
+
+        def as_root_owned(metadata):
+            values = list(metadata)
+            values[0] = metadata.st_mode & ~0o022
+            values[4] = 0
+            return os.stat_result(values)
+
+        with (
+            patch("sddgov.trust.os.geteuid", return_value=1000),
+            patch(
+                "sddgov.trust.os.stat",
+                side_effect=lambda *args, **kwargs: as_root_owned(
+                    real_stat(*args, **kwargs)
+                ),
+            ),
+            patch(
+                "sddgov.trust.os.fstat",
+                side_effect=lambda descriptor: as_root_owned(real_fstat(descriptor)),
+            ),
+            self.assertRaisesRegex(ValueError, "1048576-byte limit"),
+        ):
+            load_control_plane_json(authority, "test authority")
+
     def test_caller_selected_trusted_base_ref_is_never_authority(self):
         path, _ = self._signed_operation_approval()
         with patch.dict(

@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import sddgov.redaction as redaction_module
+from sddgov.fs_security import exclusive_rename_at
 from sddgov.redaction import (
     MAX_LOGICAL_LINE_CHARACTERS,
     MAX_REDACTION_FILE_BYTES,
@@ -460,15 +461,15 @@ class RedactionTests(unittest.TestCase):
             outside.write_text("preserve source\n", encoding="utf-8")
             later.write_text("preserve later writer\n", encoding="utf-8")
             second.symlink_to(outside)
-            original_rename = os.rename
 
-            def replace_at_cleanup(src, dst, *args, **kwargs):
-                if src == first.name and ".cleanup-pending-" in str(dst):
+            def replace_at_cleanup(source_fd, src, destination_fd, dst):
+                if src == first.name and ".cleanup-pending-" in dst:
                     later.replace(output / first.name)
-                return original_rename(src, dst, *args, **kwargs)
+                return exclusive_rename_at(source_fd, src, destination_fd, dst)
 
             with patch(
-                "sddgov.redaction.os.rename", side_effect=replace_at_cleanup
+                "sddgov.fs_security.exclusive_rename_at",
+                side_effect=replace_at_cleanup,
             ), self.assertRaisesRegex(ValueError, "must not be a symlink"):
                 redact_files([first, second], output)
 
@@ -515,7 +516,6 @@ class RedactionTests(unittest.TestCase):
             later.write_text("preserve later writer\n", encoding="utf-8")
             source_identity = (source.stat().st_dev, source.stat().st_ino)
             original_close = os.close
-            original_rename = os.rename
             raised = False
 
             def close_then_fail(descriptor):
@@ -526,15 +526,16 @@ class RedactionTests(unittest.TestCase):
                     raised = True
                     raise OSError("synthetic source descriptor close failure")
 
-            def replace_at_cleanup(src, dst, *args, **kwargs):
-                if src == source.name and ".cleanup-pending-" in str(dst):
+            def replace_at_cleanup(source_fd, src, destination_fd, dst):
+                if src == source.name and ".cleanup-pending-" in dst:
                     later.replace(output / source.name)
-                return original_rename(src, dst, *args, **kwargs)
+                return exclusive_rename_at(source_fd, src, destination_fd, dst)
 
             with patch(
                 "sddgov.redaction.os.close", side_effect=close_then_fail
             ), patch(
-                "sddgov.redaction.os.rename", side_effect=replace_at_cleanup
+                "sddgov.fs_security.exclusive_rename_at",
+                side_effect=replace_at_cleanup,
             ), self.assertRaisesRegex(OSError, "source descriptor close failure"):
                 redact_files([source], output)
 
@@ -724,7 +725,7 @@ class RedactionTests(unittest.TestCase):
                                 follow_symlinks=False,
                             )
                         else:
-                            os.mkfifo(src, 0o600, dir_fd=directory_fd)
+                            os.mkfifo(output / str(src), 0o600)
                     return original_link(src, dst, *args, **kwargs)
 
                 with (
@@ -841,6 +842,73 @@ class RedactionTests(unittest.TestCase):
                 redact_files([source], alias / "output")
 
             self.assertEqual(list(outside.iterdir()), [])
+
+    def test_owned_output_parent_disappearance_rolls_back_publication(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "capture.log"
+            output = root / "output"
+            parked = root / "output-parked"
+            source.write_text("owner@example.com\n", encoding="utf-8")
+            original = redaction_module.require_directory_path_identity
+            moved = False
+
+            def move_before_commit(path, descriptor, label):
+                nonlocal moved
+                if label == "redaction output directory" and not moved:
+                    moved = True
+                    output.rename(parked)
+                return original(path, descriptor, label)
+
+            with (
+                patch(
+                    "sddgov.redaction.require_directory_path_identity",
+                    side_effect=move_before_commit,
+                ),
+                self.assertRaisesRegex(ValueError, "changed during operation"),
+            ):
+                redact_files([source], output)
+
+            self.assertTrue(moved)
+            self.assertEqual(list(parked.iterdir()), [])
+
+    def test_owned_output_parent_replacement_preserves_a_later_writer(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "capture.log"
+            output = root / "output"
+            parked = root / "output-parked"
+            outside = root / "outside"
+            later = root / "later.log"
+            source.write_text("owner@example.com\n", encoding="utf-8")
+            outside.mkdir()
+            later.write_text("later writer\n", encoding="utf-8")
+            original = redaction_module.require_directory_path_identity
+            moved = False
+
+            def replace_before_commit(path, descriptor, label):
+                nonlocal moved
+                if label == "redaction output directory" and not moved:
+                    moved = True
+                    output.rename(parked)
+                    output.symlink_to(outside, target_is_directory=True)
+                    later.replace(parked / source.name)
+                return original(path, descriptor, label)
+
+            with (
+                patch(
+                    "sddgov.redaction.require_directory_path_identity",
+                    side_effect=replace_before_commit,
+                ),
+                self.assertRaisesRegex(ValueError, "changed during operation"),
+            ):
+                redact_files([source], output)
+
+            self.assertEqual(list(outside.iterdir()), [])
+            self.assertEqual(
+                (parked / source.name).read_text(encoding="utf-8"),
+                "later writer\n",
+            )
 
     def test_failed_post_publish_validation_removes_only_owned_generation(self):
         with tempfile.TemporaryDirectory() as temporary:

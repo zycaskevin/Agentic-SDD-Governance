@@ -11,7 +11,7 @@ There is deliberately no production `--mock-broker`, alternate socket path, or r
 | Linux / WSL2 | `/run/sddgov/approval-broker.sock` | `/var/lib/sddgov/consumed-nonces.jsonl` | `/etc/sddgov/runtime-context.json` |
 | macOS | `/private/var/db/sddgov/approval-broker.sock` | `/private/var/db/sddgov/consumed-nonces.jsonl` | `/etc/sddgov/runtime-context.json` |
 
-The trusted approver store is outside the repository and its authority path is fixed at `/etc/sddgov/trusted-approvers.json`; an `SDDGOV_TRUSTED_APPROVERS_FILE` caller override fails closed instead of selecting authority. All persistent control-plane files—the ledger, runtime context, and trust store—are root-owned and not writable by group or other. The Unix socket must be root-owned with exact mode `0660` and the fixed dedicated socket group (`sddgov` on Linux/WSL2, `_sddgov` on macOS) so approved non-root Agent service accounts can connect. A different group or any broader/narrower mode is `NOT_READY`. The Agent process must be non-root.
+The trusted approver store is outside the repository and its authority path is fixed at `/etc/sddgov/trusted-approvers.json`; on macOS the verifier maps only the platform-owned `/etc` alias to physical `/private/etc`, while arbitrary symlinks remain forbidden. An `SDDGOV_TRUSTED_APPROVERS_FILE` caller override fails closed instead of selecting authority. All persistent control-plane files—the ledger, runtime context, and trust store—are root-owned and not writable by group or other. The Unix socket must be root-owned with exact mode `0660` and the fixed dedicated socket group (`sddgov` on Linux/WSL2, `_sddgov` on macOS) so approved non-root Agent service accounts can connect. A different group or any broader/narrower mode is `NOT_READY`. The Agent process must be non-root.
 
 ## Readiness check
 
@@ -64,7 +64,7 @@ The repository provides `services/com.sddgov.broker.plist`. The plist runs as `r
 
 1. Create a dedicated `_sddgov` group and add only approved Agent accounts.
 2. Create `/private/var/db/sddgov` as `root:_sddgov` mode `0750`; the ledger itself remains root-owned mode `0600`.
-3. Create the root-owned runtime context and fixed trusted approver store under `/etc/sddgov`.
+3. Create `/etc/sddgov` as `root:_sddgov` mode `0750`, then create the runtime context and fixed trusted approver store as `root:_sddgov` mode `0640` (or `root:wheel` mode `0644`). The selected mode and every parent directory must let approved non-root `_sddgov` Agent accounts traverse the path and read both files without write access; mode `0600` is not valid for these Agent-read control files.
 4. Install the pinned wheel into the root-owned environment, then require `test -x /opt/sddgov/venv/bin/sddgov` and `/opt/sddgov/venv/bin/sddgov --version` to pass before installing or bootstrapping the plist. A different installation path requires an independently reviewed plist with that exact absolute executable.
 5. Confirm the host unified-log retention and export policy is bounded and appropriate for security operations. Broker logs only capacity warnings, rejected-request error classes, and listener failures; it never logs request bytes, nonces, receipt or payload digests, and it emits no per-request success or duplicate-consumption record.
 6. Install the reviewed plist in `/Library/LaunchDaemons/com.sddgov.broker.plist` as `root:wheel` mode `0644`, validate it with `plutil -lint`, and only then bootstrap it in the system launchd domain.

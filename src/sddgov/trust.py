@@ -7,10 +7,13 @@ import stat
 from pathlib import Path
 from typing import Any
 
+from .fs_security import canonicalize_platform_path
+
 
 FULL_COMMIT_SHA = re.compile(r"[0-9a-fA-F]{40}")
 TRUSTED_APPROVERS_FILE = Path("/etc/sddgov/trusted-approvers.json")
 TRUSTED_APPROVERS_ENVIRONMENT = "SDDGOV_TRUSTED_APPROVERS_FILE"
+MAX_CONTROL_PLANE_BYTES = 1024 * 1024
 
 
 def require_full_commit_sha(value: str | None, label: str) -> str:
@@ -42,7 +45,7 @@ def trusted_approvers_path(root: Path) -> Path:
 
 def load_owner_controlled_json(path: Path, label: str) -> dict[str, Any]:
     """Read one owner-only regular JSON file without following a final symlink."""
-    candidate = path.expanduser().absolute()
+    candidate = canonicalize_platform_path(path.expanduser())
     try:
         before = candidate.lstat()
     except OSError as exc:
@@ -97,40 +100,160 @@ def load_control_plane_json(path: Path, label: str) -> dict[str, Any]:
         raise ValueError(
             f"{label} cannot establish a separate identity while the Agent runs as root"
         )
-    candidate = path.expanduser().absolute()
+    candidate = canonicalize_platform_path(path.expanduser())
+    if not candidate.name or candidate.name in {".", ".."}:
+        raise ValueError(f"{label} has an unsafe control-plane path")
+    directory_flags = (
+        os.O_RDONLY
+        | getattr(os, "O_DIRECTORY", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_CLOEXEC", 0)
+    )
+    descriptors: list[int] = []
+    descriptor = -1
     try:
-        before = candidate.lstat()
-    except OSError as exc:
-        raise ValueError(f"{label} is unavailable: {exc}") from exc
-    if stat.S_ISLNK(before.st_mode) or not stat.S_ISREG(before.st_mode):
-        raise ValueError(f"{label} must be a non-symlink regular file")
-    if before.st_uid != 0 or before.st_mode & 0o022:
-        raise ValueError(
-            f"{label} must be root-owned and not writable by group or other"
+        descriptors.append(os.open(candidate.anchor or os.sep, directory_flags))
+        root_metadata = os.fstat(descriptors[0])
+        if (
+            not stat.S_ISDIR(root_metadata.st_mode)
+            or root_metadata.st_uid != 0
+            or root_metadata.st_mode & 0o022
+        ):
+            raise ValueError(
+                f"{label} parent chain must be root-owned and not writable by group or other"
+            )
+        components = candidate.parent.parts[1:]
+        for part in components:
+            before = os.stat(
+                part,
+                dir_fd=descriptors[-1],
+                follow_symlinks=False,
+            )
+            child = os.open(part, directory_flags, dir_fd=descriptors[-1])
+            current = os.fstat(child)
+            if (
+                stat.S_ISLNK(before.st_mode)
+                or not stat.S_ISDIR(before.st_mode)
+                or not stat.S_ISDIR(current.st_mode)
+                or (before.st_dev, before.st_ino) != (current.st_dev, current.st_ino)
+                or current.st_uid != 0
+                or current.st_mode & 0o022
+            ):
+                os.close(child)
+                raise ValueError(
+                    f"{label} parent chain must be root-owned and not writable by group or other"
+                )
+            descriptors.append(child)
+
+        before = os.stat(
+            candidate.name,
+            dir_fd=descriptors[-1],
+            follow_symlinks=False,
         )
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
-    try:
-        descriptor = os.open(candidate, flags)
+        if stat.S_ISLNK(before.st_mode) or not stat.S_ISREG(before.st_mode):
+            raise ValueError(f"{label} must be a non-symlink regular file")
+        if before.st_uid != 0 or before.st_mode & 0o022:
+            raise ValueError(
+                f"{label} must be root-owned and not writable by group or other"
+            )
+        descriptor = os.open(
+            candidate.name,
+            os.O_RDONLY
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_CLOEXEC", 0),
+            dir_fd=descriptors[-1],
+        )
+        opened = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or opened.st_nlink != 1
+            or (before.st_dev, before.st_ino) != (opened.st_dev, opened.st_ino)
+            or opened.st_uid != 0
+            or opened.st_mode & 0o022
+        ):
+            raise ValueError(
+                f"{label} must remain a root-owned, non-linked regular file"
+            )
+        if opened.st_size > MAX_CONTROL_PLANE_BYTES:
+            raise ValueError(f"{label} exceeds the {MAX_CONTROL_PLANE_BYTES}-byte limit")
+        chunks: list[bytes] = []
+        size = 0
+        while True:
+            chunk = os.read(descriptor, 64 * 1024)
+            if not chunk:
+                break
+            size += len(chunk)
+            if size > MAX_CONTROL_PLANE_BYTES:
+                raise ValueError(
+                    f"{label} exceeds the {MAX_CONTROL_PLANE_BYTES}-byte limit"
+                )
+            chunks.append(chunk)
+        final = os.fstat(descriptor)
+        leaf = os.stat(
+            candidate.name,
+            dir_fd=descriptors[-1],
+            follow_symlinks=False,
+        )
+        snapshot = (
+            opened.st_dev,
+            opened.st_ino,
+            opened.st_size,
+            opened.st_mtime_ns,
+            opened.st_ctime_ns,
+            opened.st_nlink,
+        )
+        if snapshot != (
+            final.st_dev,
+            final.st_ino,
+            final.st_size,
+            final.st_mtime_ns,
+            final.st_ctime_ns,
+            final.st_nlink,
+        ) or snapshot != (
+            leaf.st_dev,
+            leaf.st_ino,
+            leaf.st_size,
+            leaf.st_mtime_ns,
+            leaf.st_ctime_ns,
+            leaf.st_nlink,
+        ):
+            raise ValueError(f"{label} changed while it was being read")
+        for index, part in enumerate(components):
+            current_path = os.stat(
+                part,
+                dir_fd=descriptors[index],
+                follow_symlinks=False,
+            )
+            opened_directory = os.fstat(descriptors[index + 1])
+            if (
+                stat.S_ISLNK(current_path.st_mode)
+                or not stat.S_ISDIR(current_path.st_mode)
+                or (current_path.st_dev, current_path.st_ino)
+                != (opened_directory.st_dev, opened_directory.st_ino)
+                or opened_directory.st_uid != 0
+                or opened_directory.st_mode & 0o022
+            ):
+                raise ValueError(f"{label} parent chain changed while it was being read")
+        try:
+            value = json.loads(b"".join(chunks).decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ValueError(f"invalid {label}: {exc}") from exc
     except OSError as exc:
         raise ValueError(f"{label} cannot be opened safely: {exc}") from exc
-    try:
-        current = os.fstat(descriptor)
-        if (before.st_dev, before.st_ino) != (current.st_dev, current.st_ino):
-            raise ValueError(f"{label} changed while it was being opened")
-        if not stat.S_ISREG(current.st_mode) or current.st_nlink != 1:
-            raise ValueError(f"{label} must be a non-linked regular file")
-        if current.st_uid != 0 or current.st_mode & 0o022:
-            raise ValueError(
-                f"{label} must remain root-owned and not writable by group or other"
-            )
-        with os.fdopen(descriptor, "r", encoding="utf-8") as handle:
-            descriptor = -1
-            value = json.load(handle)
-    except (OSError, json.JSONDecodeError) as exc:
-        raise ValueError(f"invalid {label}: {exc}") from exc
     finally:
         if descriptor >= 0:
-            os.close(descriptor)
+            closing_descriptor = descriptor
+            descriptor = -1
+            try:
+                os.close(closing_descriptor)
+            except OSError:
+                pass
+        while descriptors:
+            closing_descriptor = descriptors.pop()
+            try:
+                os.close(closing_descriptor)
+            except OSError:
+                pass
     if not isinstance(value, dict):
         raise ValueError(f"{label} must contain a JSON object")
     return value

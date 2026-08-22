@@ -80,7 +80,7 @@ python3 -m venv .venv-sddgov
 
 ### 可控驗證路徑
 
-Linux x86_64／CPython 3.12 的受治理離線環境，從同版本 GitHub Release 下載包含 hash-locked 執行期依賴的 bundle 與 checksum，讓機器核對壓縮檔及其完整清單：
+必須先發布相符的 `v0.2.0rc1` GitHub Release。發布後，Linux x86_64／CPython 3.12 的受治理離線環境才能從該 Release 下載包含 hash-locked 執行期依賴的 bundle 與 checksum，讓機器核對壓縮檔及其完整清單；發布前執行以下命令會因找不到相符資產而失敗：
 
 ```bash
 set -eu
@@ -195,6 +195,10 @@ AGENTS.md                                      標記區塊
 | L3 | Production、付款、刪除正式資料、Credential、MFA | 只準備 Dry run、Rollback 與 Proof；具體操作需明確授權 |
 
 證據能提高信心，但不會自動提高 Agent 權限。
+
+### Owner 做決策，Receipt 交給機器
+
+L2 Gate 不會把 Owner 變成人肉 Code Reviewer。`sddgov decision show-product-approval` 只驗證並顯示一張有界的 A／B 卡，不能簽章；獨立安裝的 `sddgov-owner` 會在 Owner 控制的 Terminal 詢問一次選項，自動計算 assumptions、nonce 與 receipt，交給每次都需要確認的外部 Ed25519 signer，並驗證結果。Owner 不需要編輯 JSON、比對 hash、貼 signature 或暴露 private key。Independent Review、Tests、Evidence 與 Merge 驗證仍由 Agent／機器完成。詳見 [Owner Key Ceremony](docs/OWNER_KEY_CEREMONY.md)。
 
 ## Evidence 快速範例
 

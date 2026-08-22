@@ -12,6 +12,7 @@ from unittest.mock import patch
 import sddgov.evidence as evidence_module
 import sddgov.redaction as redaction_module
 from sddgov.evidence import attach, collect, make_dep, redact, transition, verify
+from sddgov.fs_security import exclusive_rename_at
 
 
 class EvidenceFlowTests(unittest.TestCase):
@@ -31,6 +32,14 @@ class EvidenceFlowTests(unittest.TestCase):
 
     def _complete(self, name: str, text: str) -> None:
         (self.dep / name).write_text(f"# Record\n\n{text}\n", encoding="utf-8")
+
+    @staticmethod
+    def _tree_bytes(root: Path) -> dict[str, bytes]:
+        return {
+            path.relative_to(root).as_posix(): path.read_bytes()
+            for path in root.rglob("*")
+            if path.is_file() and not path.is_symlink()
+        }
 
     def _prepare_attachable_dep(self) -> None:
         self._complete("reproduction.md", "Synthetic failure is reproducible.")
@@ -212,7 +221,7 @@ class EvidenceFlowTests(unittest.TestCase):
         self.assertEqual(manifest["raw"], [])
         self.assertEqual(list((self.dep / "private/raw").iterdir()), [])
 
-    def test_collect_post_publish_failure_is_treated_as_committed(self):
+    def test_collect_post_publish_failure_rolls_back_the_transaction(self):
         source = self.root / "post-publish-collect.log"
         source.write_text("synthetic committed evidence\n", encoding="utf-8")
         original = evidence_module._save_at
@@ -223,11 +232,14 @@ class EvidenceFlowTests(unittest.TestCase):
                 raise OSError("synthetic fsync-after-publish failure")
             return result
 
-        with patch("sddgov.evidence._save_at", side_effect=fail_after_publish):
-            destination = collect(self.dep, "terminal", source)
+        with (
+            patch("sddgov.evidence._save_at", side_effect=fail_after_publish),
+            self.assertRaisesRegex(OSError, "synthetic fsync-after-publish failure"),
+        ):
+            collect(self.dep, "terminal", source)
         manifest = json.loads((self.dep / "manifest.json").read_text(encoding="utf-8"))
-        self.assertEqual(manifest["raw"][0]["path"], f"private/raw/{destination.name}")
-        self.assertTrue(destination.is_file())
+        self.assertEqual(manifest["raw"], [])
+        self.assertEqual(list((self.dep / "private/raw").iterdir()), [])
 
     def test_collect_after_redaction_fails_without_staling_the_report(self):
         first = self.root / "first-collection.log"
@@ -314,7 +326,10 @@ class EvidenceFlowTests(unittest.TestCase):
 
         with (
             patch("sddgov.evidence._save_at", side_effect=inject_later_writer),
-            self.assertRaisesRegex(ValueError, "changed before publication"),
+            self.assertRaisesRegex(
+                ValueError,
+                "(?:changed before publication|must not be hard-linked)",
+            ),
         ):
             collect(self.dep, "terminal", source)
         self.assertEqual(manifest_path.read_bytes(), later_manifest)
@@ -325,16 +340,20 @@ class EvidenceFlowTests(unittest.TestCase):
         source.write_text("synthetic uncommitted evidence\n", encoding="utf-8")
         manifest_path = self.dep / "manifest.json"
         later_manifest = b'{"rename_boundary_later_writer":true}\n'
-        original = os.rename
-
-        def inject_at_claim(src, dst, *args, **kwargs):
+        def inject_at_claim(source_fd, src, destination_fd, dst):
             if src == "manifest.json":
                 manifest_path.write_bytes(later_manifest)
-            return original(src, dst, *args, **kwargs)
+            return exclusive_rename_at(source_fd, src, destination_fd, dst)
 
         with (
-            patch("sddgov.evidence.os.rename", side_effect=inject_at_claim),
-            self.assertRaisesRegex(ValueError, "changed before publication"),
+            patch(
+                "sddgov.fs_security.exclusive_rename_at",
+                side_effect=inject_at_claim,
+            ),
+            self.assertRaisesRegex(
+                ValueError,
+                "(?:changed before publication|must not be hard-linked)",
+            ),
         ):
             collect(self.dep, "terminal", source)
         self.assertEqual(manifest_path.read_bytes(), later_manifest)
@@ -383,7 +402,7 @@ class EvidenceFlowTests(unittest.TestCase):
         self.assertEqual((self.dep / "manifest.json").read_bytes(), manifest_before)
         self.assertFalse((self.dep / "redaction-report.json").exists())
 
-    def test_redact_report_post_publish_failure_completes_consistent_commit(self):
+    def test_redact_report_post_publish_failure_rolls_back_the_transaction(self):
         source = self.root / "report-post-publish.log"
         source.write_text("password=synthetic\n", encoding="utf-8")
         collect(self.dep, "terminal", source)
@@ -395,11 +414,15 @@ class EvidenceFlowTests(unittest.TestCase):
                 raise OSError("synthetic report fsync failure")
             return result
 
-        with patch("sddgov.evidence._save_at", side_effect=fail_after_report):
-            report = redact(self.dep)
+        with (
+            patch("sddgov.evidence._save_at", side_effect=fail_after_report),
+            self.assertRaisesRegex(OSError, "synthetic report fsync failure"),
+        ):
+            redact(self.dep)
         manifest = json.loads((self.dep / "manifest.json").read_text(encoding="utf-8"))
-        self.assertEqual(len(manifest["shareable"]), len(report["files"]))
-        self.assertTrue((self.dep / "redaction-report.json").is_file())
+        self.assertEqual(manifest["shareable"], [])
+        self.assertEqual(list((self.dep / "shareable/artifacts").iterdir()), [])
+        self.assertFalse((self.dep / "redaction-report.json").exists())
 
     def test_redact_preserves_later_manifest_writer(self):
         source = self.root / "redact-later-writer.log"
@@ -431,21 +454,23 @@ class EvidenceFlowTests(unittest.TestCase):
         later = self.root / "redact-output-later-writer.log"
         later.write_text("preserve output later writer\n", encoding="utf-8")
         original_save = evidence_module._save_at
-        original_rename = os.rename
 
         def fail_report(directory_fd, name, data, *args, **kwargs):
             if name == "redaction-report.json":
                 raise OSError("synthetic report failure")
             return original_save(directory_fd, name, data, *args, **kwargs)
 
-        def inject_at_cleanup(src, dst, *args, **kwargs):
-            if src == output.name and ".cleanup-pending-" in str(dst):
+        def inject_at_cleanup(source_fd, src, destination_fd, dst):
+            if src == output.name and ".cleanup-pending-" in dst:
                 later.replace(output)
-            return original_rename(src, dst, *args, **kwargs)
+            return exclusive_rename_at(source_fd, src, destination_fd, dst)
 
         with (
             patch("sddgov.evidence._save_at", side_effect=fail_report),
-            patch("sddgov.evidence.os.rename", side_effect=inject_at_cleanup),
+            patch(
+                "sddgov.fs_security.exclusive_rename_at",
+                side_effect=inject_at_cleanup,
+            ),
             self.assertRaisesRegex(OSError, "synthetic report failure"),
         ):
             redact(self.dep)
@@ -577,7 +602,7 @@ class EvidenceFlowTests(unittest.TestCase):
             transition(self.dep, "evidence")
         self.assertEqual(summary_path.read_bytes(), later_bytes)
 
-    def test_transition_post_publish_failure_is_treated_as_committed(self):
+    def test_transition_post_publish_failure_rolls_back_the_transaction(self):
         self._complete("reproduction.md", "Synthetic failure is reproducible.")
         source = self.root / "transition-post-publish.log"
         source.write_text("password=synthetic\n", encoding="utf-8")
@@ -591,11 +616,41 @@ class EvidenceFlowTests(unittest.TestCase):
                 raise OSError("synthetic summary fsync failure")
             return result
 
-        with patch("sddgov.evidence._write_bytes_at", side_effect=fail_after_publish):
+        with (
+            patch("sddgov.evidence._write_bytes_at", side_effect=fail_after_publish),
+            self.assertRaisesRegex(OSError, "synthetic summary fsync failure"),
+        ):
+            transition(self.dep, "evidence")
+        persisted = json.loads((self.dep / "summary.yaml").read_text(encoding="utf-8"))
+        self.assertEqual(persisted["workflow"]["phase"], "red")
+
+    def test_transition_finalize_reconciles_an_already_removed_predecessor_claim(self):
+        self._complete("reproduction.md", "Synthetic failure is reproducible.")
+        source = self.root / "transition-finalize.log"
+        source.write_text("password=synthetic\n", encoding="utf-8")
+        collect(self.dep, "terminal", source)
+        redact(self.dep)
+        original = evidence_module._remove_owned_at
+        injected = False
+
+        def remove_then_report_failure(directory_fd, name, identity, label, **kwargs):
+            nonlocal injected
+            result = original(directory_fd, name, identity, label, **kwargs)
+            if not injected and name.startswith(".sddgov.control-old-"):
+                injected = True
+                raise OSError("synthetic predecessor fsync report failure")
+            return result
+
+        with patch(
+            "sddgov.evidence._remove_owned_at",
+            side_effect=remove_then_report_failure,
+        ):
             summary = transition(self.dep, "evidence")
+        self.assertTrue(injected)
         self.assertEqual(summary["workflow"]["phase"], "evidence")
         persisted = json.loads((self.dep / "summary.yaml").read_text(encoding="utf-8"))
         self.assertEqual(persisted["workflow"]["phase"], "evidence")
+        self.assertEqual(list(self.dep.glob(".sddgov.control-old-*")), [])
 
     def test_verifier_fails_closed_when_artifact_parent_is_replaced(self):
         self._complete("reproduction.md", "Synthetic failure is reproducible.")
@@ -632,61 +687,72 @@ class EvidenceFlowTests(unittest.TestCase):
 
     def test_control_writes_fail_closed_when_dep_parent_is_replaced(self):
         for control_name in ("manifest.json", "redaction-report.json", "summary.yaml"):
-            with self.subTest(control_name=control_name):
-                case_root = self.root / f"control-{control_name.replace('.', '-')}"
-                dep = make_dep(
-                    case_root / "evidence",
-                    issue="ISSUE-CONTROL-TOCTOU",
-                    risk="L1",
-                    dep_id="DEP-CONTROL-TOCTOU",
-                )
-                source = case_root / "source.log"
-                source.write_text("password=synthetic\n", encoding="utf-8")
-                if control_name != "manifest.json":
-                    collect(dep, "terminal", source)
-                if control_name == "summary.yaml":
-                    (dep / "reproduction.md").write_text(
-                        "# Record\n\nSynthetic failure is reproducible.\n",
-                        encoding="utf-8",
-                    )
-                    redact(dep)
-                parked = case_root / "dep-parked"
-                outside = case_root / "outside"
-                outside.mkdir()
-                sentinel = outside / control_name
-                sentinel.write_text("do not overwrite\n", encoding="utf-8")
-                original = evidence_module._write_bytes_at
-                replaced = False
-
-                def replace_parent(directory_fd, name, data, label, *args, **kwargs):
-                    nonlocal replaced
-                    if not replaced and name == control_name:
-                        replaced = True
-                        dep.rename(parked)
-                        dep.symlink_to(outside, target_is_directory=True)
-                    return original(
-                        directory_fd, name, data, label, *args, **kwargs
-                    )
-
-                with (
-                    patch(
-                        "sddgov.evidence._write_bytes_at",
-                        side_effect=replace_parent,
-                    ),
-            self.assertRaisesRegex(
-                ValueError,
-                "DEP root changed|directory path changed|cannot enter",
-            ),
+            for replacement_kind in ("absent", "symlink"):
+                with self.subTest(
+                    control_name=control_name,
+                    replacement_kind=replacement_kind,
                 ):
-                    if control_name == "manifest.json":
+                    case_root = self.root / (
+                        f"control-{control_name.replace('.', '-')}-{replacement_kind}"
+                    )
+                    dep = make_dep(
+                        case_root / "evidence",
+                        issue="ISSUE-CONTROL-TOCTOU",
+                        risk="L1",
+                        dep_id="DEP-CONTROL-TOCTOU",
+                    )
+                    source = case_root / "source.log"
+                    source.write_text("password=synthetic\n", encoding="utf-8")
+                    if control_name != "manifest.json":
                         collect(dep, "terminal", source)
-                    elif control_name == "redaction-report.json":
+                    if control_name == "summary.yaml":
+                        (dep / "reproduction.md").write_text(
+                            "# Record\n\nSynthetic failure is reproducible.\n",
+                            encoding="utf-8",
+                        )
                         redact(dep)
-                    else:
-                        transition(dep, "evidence")
-                self.assertEqual(
-                    sentinel.read_text(encoding="utf-8"), "do not overwrite\n"
-                )
+                    tree_before = self._tree_bytes(dep)
+                    parked = case_root / "dep-parked"
+                    outside = case_root / "outside"
+                    outside.mkdir()
+                    sentinel = outside / control_name
+                    sentinel.write_text("do not overwrite\n", encoding="utf-8")
+                    original = evidence_module._write_bytes_at
+                    replaced = False
+
+                    def replace_parent(
+                        directory_fd, name, data, label, *args, **kwargs
+                    ):
+                        nonlocal replaced
+                        if not replaced and name == control_name:
+                            replaced = True
+                            dep.rename(parked)
+                            if replacement_kind == "symlink":
+                                dep.symlink_to(outside, target_is_directory=True)
+                        return original(
+                            directory_fd, name, data, label, *args, **kwargs
+                        )
+
+                    with (
+                        patch(
+                            "sddgov.evidence._write_bytes_at",
+                            side_effect=replace_parent,
+                        ),
+                        self.assertRaisesRegex(
+                            ValueError,
+                            "DEP root changed|directory path changed|cannot enter",
+                        ),
+                    ):
+                        if control_name == "manifest.json":
+                            collect(dep, "terminal", source)
+                        elif control_name == "redaction-report.json":
+                            redact(dep)
+                        else:
+                            transition(dep, "evidence")
+                    self.assertEqual(
+                        sentinel.read_text(encoding="utf-8"), "do not overwrite\n"
+                    )
+                    self.assertEqual(self._tree_bytes(parked), tree_before)
 
     def test_control_stage_replacement_fails_closed_for_every_publication_mode(self):
         for mode in ("default", "must-not-exist", "expected-snapshot"):
@@ -892,6 +958,81 @@ class EvidenceFlowTests(unittest.TestCase):
             )
         self.assertEqual(sentinel.read_text(encoding="utf-8"), "untouched\n")
         self.assertFalse((outside / "DEP-MAKE-DEP-TOCTOU").exists())
+        self.assertFalse((parked / "DEP-MAKE-DEP-TOCTOU").exists())
+
+    def test_make_dep_cleanup_preserves_a_later_child_generation(self):
+        case_root = self.root / "make-dep-later-child"
+        case_root.mkdir()
+        evidence_root = case_root / "evidence"
+        parked = case_root / "evidence-parked"
+        outside = case_root / "outside"
+        outside.mkdir()
+        dep_id = "DEP-MAKE-DEP-LATER-CHILD"
+        original = evidence_module.exclusive_rename_at
+        injected = False
+
+        def publish_then_replace(source_fd, source, destination_fd, destination):
+            nonlocal injected
+            result = original(source_fd, source, destination_fd, destination)
+            if not injected and destination == dep_id:
+                injected = True
+                evidence_root.rename(parked)
+                evidence_root.symlink_to(outside, target_is_directory=True)
+                (parked / dep_id / "later-writer.txt").write_text(
+                    "preserve later child\n",
+                    encoding="utf-8",
+                )
+            return result
+
+        with (
+            patch(
+                "sddgov.evidence.exclusive_rename_at",
+                side_effect=publish_then_replace,
+            ),
+            self.assertRaisesRegex(ValueError, "directory path changed"),
+        ):
+            make_dep(
+                evidence_root,
+                issue="ISSUE-MAKE-DEP-LATER-CHILD",
+                risk="L1",
+                dep_id=dep_id,
+            )
+        self.assertTrue(injected)
+        self.assertEqual(list(outside.iterdir()), [])
+        self.assertEqual(
+            (parked / dep_id / "later-writer.txt").read_text(encoding="utf-8"),
+            "preserve later child\n",
+        )
+
+    def test_collect_rechecks_every_generation_after_the_root_lease(self):
+        source = self.root / "final-linearization.log"
+        source.write_text("owned generation\n", encoding="utf-8")
+        manifest_before = (self.dep / "manifest.json").read_bytes()
+        output = self.dep / "private/raw/terminal--artifact-1.log"
+        later = b"later generation\n"
+        original_finalize = evidence_module._MutationTransaction.finalize
+        injected = False
+
+        def mutate_before_finalize(transaction, directory_fd=None):
+            nonlocal injected
+            if output.exists() and not injected:
+                injected = True
+                output.write_bytes(later)
+            return original_finalize(transaction, directory_fd)
+
+        with (
+            patch.object(
+                evidence_module._MutationTransaction,
+                "finalize",
+                new=mutate_before_finalize,
+            ),
+            self.assertRaisesRegex(ValueError, "changed before transaction commit"),
+        ):
+            collect(self.dep, "terminal", source)
+
+        self.assertTrue(injected)
+        self.assertEqual(output.read_bytes(), later)
+        self.assertEqual((self.dep / "manifest.json").read_bytes(), manifest_before)
 
     def test_collector_input_parent_replacement_fails_closed(self):
         source_parent = self.root / "source-parent"
@@ -985,6 +1126,23 @@ class EvidenceFlowTests(unittest.TestCase):
         ):
             attach(self.dep, "pr")
         self.assertEqual(list(outside.glob("attach-pr-*.md")), [])
+        self.assertEqual(list(parked.glob("attach-pr-*.md")), [])
+
+    def test_attachment_root_disappearance_removes_the_owned_publication(self):
+        self._prepare_attachable_dep()
+        parked = self.root / "attach-dep-absent"
+        original = evidence_module._verify_open
+
+        def move_after_verify(dep, dep_fd, strict, portable):
+            result = original(dep, dep_fd, strict, portable)
+            self.dep.rename(parked)
+            return result
+
+        with (
+            patch("sddgov.evidence._verify_open", side_effect=move_after_verify),
+            self.assertRaisesRegex(ValueError, "DEP root changed|directory path changed"),
+        ):
+            attach(self.dep, "pr")
         self.assertEqual(list(parked.glob("attach-pr-*.md")), [])
 
     def test_attach_rejects_atomic_control_document_replacement(self):
@@ -1361,7 +1519,7 @@ class EvidenceFlowTests(unittest.TestCase):
                                 follow_symlinks=False,
                             )
                         else:
-                            os.mkfifo(stage_name, 0o600, dir_fd=directory_fd)
+                            os.mkfifo(output_parent / stage_name, 0o600)
                         return stage_record
 
                     with (
@@ -1556,7 +1714,6 @@ class EvidenceFlowTests(unittest.TestCase):
         later = self.root / "attachment-cleanup-later.md"
         later.write_text("preserve attachment later writer\n", encoding="utf-8")
         original_link = os.link
-        original_rename = os.rename
         changed = False
 
         def change_control_at_publish(src, dst, *args, **kwargs):
@@ -1566,14 +1723,17 @@ class EvidenceFlowTests(unittest.TestCase):
                 alternate.replace(self.dep / "summary.yaml")
             return original_link(src, dst, *args, **kwargs)
 
-        def inject_at_cleanup(src, dst, *args, **kwargs):
-            if src == output.name and ".cleanup-pending-" in str(dst):
+        def inject_at_cleanup(source_fd, src, destination_fd, dst):
+            if src == output.name and ".cleanup-pending-" in dst:
                 later.replace(output)
-            return original_rename(src, dst, *args, **kwargs)
+            return exclusive_rename_at(source_fd, src, destination_fd, dst)
 
         with (
             patch("sddgov.evidence.os.link", side_effect=change_control_at_publish),
-            patch("sddgov.evidence.os.rename", side_effect=inject_at_cleanup),
+            patch(
+                "sddgov.fs_security.exclusive_rename_at",
+                side_effect=inject_at_cleanup,
+            ),
             self.assertRaisesRegex(ValueError, "control document"),
         ):
             attach(self.dep, "pr")
@@ -1648,6 +1808,29 @@ class EvidenceFlowTests(unittest.TestCase):
         ):
             attach(self.dep, "pr", output=output)
         self.assertEqual(external.read_text(encoding="utf-8"), "do not overwrite\n")
+        self.assertFalse((parked / output.name).exists())
+
+    def test_custom_attachment_output_parent_disappearance_cleans_publication(self):
+        self._prepare_attachable_dep()
+        output_parent = self.root / "attachment-output-absent"
+        output_parent.mkdir()
+        output = output_parent / "custom.md"
+        parked = self.root / "attachment-output-absent-parked"
+        original = evidence_module._stage_attachment_at
+        moved = False
+
+        def move_parent(directory_fd, name, data):
+            nonlocal moved
+            if not moved:
+                moved = True
+                output_parent.rename(parked)
+            return original(directory_fd, name, data)
+
+        with (
+            patch("sddgov.evidence._stage_attachment_at", side_effect=move_parent),
+            self.assertRaisesRegex(ValueError, "directory path changed"),
+        ):
+            attach(self.dep, "pr", output=output)
         self.assertFalse((parked / output.name).exists())
 
     def test_attachment_parent_revalidation_preserves_a_later_writer(self):

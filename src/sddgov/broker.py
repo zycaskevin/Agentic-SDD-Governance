@@ -612,8 +612,10 @@ def _open_broker_directories(
         | getattr(os, "O_NOFOLLOW", 0)
         | getattr(os, "O_CLOEXEC", 0)
     )
-    parent_descriptor = os.open(socket_path.parent, flags)
+    parent_descriptor = -1
+    staging_descriptor = -1
     try:
+        parent_descriptor = os.open(socket_path.parent, flags)
         parent_metadata = os.fstat(parent_descriptor)
         path_metadata = socket_path.parent.lstat()
         if (
@@ -633,26 +635,32 @@ def _open_broker_directories(
             flags,
             dir_fd=parent_descriptor,
         )
-        try:
-            staging_metadata = os.fstat(staging_descriptor)
-            named_metadata = _stat_at(
-                parent_descriptor, BROKER_STAGING_DIRECTORY
+        staging_metadata = os.fstat(staging_descriptor)
+        named_metadata = _stat_at(
+            parent_descriptor, BROKER_STAGING_DIRECTORY
+        )
+        if (
+            not stat.S_ISDIR(staging_metadata.st_mode)
+            or (staging_metadata.st_dev, staging_metadata.st_ino)
+            != (named_metadata.st_dev, named_metadata.st_ino)
+            or staging_metadata.st_uid != owner_uid
+            or stat.S_IMODE(staging_metadata.st_mode) != 0o700
+        ):
+            raise ValueError(
+                "L3 Broker staging directory must be owner-only and stable"
             )
-            if (
-                not stat.S_ISDIR(staging_metadata.st_mode)
-                or (staging_metadata.st_dev, staging_metadata.st_ino)
-                != (named_metadata.st_dev, named_metadata.st_ino)
-                or staging_metadata.st_uid != owner_uid
-                or stat.S_IMODE(staging_metadata.st_mode) != 0o700
-            ):
-                raise ValueError(
-                    "L3 Broker staging directory must be owner-only and stable"
-                )
-        except Exception:
-            os.close(staging_descriptor)
-            raise
-    except Exception:
-        os.close(parent_descriptor)
+    except BaseException as primary:
+        cleanup_error: BaseException | None = None
+        for descriptor in (staging_descriptor, parent_descriptor):
+            if descriptor < 0:
+                continue
+            try:
+                os.close(descriptor)
+            except BaseException as exc:
+                if cleanup_error is None:
+                    cleanup_error = exc
+        if cleanup_error is not None:
+            raise primary.with_traceback(primary.__traceback__) from cleanup_error
         raise
     return parent_descriptor, staging_descriptor
 
@@ -846,9 +854,10 @@ def _serve_broker_at(
         nonlocal shutdown_requested
         shutdown_requested = True
 
-    for signum in (signal.SIGTERM, signal.SIGINT):
-        previous_handlers[signum] = signal.signal(signum, request_shutdown)
+    primary_error: BaseException | None = None
     try:
+        for signum in (signal.SIGTERM, signal.SIGINT):
+            previous_handlers[signum] = signal.signal(signum, request_shutdown)
         parent_descriptor, staging_descriptor = _open_broker_directories(
             socket_path, owner_uid=owner_uid
         )
@@ -862,19 +871,48 @@ def _serve_broker_at(
                 staging_descriptor=staging_descriptor,
             )
             _serve_requests(server, ledger, lambda: shutdown_requested)
-    finally:
-        if published_identity is not None and parent_descriptor is not None:
-            _unlink_socket_if_identity(
+    except BaseException as exc:
+        primary_error = exc
+
+    cleanup_error: BaseException | None = None
+
+    def record_cleanup(operation) -> None:
+        nonlocal cleanup_error
+        try:
+            operation()
+        except BaseException as exc:
+            if cleanup_error is None:
+                cleanup_error = exc
+
+    if published_identity is not None and parent_descriptor is not None:
+        record_cleanup(
+            lambda: _unlink_socket_if_identity(
                 parent_descriptor,
                 socket_path.name,
                 published_identity,
             )
-        if staging_descriptor is not None:
-            os.close(staging_descriptor)
-        if parent_descriptor is not None:
-            os.close(parent_descriptor)
-        for signum, previous_handler in previous_handlers.items():
-            signal.signal(signum, previous_handler)
+        )
+    if staging_descriptor is not None:
+        closing_staging = staging_descriptor
+        staging_descriptor = None
+        record_cleanup(lambda fd=closing_staging: os.close(fd))
+    if parent_descriptor is not None:
+        closing_parent = parent_descriptor
+        parent_descriptor = None
+        record_cleanup(lambda fd=closing_parent: os.close(fd))
+    for signum, previous_handler in reversed(tuple(previous_handlers.items())):
+        record_cleanup(
+            lambda signum=signum, previous_handler=previous_handler: signal.signal(
+                signum, previous_handler
+            )
+        )
+
+    if primary_error is not None:
+        if cleanup_error is not None:
+            raise primary_error.with_traceback(primary_error.__traceback__) from cleanup_error
+        raise primary_error.with_traceback(primary_error.__traceback__)
+    if cleanup_error is not None:
+        raise cleanup_error
 
 
 def serve_broker(socket_group: str) -> None:

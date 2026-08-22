@@ -156,18 +156,30 @@ class OpenedRegularFile:
         self._verify_unchanged()
 
     def close(self) -> None:
-        if self.descriptor >= 0:
-            os.close(self.descriptor)
-            self.descriptor = -1
-        if self.parent_descriptor >= 0:
-            os.close(self.parent_descriptor)
-            self.parent_descriptor = -1
+        cleanup_error: BaseException | None = None
+        for attribute in ("descriptor", "parent_descriptor"):
+            descriptor = getattr(self, attribute)
+            if descriptor < 0:
+                continue
+            setattr(self, attribute, -1)
+            try:
+                os.close(descriptor)
+            except BaseException as exc:
+                if cleanup_error is None:
+                    cleanup_error = exc
+        if cleanup_error is not None:
+            raise cleanup_error
 
     def __enter__(self) -> OpenedRegularFile:
         return self
 
     def __exit__(self, _exc_type, _exc, _traceback) -> None:
-        self.close()
+        try:
+            self.close()
+        except BaseException as cleanup_error:
+            if _exc is not None:
+                raise _exc.with_traceback(_traceback) from cleanup_error
+            raise
 
 
 def _safe_direct_name(name: str, label: str) -> None:
@@ -310,13 +322,39 @@ class OpenedDirectory:
             dir_fd=self.descriptor,
         )
 
-    def _remove_owned(self, name: str, identity: tuple[int, int]) -> None:
+    def _remove_owned(
+        self,
+        name: str,
+        identity: tuple[int, int],
+        *,
+        expected_size: int | None = None,
+        expected_digest: str | None = None,
+    ) -> None:
         remove_owned_at(
             self.descriptor,
             name,
             identity,
             "release output",
+            expected_size=expected_size,
+            expected_digest=expected_digest,
         )
+
+    @staticmethod
+    def _descriptor_snapshot(descriptor: int) -> tuple[int, str]:
+        current_offset = os.lseek(descriptor, 0, os.SEEK_CUR)
+        os.lseek(descriptor, 0, os.SEEK_SET)
+        digest = hashlib.sha256()
+        size = 0
+        try:
+            while True:
+                chunk = os.read(descriptor, 1024 * 1024)
+                if not chunk:
+                    break
+                size += len(chunk)
+                digest.update(chunk)
+        finally:
+            os.lseek(descriptor, current_offset, os.SEEK_SET)
+        return size, digest.hexdigest()
 
     def _verify_owned(self, name: str, identity: tuple[int, int]) -> None:
         try:
@@ -336,6 +374,8 @@ class OpenedDirectory:
         destination_descriptor = self._new_file_descriptor(name, mode)
         metadata = os.fstat(destination_descriptor)
         identity = (metadata.st_dev, metadata.st_ino)
+        output_digest = hashlib.sha256()
+        output_size = 0
         try:
             while True:
                 chunk = os.read(source_descriptor, 1024 * 1024)
@@ -346,41 +386,69 @@ class OpenedDirectory:
                     written = os.write(destination_descriptor, remaining)
                     if written <= 0:
                         raise OSError("release copy made no progress")
+                    output_digest.update(remaining[:written])
+                    output_size += written
                     remaining = remaining[written:]
             os.fsync(destination_descriptor)
             os.fchmod(destination_descriptor, mode)
             self._verify_owned(name, identity)
+            closing_descriptor = destination_descriptor
+            destination_descriptor = -1
+            os.close(closing_descriptor)
+            os.fsync(self.descriptor)
         except BaseException as primary:
-            _reraise_after_cleanup(
-                primary,
-                lambda: self._remove_owned(name, identity),
-                lambda: os.close(destination_descriptor),
+            operations: list[Callable[[], None]] = []
+            if destination_descriptor >= 0:
+                closing_descriptor = destination_descriptor
+                destination_descriptor = -1
+                operations.append(lambda fd=closing_descriptor: os.close(fd))
+            operations.append(
+                lambda: self._remove_owned(
+                    name,
+                    identity,
+                    expected_size=output_size,
+                    expected_digest=output_digest.hexdigest(),
+                )
             )
-        else:
-            os.close(destination_descriptor)
+            _reraise_after_cleanup(primary, *operations)
 
     def write_bytes(self, name: str, value: bytes, *, mode: int = 0o644) -> None:
         descriptor = self._new_file_descriptor(name, mode)
         metadata = os.fstat(descriptor)
         identity = (metadata.st_dev, metadata.st_ino)
+        output_size = 0
+        output_digest = hashlib.sha256()
         try:
             remaining = memoryview(value)
             while remaining:
                 written = os.write(descriptor, remaining)
                 if written <= 0:
                     raise OSError("release output write made no progress")
+                output_digest.update(remaining[:written])
+                output_size += written
                 remaining = remaining[written:]
             os.fsync(descriptor)
             os.fchmod(descriptor, mode)
             self._verify_owned(name, identity)
+            closing_descriptor = descriptor
+            descriptor = -1
+            os.close(closing_descriptor)
+            os.fsync(self.descriptor)
         except BaseException as primary:
-            _reraise_after_cleanup(
-                primary,
-                lambda: self._remove_owned(name, identity),
-                lambda: os.close(descriptor),
+            operations: list[Callable[[], None]] = []
+            if descriptor >= 0:
+                closing_descriptor = descriptor
+                descriptor = -1
+                operations.append(lambda fd=closing_descriptor: os.close(fd))
+            operations.append(
+                lambda: self._remove_owned(
+                    name,
+                    identity,
+                    expected_size=output_size,
+                    expected_digest=output_digest.hexdigest(),
+                )
             )
-        else:
-            os.close(descriptor)
+            _reraise_after_cleanup(primary, *operations)
 
     @contextmanager
     def binary_writer(
@@ -389,6 +457,9 @@ class OpenedDirectory:
         descriptor = self._new_file_descriptor(name, mode, readable=True)
         metadata = os.fstat(descriptor)
         identity = (metadata.st_dev, metadata.st_ino)
+        expected_size = 0
+        expected_digest = hashlib.sha256(b"").hexdigest()
+        snapshot_error: BaseException | None = None
         try:
             with os.fdopen(descriptor, "w+b", closefd=False) as handle:
                 yield handle
@@ -396,19 +467,46 @@ class OpenedDirectory:
                 os.fsync(descriptor)
                 os.fchmod(descriptor, mode)
                 self._verify_owned(name, identity)
+                expected_size, expected_digest = self._descriptor_snapshot(descriptor)
+            closing_descriptor = descriptor
+            descriptor = -1
+            os.close(closing_descriptor)
+            os.fsync(self.descriptor)
         except BaseException as primary:
-            _reraise_after_cleanup(
-                primary,
-                lambda: self._remove_owned(name, identity),
-                lambda: os.close(descriptor),
+            operations: list[Callable[[], None]] = []
+            if descriptor >= 0:
+                try:
+                    expected_size, expected_digest = self._descriptor_snapshot(descriptor)
+                except BaseException as exc:
+                    snapshot_error = exc
+                closing_descriptor = descriptor
+                descriptor = -1
+                operations.append(lambda fd=closing_descriptor: os.close(fd))
+            operations.append(
+                lambda: self._remove_owned(
+                    name,
+                    identity,
+                    expected_size=expected_size if snapshot_error is None else None,
+                    expected_digest=expected_digest if snapshot_error is None else None,
+                )
             )
-        else:
-            os.close(descriptor)
+            if snapshot_error is not None:
+                def report_snapshot_error(error=snapshot_error) -> None:
+                    raise error
+
+                operations.append(report_snapshot_error)
+            _reraise_after_cleanup(primary, *operations)
 
     def close(self) -> None:
         if self.descriptor >= 0:
-            os.close(self.descriptor)
+            descriptor = self.descriptor
             self.descriptor = -1
+            try:
+                os.close(descriptor)
+            except OSError:
+                # Directory close is after every descriptor-bound publication
+                # has either committed or rolled back and must not reverse it.
+                pass
 
     def __enter__(self) -> OpenedDirectory:
         return self
@@ -455,14 +553,20 @@ def open_directory(
                 except FileExistsError:
                     pass
             next_descriptor = os.open(part, flags, dir_fd=descriptor)
-            os.close(descriptor)
+            previous_descriptor = descriptor
             descriptor = next_descriptor
+            os.close(previous_descriptor)
         metadata = os.fstat(descriptor)
         if not stat.S_ISDIR(metadata.st_mode):
             raise ValueError(f"{label} must be a directory")
         return OpenedDirectory(expanded, label, descriptor)
-    except BaseException:
-        os.close(descriptor)
+    except BaseException as primary:
+        closing_descriptor = descriptor
+        descriptor = -1
+        try:
+            os.close(closing_descriptor)
+        except BaseException as cleanup_error:
+            raise primary from cleanup_error
         raise
 
 
@@ -493,14 +597,20 @@ def open_or_create_directory_tree(
             except FileExistsError:
                 pass
             next_descriptor = os.open(part, flags, dir_fd=descriptor)
-            os.close(descriptor)
+            previous_descriptor = descriptor
             descriptor = next_descriptor
+            os.close(previous_descriptor)
         metadata = os.fstat(descriptor)
         if not stat.S_ISDIR(metadata.st_mode):
             raise ValueError(f"{label} must be a directory")
         return OpenedDirectory(expanded, label, descriptor)
-    except BaseException:
-        os.close(descriptor)
+    except BaseException as primary:
+        closing_descriptor = descriptor
+        descriptor = -1
+        try:
+            os.close(closing_descriptor)
+        except BaseException as cleanup_error:
+            raise primary from cleanup_error
         raise
 
 

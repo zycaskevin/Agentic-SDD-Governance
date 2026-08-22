@@ -30,6 +30,7 @@ from .merge_gate import (
 )
 from .pilot import run_quick_demo, run_synthetic_muse_pilot
 from .broker import BROKER_SOCKET_GROUP, broker_readiness, serve_broker
+from .owner_approval import build_product_approval_card
 from .reviewer import bootstrap_reviewer, export_trust, sign_protected_review
 from .schema_validation import check_schema, load_schema, validate_instance
 
@@ -124,6 +125,12 @@ def _autonomy_parsers(subparsers) -> None:
     )
     import_product.add_argument("receipt", type=Path)
     import_product.add_argument("--path", type=Path, default=Path.cwd())
+    show_product = decision_commands.add_parser(
+        "show-product-approval",
+        help="Validate and render one bounded L2 Owner approval card",
+    )
+    show_product.add_argument("request", help="Repository-relative L2 request JSON")
+    show_product.add_argument("--path", type=Path, default=Path.cwd())
     import_approval = decision_commands.add_parser(
         "import-operation-approval",
         help="Verify and import one trusted owner-signed L3 approval receipt",
@@ -327,6 +334,8 @@ def _validate_repo(root: Path) -> list[str]:
         "src/sddgov/installer.py",
         "src/sddgov/broker.py",
         "src/sddgov/pilot.py",
+        "src/sddgov/owner_approval.py",
+        "src/sddgov/owner_cli.py",
         "src/sddgov/resources/governance/VERSION",
         "src/sddgov/resources/governance/skill/agentic-sdd-governance/SKILL.md",
         "skill/agentic-sdd-governance/SKILL.md",
@@ -485,6 +494,14 @@ def run(args: argparse.Namespace) -> int:
             )
         elif args.decision_command == "import-product-approval":
             result = import_product_approval(args.path, args.receipt)
+        elif args.decision_command == "show-product-approval":
+            _request, card = build_product_approval_card(args.path, args.request)
+            result = {
+                "state": "ACTION_REQUIRED",
+                "requires_response": True,
+                "approval_card": card,
+                "next_action": "select_one_displayed_option; SDG handles receipt construction and signing",
+            }
         else:
             result = import_operation_approval(args.path, args.receipt)
         print(json.dumps(result, ensure_ascii=False, indent=2))

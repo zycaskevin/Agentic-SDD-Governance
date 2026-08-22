@@ -51,9 +51,10 @@ Release verification. A successful Merge must not silently consume a second
 hosted run.
 
 Every `exempt_workflows` entry must be the exact filename of one workflow found
-under `.github/workflows`; display names, globs, missing files, duplicates, and
-unused exemptions fail closed. Exemption is a narrow, auditable mapping, not a
-pattern language.
+under `.github/workflows`; display names, globs, missing files, and duplicates
+fail closed. Unlike `write_permission_exceptions`, a discovered but otherwise
+unused workflow exemption is not rejected. Exemption is a narrow, auditable
+mapping, not a pattern language.
 
 Do not use path or commit-message skipping for a required check without coordinating branch protection: GitHub may leave the required check pending. Prefer one cheap required workflow and conditionally activated expensive jobs.
 

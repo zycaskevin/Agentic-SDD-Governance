@@ -12,7 +12,11 @@ from datetime import datetime, timezone
 from importlib import resources
 from pathlib import Path, PurePosixPath
 
-from .fs_security import canonicalize_platform_path, remove_owned_at
+from .fs_security import (
+    canonicalize_platform_path,
+    exclusive_rename_at,
+    remove_owned_at,
+)
 from .redaction import (
     MAX_REDACTION_FILE_BYTES,
     TEXT_SUFFIXES,
@@ -62,8 +66,115 @@ def _close_directory_descriptors(descriptors: list[int]) -> None:
             pass
 
 
+class _MutationTransaction:
+    """Defer publication finalization until the retained path lease is valid."""
+
+    def __init__(self) -> None:
+        self._rollback: list[object] = []
+        self._finalize: list[object] = []
+        self._verify: list[object] = []
+        self._directory_fds: list[int] = []
+        self._finished = False
+
+    def retain_directory(self, directory_fd: int) -> int:
+        """Retain a transaction-owned duplicate without reopening a pathname."""
+        if self._finished:
+            raise RuntimeError("mutation transaction is already finished")
+        retained = os.dup(directory_fd)
+        self._directory_fds.append(retained)
+        return retained
+
+    def add(self, rollback, finalize=None, verify=None) -> None:
+        if self._finished:
+            raise RuntimeError("mutation transaction is already finished")
+        self._rollback.append(rollback)
+        if finalize is not None:
+            self._finalize.append(finalize)
+        if verify is not None:
+            self._verify.append(verify)
+
+    def _close_directories(self) -> None:
+        while self._directory_fds:
+            descriptor = self._directory_fds.pop()
+            try:
+                os.close(descriptor)
+            except OSError:
+                # A retained directory fd is only a lease. Closing it cannot
+                # reverse a transaction that was already finalized or rolled back.
+                pass
+
+    def rollback(self, _directory_fd: int | None = None) -> None:
+        if self._finished:
+            return
+        self._finished = True
+        cleanup_error: BaseException | None = None
+        for operation in reversed(self._rollback):
+            try:
+                operation()
+            except BaseException as exc:
+                if cleanup_error is None:
+                    cleanup_error = exc
+        self._rollback.clear()
+        self._finalize.clear()
+        self._verify.clear()
+        self._close_directories()
+        if cleanup_error is not None:
+            raise cleanup_error
+
+    def finalize(self, _directory_fd: int | None = None) -> None:
+        if self._finished:
+            return
+        verify_error: BaseException | None = None
+        for operation in self._verify:
+            try:
+                operation()
+            except BaseException as exc:
+                verify_error = exc
+                break
+        if verify_error is not None:
+            try:
+                self.rollback()
+            except BaseException as cleanup_error:
+                raise verify_error from cleanup_error
+            raise verify_error
+        finalize_error: BaseException | None = None
+        for operation in self._finalize:
+            try:
+                operation()
+            except BaseException as exc:
+                if finalize_error is None:
+                    finalize_error = exc
+        if finalize_error is not None:
+            try:
+                self.rollback()
+            except BaseException as cleanup_error:
+                raise finalize_error from cleanup_error
+            raise finalize_error
+        self._finished = True
+        self._rollback.clear()
+        self._finalize.clear()
+        self._verify.clear()
+        self._close_directories()
+
+
+def _notify_path_change(on_change, descriptor: int, error: ValueError) -> None:
+    if on_change is None:
+        raise error
+    try:
+        on_change(descriptor)
+    except BaseException as cleanup_error:
+        raise error from cleanup_error
+    raise error
+
+
 @contextmanager
-def _opened_directory_path(path: Path, *, create: bool, on_change=None):
+def _opened_directory_path(
+    path: Path,
+    *,
+    create: bool,
+    on_change=None,
+    on_commit=None,
+):
     """Walk an absolute directory path without following mutable components."""
     candidate = canonicalize_platform_path(path)
     if any(part in {"", ".", ".."} for part in candidate.parts[1:]):
@@ -83,49 +194,72 @@ def _opened_directory_path(path: Path, *, create: bool, on_change=None):
                 os.mkdir(part, 0o755, dir_fd=descriptors[-1])
                 child = os.open(part, directory_flags, dir_fd=descriptors[-1])
             except OSError as exc:
-                if on_change is not None:
-                    on_change(descriptors[-1])
-                raise ValueError(
+                error = ValueError(
                     f"directory path cannot be opened safely: {candidate}"
-                ) from exc
+                )
+                if on_change is not None:
+                    try:
+                        on_change(descriptors[-1])
+                    except BaseException as cleanup_error:
+                        raise error from cleanup_error
+                raise error from exc
             metadata = os.fstat(child)
             if not stat.S_ISDIR(metadata.st_mode):
                 os.close(child)
                 raise ValueError(f"directory path component is unsafe: {candidate}")
             descriptors.append(child)
             components.append(part)
-        yield candidate, descriptors[-1]
+        try:
+            yield candidate, descriptors[-1]
+        except BaseException as primary:
+            if on_change is not None:
+                try:
+                    on_change(descriptors[-1])
+                except BaseException as cleanup_error:
+                    raise primary from cleanup_error
+            raise
         for index, part in enumerate(components):
             try:
                 current = os.stat(
                     part, dir_fd=descriptors[index], follow_symlinks=False
                 )
             except OSError as exc:
-                raise ValueError(
+                error = ValueError(
                     f"directory path changed during operation: {candidate}"
-                ) from exc
+                )
+                if on_change is not None:
+                    try:
+                        on_change(descriptors[-1])
+                    except BaseException as cleanup_error:
+                        raise error from cleanup_error
+                raise error from exc
             opened = os.fstat(descriptors[index + 1])
             if (
                 stat.S_ISLNK(current.st_mode)
                 or not stat.S_ISDIR(current.st_mode)
                 or (current.st_dev, current.st_ino) != (opened.st_dev, opened.st_ino)
             ):
-                if on_change is not None:
-                    on_change(descriptors[-1])
-                raise ValueError(
-                    f"directory path changed during operation: {candidate}"
+                _notify_path_change(
+                    on_change,
+                    descriptors[-1],
+                    ValueError(
+                        f"directory path changed during operation: {candidate}"
+                    ),
                 )
+        if on_commit is not None:
+            on_commit(descriptors[-1])
     finally:
         _close_directory_descriptors(descriptors)
 
 
 @contextmanager
-def _opened_dep_root(dep: Path, *, on_change=None):
+def _opened_dep_root(dep: Path, *, on_change=None, on_commit=None):
     try:
         with _opened_directory_path(
             dep,
             create=False,
             on_change=on_change,
+            on_commit=on_commit,
         ) as (_, descriptor):
             yield descriptor
     except FileNotFoundError as exc:
@@ -163,7 +297,15 @@ def _opened_zone_at(
                 raise ValueError(f"evidence zone component is not a directory: {relative}")
             descriptors.append(child)
             components.append(part)
-        yield descriptors[-1]
+        try:
+            yield descriptors[-1]
+        except BaseException as primary:
+            if on_change is not None:
+                try:
+                    on_change(descriptors[-1])
+                except BaseException as cleanup_error:
+                    raise primary from cleanup_error
+            raise
         for index, part in enumerate(components):
             try:
                 current = os.stat(
@@ -318,6 +460,32 @@ def _read_regular_bytes_at(
         os.close(descriptor)
 
 
+def _require_regular_snapshot_at(
+    directory_fd: int,
+    name: str,
+    identity: tuple[int, int],
+    size: int,
+    digest: str,
+    label: str,
+    *,
+    max_bytes: int,
+) -> None:
+    """Require a public single-linked file to match one complete snapshot."""
+    raw, metadata = _read_regular_bytes_at(
+        directory_fd,
+        name,
+        label,
+        max_bytes=max_bytes,
+    )
+    if (
+        (metadata.st_dev, metadata.st_ino) != identity
+        or metadata.st_size != size
+        or len(raw) != size
+        or hashlib.sha256(raw).hexdigest() != digest
+    ):
+        raise ValueError(f"{label} changed before transaction commit: {name}")
+
+
 def _load_at(directory_fd: int, name: str) -> dict:
     raw, _ = _read_regular_bytes_at(
         directory_fd,
@@ -413,9 +581,318 @@ def _remove_owned_at(
     name: str,
     expected_identity: tuple[int, int],
     label: str,
+    *,
+    expected_size: int | None = None,
+    expected_digest: str | None = None,
 ) -> bool:
     """Compatibility wrapper around the shared owned-generation protocol."""
-    return remove_owned_at(directory_fd, name, expected_identity, label)
+    return remove_owned_at(
+        directory_fd,
+        name,
+        expected_identity,
+        label,
+        expected_size=expected_size,
+        expected_digest=expected_digest,
+    )
+
+
+def _remove_owned_tree_at(
+    directory_fd: int,
+    name: str,
+    expected_identity: tuple[int, int],
+    label: str,
+    expected_snapshot: dict[str, tuple[str, int, int, int, int, str]] | None,
+) -> None:
+    """Claim and remove one operation-owned directory tree without following links."""
+    pending = ""
+    for _ in range(16):
+        candidate = f".sddgov.dep-cleanup-{uuid.uuid4().hex}"
+        try:
+            exclusive_rename_at(
+                directory_fd,
+                name,
+                directory_fd,
+                candidate,
+            )
+        except FileNotFoundError:
+            return
+        except FileExistsError:
+            continue
+        pending = candidate
+        break
+    if not pending:
+        raise ValueError(f"{label} cleanup could not reserve a private generation")
+
+    def restore() -> None:
+        try:
+            exclusive_rename_at(directory_fd, pending, directory_fd, name)
+        except FileExistsError as exc:
+            raise ValueError(
+                f"{label} changed during cleanup; preserved pending generation {pending}"
+            ) from exc
+
+    metadata = os.stat(pending, dir_fd=directory_fd, follow_symlinks=False)
+    if (
+        not stat.S_ISDIR(metadata.st_mode)
+        or (metadata.st_dev, metadata.st_ino) != expected_identity
+    ):
+        restore()
+        return
+
+    flags = (
+        os.O_RDONLY
+        | getattr(os, "O_DIRECTORY", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+    )
+    tree_fd = os.open(pending, flags, dir_fd=directory_fd)
+
+    def snapshot_tree(active_fd: int, prefix: str = "") -> dict[str, tuple[str, int, int, int, int, str]]:
+        snapshot: dict[str, tuple[str, int, int, int, int, str]] = {}
+        for child_name in sorted(os.listdir(active_fd)):
+            child = os.stat(child_name, dir_fd=active_fd, follow_symlinks=False)
+            relative = f"{prefix}/{child_name}" if prefix else child_name
+            if stat.S_ISDIR(child.st_mode):
+                snapshot[relative] = (
+                    "directory",
+                    child.st_dev,
+                    child.st_ino,
+                    child.st_nlink,
+                    0,
+                    "",
+                )
+                child_fd = os.open(child_name, flags, dir_fd=active_fd)
+                try:
+                    snapshot.update(snapshot_tree(child_fd, relative))
+                finally:
+                    closing_child = child_fd
+                    child_fd = -1
+                    os.close(closing_child)
+                continue
+            if not stat.S_ISREG(child.st_mode) or child.st_nlink != 1:
+                snapshot[relative] = (
+                    "other",
+                    child.st_dev,
+                    child.st_ino,
+                    child.st_nlink,
+                    child.st_size,
+                    "",
+                )
+                continue
+            raw, observed = _read_regular_bytes_at(
+                active_fd,
+                child_name,
+                f"{label} child",
+                max_bytes=MAX_DEP_CONTROL_FILE_BYTES,
+            )
+            snapshot[relative] = (
+                "file",
+                observed.st_dev,
+                observed.st_ino,
+                observed.st_nlink,
+                observed.st_size,
+                hashlib.sha256(raw).hexdigest(),
+            )
+        return snapshot
+
+    if expected_snapshot is None or snapshot_tree(tree_fd) != expected_snapshot:
+        closing_tree = tree_fd
+        tree_fd = -1
+        os.close(closing_tree)
+        restore()
+        raise ValueError(f"{label} changed during cleanup")
+
+    def empty_tree(active_fd: int, prefix: str = "") -> None:
+        for child_name in sorted(os.listdir(active_fd)):
+            relative = f"{prefix}/{child_name}" if prefix else child_name
+            expected = expected_snapshot.get(relative)
+            if expected is None:
+                raise ValueError(f"{label} received a later child during cleanup")
+            child_claim = ""
+            for _ in range(16):
+                candidate = f".sddgov.dep-child-{uuid.uuid4().hex}"
+                try:
+                    exclusive_rename_at(
+                        active_fd,
+                        child_name,
+                        active_fd,
+                        candidate,
+                    )
+                except FileNotFoundError as exc:
+                    raise ValueError(
+                        f"{label} child changed during cleanup: {relative}"
+                    ) from exc
+                except FileExistsError:
+                    continue
+                child_claim = candidate
+                break
+            if not child_claim:
+                raise ValueError(
+                    f"{label} child cleanup could not reserve a private generation"
+                )
+
+            def restore_child() -> None:
+                try:
+                    exclusive_rename_at(
+                        active_fd,
+                        child_claim,
+                        active_fd,
+                        child_name,
+                    )
+                except FileNotFoundError:
+                    return
+                except FileExistsError as exc:
+                    raise ValueError(
+                        f"{label} child changed during cleanup; preserved "
+                        f"pending generation {child_claim}"
+                    ) from exc
+
+            try:
+                child = os.stat(
+                    child_claim,
+                    dir_fd=active_fd,
+                    follow_symlinks=False,
+                )
+                if expected[0] == "file":
+                    raw, observed = _read_regular_bytes_at(
+                        active_fd,
+                        child_claim,
+                        f"{label} child",
+                        max_bytes=MAX_DEP_CONTROL_FILE_BYTES,
+                    )
+                    if (
+                        not stat.S_ISREG(child.st_mode)
+                        or child.st_nlink != 1
+                        or (
+                            observed.st_dev,
+                            observed.st_ino,
+                            observed.st_nlink,
+                            observed.st_size,
+                            hashlib.sha256(raw).hexdigest(),
+                        )
+                        != (expected[1], expected[2], expected[3], expected[4], expected[5])
+                    ):
+                        raise ValueError(
+                            f"{label} child changed during cleanup: {relative}"
+                        )
+                    removed = _remove_owned_at(
+                        active_fd,
+                        child_claim,
+                        (expected[1], expected[2]),
+                        f"{label} child",
+                        expected_size=expected[4],
+                        expected_digest=expected[5],
+                    )
+                    if not removed:
+                        raise ValueError(
+                            f"{label} child changed during cleanup: {relative}"
+                        )
+                    child_claim = ""
+                    continue
+                if (
+                    expected[0] != "directory"
+                    or not stat.S_ISDIR(child.st_mode)
+                    or (child.st_dev, child.st_ino, child.st_nlink)
+                    != (expected[1], expected[2], expected[3])
+                ):
+                    raise ValueError(
+                        f"{label} child changed during cleanup: {relative}"
+                    )
+                child_fd = os.open(child_claim, flags, dir_fd=active_fd)
+                try:
+                    empty_tree(child_fd, relative)
+                finally:
+                    closing_child = child_fd
+                    child_fd = -1
+                    os.close(closing_child)
+                final_child = os.stat(
+                    child_claim,
+                    dir_fd=active_fd,
+                    follow_symlinks=False,
+                )
+                if (
+                    not stat.S_ISDIR(final_child.st_mode)
+                    or (final_child.st_dev, final_child.st_ino)
+                    != (expected[1], expected[2])
+                ):
+                    raise ValueError(
+                        f"{label} child changed during cleanup: {relative}"
+                    )
+                os.rmdir(child_claim, dir_fd=active_fd)
+                child_claim = ""
+            except BaseException as primary:
+                if child_claim:
+                    try:
+                        restore_child()
+                    except BaseException as cleanup_error:
+                        raise primary from cleanup_error
+                raise
+        os.fsync(active_fd)
+
+    try:
+        empty_tree(tree_fd)
+    finally:
+        closing_tree = tree_fd
+        tree_fd = -1
+        os.close(closing_tree)
+    os.rmdir(pending, dir_fd=directory_fd)
+    os.fsync(directory_fd)
+
+
+def _tree_snapshot_at(
+    directory_fd: int,
+) -> dict[str, tuple[str, int, int, int, int, str]]:
+    """Capture the exact safe DEP tree generation before outer lease commit."""
+    flags = (
+        os.O_RDONLY
+        | getattr(os, "O_DIRECTORY", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+    )
+    snapshot: dict[str, tuple[str, int, int, int, int, str]] = {}
+    for child_name in sorted(os.listdir(directory_fd)):
+        child = os.stat(child_name, dir_fd=directory_fd, follow_symlinks=False)
+        if stat.S_ISDIR(child.st_mode):
+            snapshot[child_name] = (
+                "directory",
+                child.st_dev,
+                child.st_ino,
+                child.st_nlink,
+                0,
+                "",
+            )
+            child_fd = os.open(child_name, flags, dir_fd=directory_fd)
+            try:
+                for relative, value in _tree_snapshot_at(child_fd).items():
+                    snapshot[f"{child_name}/{relative}"] = value
+            finally:
+                closing_child = child_fd
+                child_fd = -1
+                os.close(closing_child)
+            continue
+        if not stat.S_ISREG(child.st_mode) or child.st_nlink != 1:
+            snapshot[child_name] = (
+                "other",
+                child.st_dev,
+                child.st_ino,
+                child.st_nlink,
+                child.st_size,
+                "",
+            )
+            continue
+        raw, observed = _read_regular_bytes_at(
+            directory_fd,
+            child_name,
+            "DEP tree child",
+            max_bytes=MAX_DEP_CONTROL_FILE_BYTES,
+        )
+        snapshot[child_name] = (
+            "file",
+            observed.st_dev,
+            observed.st_ino,
+            observed.st_nlink,
+            observed.st_size,
+            hashlib.sha256(raw).hexdigest(),
+        )
+    return snapshot
 
 
 def _write_bytes_at(
@@ -426,8 +903,12 @@ def _write_bytes_at(
     published_identity: list[tuple[int, int]] | None = None,
     expected_snapshot: tuple[tuple[int, int, int, int], str] | None = None,
     must_not_exist: bool = False,
+    transaction: _MutationTransaction | None = None,
 ) -> None:
     """Publish one direct child without clobbering a changed expected generation."""
+    owned_transaction = transaction is None and expected_snapshot is not None
+    if owned_transaction:
+        transaction = _MutationTransaction()
     if not name or Path(name).name != name:
         raise ValueError(f"{label} has an invalid filename")
     try:
@@ -498,32 +979,57 @@ def _write_bytes_at(
             raise ValueError(f"{label} changed before publication: {name}")
         return metadata
 
-    def restore_old_claim() -> None:
+    def restore_old_claim(active_directory_fd: int = directory_fd) -> None:
         nonlocal old_claim_exists
         if not old_claim_exists:
             return
+        if old_identity is None or expected_snapshot is None:
+            raise ValueError(f"{label} predecessor claim is incomplete")
+
+        def discard_old_claim() -> None:
+            nonlocal old_claim_exists
+            removed = _remove_owned_at(
+                active_directory_fd,
+                old_claim,
+                old_identity,
+                label,
+                expected_size=expected_snapshot[0][2],
+                expected_digest=expected_snapshot[1],
+            )
+            if not removed:
+                raise ValueError(f"{label} predecessor claim changed during cleanup")
+            old_claim_exists = False
+
+        _require_regular_snapshot_at(
+            active_directory_fd,
+            old_claim,
+            old_identity,
+            expected_snapshot[0][2],
+            expected_snapshot[1],
+            f"{label} predecessor claim",
+            max_bytes=MAX_DEP_CONTROL_FILE_BYTES,
+        )
         try:
             os.link(
                 old_claim,
                 name,
-                src_dir_fd=directory_fd,
-                dst_dir_fd=directory_fd,
+                src_dir_fd=active_directory_fd,
+                dst_dir_fd=active_directory_fd,
                 follow_symlinks=False,
             )
         except FileExistsError:
+            discard_old_claim()
             return
-        if old_identity is None:
-            return
-        try:
-            _remove_owned_at(
-                directory_fd,
-                old_claim,
-                old_identity,
-                label,
-            )
-        except (OSError, ValueError):
-            return
-        old_claim_exists = False
+        discard_old_claim()
+        _require_regular_snapshot_at(
+            active_directory_fd,
+            name,
+            old_identity,
+            expected_snapshot[0][2],
+            expected_snapshot[1],
+            label,
+            max_bytes=MAX_DEP_CONTROL_FILE_BYTES,
+        )
 
     try:
         descriptor = os.open(
@@ -576,12 +1082,17 @@ def _write_bytes_at(
             os.close(closing_guard)
         except OSError:
             pass
-        _remove_owned_at(
+        removed_temporary = _remove_owned_at(
             directory_fd,
             temporary,
             staged_identity,
             f"{label} staging file",
+            expected_size=len(encoded),
+            expected_digest=encoded_digest,
         )
+        if not removed_temporary:
+            raise ValueError(f"{label} staging file changed before cleanup: {name}")
+        temporary = ""
         require_exact(
             staged_claim,
             staged_identity,
@@ -606,6 +1117,8 @@ def _write_bytes_at(
                 name,
                 expected_file_identity,
                 label,
+                expected_size=expected_snapshot[0][2],
+                expected_digest=expected_snapshot[1],
             )
             old_raw, old_metadata = _read_regular_bytes_at(
                 directory_fd,
@@ -644,12 +1157,16 @@ def _write_bytes_at(
                 raise FileExistsError(f"{label} already exists: {name}") from exc
             raise FileExistsError(f"{label} received an unexpected writer: {name}") from exc
         published = True
-        _remove_owned_at(
+        removed_claim = _remove_owned_at(
             directory_fd,
             staged_claim,
             staged_identity,
             f"{label} claimed staging file",
+            expected_size=len(encoded),
+            expected_digest=encoded_digest,
         )
+        if not removed_claim:
+            raise ValueError(f"{label} staging claim changed before cleanup: {name}")
         staged_claim = ""
         published_metadata = require_exact(
             name,
@@ -670,14 +1187,73 @@ def _write_bytes_at(
             published_identity.append(
                 (published_metadata.st_dev, published_metadata.st_ino)
             )
+        new_identity = (published_metadata.st_dev, published_metadata.st_ino)
+        if transaction is not None:
+            transaction_fd = transaction.retain_directory(directory_fd)
+
+            def rollback_publication() -> None:
+                _remove_owned_at(
+                    transaction_fd,
+                    name,
+                    new_identity,
+                    label,
+                    expected_size=len(encoded),
+                    expected_digest=encoded_digest,
+                )
+                if expected_snapshot is not None:
+                    restore_old_claim(transaction_fd)
+
+            def verify_publication() -> None:
+                _require_regular_snapshot_at(
+                    transaction_fd,
+                    name,
+                    new_identity,
+                    len(encoded),
+                    encoded_digest,
+                    label,
+                    max_bytes=MAX_DEP_CONTROL_FILE_BYTES,
+                )
+
+            def finalize_predecessor() -> None:
+                nonlocal old_claim_exists
+                if old_claim_exists and old_identity is not None:
+                    try:
+                        removed = _remove_owned_at(
+                            transaction_fd,
+                            old_claim,
+                            old_identity,
+                            label,
+                            expected_size=expected_snapshot[0][2],
+                            expected_digest=expected_snapshot[1],
+                        )
+                    except BaseException:
+                        try:
+                            os.stat(
+                                old_claim,
+                                dir_fd=transaction_fd,
+                                follow_symlinks=False,
+                            )
+                        except FileNotFoundError:
+                            # The unlink linearized before its durability report
+                            # failed. The new public generation must stay committed;
+                            # rolling it back now would lose the predecessor too.
+                            old_claim_exists = False
+                            return
+                        raise
+                    if not removed:
+                        raise ValueError(
+                            f"{label} predecessor claim changed before finalization"
+                        )
+                    old_claim_exists = False
+
+            transaction.add(
+                rollback_publication,
+                finalize_predecessor if expected_snapshot is not None else None,
+                verify_publication,
+            )
+            if owned_transaction:
+                transaction.finalize()
         committed = True
-        if old_claim_exists and old_identity is not None:
-            try:
-                _remove_owned_at(directory_fd, old_claim, old_identity, label)
-            except (OSError, ValueError):
-                pass
-            else:
-                old_claim_exists = False
     except BaseException as primary:
         cleanup_error: BaseException | None = None
         if descriptor >= 0:
@@ -694,6 +1270,8 @@ def _write_bytes_at(
                     name,
                     staged_identity,
                     label,
+                    expected_size=len(encoded),
+                    expected_digest=encoded_digest,
                 )
             except BaseException as exc:
                 if cleanup_error is None:
@@ -711,6 +1289,38 @@ def _write_bytes_at(
                 os.close(closing_guard)
             except OSError:
                 pass
+        if staged_identity is not None and temporary:
+            try:
+                removed = _remove_owned_at(
+                    directory_fd,
+                    temporary,
+                    staged_identity,
+                    f"{label} staging file",
+                    expected_size=len(encoded) if staged_verified else None,
+                    expected_digest=encoded_digest if staged_verified else None,
+                )
+                if not removed:
+                    raise ValueError(f"{label} staging file changed during cleanup")
+                temporary = ""
+            except BaseException as exc:
+                if cleanup_error is None:
+                    cleanup_error = exc
+        if staged_identity is not None and staged_claim:
+            try:
+                removed = _remove_owned_at(
+                    directory_fd,
+                    staged_claim,
+                    staged_identity,
+                    f"{label} staging claim",
+                    expected_size=len(encoded) if staged_verified else None,
+                    expected_digest=encoded_digest if staged_verified else None,
+                )
+                if not removed:
+                    raise ValueError(f"{label} staging claim changed during cleanup")
+                staged_claim = ""
+            except BaseException as exc:
+                if cleanup_error is None:
+                    cleanup_error = exc
         if cleanup_error is not None:
             raise primary from cleanup_error
         raise
@@ -722,16 +1332,20 @@ def _write_bytes_at(
                     temporary,
                     staged_identity,
                     f"{label} staging file",
+                    expected_size=len(encoded),
+                    expected_digest=encoded_digest,
                 )
             except (OSError, ValueError):
                 pass
-        if staged_identity is not None and staged_claim and staged_verified:
+        if staged_identity is not None and staged_claim:
             try:
                 _remove_owned_at(
                     directory_fd,
                     staged_claim,
                     staged_identity,
                     f"{label} claimed staging file",
+                    expected_size=len(encoded),
+                    expected_digest=encoded_digest,
                 )
             except (OSError, ValueError):
                 pass
@@ -744,6 +1358,7 @@ def _save_at(
     published_identity: list[tuple[int, int]] | None = None,
     expected_snapshot: tuple[tuple[int, int, int, int], str] | None = None,
     must_not_exist: bool = False,
+    transaction: _MutationTransaction | None = None,
 ) -> None:
     """Atomically replace one control document through its retained DEP fd."""
     encoded = (json.dumps(data, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
@@ -755,6 +1370,7 @@ def _save_at(
         published_identity,
         expected_snapshot,
         must_not_exist,
+        transaction,
     )
 
 
@@ -953,9 +1569,11 @@ def _publish_verified_attachment_at(
             _remove_owned_at(
                 output_fd,
                 name,
-                staged_identity,
-                "attachment output",
-            )
+                    staged_identity,
+                    "attachment output",
+                    expected_size=staged_size,
+                    expected_digest=staged_digest,
+                )
         raise
     finally:
         if staging_guard >= 0:
@@ -963,13 +1581,15 @@ def _publish_verified_attachment_at(
                 os.close(staging_guard)
             except OSError:
                 pass
-        if claimed and claim_verified:
+        if claimed:
             try:
                 _remove_owned_at(
                     output_fd,
                     claimed,
                     staged_identity,
                     "claimed attachment staging file",
+                    expected_size=staged_size,
+                    expected_digest=staged_digest,
                 )
             except (OSError, ValueError):
                 pass
@@ -980,6 +1600,8 @@ def _publish_verified_attachment_at(
                     temporary,
                     staged_identity,
                     "attachment staging file",
+                    expected_size=staged_size,
+                    expected_digest=staged_digest,
                 )
             except (OSError, ValueError):
                 pass
@@ -1084,14 +1706,32 @@ def make_dep(base: Path, issue: str, risk: str, sdd_ref: str | None = None, dep_
         "root_cause_status": "unknown",
         "attachments": [],
     }
-    with _opened_directory_path(base, create=True) as (safe_base, base_fd):
+    transaction = _MutationTransaction()
+    with _opened_directory_path(
+        base,
+        create=True,
+        on_change=transaction.rollback,
+        on_commit=transaction.finalize,
+    ) as (safe_base, base_fd):
         try:
             os.stat(dep_id, dir_fd=base_fd, follow_symlinks=False)
         except FileNotFoundError:
             pass
         else:
             raise FileExistsError(f"DEP already exists: {safe_base / dep_id}")
-        with _opened_zone_at(base_fd, Path(dep_id), create=True) as dep_fd:
+        staging_name = f".sddgov.dep-stage-{uuid.uuid4().hex}"
+        os.mkdir(staging_name, 0o700, dir_fd=base_fd)
+        directory_flags = (
+            os.O_RDONLY
+            | getattr(os, "O_DIRECTORY", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+        )
+        dep_fd = os.open(staging_name, directory_flags, dir_fd=base_fd)
+        dep_metadata = os.fstat(dep_fd)
+        dep_identity = (dep_metadata.st_dev, dep_metadata.st_ino)
+        dep_snapshot: dict[str, tuple[str, int, int, int, int, str]] | None = None
+        published = False
+        try:
             with _opened_zone_at(dep_fd, Path("private/raw"), create=True) as raw_fd:
                 with _opened_zone_at(
                     dep_fd, Path("shareable/artifacts"), create=True
@@ -1117,13 +1757,85 @@ def make_dep(base: Path, issue: str, risk: str, sdd_ref: str | None = None, dep_
                             "shareable": [],
                         },
                     )
+                    dep_snapshot = _tree_snapshot_at(dep_fd)
+                    os.fsync(dep_fd)
+
+            transaction_base_fd = transaction.retain_directory(base_fd)
+            transaction_dep_fd = transaction.retain_directory(dep_fd)
+            exclusive_rename_at(
+                base_fd,
+                staging_name,
+                base_fd,
+                dep_id,
+            )
+            published = True
+
+            def rollback_dep_tree() -> None:
+                _remove_owned_tree_at(
+                    transaction_base_fd,
+                    dep_id,
+                    dep_identity,
+                    "DEP directory",
+                    dep_snapshot,
+                )
+
+            def verify_dep_tree() -> None:
+                public = os.stat(
+                    dep_id,
+                    dir_fd=transaction_base_fd,
+                    follow_symlinks=False,
+                )
+                if (
+                    not stat.S_ISDIR(public.st_mode)
+                    or (public.st_dev, public.st_ino) != dep_identity
+                    or dep_snapshot is None
+                    or _tree_snapshot_at(transaction_dep_fd) != dep_snapshot
+                ):
+                    raise ValueError("DEP directory changed before transaction commit")
+
+            transaction.add(
+                rollback_dep_tree,
+                verify=verify_dep_tree,
+            )
+            os.fsync(base_fd)
+        except BaseException as primary:
+            if not published:
+                cleanup_error: BaseException | None = None
+                try:
+                    current_snapshot = _tree_snapshot_at(dep_fd)
+                    _remove_owned_tree_at(
+                        base_fd,
+                        staging_name,
+                        dep_identity,
+                        "DEP staging directory",
+                        current_snapshot,
+                    )
+                except BaseException as exc:
+                    cleanup_error = exc
+                if cleanup_error is not None:
+                    raise primary from cleanup_error
+            raise
+        finally:
+            closing_dep = dep_fd
+            dep_fd = -1
+            try:
+                os.close(closing_dep)
+            except OSError:
+                # The transaction-owned duplicate retains the published tree.
+                # A close error is not safely retryable and cannot reverse commit.
+                pass
         return safe_base / dep_id
 
 
 def collect(dep: Path, collector: str, input_path: Path, label: str | None = None) -> Path:
     if collector not in COLLECTORS:
         raise ValueError(f"unsupported collector: {collector}")
-    with _opened_dep_root(dep) as dep_fd:
+    transaction = _MutationTransaction()
+    with _opened_dep_root(
+        dep,
+        on_change=transaction.rollback,
+        on_commit=transaction.finalize,
+    ) as dep_fd:
         try:
             _read_regular_bytes_at(
                 dep_fd,
@@ -1178,6 +1890,7 @@ def collect(dep: Path, collector: str, input_path: Path, label: str | None = Non
             safe_label += source_suffix
         filename = f"{collector}--{safe_label}"
         raw_dir = dep.resolve(strict=True) / "private" / "raw"
+        raw_digest = hashlib.sha256(raw).hexdigest()
         written_identity: tuple[int, int] | None = None
         cleanup_fd: int | None = None
 
@@ -1189,6 +1902,8 @@ def collect(dep: Path, collector: str, input_path: Path, label: str | None = Non
                 filename,
                 written_identity,
                 "collector raw artifact",
+                expected_size=len(raw),
+                expected_digest=raw_digest,
             )
 
         try:
@@ -1207,6 +1922,7 @@ def collect(dep: Path, collector: str, input_path: Path, label: str | None = Non
                     | os.O_EXCL
                     | getattr(os, "O_NOFOLLOW", 0)
                 )
+                descriptor = -1
                 try:
                     descriptor = os.open(filename, flags, 0o600, dir_fd=raw_dir_fd)
                 except FileExistsError as exc:
@@ -1224,9 +1940,40 @@ def collect(dep: Path, collector: str, input_path: Path, label: str | None = Non
                         written_metadata.st_dev,
                         written_metadata.st_ino,
                     )
-                finally:
-                    os.close(descriptor)
-            digest = hashlib.sha256(raw).hexdigest()
+                except BaseException as primary:
+                    closing_descriptor = descriptor
+                    descriptor = -1
+                    try:
+                        os.close(closing_descriptor)
+                    except BaseException as cleanup_error:
+                        raise primary from cleanup_error
+                    raise
+                closing_descriptor = descriptor
+                descriptor = -1
+                os.close(closing_descriptor)
+                os.fsync(raw_dir_fd)
+                if written_identity is not None:
+                    transaction_raw_fd = transaction.retain_directory(raw_dir_fd)
+
+                    def rollback_raw_artifact() -> None:
+                        cleanup_owned_raw(transaction_raw_fd)
+
+                    def verify_raw_artifact() -> None:
+                        _require_regular_snapshot_at(
+                            transaction_raw_fd,
+                            filename,
+                            written_identity,
+                            len(raw),
+                            raw_digest,
+                            "collector raw artifact",
+                            max_bytes=MAX_REDACTION_FILE_BYTES,
+                        )
+
+                    transaction.add(
+                        rollback_raw_artifact,
+                        verify=verify_raw_artifact,
+                    )
+            digest = raw_digest
             manifest["raw"].append({
                 "collector": collector,
                 "path": f"private/raw/{filename}",
@@ -1238,20 +1985,14 @@ def collect(dep: Path, collector: str, input_path: Path, label: str | None = Non
                 "shareable": False,
             })
             manifest_publication: list[tuple[int, int]] = []
-            try:
-                _save_at(
-                    dep_fd,
-                    "manifest.json",
-                    manifest,
-                    manifest_publication,
-                    manifest_snapshot,
-                )
-            except BaseException:
-                if manifest_publication:
-                    return destination
-                if cleanup_fd is not None:
-                    cleanup_owned_raw(cleanup_fd)
-                raise
+            _save_at(
+                dep_fd,
+                "manifest.json",
+                manifest,
+                manifest_publication,
+                manifest_snapshot,
+                transaction=transaction,
+            )
         except BaseException:
             if cleanup_fd is not None:
                 cleanup_owned_raw(cleanup_fd)
@@ -1266,7 +2007,12 @@ def collect(dep: Path, collector: str, input_path: Path, label: str | None = Non
 
 
 def redact(dep: Path) -> dict:
-    with _opened_dep_root(dep) as dep_fd:
+    transaction = _MutationTransaction()
+    with _opened_dep_root(
+        dep,
+        on_change=transaction.rollback,
+        on_commit=transaction.finalize,
+    ) as dep_fd:
         manifest_before, manifest_metadata = _read_regular_bytes_at(
             dep_fd,
             "manifest.json",
@@ -1358,6 +2104,51 @@ def redact(dep: Path) -> dict:
                         output_dir_fd=shareable_fd,
                         published_outputs=written_outputs,
                     )
+                    output_snapshots = {
+                        row["output"]: (row["output_size"], row["output_sha256"])
+                        for row in report["files"]
+                    }
+                    transaction_shareable_fd = transaction.retain_directory(
+                        shareable_fd
+                    )
+                    for output_name, output_identity in written_outputs.items():
+                        output_size, output_digest = output_snapshots[output_name]
+
+                        def rollback_output(
+                            name=output_name,
+                            identity=output_identity,
+                            size=output_size,
+                            digest=output_digest,
+                        ) -> None:
+                            _remove_owned_at(
+                                transaction_shareable_fd,
+                                name,
+                                identity,
+                                "redaction artifact",
+                                expected_size=size,
+                                expected_digest=digest,
+                            )
+
+                        def verify_output(
+                            name=output_name,
+                            identity=output_identity,
+                            size=output_size,
+                            digest=output_digest,
+                        ) -> None:
+                            _require_regular_snapshot_at(
+                                transaction_shareable_fd,
+                                name,
+                                identity,
+                                size,
+                                digest,
+                                "redaction artifact",
+                                max_bytes=MAX_DEP_ARTIFACT_BYTES,
+                            )
+
+                        transaction.add(
+                            rollback_output,
+                            verify=verify_output,
+                        )
                     report["dep_id"] = _load_at(dep_fd, "summary.yaml")["dep_id"]
                     report["generated_at"] = utc_now()
                     observed_raw = {
@@ -1388,17 +2179,14 @@ def redact(dep: Path) -> dict:
                     ]
 
             report_publication: list[tuple[int, int]] = []
-            try:
-                _save_at(
-                    dep_fd,
-                    "redaction-report.json",
-                    report,
-                    report_publication,
-                    must_not_exist=True,
-                )
-            except BaseException:
-                if not report_publication:
-                    raise
+            _save_at(
+                dep_fd,
+                "redaction-report.json",
+                report,
+                report_publication,
+                must_not_exist=True,
+                transaction=transaction,
+            )
 
             expected_report = (
                 json.dumps(report, ensure_ascii=False, indent=2) + "\n"
@@ -1418,24 +2206,14 @@ def redact(dep: Path) -> dict:
                 raise ValueError("redaction report changed before manifest publication")
 
             manifest_publication: list[tuple[int, int]] = []
-            try:
-                _save_at(
-                    dep_fd,
-                    "manifest.json",
-                    manifest,
-                    manifest_publication,
-                    manifest_snapshot,
-                )
-            except BaseException:
-                if manifest_publication:
-                    return report
-                _remove_owned_at(
-                    dep_fd,
-                    "redaction-report.json",
-                    report_publication[-1],
-                    "redaction report",
-                )
-                raise
+            _save_at(
+                dep_fd,
+                "manifest.json",
+                manifest,
+                manifest_publication,
+                manifest_snapshot,
+                transaction=transaction,
+            )
             return report
         except BaseException:
             if cleanup_fd is not None:
@@ -1452,7 +2230,12 @@ def redact(dep: Path) -> dict:
 def transition(dep: Path, phase: str) -> dict:
     if phase not in PHASES:
         raise ValueError(f"phase must be one of: {', '.join(PHASES)}")
-    with _opened_dep_root(dep) as dep_fd:
+    transaction = _MutationTransaction()
+    with _opened_dep_root(
+        dep,
+        on_change=transaction.rollback,
+        on_commit=transaction.finalize,
+    ) as dep_fd:
         summary_raw, summary_metadata = _read_regular_bytes_at(
             dep_fd,
             "summary.yaml",
@@ -1479,26 +2262,23 @@ def transition(dep: Path, phase: str) -> dict:
         if errors:
             raise ValueError(f"cannot enter {phase}: " + "; ".join(errors))
         published: list[tuple[int, int]] = []
-        try:
-            _write_bytes_at(
-                dep_fd,
-                "summary.yaml",
-                encoded,
-                "summary transition",
-                published,
+        _write_bytes_at(
+            dep_fd,
+            "summary.yaml",
+            encoded,
+            "summary transition",
+            published,
+            (
                 (
-                    (
-                        summary_metadata.st_dev,
-                        summary_metadata.st_ino,
-                        summary_metadata.st_size,
-                        summary_metadata.st_mtime_ns,
-                    ),
-                    hashlib.sha256(summary_raw).hexdigest(),
+                    summary_metadata.st_dev,
+                    summary_metadata.st_ino,
+                    summary_metadata.st_size,
+                    summary_metadata.st_mtime_ns,
                 ),
-            )
-        except BaseException:
-            if not published:
-                raise
+                hashlib.sha256(summary_raw).hexdigest(),
+            ),
+            transaction=transaction,
+        )
         return summary
 
 
@@ -2035,6 +2815,8 @@ def attach(dep: Path, target: str, output: Path | None = None) -> Path:
     published_name = ""
     published_identity: tuple[int, int] | None = None
     cleanup_fd = -1
+    attachment_size = 0
+    attachment_digest = ""
 
     def cleanup_attachment(directory_fd: int) -> None:
         if published_identity is None or not published_name:
@@ -2045,6 +2827,8 @@ def attach(dep: Path, target: str, output: Path | None = None) -> Path:
             published_name,
             published_identity,
             "attachment output",
+            expected_size=attachment_size,
+            expected_digest=attachment_digest,
         )
 
     try:
@@ -2072,6 +2856,8 @@ def attach(dep: Path, target: str, output: Path | None = None) -> Path:
             )
             lines.extend(["", f"Target: {target}"])
             encoded = ("\n".join(lines) + "\n").encode("utf-8")
+            attachment_size = len(encoded)
+            attachment_digest = hashlib.sha256(encoded).hexdigest()
             if output is None:
                 published_name = f"attach-{target}-{snapshot_digest[:16]}.md"
                 cleanup_fd = os.dup(dep_fd)

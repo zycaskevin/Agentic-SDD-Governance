@@ -17,6 +17,7 @@ from unittest.mock import patch
 
 from sddgov import __version__ as RELEASE_VERSION
 from sddgov.broker import receive_broker_health_response
+from sddgov.fs_security import exclusive_rename_at
 
 from scripts.fresh_wheel_smoke import (
     _fresh_smoke_temporary_directory,
@@ -403,6 +404,15 @@ while True:
                 with self.assertRaisesRegex(ValueError, message):
                     verify_release_assets(output)
 
+    def test_downloaded_release_rejects_root_distribution_name_collision(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            _wheel, output, _report = self._prepare(Path(temporary))
+            distribution = next((output / "distributions").iterdir())
+            (output / distribution.name).write_bytes(distribution.read_bytes())
+
+            with self.assertRaisesRegex(ValueError, "ambiguous duplicate names"):
+                verify_release_assets(output)
+
     def test_fresh_wheel_command_timeout_is_configurable(self):
         with tempfile.TemporaryDirectory() as temporary, patch(
             "scripts.fresh_wheel_smoke.subprocess.run"
@@ -681,6 +691,111 @@ while True:
                         str(raised.exception.__cause__),
                     )
 
+    def test_release_writer_close_failure_is_precommit_and_cleans_output(self):
+        for operation in ("write_bytes", "write_from_descriptor", "binary_writer"):
+            with self.subTest(operation=operation), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                original_close = os.close
+                failed = False
+
+                def close_regular_then_fail(descriptor):
+                    nonlocal failed
+                    metadata = os.fstat(descriptor)
+                    original_close(descriptor)
+                    if stat.S_ISREG(metadata.st_mode) and not failed:
+                        failed = True
+                        raise OSError("synthetic release output close failure")
+
+                with open_directory(root, "release directory") as output, patch(
+                    "scripts.release_files.os.close",
+                    side_effect=close_regular_then_fail,
+                ), self.assertRaisesRegex(OSError, "release output close failure"):
+                    if operation == "write_bytes":
+                        output.write_bytes("result.bin", b"owned bytes")
+                    elif operation == "write_from_descriptor":
+                        with tempfile.TemporaryFile() as source:
+                            source.write(b"owned bytes")
+                            source.seek(0)
+                            output.write_from_descriptor(
+                                "result.bin", source.fileno()
+                            )
+                    else:
+                        with output.binary_writer("result.bin") as handle:
+                            handle.write(b"owned bytes")
+
+                self.assertTrue(failed)
+                self.assertFalse((root / "result.bin").exists())
+                self.assertEqual(list(root.glob(".sddgov.cleanup-pending-*")), [])
+
+    def test_release_partial_write_failure_cleans_the_exact_partial_generation(self):
+        for operation in ("write_bytes", "write_from_descriptor"):
+            with self.subTest(operation=operation), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                original_write = os.write
+                calls = 0
+
+                def write_prefix_then_fail(descriptor, value):
+                    nonlocal calls
+                    calls += 1
+                    if calls == 1:
+                        return original_write(descriptor, value[:3])
+                    if calls == 2:
+                        raise OSError("synthetic partial release write failure")
+                    return original_write(descriptor, value)
+
+                with open_directory(root, "release directory") as output, patch(
+                    "scripts.release_files.os.write",
+                    side_effect=write_prefix_then_fail,
+                ), self.assertRaisesRegex(OSError, "partial release write failure"):
+                    if operation == "write_bytes":
+                        output.write_bytes("result.bin", b"owned bytes")
+                    else:
+                        with tempfile.TemporaryFile() as source:
+                            source.write(b"owned bytes")
+                            source.seek(0)
+                            output.write_from_descriptor(
+                                "result.bin", source.fileno()
+                            )
+
+                self.assertEqual(calls, 2)
+                self.assertFalse((root / "result.bin").exists())
+                self.assertEqual(list(root.glob(".sddgov.cleanup-pending-*")), [])
+
+    def test_release_directory_fsync_failure_rolls_back_every_writer(self):
+        for operation in ("write_bytes", "write_from_descriptor", "binary_writer"):
+            with self.subTest(operation=operation), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                original_fsync = os.fsync
+                failed = False
+
+                def fail_first_directory_fsync(descriptor):
+                    nonlocal failed
+                    metadata = os.fstat(descriptor)
+                    if stat.S_ISDIR(metadata.st_mode) and not failed:
+                        failed = True
+                        raise OSError("synthetic release directory fsync failure")
+                    original_fsync(descriptor)
+
+                with open_directory(root, "release directory") as output, patch(
+                    "scripts.release_files.os.fsync",
+                    side_effect=fail_first_directory_fsync,
+                ), self.assertRaisesRegex(OSError, "release directory fsync failure"):
+                    if operation == "write_bytes":
+                        output.write_bytes("result.bin", b"owned bytes")
+                    elif operation == "write_from_descriptor":
+                        with tempfile.TemporaryFile() as source:
+                            source.write(b"owned bytes")
+                            source.seek(0)
+                            output.write_from_descriptor(
+                                "result.bin", source.fileno()
+                            )
+                    else:
+                        with output.binary_writer("result.bin") as handle:
+                            handle.write(b"owned bytes")
+
+                self.assertTrue(failed)
+                self.assertFalse((root / "result.bin").exists())
+
     def test_release_cleanup_preserves_replacement_at_identity_claim_boundary(self):
         cases = ("write_bytes", "write_from_descriptor", "binary_writer")
         for operation in cases:
@@ -706,30 +821,28 @@ while True:
                     original_fsync(descriptor)
 
                 def replace_before_identity_claim(
+                    source_directory,
                     source,
+                    destination_directory,
                     destination,
-                    *,
-                    src_dir_fd=None,
-                    dst_dir_fd=None,
                 ):
                     nonlocal swapped
                     if (
                         source == "result.bin"
                         and ".cleanup-pending-" in destination
-                        and src_dir_fd is not None
                         and not swapped
                     ):
                         original_rename(
                             source,
                             owned.name,
-                            src_dir_fd=src_dir_fd,
-                            dst_dir_fd=dst_dir_fd,
+                            src_dir_fd=source_directory,
+                            dst_dir_fd=source_directory,
                         )
                         replacement_fd = os.open(
                             source,
                             os.O_WRONLY | os.O_CREAT | os.O_EXCL,
                             0o600,
-                            dir_fd=src_dir_fd,
+                            dir_fd=source_directory,
                         )
                         try:
                             os.write(replacement_fd, replacement)
@@ -737,18 +850,18 @@ while True:
                         finally:
                             os.close(replacement_fd)
                         swapped = True
-                    original_rename(
+                    exclusive_rename_at(
+                        source_directory,
                         source,
+                        destination_directory,
                         destination,
-                        src_dir_fd=src_dir_fd,
-                        dst_dir_fd=dst_dir_fd,
                     )
 
                 with open_directory(root, "release directory") as output, patch(
                     "scripts.release_files.os.fsync",
                     side_effect=fail_first_regular_fsync,
                 ), patch(
-                    "sddgov.fs_security.os.rename",
+                    "sddgov.fs_security.exclusive_rename_at",
                     side_effect=replace_before_identity_claim,
                 ):
                     if operation == "write_bytes":

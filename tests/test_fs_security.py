@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from sddgov.fs_security import (
     canonicalize_platform_path,
+    exclusive_rename_at,
     remove_owned_at,
     write_new_regular_file,
 )
@@ -24,6 +25,10 @@ class FilesystemSecurityTests(unittest.TestCase):
                 Path("/private/tmp/result.json"),
             )
             self.assertEqual(
+                canonicalize_platform_path(Path("/etc/sddgov/trusted.json")),
+                Path("/private/etc/sddgov/trusted.json"),
+            )
+            self.assertEqual(
                 canonicalize_platform_path(Path("/variable/result.json")),
                 Path("/variable/result.json"),
             )
@@ -36,7 +41,6 @@ class FilesystemSecurityTests(unittest.TestCase):
             replacement = b"replacement generation\n"
             real_fsync = os.fsync
             real_rename = os.rename
-            real_stat = os.stat
             state = {"failed": False, "swapped": False}
 
             def swap_generation(directory_fd: int) -> None:
@@ -66,47 +70,30 @@ class FilesystemSecurityTests(unittest.TestCase):
                     raise OSError("synthetic write failure")
                 real_fsync(descriptor)
 
-            def swap_before_path_stat(
-                path: str,
-                *,
-                dir_fd: int | None = None,
-                follow_symlinks: bool = True,
-            ):
-                metadata = real_stat(
-                    path, dir_fd=dir_fd, follow_symlinks=follow_symlinks
-                )
-                if path == output.name and dir_fd is not None and not state["swapped"]:
-                    swap_generation(dir_fd)
-                return metadata
-
             def swap_before_cleanup_rename(
+                source_directory: int,
                 source: str,
+                destination_directory: int,
                 destination: str,
-                *,
-                src_dir_fd: int | None = None,
-                dst_dir_fd: int | None = None,
             ) -> None:
                 if (
                     source == output.name
                     and ".cleanup-pending-" in destination
-                    and src_dir_fd is not None
                     and not state["swapped"]
                 ):
-                    swap_generation(src_dir_fd)
-                real_rename(
+                    swap_generation(source_directory)
+                exclusive_rename_at(
+                    source_directory,
                     source,
+                    destination_directory,
                     destination,
-                    src_dir_fd=src_dir_fd,
-                    dst_dir_fd=dst_dir_fd,
                 )
 
             with patch(
                 "sddgov.fs_security.os.fsync",
                 side_effect=fail_first_regular_file_fsync,
             ), patch(
-                "sddgov.fs_security.os.stat", side_effect=swap_before_path_stat
-            ), patch(
-                "sddgov.fs_security.os.rename",
+                "sddgov.fs_security.exclusive_rename_at",
                 side_effect=swap_before_cleanup_rename,
             ), self.assertRaisesRegex(OSError, "synthetic write failure"):
                 write_new_regular_file(output, b"owned generation\n", "test output")
@@ -116,7 +103,7 @@ class FilesystemSecurityTests(unittest.TestCase):
             self.assertEqual(owned.read_bytes(), b"owned generation\n")
             self.assertEqual(list(root.glob(".sddgov.cleanup-pending-*")), [])
 
-    def test_directory_cleanup_failure_reports_the_pending_generation(self):
+    def test_directory_cleanup_restores_an_unowned_generation(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             (root / "result").mkdir()
@@ -125,18 +112,15 @@ class FilesystemSecurityTests(unittest.TestCase):
                 os.O_RDONLY | getattr(os, "O_DIRECTORY", 0),
             )
             try:
-                with patch(
-                    "sddgov.fs_security.os.link",
-                    side_effect=IsADirectoryError("directory hard links are forbidden"),
-                ), self.assertRaisesRegex(
-                    ValueError, r"preserved pending generation \.sddgov\.cleanup-pending-"
-                ):
-                    remove_owned_at(
-                        directory_fd,
-                        "result",
-                        (-1, -1),
-                        "synthetic output",
-                    )
+                removed = remove_owned_at(
+                    directory_fd,
+                    "result",
+                    (-1, -1),
+                    "synthetic output",
+                )
+                self.assertFalse(removed)
+                self.assertTrue((root / "result").is_dir())
+                self.assertEqual(list(root.glob(".sddgov.cleanup-pending-*")), [])
             finally:
                 os.close(directory_fd)
 
@@ -187,30 +171,28 @@ class FilesystemSecurityTests(unittest.TestCase):
                 real_fsync(descriptor)
 
             def replace_before_cleanup(
+                source_directory: int,
                 source: str,
+                destination_directory: int,
                 destination: str,
-                *,
-                src_dir_fd: int | None = None,
-                dst_dir_fd: int | None = None,
             ) -> None:
                 nonlocal swapped
                 if (
                     source == output.name
                     and ".cleanup-pending-" in destination
-                    and src_dir_fd is not None
                     and not swapped
                 ):
                     real_rename(
                         output.name,
                         owned.name,
-                        src_dir_fd=src_dir_fd,
-                        dst_dir_fd=dst_dir_fd,
+                        src_dir_fd=source_directory,
+                        dst_dir_fd=source_directory,
                     )
                     replacement_fd = os.open(
                         output.name,
                         os.O_WRONLY | os.O_CREAT | os.O_EXCL,
                         0o600,
-                        dir_fd=src_dir_fd,
+                        dir_fd=source_directory,
                     )
                     try:
                         os.write(replacement_fd, replacement)
@@ -218,18 +200,18 @@ class FilesystemSecurityTests(unittest.TestCase):
                     finally:
                         os.close(replacement_fd)
                     swapped = True
-                real_rename(
+                exclusive_rename_at(
+                    source_directory,
                     source,
+                    destination_directory,
                     destination,
-                    src_dir_fd=src_dir_fd,
-                    dst_dir_fd=dst_dir_fd,
                 )
 
             with patch(
                 "sddgov.fs_security.os.fsync",
                 side_effect=fail_first_regular_file_fsync,
             ), patch(
-                "sddgov.fs_security.os.rename",
+                "sddgov.fs_security.exclusive_rename_at",
                 side_effect=replace_before_cleanup,
             ), self.assertRaisesRegex(OSError, "near-name-max write failure"):
                 write_new_regular_file(output, b"owned generation\n", "test output")
@@ -248,9 +230,23 @@ class FilesystemSecurityTests(unittest.TestCase):
                 os.O_RDONLY | getattr(os, "O_DIRECTORY", 0),
             )
             try:
+                calls = 0
+
+                def fail_restore(source_fd, source, destination_fd, destination):
+                    nonlocal calls
+                    calls += 1
+                    if calls == 2:
+                        raise NotImplementedError("exclusive restore unavailable")
+                    exclusive_rename_at(
+                        source_fd,
+                        source,
+                        destination_fd,
+                        destination,
+                    )
+
                 with patch(
-                    "sddgov.fs_security.os.link",
-                    side_effect=NotImplementedError("linkat unavailable"),
+                    "sddgov.fs_security.exclusive_rename_at",
+                    side_effect=fail_restore,
                 ), self.assertRaisesRegex(
                     ValueError,
                     r"cleanup could not restore.*preserved pending generation",
@@ -263,6 +259,40 @@ class FilesystemSecurityTests(unittest.TestCase):
                     )
             finally:
                 os.close(directory_fd)
+
+    def test_cleanup_retries_a_private_name_collision_without_overwrite(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            target = root / "result"
+            target.write_text("owned\n", encoding="utf-8")
+            metadata = target.stat()
+            first_token = "a" * 32
+            second_token = "b" * 32
+            collision = root / f".sddgov.cleanup-pending-{first_token}"
+            collision.write_text("later writer\n", encoding="utf-8")
+            directory_fd = os.open(
+                root,
+                os.O_RDONLY | getattr(os, "O_DIRECTORY", 0),
+            )
+            try:
+                with patch(
+                    "sddgov.fs_security.secrets.token_hex",
+                    side_effect=[first_token, second_token],
+                ):
+                    removed = remove_owned_at(
+                        directory_fd,
+                        target.name,
+                        (metadata.st_dev, metadata.st_ino),
+                        "synthetic output",
+                        expected_size=metadata.st_size,
+                        expected_digest="33bff9108736f23280e9cd50cb1472e3a5b4403ed3f2da1fe67b8487a4fb75c6",
+                    )
+            finally:
+                os.close(directory_fd)
+            self.assertTrue(removed)
+            self.assertFalse(target.exists())
+            self.assertEqual(collision.read_text(encoding="utf-8"), "later writer\n")
+            self.assertFalse((root / f".sddgov.cleanup-pending-{second_token}").exists())
 
     def test_file_descriptor_close_failure_cleans_owned_output_without_retry(self):
         with tempfile.TemporaryDirectory() as temporary:

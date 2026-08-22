@@ -54,6 +54,10 @@ def verify_release_assets(root: Path) -> dict[str, Any]:
                 "distributions",
                 "offline",
             }
+            if distribution_names & root_asset_names:
+                raise ValueError(
+                    "downloaded release assets have ambiguous duplicate names"
+                )
             if set(expected) != distribution_names | root_asset_names:
                 raise ValueError(
                     "public release manifest does not exactly cover downloaded assets"

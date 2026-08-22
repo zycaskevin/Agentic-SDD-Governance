@@ -392,6 +392,19 @@ def smoke(
             raise RuntimeError(
                 f"wheel version mismatch: expected {expected_version}, got {actual_version}"
             )
+        owner_executable = virtualenv / (
+            "Scripts/sddgov-owner.exe" if os.name == "nt" else "bin/sddgov-owner"
+        )
+        owner_help = _run(
+            [str(owner_executable), "--help"],
+            cwd=root,
+            environment=environment,
+        )
+        if (
+            "Owner-controlled approval client" not in owner_help
+            or "approve-product" not in owner_help
+        ):
+            raise RuntimeError("installed-wheel Owner approval client is unavailable")
 
         doctors: dict[str, dict[str, Any]] = {}
         for agent in ("codex", "hermes"):
@@ -459,6 +472,7 @@ def smoke(
         "version": actual_version,
         "source_checkout_imported": False,
         "offline_bundle_verified": True,
+        "owner_approval_client": "PASS",
         "bundle_file_count": bundle["bundle_file_count"],
         "bundle_payload_file_count": bundle["file_count"],
         "doctors": doctors,

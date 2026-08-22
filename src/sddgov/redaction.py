@@ -11,7 +11,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
-from .fs_security import open_directory_path, remove_owned_at
+from .fs_security import (
+    open_directory_path,
+    remove_owned_at,
+    require_directory_path_identity,
+)
 
 
 @dataclass(frozen=True)
@@ -382,7 +386,12 @@ def _validate_published_bytes(
 
 
 def _reconcile_failed_publication(
-    directory_fd: int, name: str, expected_identity: tuple[int, int]
+    directory_fd: int,
+    name: str,
+    expected_identity: tuple[int, int],
+    *,
+    expected_size: int | None = None,
+    expected_digest: str | None = None,
 ) -> None:
     """Remove our generation while preserving any later writer at ``name``."""
     remove_owned_at(
@@ -390,6 +399,8 @@ def _reconcile_failed_publication(
         name,
         expected_identity,
         "redaction destination",
+        expected_size=expected_size,
+        expected_digest=expected_digest,
     )
 
 
@@ -589,6 +600,8 @@ def _stream_text_at(
                     output_directory_fd,
                     name,
                     (temporary_metadata.st_dev, temporary_metadata.st_ino),
+                    expected_size=output_size,
+                    expected_digest=output_digest.hexdigest(),
                 )
             except BaseException as cleanup_error:
                 raise primary from cleanup_error
@@ -633,6 +646,8 @@ def _stream_text_at(
                     name,
                     temporary_identity,
                     "redaction destination",
+                    expected_size=output_size,
+                    expected_digest=output_digest.hexdigest(),
                 )
             except BaseException as exc:
                 if cleanup_error is None:
@@ -656,16 +671,20 @@ def _stream_text_at(
                     temporary,
                     temporary_identity,
                     "redaction staging file",
+                    expected_size=output_size,
+                    expected_digest=output_digest.hexdigest(),
                 )
             except (OSError, ValueError):
                 pass
-        if temporary_identity is not None and claimed and claim_verified:
+        if temporary_identity is not None and claimed:
             try:
                 remove_owned_at(
                     output_directory_fd,
                     claimed,
                     temporary_identity,
                     "claimed redaction staging file",
+                    expected_size=output_size,
+                    expected_digest=output_digest.hexdigest(),
                 )
             except (OSError, ValueError):
                 pass
@@ -730,6 +749,7 @@ def redact_files(
         raise ValueError("redaction output directory is unavailable")
     report = {"schema_version": "1.0", "files": [], "blocked": [], "totals": {}}
     call_publications: dict[str, tuple[int, int]] = {}
+    call_snapshots: dict[str, tuple[int, str]] = {}
     try:
         for source in files:
             rel_name = source.name
@@ -763,6 +783,7 @@ def redact_files(
                     os.close(active_source_fd)
                 raise ValueError(f"redaction source cannot be opened safely: {rel_name}") from exc
             source_publications: dict[str, tuple[int, int]] = {}
+            source_snapshots: dict[str, tuple[int, str]] = {}
             try:
                 current = os.fstat(descriptor)
                 if not stat.S_ISREG(current.st_mode) or current.st_nlink != 1:
@@ -821,6 +842,8 @@ def redact_files(
                         # Track the owned generation before any report,
                         # source-identity, or descriptor-cleanup step can fail.
                         call_publications.update(source_publications)
+                        source_snapshots[rel_name] = (output_size, output_sha256)
+                        call_snapshots.update(source_snapshots)
                         _merge_counts(report["totals"], counts)
                         report["files"].append({
                             "source": rel_name,
@@ -841,17 +864,29 @@ def redact_files(
                     or _source_identity(after) != _source_identity(leaf)
                 ):
                     raise ValueError(f"redaction source changed during read: {rel_name}")
+                if owned_source_fd:
+                    require_directory_path_identity(
+                        source.parent,
+                        active_source_fd,
+                        f"redaction source directory for {rel_name}",
+                    )
                 if published_outputs is not None:
                     published_outputs.update(source_publications)
             except BaseException as primary:
                 try:
                     for published_name, published_identity in source_publications.items():
+                        expected_size, expected_digest = source_snapshots.get(
+                            published_name, (None, None)
+                        )
                         _reconcile_failed_publication(
                             active_output_fd,
                             published_name,
                             published_identity,
+                            expected_size=expected_size,
+                            expected_digest=expected_digest,
                         )
                         call_publications.pop(published_name, None)
+                        call_snapshots.pop(published_name, None)
                         if (
                             published_outputs is not None
                             and published_outputs.get(published_name)
@@ -879,10 +914,15 @@ def redact_files(
         cleanup_error: BaseException | None = None
         try:
             for published_name, published_identity in call_publications.items():
+                expected_size, expected_digest = call_snapshots.get(
+                    published_name, (None, None)
+                )
                 _reconcile_failed_publication(
                     active_output_fd,
                     published_name,
                     published_identity,
+                    expected_size=expected_size,
+                    expected_digest=expected_digest,
                 )
                 if (
                     published_outputs is not None
@@ -903,7 +943,48 @@ def redact_files(
     else:
         if owned_output_fd:
             try:
-                os.close(active_output_fd)
+                require_directory_path_identity(
+                    output_dir,
+                    active_output_fd,
+                    "redaction output directory",
+                )
+            except BaseException as primary:
+                cleanup_error: BaseException | None = None
+                try:
+                    for published_name, published_identity in call_publications.items():
+                        expected_size, expected_digest = call_snapshots.get(
+                            published_name, (None, None)
+                        )
+                        _reconcile_failed_publication(
+                            active_output_fd,
+                            published_name,
+                            published_identity,
+                            expected_size=expected_size,
+                            expected_digest=expected_digest,
+                        )
+                        if (
+                            published_outputs is not None
+                            and published_outputs.get(published_name)
+                            == published_identity
+                        ):
+                            published_outputs.pop(published_name)
+                except BaseException as exc:
+                    cleanup_error = exc
+                try:
+                    closing_output_fd = active_output_fd
+                    active_output_fd = -1
+                    os.close(closing_output_fd)
+                except OSError as exc:
+                    if cleanup_error is None:
+                        cleanup_error = exc
+                if cleanup_error is not None:
+                    raise primary from cleanup_error
+                raise
+        if owned_output_fd:
+            try:
+                closing_output_fd = active_output_fd
+                active_output_fd = -1
+                os.close(closing_output_fd)
             except OSError:
                 # The outputs and report are already committed. POSIX close(2)
                 # errors are not safely retryable because the fd may have been

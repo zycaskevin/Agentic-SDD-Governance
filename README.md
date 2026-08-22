@@ -82,7 +82,7 @@ Use this path for synthetic evaluation and local trials. Do not silently float t
 
 ### Controlled verified path
 
-For a controlled offline installation on Linux x86_64 with CPython 3.12, download the inventoried runtime bundle and registry checksum from the matching GitHub Release, then let the machine verify the archive and every file inside it:
+After the matching `v0.2.0rc1` GitHub Release has been published, a controlled offline installation on Linux x86_64 with CPython 3.12 can download the inventoried runtime bundle and registry checksum, then let the machine verify the archive and every file inside it. These commands fail before publication because there is no matching release asset to download:
 
 ```bash
 set -eu
@@ -202,6 +202,10 @@ Existing unrelated `AGENTS.md` and `.gitignore` content is preserved. If a manag
 | L3 | Production, payment, formal data deletion, credentials, MFA | Prepare dry run, exact operation, rollback, and proof; the concrete operation requires explicit signed authorization. |
 
 Evidence can increase confidence. It never lowers the authority level.
+
+### Owners decide; machines build the receipt
+
+An L2 gate does not turn the Owner into a code reviewer. `sddgov decision show-product-approval` validates and displays one bounded A/B card; it cannot sign. The separately installed `sddgov-owner` client asks for one choice on an Owner-controlled terminal, computes the assumptions, nonce, and receipt, delegates to a confirmation-constrained external Ed25519 signer, and verifies the result. The Owner never edits JSON, compares hashes, pastes a signature, or exposes a private key. Independent Review, tests, Evidence, and Merge verification remain Agent/machine work. See the [Owner Key Ceremony](docs/OWNER_KEY_CEREMONY.md).
 
 ## Evidence quick start
 

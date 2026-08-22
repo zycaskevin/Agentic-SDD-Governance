@@ -100,9 +100,9 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertEqual(_validate_repo(ROOT), [])
         self.assertEqual(_validate_repo(ROOT / ".agentic-sdd-governance"), [])
 
-    def test_source_validation_requires_broker_and_pilot_runtime_modules(self):
+    def test_source_validation_requires_runtime_and_owner_approval_modules(self):
         original = Path.is_file
-        for missing in ("broker.py", "pilot.py"):
+        for missing in ("broker.py", "pilot.py", "owner_approval.py", "owner_cli.py"):
             with self.subTest(missing=missing), patch.object(
                 Path,
                 "is_file",
@@ -189,6 +189,8 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn('"validate", str(project)', text)
         self.assertIn('"pilot", "quick"', text)
         self.assertIn('"source_checkout_imported": False', text)
+        self.assertIn('"owner_approval_client": "PASS"', text)
+        self.assertIn('"Scripts/sddgov-owner.exe"', text)
         self.assertIn("_snapshot_verified_bundle", text)
 
     def test_skill_is_thin_and_routes_one_level_references(self):
@@ -472,22 +474,43 @@ class RepositoryContractTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn(
-            "- Evidence: `DEP-RC1-REVIEW-FIX-R21-029` (authoritative)",
+            "- Evidence: `DEP-RC1-REVIEW-FIX-R22-030` (authoritative)",
             work_package,
         )
         self.assertIn(
-            "Complete and strictly verify `DEP-RC1-REVIEW-FIX-R21-029` at L1",
+            "Complete and strictly verify `DEP-RC1-REVIEW-FIX-R22-030` at L2",
             work_package,
         )
         self.assertIn(
-            "- Risk: L1 cross-module security, release-readiness, packaging, "
-            "and developer-experience work",
+            "- Risk: L2 because R22 changes the public approver-authority source",
             work_package,
         )
         decisions = json.loads(
             (ROOT / ".sddgov/decisions.json").read_text(encoding="utf-8")
         )
-        self.assertEqual(decisions["decisions"], [])
+        self.assertEqual(len(decisions["decisions"]), 1)
+        authority_decision = decisions["decisions"][0]
+        self.assertEqual(
+            authority_decision["decision_id"],
+            "DEC-RC1-APPROVER-AUTHORITY-R22",
+        )
+        self.assertEqual(authority_decision["risk_level"], "L2")
+        self.assertEqual(authority_decision["status"], "approved")
+        self.assertEqual(
+            authority_decision["reopen_condition"],
+            "scope_or_assumptions_change",
+        )
+        self.assertEqual(
+            authority_decision["assumptions"],
+            [
+                {
+                    "path": "work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.md",
+                    "sha256": (
+                        "ff9c41b50b60fa5f88048bc24a80898de763cedad9aec110b1d385a51d229245"
+                    ),
+                }
+            ],
+        )
         rollback = (
             ROOT / "evidence/DEP-RC1-REVIEW-FIX-R6-014/rollback.md"
         ).read_text(encoding="utf-8")
@@ -542,6 +565,9 @@ class RepositoryContractTests(unittest.TestCase):
             "private key",
             "synthetic receipt",
             "Humans do not copy, calculate, compare, or approve digests",
+            "/etc/sddgov/trusted-approvers.json",
+            "SDDGOV_TRUSTED_APPROVERS_FILE",
+            "separate privileged Operational/L3 action",
         ):
             self.assertIn(required, key_runbook)
         self.assertNotIn("calculate its SHA-256 fingerprint", key_runbook)
@@ -763,6 +789,33 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertNotIn("packaging==26.3", lock)
         self.assertNotIn("cryptography==46.0.7", lock)
 
+    def test_owner_approval_is_a_separate_non_key_cli_contract(self):
+        pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+        agent_cli = (ROOT / "src/sddgov/cli.py").read_text(encoding="utf-8")
+        owner_cli = (ROOT / "src/sddgov/owner_cli.py").read_text(encoding="utf-8")
+        request = json.loads(
+            (
+                ROOT
+                / "work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.request.json"
+            ).read_text(encoding="utf-8")
+        )
+        self.assertIn('sddgov-owner = "sddgov.owner_cli:main"', pyproject)
+        self.assertIn('"show-product-approval"', agent_cli)
+        self.assertNotIn('"approve-product"', agent_cli)
+        self.assertIn('"approve-product"', owner_cli)
+        self.assertNotIn("private-key", owner_cli)
+        self.assertNotIn("signature", owner_cli)
+        self.assertEqual(request["risk_level"], "L2")
+        self.assertEqual(request["category"], "product_decision")
+        self.assertEqual(
+            request["decision_id"],
+            "DEC-RC1-APPROVER-AUTHORITY-R22",
+        )
+        self.assertEqual(
+            request["decision_scope"],
+            request["decision_package"]["scope_of_approval"],
+        )
+
     def test_release_workflow_is_manual_isolated_and_attested(self):
         source = (ROOT / ".github/workflows/publish.yml").read_text(encoding="utf-8")
         # BaseLoader preserves workflow keys such as `on` as strings.
@@ -884,6 +937,12 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("--no-cache-dir", source)
         self.assertIn("sleep 10", source)
         self.assertIn("Require byte equality with the built wheel", source)
+        byte_equality_step = next(
+            step
+            for step in workflow["jobs"]["verify-testpypi"]["steps"]
+            if step.get("name") == "Require byte equality with the built wheel"
+        )
+        self.assertEqual(byte_equality_step.get("env", {}).get("PYTHONPATH"), "src")
         self.assertNotIn("skip-existing", source)
         uses = re.findall(r"uses:\s*([^\s#]+)", source)
         self.assertTrue(uses)

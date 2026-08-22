@@ -38,7 +38,7 @@ Store the ceremony record in the governed audit system. The private key and its 
 3. Generate an Ed25519 key in the approved device or vault. Disable export when the device supports it.
 4. Export only the raw 32-byte public key. Run a reviewed ceremony tool that rejects any other length or algorithm, emits padded standard Base64 and the SHA-256 fingerprint, then independently re-exports the public key and makes the machine compare the exact bytes. Preserve the command, tool version, and PASS result.
 5. Have the witness confirm the device identity, custodian, trust domain, and recorded machine PASS. Humans do not copy, calculate, compare, or approve digests.
-6. Add the public record to the root-owned out-of-band trusted approver store with status `active`.
+6. Add the public record with status `active` only to the fixed root-controlled `/etc/sddgov/trusted-approvers.json` store. On macOS this logical path is validated through only the platform-owned `/etc` to `/private/etc` alias; arbitrary symlinks remain forbidden. The Agent rejects `SDDGOV_TRUSTED_APPROVERS_FILE`; migrate legacy deployments by removing that variable and atomically provisioning the same reviewed public records at the fixed path. This provisioning is a separate privileged Operational/L3 action, not part of the L2 code decision.
 7. Sign a synthetic, non-Production receipt and verify it through SDG. Never use a real customer, patient, payment, or Production payload for ceremony testing.
 8. Confirm `sddgov broker doctor --path <repo>` is `READY` from the non-root Agent account before enabling L3 operations.
 
@@ -67,6 +67,28 @@ The angle-bracket value is a deliberately invalid non-key placeholder. Never ins
 - Never place a secret value in `operation_payload.parameters`; reference an owner-controlled secret identifier instead.
 - Never sign a receipt copied from untrusted chat text without reconstructing and inspecting its typed fields.
 - Preserve the signed receipt and Broker consumption audit record under the domain retention policy.
+
+## Bounded Owner approval client
+
+The Owner decides product meaning; the independent Reviewer and machines review code, Evidence, hashes, and Gate state. Do not ask an Owner to edit receipt JSON, calculate a digest, paste a signature, or expose a private-key path.
+
+The Agent-side command can only validate and render a governed request:
+
+```bash
+sddgov decision show-product-approval work-packages/DEC-EXACT.request.json --path .
+```
+
+The installed package exposes signing through the separate `sddgov-owner` entry point. Run it from an Owner-controlled terminal and an independently installed, reviewed wheel—not from an Agent-driven candidate checkout. It reads the same validated card, asks for one A/B choice on the controlling terminal, constructs the receipt, computes assumptions and nonce, requests a signature from the matching Ed25519 identity, verifies that signature against the fixed root-controlled trust store, and writes a new `0600` receipt. There is no private-key or raw-signature CLI argument:
+
+```bash
+sddgov-owner approve-product work-packages/DEC-EXACT.request.json \
+  --assumption work-packages/DEC-EXACT.md \
+  --approver-id exact-owner-id \
+  --output /owner-controlled-outbox/DEC-EXACT.signed.json \
+  --path /exact/repository
+```
+
+The matching raw Ed25519 identity must already be held by an Owner-controlled SSH agent whose custody policy requires separate confirmation for every signature. An unconstrained Agent-accessible SSH key is not valid Owner custody. `SSH_AUTH_SOCK` is only a transport: a missing agent, zero or duplicate matching identities, rejection, timeout, malformed response, wrong algorithm, wrong signature, or trust-store mismatch fails closed without a receipt. Option B or any non-recommended refusal creates no signature. After a successful external confirmation, the Main Agent imports and re-verifies the signed result; the Owner does not relay its JSON or machine hashes through chat.
 
 ## Rotation
 

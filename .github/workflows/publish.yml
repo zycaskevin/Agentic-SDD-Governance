@@ -181,6 +181,8 @@ jobs:
             sleep 10
           done
       - name: Require byte equality with the built wheel
+        env:
+          PYTHONPATH: src
         run: |
           python - <<'PY'
           import os

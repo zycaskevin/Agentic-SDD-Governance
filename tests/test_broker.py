@@ -908,6 +908,35 @@ class BrokerTests(unittest.TestCase):
         for signum, original_handler in original_handlers.items():
             self.assertIs(signal.getsignal(signum), original_handler)
 
+    def test_partial_signal_setup_restores_every_installed_handler(self):
+        ledger = Mock()
+        original_term_handler = object()
+        calls = []
+
+        def install_or_fail(signum, handler):
+            calls.append((signum, handler))
+            if len(calls) == 1:
+                return original_term_handler
+            if len(calls) == 2:
+                raise OSError("synthetic SIGINT installation failure")
+            return object()
+
+        with (
+            patch("sddgov.broker.signal.signal", side_effect=install_or_fail),
+            self.assertRaisesRegex(OSError, "SIGINT installation failure"),
+        ):
+            broker_module._serve_broker_at(
+                Path("/synthetic/approval-broker.sock"),
+                ledger,
+                123,
+                owner_uid=0,
+            )
+
+        ledger.initialize.assert_called_once_with()
+        self.assertEqual(calls[0][0], signal.SIGTERM)
+        self.assertEqual(calls[1][0], signal.SIGINT)
+        self.assertEqual(calls[2], (signal.SIGTERM, original_term_handler))
+
     def test_partial_connection_deadline_allows_next_valid_request(self):
         class QueueServer:
             def __init__(self, connections):
