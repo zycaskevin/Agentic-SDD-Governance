@@ -1,0 +1,59 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-SDG-CI-LOCK-016",
+  "issue": "SDG-CI-LOCK-001",
+  "sdd_references": [
+    "CI-COST-GUARD"
+  ],
+  "risk_level": "L1",
+  "created_at": "2026-08-22T16:19:08Z",
+  "updated_at": "2026-08-22T17:08:32Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-22T16:19:08Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-22T16:21:15Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-22T16:21:21Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-22T16:25:50Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-22T17:08:32Z"
+      }
+    ]
+  },
+  "expected_behavior": "One current user has at most one active sddgov Local Green critical section; a competing invocation waits without retrying, changing commands, or weakening repository checks.",
+  "actual_behavior": "run_local_gate executes repository commands directly after contract verification and has no cross-process coordination. Two deterministic RED contracts fail because the global lock and orchestration boundary do not exist.",
+  "environment": {
+    "commit": "8f50d66464bf36eaf4d8476ee853261f2bf5c81e",
+    "branch": "codex/local-green-global-serialization-ready",
+    "runtime": "Python 3.11.15; Linux; synthetic temporary projects only"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": [
+    {
+      "path": "shareable/artifacts/terminal--artifact-1.txt",
+      "sha256": "c6d2ea8ffce146215736d61acbc1927b698beb653be537398ec7712ea46bd7ec"
+    },
+    {
+      "path": "shareable/artifacts/terminal--artifact-2.txt",
+      "sha256": "dc81d22164eca6ac05955d6c37cf5581c040952bd56f618340e79bd20c3e808f"
+    },
+    {
+      "path": "shareable/artifacts/terminal--exact-head-local-green.txt",
+      "sha256": "075bd673688ab4f8761097c73425e813c15ce268858b53a0e1628213909935a5"
+    }
+  ]
+}

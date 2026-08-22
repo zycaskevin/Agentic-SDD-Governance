@@ -1,0 +1,30 @@
+test_ci_contract_symlink_and_hardlink_are_rejected (test_ci_guard.CICostGuardTests.test_ci_contract_symlink_and_hardlink_are_rejected) ... ok
+test_comments_cannot_fake_types_or_hide_job_write_permissions (test_ci_guard.CICostGuardTests.test_comments_cannot_fake_types_or_hide_job_write_permissions) ... ok
+test_contract_rejects_shell_string_and_local_failure (test_ci_guard.CICostGuardTests.test_contract_rejects_shell_string_and_local_failure) ... ok
+test_draft_conversion_must_cancel_the_active_pull_request_run (test_ci_guard.CICostGuardTests.test_draft_conversion_must_cancel_the_active_pull_request_run) ... ok
+test_draft_guard_must_not_be_hidden_inside_always_true_expression (test_ci_guard.CICostGuardTests.test_draft_guard_must_not_be_hidden_inside_always_true_expression) ... ok
+test_duplicate_yaml_keys_fail_closed (test_ci_guard.CICostGuardTests.test_duplicate_yaml_keys_fail_closed) ... ok
+test_every_pull_request_job_must_skip_drafts (test_ci_guard.CICostGuardTests.test_every_pull_request_job_must_skip_drafts) ... ok
+test_invalid_contract_mappings_fail_closed_without_exception (test_ci_guard.CICostGuardTests.test_invalid_contract_mappings_fail_closed_without_exception) ... ok
+test_invalid_exemption_entry_returns_structured_error (test_ci_guard.CICostGuardTests.test_invalid_exemption_entry_returns_structured_error) ... ok
+test_manual_only_post_merge_verification_rejects_automatic_push (test_ci_guard.CICostGuardTests.test_manual_only_post_merge_verification_rejects_automatic_push) ... ok
+test_manual_only_push_cannot_hide_behind_workflow_exemption (test_ci_guard.CICostGuardTests.test_manual_only_push_cannot_hide_behind_workflow_exemption) ... ok
+test_missing_controls_fail_closed (test_ci_guard.CICostGuardTests.test_missing_controls_fail_closed) ... ok
+test_non_mapping_job_fails_closed (test_ci_guard.CICostGuardTests.test_non_mapping_job_fails_closed) ... ok
+test_runner_and_concurrency_values_are_semantically_validated (test_ci_guard.CICostGuardTests.test_runner_and_concurrency_values_are_semantically_validated) ... ok
+test_v1_contract_defaults_missing_post_merge_policy_to_automatic (test_ci_guard.CICostGuardTests.test_v1_contract_defaults_missing_post_merge_policy_to_automatic) ... ok
+test_verify_and_local_gate (test_ci_guard.CICostGuardTests.test_verify_and_local_gate) ... green
+ok
+test_workflow_leaf_symlink_and_hardlink_are_rejected (test_ci_guard.CICostGuardTests.test_workflow_leaf_symlink_and_hardlink_are_rejected) ... ok
+test_workflow_parent_symlink_is_rejected (test_ci_guard.CICostGuardTests.test_workflow_parent_symlink_is_rejected) ... ok
+test_yaml_11_boolean_alias_cannot_hide_duplicate_on_key (test_ci_guard.CICostGuardTests.test_yaml_11_boolean_alias_cannot_hide_duplicate_on_key) ... ok
+test_lock_is_released_after_an_inner_failure (test_ci_guard_lock.LocalGateLockTests.test_lock_is_released_after_an_inner_failure) ... ok
+test_lock_rejects_a_permissive_coordination_directory (test_ci_guard_lock.LocalGateLockTests.test_lock_rejects_a_permissive_coordination_directory) ... ok
+test_lock_rejects_a_symbolic_link_record (test_ci_guard_lock.LocalGateLockTests.test_lock_rejects_a_symbolic_link_record) ... ok
+test_lock_serializes_competing_processes (test_ci_guard_lock.LocalGateLockTests.test_lock_serializes_competing_processes) ... ok
+test_run_local_gate_enters_lock_before_verification_and_commands (test_ci_guard_lock.LocalGateLockTests.test_run_local_gate_enters_lock_before_verification_and_commands) ... ok
+
+----------------------------------------------------------------------
+Ran 24 tests in 0.083s
+
+OK

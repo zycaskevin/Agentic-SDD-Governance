@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "terminal--artifact-1.txt",
+      "output": "terminal--artifact-1.txt",
+      "source_sha256": "c6d2ea8ffce146215736d61acbc1927b698beb653be537398ec7712ea46bd7ec",
+      "source_size": 321,
+      "output_sha256": "c6d2ea8ffce146215736d61acbc1927b698beb653be537398ec7712ea46bd7ec",
+      "output_size": 321,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--artifact-2.txt",
+      "output": "terminal--artifact-2.txt",
+      "source_sha256": "dc81d22164eca6ac05955d6c37cf5581c040952bd56f618340e79bd20c3e808f",
+      "source_size": 3566,
+      "output_sha256": "dc81d22164eca6ac05955d6c37cf5581c040952bd56f618340e79bd20c3e808f",
+      "output_size": 3566,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--exact-head-local-green.txt",
+      "output": "terminal--exact-head-local-green.txt",
+      "source_sha256": "075bd673688ab4f8761097c73425e813c15ce268858b53a0e1628213909935a5",
+      "source_size": 623,
+      "output_sha256": "075bd673688ab4f8761097c73425e813c15ce268858b53a0e1628213909935a5",
+      "output_size": 623,
+      "redactions": {}
+    }
+  ],
+  "blocked": [],
+  "totals": {},
+  "dep_id": "DEP-SDG-CI-LOCK-016",
+  "generated_at": "2026-08-22T17:09:17Z"
+}
