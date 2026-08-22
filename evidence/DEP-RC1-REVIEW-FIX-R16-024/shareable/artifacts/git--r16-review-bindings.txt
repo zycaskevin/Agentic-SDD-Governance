@@ -1,0 +1,10 @@
+R16 REVIEW BINDINGS
+Trusted Base: 1a5a0b214eccc2b9edd076fd5e2f222c4a456725
+Atomic product: c17508e16c5e773ca457e291cc2f7355ccdf65f8
+Atomic parent: 1a5a0b214eccc2b9edd076fd5e2f222c4a456725
+Branch: feat/rc1-readiness-r16
+Authoritative DEP: evidence/DEP-RC1-REVIEW-FIX-R16-024
+Rollback ref: c17508e16c5e773ca457e291cc2f7355ccdf65f8
+Pre-R16-DEP audit Head: 859b4a6 (R6-R15 Evidence-only descendants)
+
+The R16 atomic product includes the full RC1 candidate and the native installed-wheel path fix. Every descendant before the R16 DEP changes only evidence/**. Gate and independent receipt must bind the later exact reviewed Head.

@@ -1,0 +1,120 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-REVIEW-FIX-R16-024",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r16-darwin-red.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "e8bdb8208e91de799bb8eedc463d0ff9018814a4cf9bdff49c0d8f124f2f8b4b",
+      "size": 706,
+      "collected_at": "2026-08-22T03:51:21Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r16-local-green.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "8ee3e4da14f3fa68da416d7b409345a844542c271f881f917c566c397286d3e3",
+      "size": 809,
+      "collected_at": "2026-08-22T03:51:22Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r16-package-proof.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "57ad17c469609ada66450c7b0d0ff51ea90d2cd054a33390e038d0ff5abf8050",
+      "size": 501,
+      "collected_at": "2026-08-22T03:51:22Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r16-rollback-drill.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "af3a5c903d9c889349aca870c622045071488056b69604ff93a8b182f59e0b45",
+      "size": 696,
+      "collected_at": "2026-08-22T03:51:22Z",
+      "shareable": false
+    },
+    {
+      "collector": "git",
+      "path": "private/raw/git--r16-review-bindings.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "1ecf516533645d3f60d7550d4ae79b9a31c6a80015d2c28f73477223dcfa0d71",
+      "size": 625,
+      "collected_at": "2026-08-22T03:51:23Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r16-release-bundle.json",
+      "source_suffix": ".json",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "c173a5d76313e68917bcdfe316f7a477cef38571c1b42f31d9ac99e9cb77250d",
+      "size": 303,
+      "collected_at": "2026-08-22T03:51:23Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r16-fresh-wheel-smoke.json",
+      "source_suffix": ".json",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "d69f08240a2fedbe3b58507186baed8644de8beda5d1fb36db2e08236d51f15f",
+      "size": 624,
+      "collected_at": "2026-08-22T03:51:23Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/git--r16-review-bindings.txt",
+      "sha256": "1ecf516533645d3f60d7550d4ae79b9a31c6a80015d2c28f73477223dcfa0d71",
+      "size": 625,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r16-darwin-red.txt",
+      "sha256": "4f09f31c08948f72009bbc9f8340b146e38986b6635ee766a6e2d633286f0a2b",
+      "size": 721,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r16-fresh-wheel-smoke.json",
+      "sha256": "d69f08240a2fedbe3b58507186baed8644de8beda5d1fb36db2e08236d51f15f",
+      "size": 624,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r16-local-green.txt",
+      "sha256": "8ee3e4da14f3fa68da416d7b409345a844542c271f881f917c566c397286d3e3",
+      "size": 809,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r16-package-proof.txt",
+      "sha256": "57ad17c469609ada66450c7b0d0ff51ea90d2cd054a33390e038d0ff5abf8050",
+      "size": 501,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r16-release-bundle.json",
+      "sha256": "c173a5d76313e68917bcdfe316f7a477cef38571c1b42f31d9ac99e9cb77250d",
+      "size": 303,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r16-rollback-drill.txt",
+      "sha256": "af3a5c903d9c889349aca870c622045071488056b69604ff93a8b182f59e0b45",
+      "size": 696,
+      "shareable": true
+    }
+  ]
+}

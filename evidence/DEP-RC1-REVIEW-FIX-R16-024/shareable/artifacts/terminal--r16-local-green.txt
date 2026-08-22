@@ -1,0 +1,15 @@
+R16 LOCAL GREEN
+Atomic product: c17508e16c5e773ca457e291cc2f7355ccdf65f8
+Atomic parent: 1a5a0b214eccc2b9edd076fd5e2f222c4a456725
+Environment: Python 3.12, no-system-site dual hash-locked environment
+
+pip check: PASS
+unittest discover -s tests -v: 381 tests PASS; explicit sandbox/history skips documented
+Validate: PASS
+CI verify: PASS (governance, publish, broker-native workflows)
+real Linux source native tests: 7 semantic/boundary PASS; 1 expected installed-wheel provenance skip
+fresh installed-wheel native tests: 8 PASS; SDDGOV_EXPECT_INSTALLED_WHEEL=1; source checkout rejected
+
+Native coverage includes Darwin path bound, fd/path distinction, health,
+SIGTERM cleanup, two restarts, first-stat failure, replacement preservation,
+post-listen failure, and platform-native atomic no-clobber publication.
