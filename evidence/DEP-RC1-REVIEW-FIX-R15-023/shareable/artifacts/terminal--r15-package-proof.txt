@@ -1,0 +1,13 @@
+R15 PACKAGE PROOF
+Hash-locked tools: setuptools==83.0.0; wheel==0.48.0
+python -m build --no-isolation: PASS (wheel and sdist)
+twine check: PASS
+offline release bundle: PASS; 10 dependency wheels and 4 public assets
+fresh installed-wheel smoke: PASS
+source_checkout_imported=false
+bundle_file_count=13
+payload_file_count=12
+Codex Doctor managed_file_count=71
+Hermes Doctor managed_file_count=71
+synthetic demo=PASS; no production data
+native installed-wheel Broker health/SIGTERM cleanup=PASS on Linux
