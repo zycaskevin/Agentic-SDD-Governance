@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-REVIEW-FIX-R18-026",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r18-review-red.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "78f420fcb627f4b26db94e0e88331976cd895314d5fe4789ae58127000eb7273",
+      "size": 1481,
+      "collected_at": "2026-08-22T05:08:38Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r18-evidence-errata.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "33fcfb2fe715debe0546084163f1ebfad0e9ce9e87f8c548bf5d249d7e889246",
+      "size": 1475,
+      "collected_at": "2026-08-22T05:08:38Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--r18-evidence-errata.txt",
+      "sha256": "33fcfb2fe715debe0546084163f1ebfad0e9ce9e87f8c548bf5d249d7e889246",
+      "size": 1475,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r18-review-red.txt",
+      "sha256": "78f420fcb627f4b26db94e0e88331976cd895314d5fe4789ae58127000eb7273",
+      "size": 1481,
+      "shareable": true
+    }
+  ]
+}
