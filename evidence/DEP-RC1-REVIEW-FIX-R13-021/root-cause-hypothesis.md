@@ -18,4 +18,4 @@ The hypothesis is falsified if any non-`evidence/**` path appears in `096624a..r
 
 ## Conclusion
 
-Confirmed for the implementation and current Green matrix. The candidate is reconstructed with product commit `096624a529dea88d091777c8012bbdba3346cdbe` directly above Base, and every replayed descendant changes only `evidence/**`. The release workflow and repository contract require both hash-locked environments before complete test discovery. Final proof remains contingent on the actual revert drill and exact-Base verifier result at the immutable reviewed Head.
+Confirmed. The candidate is reconstructed with product commit `096624a529dea88d091777c8012bbdba3346cdbe` directly above Base, and every descendant through the exercised Evidence Head changes only `evidence/**`. The release workflow and repository contract require both hash-locked environments before complete test discovery. The complete current Green matrix and actual trusted-Base rollback drill pass; the final Merge Gate must still be checked by the exact Base verifier and independently signed.
