@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-REVIEW-FIX-R18-026",
+  "issue": "22",
+  "sdd_references": [
+    "WP-RC1-READINESS-008"
+  ],
+  "risk_level": "L1",
+  "created_at": "2026-08-22T05:08:06Z",
+  "updated_at": "2026-08-22T05:16:37Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-22T05:08:06Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-22T05:09:09Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-22T05:09:55Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-22T05:16:37Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-22T05:16:37Z"
+      }
+    ]
+  },
+  "expected_behavior": "All reachable audit-window commits and untrusted Evidence reads are bounded and complete; public outputs are no-follow and sanitized; L3 recovery and historical proof claims are explicit.",
+  "actual_behavior": "R17 omitted side-branch commits, left unbounded reads and symlink-following outputs, leaked local paths, and retained incomplete approval and proof wording.",
+  "environment": {
+    "commit": "b4154c3ebe9215d1397fb069e9b623ef76100d4b",
+    "branch": "feat/rc1-readiness-r18-final",
+    "runtime": "Linux Python 3.12 isolated dual hash-lock environment"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}
