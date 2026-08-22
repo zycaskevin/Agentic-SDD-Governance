@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0",
   "base_sha": "55d480a09764827e89531eef75bb7c5f21ab18cd",
-  "head_sha": "ed1bdfe4f868077981c28d50a4f177142ddb4345",
+  "head_sha": "7a67d184a2d684b35b2fbc66e812ef48862dd516",
   "risk_level": "L1",
   "builder_id": "codex-local-green-serialization-builder",
-  "change_digest": "2d5fa2ca31bb4ce06cbb5c311b660184a5678ab70f48594e809bd61ed6c80dee",
+  "change_digest": "9ea738f0f645182babe27f073da9329e4f0aeec3a97bbe73ce618912685ac69a",
   "deps": [
     "evidence/DEP-SDG-CI-LOCK-016"
   ],
