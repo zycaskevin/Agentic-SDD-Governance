@@ -2,8 +2,8 @@
 
 ## Regression test added or strengthened
 
-`tests/test_ci_guard_lock.py` defines cross-process contention and orchestration
-order contracts before implementation.
+`tests/test_ci_guard_lock.py` defines state-based cross-process contention and
+one continuous `enter -> verify -> command -> exit` orchestration contract.
 
 ## Related tests executed
 
@@ -39,7 +39,7 @@ The exact merge node passed, the `27` CI Guard tests passed, and the targeted
 changed-file Ruff rules passed after this correction.
 
 Exact committed-head Proof at
-`8dc0aba63fea0a31a3622b371e7f533a9e7ae510`:
+`196685c2680da9a84d4b5efd35dd66f20909f1b4`:
 
 ```text
 PYTHONPATH=src python -m sddgov.cli ci local-gate .

@@ -5,7 +5,7 @@
 The focused CI Guard suite passed all `27` tests. Targeted changed-file Ruff
 safety rules (`E4,E7,E9,F`), source validation, managed-copy parity, and diff
 checks passed. The exact committed
-head `8dc0aba63fea0a31a3622b371e7f533a9e7ae510` then passed the complete
+head `196685c2680da9a84d4b5efd35dd66f20909f1b4` then passed the complete
 repository Local Green Gate: `237` total tests, comprising `236` passed and one
 platform-dependent skip; governance source validation also passed. The
 post-run worktree was clean.
@@ -18,8 +18,9 @@ Proof is preserved in
 `shareable/artifacts/terminal--exact-head-local-green.txt`.
 
 Before: independent `run_local_gate` callers had no shared critical section.
-After: the same real child process reports ready, remains blocked while the
-parent holds the lock, acquires it after release, and exits successfully;
+After: the same real child process confirms a nonblocking acquisition was
+denied while the parent holds the lock, reports `blocked`, acquires the lock
+after release, and exits successfully;
 verification and commands run inside the critical section; symlink/permissive
 records fail closed; inner failure releases the descriptor lock.
 

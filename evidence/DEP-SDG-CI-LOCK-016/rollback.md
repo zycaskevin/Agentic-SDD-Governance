@@ -3,7 +3,7 @@
 rollback_version: 3.0
 target: current-user Local Green cross-checkout serialization
 rollback_action: git_revert
-rollback_ref: 8dc0aba63fea0a31a3622b371e7f533a9e7ae510
+rollback_ref: 196685c2680da9a84d4b5efd35dd66f20909f1b4
 reconcile_action: setup_agent_from_reverted_source
 reconcile_agent: codex
 reconcile_profile: team-standard

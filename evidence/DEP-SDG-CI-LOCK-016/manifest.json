@@ -17,9 +17,9 @@
       "path": "private/raw/terminal--artifact-2.txt",
       "source_suffix": ".txt",
       "media_type": "text/plain; charset=utf-8",
-      "sha256": "613e302397eeb3e4aca42c46a827d85b7b54de639455a54a2b93e5f90fbbf767",
+      "sha256": "0edae411227024ff31ea0b6fb7ca326add2fd33c898ad9c661184398f47cc844",
       "size": 4165,
-      "collected_at": "2026-08-22T17:35:57Z",
+      "collected_at": "2026-08-22T17:47:27Z",
       "shareable": false
     },
     {
@@ -27,9 +27,9 @@
       "path": "private/raw/terminal--exact-head-local-green.txt",
       "source_suffix": ".txt",
       "media_type": "text/plain; charset=utf-8",
-      "sha256": "35a8ce1b6a45e1b693b7c4f08e44426a1109502450c504fbd13bfc48e6943d8e",
+      "sha256": "92a4d4962453b413110423dc51eaf119827fe09e6c61ba99decc939487f2b332",
       "size": 619,
-      "collected_at": "2026-08-22T17:35:57Z",
+      "collected_at": "2026-08-22T17:47:27Z",
       "shareable": false
     }
   ],
@@ -42,13 +42,13 @@
     },
     {
       "path": "shareable/artifacts/terminal--artifact-2.txt",
-      "sha256": "613e302397eeb3e4aca42c46a827d85b7b54de639455a54a2b93e5f90fbbf767",
+      "sha256": "0edae411227024ff31ea0b6fb7ca326add2fd33c898ad9c661184398f47cc844",
       "size": 4165,
       "shareable": true
     },
     {
       "path": "shareable/artifacts/terminal--exact-head-local-green.txt",
-      "sha256": "35a8ce1b6a45e1b693b7c4f08e44426a1109502450c504fbd13bfc48e6943d8e",
+      "sha256": "92a4d4962453b413110423dc51eaf119827fe09e6c61ba99decc939487f2b332",
       "size": 619,
       "shareable": true
     }

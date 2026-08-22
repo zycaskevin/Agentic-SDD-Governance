@@ -8,7 +8,7 @@
   ],
   "risk_level": "L1",
   "created_at": "2026-08-22T16:19:08Z",
-  "updated_at": "2026-08-22T17:35:57Z",
+  "updated_at": "2026-08-22T17:47:27Z",
   "workflow": {
     "phase": "proof",
     "history": [
@@ -37,7 +37,7 @@
   "expected_behavior": "One current user has at most one active sddgov Local Green critical section; a competing invocation waits without retrying, changing commands, or weakening repository checks.",
   "actual_behavior": "run_local_gate executes repository commands directly after contract verification and has no cross-process coordination. Two deterministic RED contracts fail because the global lock and orchestration boundary do not exist.",
   "environment": {
-    "commit": "8dc0aba63fea0a31a3622b371e7f533a9e7ae510",
+    "commit": "196685c2680da9a84d4b5efd35dd66f20909f1b4",
     "branch": "codex/local-green-global-serialization-ready",
     "runtime": "Python 3.11.15; Linux; synthetic temporary projects only"
   },
@@ -49,11 +49,11 @@
     },
     {
       "path": "shareable/artifacts/terminal--artifact-2.txt",
-      "sha256": "613e302397eeb3e4aca42c46a827d85b7b54de639455a54a2b93e5f90fbbf767"
+      "sha256": "0edae411227024ff31ea0b6fb7ca326add2fd33c898ad9c661184398f47cc844"
     },
     {
       "path": "shareable/artifacts/terminal--exact-head-local-green.txt",
-      "sha256": "35a8ce1b6a45e1b693b7c4f08e44426a1109502450c504fbd13bfc48e6943d8e"
+      "sha256": "92a4d4962453b413110423dc51eaf119827fe09e6c61ba99decc939487f2b332"
     }
   ]
 }
