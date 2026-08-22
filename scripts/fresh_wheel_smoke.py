@@ -334,6 +334,13 @@ def smoke(
     environment = os.environ.copy()
     environment.pop("PYTHONPATH", None)
     environment.pop("PYTHONHOME", None)
+    for key in (
+        "LD_PRELOAD",
+        "LD_LIBRARY_PATH",
+        "DYLD_INSERT_LIBRARIES",
+        "DYLD_LIBRARY_PATH",
+    ):
+        environment.pop(key, None)
     for key in tuple(environment):
         if key.startswith("PIP_"):
             environment.pop(key)
@@ -395,6 +402,8 @@ def smoke(
         owner_executable = virtualenv / (
             "Scripts/sddgov-owner.exe" if os.name == "nt" else "bin/sddgov-owner"
         )
+        if os.name != "nt":
+            owner_executable.chmod(0o755)
         owner_help = _run(
             [str(owner_executable), "--help"],
             cwd=root,
@@ -405,6 +414,44 @@ def smoke(
             or "approve-product" not in owner_help
         ):
             raise RuntimeError("installed-wheel Owner approval client is unavailable")
+        hostile_root = root / "hostile-pythonpath"
+        hostile_package = hostile_root / "sddgov"
+        hostile_package.mkdir(parents=True)
+        hostile_marker = root / "hostile-owner-imported"
+        (hostile_package / "__init__.py").write_text("", encoding="utf-8")
+        (hostile_package / "owner_cli.py").write_text(
+            "from pathlib import Path\n"
+            f"Path({str(hostile_marker)!r}).write_text('imported')\n",
+            encoding="utf-8",
+        )
+        owner_environment = dict(environment)
+        owner_environment["PYTHONPATH"] = str(hostile_root)
+        runtime_probe = subprocess.run(
+            [
+                str(owner_executable),
+                "approve-product",
+                "missing-owner-request.json",
+                "--output",
+                str(root / "must-not-exist-owner-receipt.json"),
+                "--path",
+                str(root),
+            ],
+            cwd=root,
+            env=owner_environment,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if (
+            runtime_probe.returncode != 3
+            or hostile_marker.exists()
+            or "isolated launcher" in runtime_probe.stderr
+            or "virtual environment" in runtime_probe.stderr
+        ):
+            raise RuntimeError(
+                "installed-wheel Owner launcher did not isolate imports or accept the real venv"
+            )
 
         doctors: dict[str, dict[str, Any]] = {}
         for agent in ("codex", "hermes"):

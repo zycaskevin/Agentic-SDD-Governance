@@ -7,7 +7,8 @@
     },
     "commands": [
       ["python3", "-m", "unittest", "discover", "-s", "tests", "-v"],
-      ["python3", "-m", "sddgov.cli", "validate", "."]
+      ["python3", "-m", "sddgov.cli", "validate", "."],
+      ["python3", "-m", "sddgov.cli", "decision", "verify-product", "DEC-RC1-APPROVER-AUTHORITY-R22", "work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.request.json", "--path", "."]
     ]
   },
   "hosted": {

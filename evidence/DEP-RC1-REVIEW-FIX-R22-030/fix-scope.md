@@ -7,7 +7,7 @@ Introduce transaction-owned retained directory descriptors and complete generati
 ## Files or components in scope
 
 - `src/sddgov/evidence.py`, `fs_security.py`, `redaction.py`, `trust.py`, `autonomy.py`, and `broker.py`.
-- `src/sddgov/owner_approval.py`, `owner_cli.py`, the `sddgov-owner` package entry point, and the installed-wheel smoke contract.
+- `src/sddgov/owner_approval.py`, `owner_cli.py`, the pre-import isolated `sddgov-owner` launcher, wheel RECORD/entry-point validation, and the installed-wheel smoke contract.
 - `scripts/release_files.py`, release verification scripts, and the publish workflow.
 - Focused hostile-boundary, package, workflow, and repository-contract tests.
 - Canonical, managed, and packaged operator documentation plus the RC1 Work Package.

@@ -95,13 +95,14 @@ The Agent-side command can only validate and render a governed request:
 sddgov decision show-product-approval work-packages/DEC-EXACT.request.json --path .
 ```
 
-The installed package exposes signing through the separate `sddgov-owner` entry point. Run it from an Owner-controlled terminal and an independently installed, reviewed wheel—not from an Agent-driven candidate checkout. The request itself fixes the canonical assumption paths, Owner key ID, validity policy, and reviewed Owner-client source digest; the same client binding must occur exactly once inside the signed decision assumption contract. The CLI provides no overrides for them. It reads the same validated card, binds the exact repository, trust domain, installed source identity, assumptions, and validity, asks for one A/B choice on `/dev/tty`, constructs the receipt, computes the nonce, requests a signature from the matching Ed25519 identity, verifies that signature against both fixed root-controlled stores, and writes a new `0600` receipt. There is no private-key or raw-signature CLI argument.
+The installed package exposes signing through the separate `sddgov-owner` entry point. Run it from an Owner-controlled terminal and an independently installed, reviewed wheel—not from an Agent-driven candidate checkout. The installed POSIX launcher invokes the venv interpreter in isolated mode before any `sddgov` import, clears Python import variables, rejects dynamic-loader injection variables, and is byte-compared with the reviewed packaged launcher. The venv must exclude system site packages; the client also verifies the wheel RECORD hashes and exact entry-point contract for its installed source and launcher. The request itself fixes the canonical assumption paths, Owner key ID, validity policy, and reviewed Owner-client source digest; the same client binding must occur exactly once inside the signed decision assumption contract. The CLI provides no overrides for them. It reads the same validated card, binds the exact repository, trust domain, installed source identity, assumptions, and validity, asks for one bounded A/B line on `/dev/tty`, constructs the receipt only for Option A, computes the nonce, requests a signature from the matching Ed25519 identity, verifies that signature against both fixed root-controlled stores, and writes a new `0600` receipt. Option B always declines without a signer call. There is no private-key or raw-signature CLI argument.
 
-Start outside the repository, clear Python import injection variables, and invoke the reviewed Owner venv by absolute path:
+Install the reviewed wheel in the Owner-controlled venv with `umask 022`, verify the installed launcher is a regular single-link file, and normalize `/absolute/owner-venv/bin/sddgov-owner` to mode `0755`; the client rejects group- or world-writable launchers. Then start outside the repository, clear Python import injection variables, and invoke the reviewed Owner venv by absolute path:
 
 ```bash
 cd /owner-controlled/terminal
-env -u PYTHONPATH -u PYTHONHOME \
+env -u PYTHONPATH -u PYTHONHOME -u LD_PRELOAD -u LD_LIBRARY_PATH \
+  -u DYLD_INSERT_LIBRARIES -u DYLD_LIBRARY_PATH \
   /absolute/owner-venv/bin/sddgov-owner \
   approve-product work-packages/DEC-EXACT.request.json \
   --output /owner-controlled-outbox/DEC-EXACT.signed.json \

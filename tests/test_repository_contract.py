@@ -508,7 +508,7 @@ class RepositoryContractTests(unittest.TestCase):
                 {
                     "path": "work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.md",
                     "sha256": (
-                        "a9c685e5bb45bf39383bcec15baab18d5855824a78dac72c87a9cfdeb14da7a9"
+                        "c123fab88675203b01492cba209715e2f9d695cc5c7120c10787ba0ff3592915"
                     ),
                 }
             ],
@@ -801,7 +801,14 @@ class RepositoryContractTests(unittest.TestCase):
                 / "work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.request.json"
             ).read_text(encoding="utf-8")
         )
-        self.assertIn('sddgov-owner = "sddgov.owner_cli:main"', pyproject)
+        self.assertIn('script-files = ["scripts/sddgov-owner"]', pyproject)
+        self.assertNotIn('sddgov-owner = "sddgov.owner_cli:main"', pyproject)
+        launcher = (ROOT / "scripts/sddgov-owner").read_bytes()
+        self.assertEqual(
+            launcher,
+            (ROOT / "src/sddgov/owner_launcher.sh").read_bytes(),
+        )
+        self.assertIn(b'python" -I -m sddgov.owner_cli', launcher)
         self.assertIn('"show-product-approval"', agent_cli)
         self.assertNotIn('"approve-product"', agent_cli)
         self.assertIn('"approve-product"', owner_cli)
@@ -968,6 +975,20 @@ class RepositoryContractTests(unittest.TestCase):
             uses,
         )
         guard = json.loads((ROOT / ".sddgov/ci-cost-guard.json").read_text(encoding="utf-8"))
+        self.assertIn(
+            [
+                "python3",
+                "-m",
+                "sddgov.cli",
+                "decision",
+                "verify-product",
+                "DEC-RC1-APPROVER-AUTHORITY-R22",
+                "work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.request.json",
+                "--path",
+                ".",
+            ],
+            guard["local_green"]["commands"],
+        )
         self.assertEqual(guard["workflow_controls"]["exempt_workflows"], [])
         self.assertEqual(
             guard["workflow_controls"]["write_permission_exceptions"],

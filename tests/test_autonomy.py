@@ -959,7 +959,13 @@ class AutonomyTests(unittest.TestCase):
         self.assertEqual(stale["state"], "ACTION_REQUIRED")
 
     def test_stored_product_decision_reverifies_signature_row_audience_and_request(self):
-        owner_client = {"version": "0.2.0rc1", "source_sha256": "a" * 64}
+        from sddgov.owner_approval import _owner_client_identity
+
+        actual_client = _owner_client_identity()
+        owner_client = {
+            "version": actual_client["version"],
+            "source_sha256": actual_client["source_sha256"],
+        }
         client_marker = "Owner client binding: " + json.dumps(
             owner_client,
             ensure_ascii=False,
@@ -1003,10 +1009,51 @@ class AutonomyTests(unittest.TestCase):
         )
         self.assertEqual(result["repository_id"], "github.com/example/synthetic")
 
+        with (
+            patch(
+                "sddgov.owner_approval._owner_client_identity",
+                return_value={
+                    **actual_client,
+                    "source_sha256": "f" * 64,
+                },
+            ),
+            self.assertRaisesRegex(ValueError, "no longer matches"),
+        ):
+            verify_product_decision(
+                self.root,
+                "DEC-VERIFIED",
+                "work-packages/DEC-VERIFIED.request.json",
+            )
+
+        missing_client = copy.deepcopy(request)
+        missing_client.pop("owner_client")
+        request_path.write_text(json.dumps(missing_client), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "Owner client binding is invalid"):
+            verify_product_decision(
+                self.root,
+                "DEC-VERIFIED",
+                "work-packages/DEC-VERIFIED.request.json",
+            )
+        request_path.write_text(json.dumps(request), encoding="utf-8")
+
         changed_request = copy.deepcopy(request)
         changed_request["owner_client"]["source_sha256"] = "b" * 64
         request_path.write_text(json.dumps(changed_request), encoding="utf-8")
-        with self.assertRaisesRegex(ValueError, "does not bind one exact Owner client"):
+        with self.assertRaisesRegex(ValueError, "no longer matches"):
+            verify_product_decision(
+                self.root,
+                "DEC-VERIFIED",
+                "work-packages/DEC-VERIFIED.request.json",
+            )
+        request_path.write_text(json.dumps(request), encoding="utf-8")
+
+        duplicate_request = request_path.read_text(encoding="utf-8").replace(
+            '"owner_client": {',
+            '"owner_client": {"version":"DECOY",',
+            1,
+        )
+        request_path.write_text(duplicate_request, encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "duplicate member"):
             verify_product_decision(
                 self.root,
                 "DEC-VERIFIED",

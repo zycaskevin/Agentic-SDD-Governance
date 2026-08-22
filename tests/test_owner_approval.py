@@ -3,11 +3,14 @@ import copy
 import json
 import os
 import struct
+import subprocess
+import sys
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from cryptography.hazmat.primitives import serialization
@@ -19,6 +22,7 @@ from sddgov.governance import init_project
 from sddgov.cli import build_parser as build_agent_parser, run as run_agent_cli
 from sddgov.owner_cli import (
     _read_owner_choice,
+    _require_owner_distribution,
     _require_owner_runtime,
     build_parser as build_owner_parser,
     run as run_owner_cli,
@@ -216,6 +220,10 @@ class OwnerApprovalTests(unittest.TestCase):
                 "unique and canonically sorted",
             ),
             (["../DEC-SYNTHETIC.md"], "canonical repository-relative"),
+            (["work-packages/DEC-\x1b[2J.md"], "canonical repository-relative"),
+            (["work-packages/DEC-\rspoof.md"], "canonical repository-relative"),
+            (["work-packages/DEC-\nspoof.md"], "canonical repository-relative"),
+            (["work-packages/DEC-\u202espoof.md"], "canonical repository-relative"),
         )
         for paths, message in cases:
             with self.subTest(paths=paths):
@@ -275,6 +283,16 @@ class OwnerApprovalTests(unittest.TestCase):
                     )
         self.request.write_text(json.dumps(original), encoding="utf-8")
 
+        non_approvable = copy.deepcopy(original)
+        non_approvable["decision_package"]["recommended"] = "B"
+        self.request.write_text(json.dumps(non_approvable), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "only approvable option"):
+            build_product_approval_card(
+                self.root,
+                "work-packages/DEC-SYNTHETIC.request.json",
+            )
+        self.request.write_text(json.dumps(original), encoding="utf-8")
+
     def test_card_rejects_terminal_control_and_invisible_text(self):
         original = json.loads(self.request.read_text(encoding="utf-8"))
         for hostile in ("escape\x1b[2J", "return\rspoof", "back\bspace", "bidi\u202eA"):
@@ -289,6 +307,44 @@ class OwnerApprovalTests(unittest.TestCase):
                         "work-packages/DEC-SYNTHETIC.request.json",
                     )
         self.request.write_text(json.dumps(original), encoding="utf-8")
+
+        _request, card = build_product_approval_card(
+            self.root,
+            "work-packages/DEC-SYNTHETIC.request.json",
+        )
+        for hostile_version in ("0.2.0\x1b[2J", "0.2.0\rspoof", "0.2.0\u202e"):
+            hostile_card = copy.deepcopy(card)
+            hostile_card["owner_client"]["version"] = hostile_version
+            with self.subTest(hostile_version=repr(hostile_version)), self.assertRaisesRegex(
+                ValueError, "terminal control|invisible"
+            ):
+                render_product_approval_card(hostile_card)
+
+    def test_owner_request_rejects_recursive_duplicate_json_members(self):
+        original = self.request.read_text(encoding="utf-8")
+        cases = (
+            original.replace("{", '{"decision_id":"DECOY",', 1),
+            original.replace(
+                '"decision_package": {',
+                '"decision_package": {"risk_level":"L1",',
+                1,
+            ),
+            original.replace('"label": "A",', '"label":"X","label":"A",', 1),
+            original.replace(
+                '"owner_client": {',
+                '"owner_client": {"version":"DECOY",',
+                1,
+            ),
+        )
+        for raw in cases:
+            with self.subTest(raw=raw[:80]):
+                self.request.write_text(raw, encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "duplicate member"):
+                    build_product_approval_card(
+                        self.root,
+                        "work-packages/DEC-SYNTHETIC.request.json",
+                    )
+        self.request.write_text(original, encoding="utf-8")
 
     def test_card_and_assumptions_are_bounded_before_tty_or_signer(self):
         original = json.loads(self.request.read_text(encoding="utf-8"))
@@ -722,7 +778,11 @@ class OwnerApprovalTests(unittest.TestCase):
             def write(self, value):
                 return self.output.write(value)
 
-            def readline(self):
+            def flush(self):
+                pass
+
+            def readline(self, size):
+                self.size = size
                 return "A\n"
 
         terminal = Terminal()
@@ -732,10 +792,11 @@ class OwnerApprovalTests(unittest.TestCase):
             redirect_stdout(standard_output),
         ):
             self.assertEqual(_read_owner_choice(card, rendered), "A")
-        opened.assert_called_once_with(
-            "/dev/tty", "r+", encoding="utf-8", buffering=1
-        )
+        self.assertEqual(opened.call_count, 2)
+        opened.assert_any_call("/dev/tty", "w", encoding="utf-8", buffering=1)
+        opened.assert_any_call("/dev/tty", "r", encoding="utf-8", buffering=1)
         self.assertIn("SDG OWNER DECISION", terminal.output.getvalue())
+        self.assertEqual(terminal.size, 3)
         self.assertEqual(standard_output.getvalue(), "")
 
     def test_signed_receipt_is_bound_to_repository_and_trust_domain(self):
@@ -772,22 +833,42 @@ class OwnerApprovalTests(unittest.TestCase):
 
     def test_owner_runtime_rejects_python_injection_checkout_and_non_venv(self):
         prefix = self.root / "owner-venv"
+        (prefix / "bin").mkdir(parents=True)
+        (prefix / "pyvenv.cfg").write_text(
+            "home = /usr/bin\ninclude-system-site-packages = false\n",
+            encoding="utf-8",
+        )
+        package = prefix / "lib" / "python3.12" / "site-packages" / "sddgov"
+        package.mkdir(parents=True)
         executable = prefix / "bin" / "python"
-        module = prefix / "lib" / "python3.12" / "site-packages" / "sddgov" / "owner_cli.py"
+        executable.symlink_to(Path(sys.executable))
+        module = package / "owner_cli.py"
+        module.write_text("# installed module\n", encoding="utf-8")
         invocation = prefix / "bin" / "sddgov-owner"
+        launcher_source = Path(__file__).resolve().parents[1] / "scripts" / "sddgov-owner"
+        invocation.write_bytes(launcher_source.read_bytes())
+        invocation.chmod(0o755)
+        (package / "owner_launcher.sh").write_bytes(launcher_source.read_bytes())
         with (
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(
+                os.environ,
+                {"SDDGOV_OWNER_ISOLATED_LAUNCHER": str(invocation)},
+                clear=True,
+            ),
             patch("sddgov.owner_cli.sys.prefix", str(prefix)),
             patch("sddgov.owner_cli.sys.base_prefix", "/usr"),
             patch("sddgov.owner_cli.sys.executable", str(executable)),
             patch("sddgov.owner_cli.sys.argv", [str(invocation)]),
+            patch("sddgov.owner_cli.sys.flags", SimpleNamespace(isolated=1)),
             patch("sddgov.owner_cli.__file__", str(module)),
+            patch("sddgov.owner_cli._require_owner_distribution") as distribution,
         ):
             _require_owner_runtime(self.root)
+            distribution.assert_called_once()
 
             with (
                 patch.dict(os.environ, {"PYTHONPATH": "/attacker"}),
-                self.assertRaisesRegex(ValueError, "PYTHONPATH"),
+                self.assertRaisesRegex(ValueError, "injection"),
             ):
                 _require_owner_runtime(self.root)
 
@@ -802,6 +883,108 @@ class OwnerApprovalTests(unittest.TestCase):
                 self.assertRaisesRegex(ValueError, "outside the Agent repository"),
             ):
                 _require_owner_runtime(self.root)
+
+    def test_owner_distribution_rejects_duplicate_record_paths(self):
+        class RecordRow:
+            def __str__(self):
+                return "sddgov/owner_cli.py"
+
+        distribution = SimpleNamespace(
+            files=[RecordRow(), RecordRow()],
+            entry_points=[],
+        )
+        with (
+            patch(
+                "sddgov.owner_cli.importlib_metadata.distribution",
+                return_value=distribution,
+            ),
+            self.assertRaisesRegex(ValueError, "duplicate paths"),
+        ):
+            _require_owner_distribution(
+                self.root,
+                self.root / "owner_cli.py",
+                self.root / "sddgov-owner",
+                b"launcher",
+            )
+
+    def test_isolated_launcher_ignores_hostile_pythonpath_before_package_import(self):
+        launcher_root = self.root / "isolated-launcher"
+        bin_dir = launcher_root / "bin"
+        bin_dir.mkdir(parents=True)
+        launcher = bin_dir / "sddgov-owner"
+        launcher.write_bytes(
+            (Path(__file__).resolve().parents[1] / "scripts" / "sddgov-owner").read_bytes()
+        )
+        launcher.chmod(0o755)
+        (bin_dir / "python").symlink_to(Path(sys.executable))
+        hostile = self.root / "hostile-pythonpath" / "sddgov"
+        hostile.mkdir(parents=True)
+        marker = self.root / "hostile-imported"
+        (hostile / "__init__.py").write_text("", encoding="utf-8")
+        (hostile / "owner_cli.py").write_text(
+            f"from pathlib import Path\nPath({str(marker)!r}).write_text('imported')\n",
+            encoding="utf-8",
+        )
+        result = subprocess.run(
+            [str(launcher), "--help"],
+            cwd=self.root,
+            env={**os.environ, "PYTHONPATH": str(hostile.parent)},
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(marker.exists())
+
+    def test_owner_choice_uses_a_real_bounded_pty_line(self):
+        _request, card = build_product_approval_card(
+            self.root,
+            "work-packages/DEC-SYNTHETIC.request.json",
+        )
+        rendered = render_product_approval_card(card)
+        master_fd, slave_fd = os.openpty()
+        self.addCleanup(os.close, master_fd)
+        self.addCleanup(os.close, slave_fd)
+        os.write(master_fd, b"A\n")
+        slave_path = os.ttyname(slave_fd)
+        real_open = open
+
+        def open_test_tty(_path, mode, **kwargs):
+            return real_open(slave_path, mode, **kwargs)
+
+        with patch("builtins.open", side_effect=open_test_tty):
+            self.assertEqual(_read_owner_choice(card, rendered), "A")
+
+    def test_owner_choice_rejects_an_unbounded_line(self):
+        _request, card = build_product_approval_card(
+            self.root,
+            "work-packages/DEC-SYNTHETIC.request.json",
+        )
+
+        class HostileTerminal:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def write(self, _value):
+                return 0
+
+            def flush(self):
+                pass
+
+            def readline(self, size):
+                self.size = size
+                return "AAA"
+
+        terminal = HostileTerminal()
+        with (
+            patch("builtins.open", return_value=terminal),
+            self.assertRaisesRegex(ValueError, "bounded A or B"),
+        ):
+            _read_owner_choice(card, render_product_approval_card(card))
+        self.assertEqual(terminal.size, 3)
 
 
 if __name__ == "__main__":

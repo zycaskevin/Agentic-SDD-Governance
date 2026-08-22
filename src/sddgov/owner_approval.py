@@ -22,6 +22,7 @@ from . import __version__
 from .autonomy import (
     OWNER_CLIENT_BINDING_PREFIX,
     _canonical_receipt,
+    _load_unique_json_bytes,
     _read_repository_regular_file,
     _trusted_approver,
     _trusted_approver_domain,
@@ -132,6 +133,7 @@ def _owner_client_identity() -> dict[str, Any]:
         "governance.py",
         "owner_approval.py",
         "owner_cli.py",
+        "owner_launcher.sh",
         "trust.py",
     )
     rows = []
@@ -167,6 +169,11 @@ def _safe_relative_path(value: str, label: str) -> PurePosixPath:
         not value
         or "\x00" in value
         or "\\" in value
+        or any(
+            unicodedata.category(character).startswith("C")
+            or unicodedata.category(character) in {"Zl", "Zp"}
+            for character in value
+        )
         or pure.is_absolute()
         or str(pure) != value
         or any(part in {"", ".", ".."} for part in pure.parts)
@@ -181,10 +188,7 @@ def _read_repository_json(root: Path, relative: str, label: str) -> dict[str, An
         _safe_relative_path(relative, label),
         max_bytes=MAX_APPROVAL_REQUEST_BYTES,
     )
-    try:
-        value = json.loads(raw.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise ValueError(f"{label} must contain one UTF-8 JSON object") from exc
+    value = _load_unique_json_bytes(raw, label)
     if not isinstance(value, dict):
         raise ValueError(f"{label} must contain one JSON object")
     return value
@@ -289,18 +293,72 @@ def _validated_owner_card(card: dict[str, Any]) -> None:
         )
     if labels != ["A", "B"] or card.get("recommended") not in {"A", "B"}:
         raise ValueError("product approval card requires unique ordered labels A and B")
+    if card.get("recommended") != "A":
+        raise ValueError("product approval card requires A as the only approvable option")
+    assumption_paths = card.get("assumption_paths")
+    if (
+        not isinstance(assumption_paths, list)
+        or not assumption_paths
+        or len(assumption_paths) > MAX_ASSUMPTION_PATHS
+    ):
+        raise ValueError("product approval card requires bounded assumption paths")
+    normalized_paths: list[str] = []
+    for index, value in enumerate(assumption_paths):
+        safe = _require_terminal_safe_text(
+            value,
+            f"product approval assumption path {index}",
+        )
+        normalized_paths.append(
+            str(_safe_relative_path(safe, "product approval assumption path"))
+        )
+    if normalized_paths != sorted(set(normalized_paths)):
+        raise ValueError("product approval card assumption paths must be unique and sorted")
     valid_days = card.get("valid_days")
     if not isinstance(valid_days, int) or isinstance(valid_days, bool) or not 1 <= valid_days <= 366:
         raise ValueError("product approval validity must be between 1 and 366 days")
     client = card.get("owner_client")
+    if not isinstance(client, dict) or set(client) != {
+        "version",
+        "source_files",
+        "source_sha256",
+    }:
+        raise ValueError("product approval Owner client identity is invalid")
+    _require_terminal_safe_text(
+        client.get("version"),
+        "product approval Owner client version",
+    )
+    source_sha256 = client.get("source_sha256")
+    source_files = client.get("source_files")
     if (
-        not isinstance(client, dict)
-        or not isinstance(client.get("version"), str)
-        or not client["version"].strip()
-        or not isinstance(client.get("source_sha256"), str)
-        or len(client["source_sha256"]) != 64
-        or not isinstance(client.get("source_files"), list)
-        or not client["source_files"]
+        not isinstance(source_sha256, str)
+        or len(source_sha256) != 64
+        or any(character not in "0123456789abcdef" for character in source_sha256)
+        or not isinstance(source_files, list)
+        or not source_files
+        or len(source_files) > 32
+    ):
+        raise ValueError("product approval Owner client identity is invalid")
+    source_paths: list[str] = []
+    for row in source_files:
+        if not isinstance(row, dict) or set(row) != {"path", "sha256"}:
+            raise ValueError("product approval Owner client source row is invalid")
+        path = row.get("path")
+        digest = row.get("sha256")
+        if not isinstance(path, str):
+            raise ValueError("product approval Owner client source path is invalid")
+        safe_path = str(_safe_relative_path(path, "Owner client source path"))
+        if not safe_path.startswith("sddgov/"):
+            raise ValueError("product approval Owner client source path is invalid")
+        if (
+            not isinstance(digest, str)
+            or len(digest) != 64
+            or any(character not in "0123456789abcdef" for character in digest)
+        ):
+            raise ValueError("product approval Owner client source digest is invalid")
+        source_paths.append(safe_path)
+    if source_paths != sorted(set(source_paths)) or not secrets.compare_digest(
+        source_sha256,
+        hashlib.sha256(_canonical_json(source_files)).hexdigest(),
     ):
         raise ValueError("product approval Owner client identity is invalid")
     if (

@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import re
+import secrets
 import socket
 import stat
 import subprocess
@@ -123,6 +124,26 @@ def _read_json(path: Path, default: Any = None) -> Any:
     if not path.exists():
         return default
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _reject_duplicate_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Build one JSON object while rejecting recursive duplicate member names."""
+    value: dict[str, Any] = {}
+    for key, member in pairs:
+        if key in value:
+            raise ValueError(f"JSON object contains duplicate member: {key}")
+        value[key] = member
+    return value
+
+
+def _load_unique_json_bytes(raw: bytes, label: str) -> Any:
+    try:
+        return json.loads(
+            raw.decode("utf-8"),
+            object_pairs_hook=_reject_duplicate_json_object,
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"{label} must contain UTF-8 JSON") from exc
 
 
 def _atomic_json(path: Path, value: Any) -> None:
@@ -769,10 +790,7 @@ def verify_product_decision(
     ):
         raise ValueError("product decision request must be repository-relative")
     raw = _read_repository_regular_file(root, pure, max_bytes=1024 * 1024)
-    try:
-        request = json.loads(raw.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise ValueError("product decision request must contain UTF-8 JSON") from exc
+    request = _load_unique_json_bytes(raw, "product decision request")
     if (
         not isinstance(request, dict)
         or request.get("risk_level") != "L2"
@@ -833,39 +851,54 @@ def verify_product_decision(
     ):
         raise ValueError("stored product decision signer or validity differs from request")
     owner_client = request.get("owner_client")
-    if owner_client is not None:
-        if (
-            not isinstance(owner_client, dict)
-            or set(owner_client) != {"version", "source_sha256"}
-            or not isinstance(owner_client.get("version"), str)
-            or not owner_client["version"].strip()
-            or not isinstance(owner_client.get("source_sha256"), str)
-            or SHA256_PATTERN.fullmatch(owner_client["source_sha256"]) is None
-        ):
-            raise ValueError("product decision Owner client binding is invalid")
-        marker = (
-            OWNER_CLIENT_BINDING_PREFIX
-            + json.dumps(
-                owner_client,
-                ensure_ascii=False,
-                sort_keys=True,
-                separators=(",", ":"),
-                allow_nan=False,
-            )
-        ).encode("utf-8")
-        bound_artifacts = 0
-        for row in receipt["assumptions"]:
-            raw_assumption = _read_repository_regular_file(
-                root,
-                PurePosixPath(row["path"]),
-                max_bytes=1024 * 1024,
-            )
-            if marker in raw_assumption.splitlines():
-                bound_artifacts += 1
-        if bound_artifacts != 1:
-            raise ValueError(
-                "signed product decision does not bind one exact Owner client identity"
-            )
+    if (
+        not isinstance(owner_client, dict)
+        or set(owner_client) != {"version", "source_sha256"}
+        or not isinstance(owner_client.get("version"), str)
+        or not owner_client["version"].strip()
+        or not isinstance(owner_client.get("source_sha256"), str)
+        or SHA256_PATTERN.fullmatch(owner_client["source_sha256"]) is None
+    ):
+        raise ValueError("product decision Owner client binding is invalid")
+    # Import lazily to avoid an autonomy/Owner-client module cycle.  Reuse is
+    # authorized only while the currently installed reviewed client is still
+    # byte-identical to the identity signed into the decision.
+    from .owner_approval import _owner_client_identity
+
+    current_owner_client = _owner_client_identity()
+    if (
+        owner_client.get("version") != current_owner_client.get("version")
+        or not secrets.compare_digest(
+            owner_client["source_sha256"],
+            current_owner_client.get("source_sha256", ""),
+        )
+    ):
+        raise ValueError(
+            "stored product decision Owner client no longer matches the reviewed installed source"
+        )
+    marker = (
+        OWNER_CLIENT_BINDING_PREFIX
+        + json.dumps(
+            owner_client,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+    ).encode("utf-8")
+    bound_artifacts = 0
+    for row in receipt["assumptions"]:
+        raw_assumption = _read_repository_regular_file(
+            root,
+            PurePosixPath(row["path"]),
+            max_bytes=1024 * 1024,
+        )
+        if marker in raw_assumption.splitlines():
+            bound_artifacts += 1
+    if bound_artifacts != 1:
+        raise ValueError(
+            "signed product decision does not bind one exact Owner client identity"
+        )
     binding = _trusted_approver_domain(root, receipt["approved_by"])
     return {
         "decision_id": decision_id,

@@ -2,7 +2,7 @@
 
 Decision ID: `DEC-RC1-APPROVER-AUTHORITY-R22`
 
-Owner client binding: {"source_sha256":"7f31f39ba28a2c47dc50415afcfdd7f74b748d839729c67c2e1c547a99f92ce4","version":"0.2.0rc1"}
+Owner client binding: {"source_sha256":"179ab43f327d5dc6f35a8ea505310f2393165a9e721e114515f2931c41d14a17","version":"0.2.0rc1"}
 
 ## Exact scope
 
