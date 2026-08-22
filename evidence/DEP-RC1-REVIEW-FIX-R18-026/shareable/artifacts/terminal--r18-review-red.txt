@@ -1,0 +1,19 @@
+PR #39 independent review rejected R17 and produced no receipt.
+
+Validated blocking findings:
+- the post-review audit-window traversal omitted reachable side-branch commits that were not descendants of reviewed Head;
+- DEP artifact, attachment, association, and control reads did not all carry a hard byte limit;
+- both Pilot report entry points followed a caller-controlled leaf or parent symlink;
+- the core redactor did not mask temporary paths or quoted paths containing spaces;
+- the Monorepo benchmark copied raw exception text into its public JSON result;
+- break-glass documentation did not require explicit L3 approval before stopping deployments, stopping executors, or invoking a ruleset bypass;
+- historical R14 package proof did not establish Green-before-build ordering;
+- the Traditional Chinese bug workflow did not start the Governance Skill.
+
+Validated proof-hardening findings:
+- the R13 bundle count is 12 payload files plus one manifest, not 13 payload files;
+- R12 proved the non-audit product tree, not an unrestricted full repository tree, and mixed interpreter provenance;
+- R6 recorded 289 executed tests while prose claimed 290;
+- Broker health checks must accept a fragmented READY line, and a stalled native test process must be terminated before diagnostic collection.
+
+Two CodeRabbit Major findings were rejected: public Git provenance in R10 was not raw secret evidence, and the R15 media type used the trusted legacy manifest compatibility bridge.
