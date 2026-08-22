@@ -9,11 +9,257 @@ import os
 import secrets
 import stat
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+from typing import Any
 
 
 LINUX_RENAME_NOREPLACE = 1
 DARWIN_RENAME_EXCL = 0x00000004
+
+
+def _file_snapshot(metadata: os.stat_result) -> tuple[int, ...]:
+    return (
+        metadata.st_dev,
+        metadata.st_ino,
+        metadata.st_mode,
+        metadata.st_nlink,
+        metadata.st_size,
+        metadata.st_mtime_ns,
+        metadata.st_ctime_ns,
+    )
+
+
+class FileSetSnapshot:
+    """Read and reconcile one call-wide set of regular files under one root.
+
+    Every directory and file descriptor stays open until all requested files have
+    been read and revalidated.  This prevents a caller from constructing one
+    approval identity from path generations that were never simultaneously
+    reachable from the requested root.
+    """
+
+    def __init__(
+        self,
+        root: Path,
+        label: str,
+        *,
+        require_protected: bool = False,
+    ) -> None:
+        self.root = canonicalize_platform_path(root)
+        self.label = label
+        self.require_protected = require_protected
+        self.root_fd = -1
+        self._records: dict[str, dict[str, Any]] = {}
+
+    def __enter__(self) -> "FileSetSnapshot":
+        self.root_fd = open_directory_path(self.root, self.label)
+        return self
+
+    def _close_descriptors(self) -> BaseException | None:
+        error: BaseException | None = None
+        for record in reversed(list(self._records.values())):
+            file_fd = record["file_fd"]
+            record["file_fd"] = -1
+            if file_fd >= 0:
+                try:
+                    os.close(file_fd)
+                except BaseException as exc:
+                    if error is None:
+                        error = exc
+            directories = record["directories"]
+            while directories:
+                descriptor = directories.pop()
+                try:
+                    os.close(descriptor)
+                except BaseException as exc:
+                    if error is None:
+                        error = exc
+        root_fd = self.root_fd
+        self.root_fd = -1
+        if root_fd >= 0:
+            try:
+                os.close(root_fd)
+            except BaseException as exc:
+                if error is None:
+                    error = exc
+        return error
+
+    def __exit__(self, exc_type, exc, _traceback) -> bool:
+        primary: BaseException | None = exc
+        if primary is None:
+            try:
+                self.revalidate()
+            except BaseException as revalidation_error:
+                primary = revalidation_error
+        cleanup_error = self._close_descriptors()
+        if exc is not None:
+            if cleanup_error is not None:
+                raise exc from cleanup_error
+            return False
+        if primary is not None:
+            if cleanup_error is not None:
+                raise primary from cleanup_error
+            raise primary
+        if cleanup_error is not None:
+            raise cleanup_error
+        return False
+
+    @staticmethod
+    def _bounded_read(descriptor: int, max_bytes: int) -> bytes:
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            chunk = os.read(descriptor, min(1024 * 1024, max_bytes + 1 - total))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            total += len(chunk)
+            if total > max_bytes:
+                raise ValueError("descriptor snapshot input exceeds the bounded size")
+        return b"".join(chunks)
+
+    def read(self, relative: PurePosixPath, *, max_bytes: int) -> bytes:
+        if self.root_fd < 0:
+            raise ValueError(f"{self.label} snapshot is not open")
+        value = str(relative)
+        if (
+            not value
+            or "\\" in value
+            or "\x00" in value
+            or relative.is_absolute()
+            or str(relative) != value
+            or any(part in {"", ".", ".."} for part in relative.parts)
+        ):
+            raise ValueError(f"{self.label} path is unsafe")
+        existing = self._records.get(value)
+        if existing is not None:
+            return existing["raw"]
+
+        flags = (
+            os.O_RDONLY
+            | getattr(os, "O_DIRECTORY", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_CLOEXEC", 0)
+        )
+        directories: list[int] = []
+        file_fd = -1
+        try:
+            current = os.dup(self.root_fd)
+            directories.append(current)
+            for part in relative.parts[:-1]:
+                child = os.open(part, flags, dir_fd=current)
+                metadata = os.fstat(child)
+                if not stat.S_ISDIR(metadata.st_mode):
+                    raise ValueError(f"{self.label} path component is not a directory")
+                directories.append(child)
+                current = child
+            file_fd = os.open(
+                relative.name,
+                os.O_RDONLY
+                | getattr(os, "O_NONBLOCK", 0)
+                | getattr(os, "O_NOFOLLOW", 0)
+                | getattr(os, "O_CLOEXEC", 0),
+                dir_fd=directories[-1],
+            )
+            before = os.fstat(file_fd)
+            path_before = os.stat(
+                relative.name,
+                dir_fd=directories[-1],
+                follow_symlinks=False,
+            )
+            if (
+                not stat.S_ISREG(before.st_mode)
+                or before.st_nlink != 1
+                or _file_snapshot(before) != _file_snapshot(path_before)
+                or before.st_size > max_bytes
+                or (
+                    self.require_protected
+                    and os.name != "nt"
+                    and (before.st_uid != os.geteuid() or before.st_mode & 0o022)
+                )
+            ):
+                raise ValueError(f"{self.label} file cannot be read safely")
+            raw = self._bounded_read(file_fd, max_bytes)
+            after = os.fstat(file_fd)
+            if _file_snapshot(before) != _file_snapshot(after) or len(raw) != before.st_size:
+                raise ValueError(f"{self.label} file changed while being read")
+            self._records[value] = {
+                "relative": relative,
+                "directories": directories,
+                "file_fd": file_fd,
+                "snapshot": _file_snapshot(before),
+                "raw": raw,
+                "max_bytes": max_bytes,
+            }
+            directories = []
+            file_fd = -1
+            return raw
+        except BaseException as primary:
+            if isinstance(primary, OSError):
+                safe_primary = ValueError(f"{self.label} file cannot be opened safely")
+                safe_primary.__cause__ = primary
+                primary = safe_primary
+            cleanup_error: BaseException | None = None
+            if file_fd >= 0:
+                closing = file_fd
+                file_fd = -1
+                try:
+                    os.close(closing)
+                except BaseException as error:
+                    cleanup_error = error
+            while directories:
+                closing = directories.pop()
+                try:
+                    os.close(closing)
+                except BaseException as error:
+                    if cleanup_error is None:
+                        cleanup_error = error
+            if cleanup_error is not None:
+                raise primary from cleanup_error
+            raise primary
+
+    def revalidate(self) -> None:
+        if self.root_fd < 0:
+            raise ValueError(f"{self.label} snapshot is not open")
+        for record in self._records.values():
+            try:
+                relative = record["relative"]
+                directories = record["directories"]
+                file_fd = record["file_fd"]
+                expected = record["snapshot"]
+                os.lseek(file_fd, 0, os.SEEK_SET)
+                raw = self._bounded_read(file_fd, record["max_bytes"])
+                current_file = os.fstat(file_fd)
+                current_path = os.stat(
+                    relative.name,
+                    dir_fd=directories[-1],
+                    follow_symlinks=False,
+                )
+                if (
+                    raw != record["raw"]
+                    or _file_snapshot(current_file) != expected
+                    or _file_snapshot(current_path) != expected
+                ):
+                    raise ValueError(f"{self.label} file set changed during operation")
+                for index, part in enumerate(relative.parts[:-1]):
+                    current = os.stat(
+                        part,
+                        dir_fd=directories[index],
+                        follow_symlinks=False,
+                    )
+                    opened = os.fstat(directories[index + 1])
+                    if (
+                        stat.S_ISLNK(current.st_mode)
+                        or not stat.S_ISDIR(current.st_mode)
+                        or (current.st_dev, current.st_ino)
+                        != (opened.st_dev, opened.st_ino)
+                    ):
+                        raise ValueError(
+                            f"{self.label} directory set changed during operation"
+                        )
+            except OSError as exc:
+                raise ValueError(f"{self.label} file set changed during operation") from exc
+        require_directory_path_identity(self.root, self.root_fd, self.label)
 
 
 def exclusive_rename_at(

@@ -5,13 +5,14 @@
   "decision_id": "DEC-RC1-APPROVER-AUTHORITY-R22",
   "decision_scope": "For repository github.com/zycaskevin/agentic-sdd-governance and trust domain agentic-sdd-governance-owner-2026q3, retire and reject SDDGOV_TRUSTED_APPROVERS_FILE; make logical /etc/sddgov/trusted-approvers.json the sole Linux/macOS runtime approver key store; require the Base-compatible signed receipt plus the fixed root-controlled /etc/sddgov/trusted-approver-domains.json sidecar binding the Owner key to that repository, one exact separately provisioned host-local repository root, and that trust domain; and add the separated non-signing Agent card plus Owner-terminal confirmed-signer flow, under the exact ownership, path-chain, migration, custody, fail-closed, and non-provisioning boundaries in work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.md.",
   "assumption_paths": [
-    "work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.md"
+    "work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.md",
+    "work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.request.json"
   ],
   "approver_id": "zycaskevin-local-owner",
   "valid_days": 30,
   "owner_client": {
     "version": "0.2.0rc1",
-    "source_sha256": "179ab43f327d5dc6f35a8ea505310f2393165a9e721e114515f2931c41d14a17"
+    "source_sha256": "d3380ae822602cf1242283f736046c87de14f3daf4186fb2688f0cddae0bf7f1"
   },
   "decision_package": {
     "risk_level": "L2",

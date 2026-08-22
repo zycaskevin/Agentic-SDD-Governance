@@ -8,6 +8,8 @@ case "$0" in
   *) echo "[ERROR] sddgov-owner requires an absolute invocation path" >&2; exit 3 ;;
 esac
 
+# Loader cleanliness is an Owner-custody precondition before this shebang runs.
+# This check is only a fail-closed diagnostic; it cannot undo earlier loader code.
 if [ "${LD_PRELOAD+x}" = x ] || [ "${LD_LIBRARY_PATH+x}" = x ] || \
    [ "${DYLD_INSERT_LIBRARIES+x}" = x ] || [ "${DYLD_LIBRARY_PATH+x}" = x ]; then
   echo "[ERROR] sddgov-owner rejects dynamic-loader injection variables" >&2

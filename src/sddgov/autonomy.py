@@ -20,7 +20,7 @@ from typing import Any, Iterable
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
-from .fs_security import canonicalize_platform_path
+from .fs_security import FileSetSnapshot, canonicalize_platform_path
 from .governance import enqueue_external_action, resolve_external_action
 from .trust import (
     load_control_plane_json,
@@ -146,6 +146,11 @@ def _load_unique_json_bytes(raw: bytes, label: str) -> Any:
         raise ValueError(f"{label} must contain UTF-8 JSON") from exc
 
 
+def _exact_line_occurrences(artifacts: list[bytes], marker: bytes) -> int:
+    """Count one exact marker line across every bounded signed artifact."""
+    return sum(raw.splitlines().count(marker) for raw in artifacts)
+
+
 def _atomic_json(path: Path, value: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.tmp-{os.getpid()}")
@@ -238,158 +243,9 @@ def _read_repository_regular_file(
     *,
     max_bytes: int | None = None,
 ) -> bytes:
-    """Read a repository file through retained, non-symlink directory descriptors."""
-    candidate_root = canonicalize_platform_path(
-        root if root.is_absolute() else Path.cwd() / root
-    )
-    directory_parts = list(candidate_root.parts[1:]) + list(relative.parts[:-1])
-    flags = (
-        os.O_RDONLY
-        | getattr(os, "O_DIRECTORY", 0)
-        | getattr(os, "O_NOFOLLOW", 0)
-        | getattr(os, "O_CLOEXEC", 0)
-    )
-    descriptors = [os.open(candidate_root.anchor or os.sep, flags)]
-    names: list[str] = []
-    file_descriptor = -1
-    result: bytes | None = None
-    primary: BaseException | None = None
-    try:
-        for part in directory_parts:
-            try:
-                child = os.open(part, flags, dir_fd=descriptors[-1])
-            except OSError as exc:
-                raise ValueError(
-                    "product approval assumption path cannot be opened safely"
-                ) from exc
-            metadata = os.fstat(child)
-            if not stat.S_ISDIR(metadata.st_mode):
-                os.close(child)
-                raise ValueError(
-                    "product approval assumption path component is unsafe"
-                )
-            descriptors.append(child)
-            names.append(part)
-        final_name = relative.name
-        try:
-            file_descriptor = os.open(
-                final_name,
-                os.O_RDONLY
-                | getattr(os, "O_NONBLOCK", 0)
-                | getattr(os, "O_NOFOLLOW", 0)
-                | getattr(os, "O_CLOEXEC", 0),
-                dir_fd=descriptors[-1],
-            )
-        except OSError as exc:
-            raise ValueError(
-                "product approval assumption cannot be opened safely"
-            ) from exc
-        metadata = os.fstat(file_descriptor)
-        if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
-            raise ValueError(
-                "product approval assumption must be a non-linked regular file"
-            )
-        if max_bytes is not None and metadata.st_size > max_bytes:
-            raise ValueError("repository approval input exceeds the bounded size limit")
-        chunks: list[bytes] = []
-        total = 0
-        while True:
-            chunk = os.read(file_descriptor, 1024 * 1024)
-            if not chunk:
-                break
-            total += len(chunk)
-            if max_bytes is not None and total > max_bytes:
-                raise ValueError("repository approval input exceeds the bounded size limit")
-            chunks.append(chunk)
-        final_descriptor = os.fstat(file_descriptor)
-        try:
-            final_entry = os.stat(
-                final_name, dir_fd=descriptors[-1], follow_symlinks=False
-            )
-        except OSError as exc:
-            raise ValueError("product approval assumption path changed") from exc
-        if (
-            stat.S_ISLNK(final_entry.st_mode)
-            or not stat.S_ISREG(final_entry.st_mode)
-            or final_entry.st_nlink != 1
-            or (
-                metadata.st_dev,
-                metadata.st_ino,
-                metadata.st_size,
-                metadata.st_mtime_ns,
-                metadata.st_ctime_ns,
-                metadata.st_nlink,
-            )
-            != (
-                final_descriptor.st_dev,
-                final_descriptor.st_ino,
-                final_descriptor.st_size,
-                final_descriptor.st_mtime_ns,
-                final_descriptor.st_ctime_ns,
-                final_descriptor.st_nlink,
-            )
-            or (
-                metadata.st_dev,
-                metadata.st_ino,
-                metadata.st_size,
-                metadata.st_mtime_ns,
-                metadata.st_ctime_ns,
-                metadata.st_nlink,
-            )
-            != (
-                final_entry.st_dev,
-                final_entry.st_ino,
-                final_entry.st_size,
-                final_entry.st_mtime_ns,
-                final_entry.st_ctime_ns,
-                final_entry.st_nlink,
-            )
-            or total != metadata.st_size
-        ):
-            raise ValueError("product approval assumption path changed")
-        for index, part in enumerate(names):
-            try:
-                current = os.stat(
-                    part, dir_fd=descriptors[index], follow_symlinks=False
-                )
-            except OSError as exc:
-                raise ValueError("product approval assumption path changed") from exc
-            opened = os.fstat(descriptors[index + 1])
-            if (
-                stat.S_ISLNK(current.st_mode)
-                or not stat.S_ISDIR(current.st_mode)
-                or (current.st_dev, current.st_ino)
-                != (opened.st_dev, opened.st_ino)
-            ):
-                raise ValueError("product approval assumption path changed")
-        result = b"".join(chunks)
-    except BaseException as exc:
-        primary = exc
-
-    cleanup_error: BaseException | None = None
-    if file_descriptor >= 0:
-        closing_descriptor = file_descriptor
-        file_descriptor = -1
-        try:
-            os.close(closing_descriptor)
-        except BaseException as exc:
-            cleanup_error = exc
-    while descriptors:
-        closing_descriptor = descriptors.pop()
-        try:
-            os.close(closing_descriptor)
-        except BaseException as exc:
-            if cleanup_error is None:
-                cleanup_error = exc
-    if primary is not None:
-        if cleanup_error is not None:
-            raise primary from cleanup_error
-        raise primary
-    if cleanup_error is not None:
-        raise cleanup_error
-    if result is None:
-        raise ValueError("product approval assumption could not be read")
-    return result
+    """Read one repository file through a call-wide descriptor snapshot."""
+    with FileSetSnapshot(root, "product approval repository") as snapshot:
+        return snapshot.read(relative, max_bytes=max_bytes or 1024 * 1024)
 
 
 def _verified_assumptions_digest(root: Path, assumptions: Any) -> str:
@@ -398,32 +254,33 @@ def _verified_assumptions_digest(root: Path, assumptions: Any) -> str:
         raise ValueError("product approval assumptions must be a non-empty array")
     normalized: list[dict[str, str]] = []
     seen: set[str] = set()
-    for index, row in enumerate(assumptions):
-        if (
-            not isinstance(row, dict)
-            or set(row) != {"path", "sha256"}
-            or not isinstance(row.get("path"), str)
-            or not row["path"].strip()
-            or not isinstance(row.get("sha256"), str)
-            or not SHA256_PATTERN.fullmatch(row["sha256"])
-        ):
-            raise ValueError(f"product approval assumptions[{index}] is invalid")
-        value = row["path"]
-        pure = PurePosixPath(value)
-        if (
-            "\\" in value
-            or pure.is_absolute()
-            or str(pure) != value
-            or any(part in {"", ".", ".."} for part in pure.parts)
-            or value in seen
-        ):
-            raise ValueError(f"product approval assumptions[{index}] path is unsafe")
-        seen.add(value)
-        raw = _read_repository_regular_file(root, pure)
-        digest = hashlib.sha256(raw)
-        if digest.hexdigest() != row["sha256"]:
-            raise ValueError("product approval assumption artifact changed")
-        normalized.append({"path": value, "sha256": row["sha256"]})
+    with FileSetSnapshot(root, "product approval assumptions") as snapshot:
+        for index, row in enumerate(assumptions):
+            if (
+                not isinstance(row, dict)
+                or set(row) != {"path", "sha256"}
+                or not isinstance(row.get("path"), str)
+                or not row["path"].strip()
+                or not isinstance(row.get("sha256"), str)
+                or not SHA256_PATTERN.fullmatch(row["sha256"])
+            ):
+                raise ValueError(f"product approval assumptions[{index}] is invalid")
+            value = row["path"]
+            pure = PurePosixPath(value)
+            if (
+                "\\" in value
+                or pure.is_absolute()
+                or str(pure) != value
+                or any(part in {"", ".", ".."} for part in pure.parts)
+                or value in seen
+            ):
+                raise ValueError(f"product approval assumptions[{index}] path is unsafe")
+            seen.add(value)
+            raw = snapshot.read(pure, max_bytes=1024 * 1024)
+            digest = hashlib.sha256(raw)
+            if digest.hexdigest() != row["sha256"]:
+                raise ValueError("product approval assumption artifact changed")
+            normalized.append({"path": value, "sha256": row["sha256"]})
     encoded = json.dumps(
         normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":")
     ).encode("utf-8")
@@ -616,6 +473,7 @@ def _trusted_approver_domain(root: Path, approver_id: str) -> dict[str, str]:
 
 def _repository_identity(root: Path) -> str:
     """Return one canonical GitHub repository identity for approval audience checks."""
+    safe_root = canonicalize_platform_path(root)
     environment = {
         "PATH": "/usr/bin:/bin",
         "GIT_CONFIG_NOSYSTEM": "1",
@@ -626,7 +484,14 @@ def _repository_identity(root: Path) -> str:
     def git(*arguments: str) -> str:
         try:
             result = subprocess.run(
-                ["/usr/bin/git", "-C", os.fspath(root), *arguments],
+                [
+                    "/usr/bin/git",
+                    "-c",
+                    f"safe.directory={os.fspath(safe_root)}",
+                    "-C",
+                    os.fspath(safe_root),
+                    *arguments,
+                ],
                 check=False,
                 capture_output=True,
                 text=True,
@@ -643,7 +508,7 @@ def _repository_identity(root: Path) -> str:
         return value
 
     top_level = Path(git("rev-parse", "--show-toplevel")).absolute()
-    if top_level != Path(root).absolute():
+    if top_level != safe_root:
         raise ValueError("approval root must be the exact Git worktree root")
     remote = git("config", "--local", "--get", "remote.origin.url")
     if remote.startswith("git@github.com:"):
@@ -733,7 +598,21 @@ def _verify_product_envelope(
 
 def import_product_approval(root: Path, envelope_path: Path) -> dict[str, Any]:
     """Verify and import one trusted-owner-signed L2 product decision."""
-    envelope = _read_json(envelope_path)
+    expanded = canonicalize_platform_path(envelope_path)
+    if not expanded.name or expanded.name in {".", ".."}:
+        raise ValueError("signed product approval path is unsafe")
+    with FileSetSnapshot(
+        expanded.parent,
+        "signed product approval envelope",
+    ) as snapshot:
+        raw_envelope = snapshot.read(
+            PurePosixPath(expanded.name),
+            max_bytes=1024 * 1024,
+        )
+        envelope = _load_unique_json_bytes(
+            raw_envelope,
+            "signed product approval envelope",
+        )
     receipt, receipt_sha256 = _verify_product_envelope(root, envelope)
     with _decision_lock(root):
         data = _decision_store(root)
@@ -835,10 +714,22 @@ def verify_product_decision(
             for path in assumption_paths
         )
         or assumption_paths != sorted(set(assumption_paths))
+        or assumption_paths.count(request_path) != 1
         or assumption_paths
         != [row.get("path") for row in receipt["assumptions"]]
     ):
         raise ValueError("stored product decision assumptions do not match the request")
+    request_rows = [
+        row for row in receipt["assumptions"] if row.get("path") == request_path
+    ]
+    if (
+        len(request_rows) != 1
+        or not secrets.compare_digest(
+            request_rows[0]["sha256"],
+            hashlib.sha256(raw).hexdigest(),
+        )
+    ):
+        raise ValueError("stored product decision is not bound to this exact request")
     valid_days = request.get("valid_days")
     if (
         not isinstance(valid_days, int)
@@ -886,19 +777,31 @@ def verify_product_decision(
             allow_nan=False,
         )
     ).encode("utf-8")
-    bound_artifacts = 0
+    assumption_artifacts: list[bytes] = []
     for row in receipt["assumptions"]:
-        raw_assumption = _read_repository_regular_file(
-            root,
-            PurePosixPath(row["path"]),
-            max_bytes=1024 * 1024,
+        assumption_artifacts.append(
+            _read_repository_regular_file(
+                root,
+                PurePosixPath(row["path"]),
+                max_bytes=1024 * 1024,
+            )
         )
-        if marker in raw_assumption.splitlines():
-            bound_artifacts += 1
-    if bound_artifacts != 1:
+    if _exact_line_occurrences(assumption_artifacts, marker) != 1:
         raise ValueError(
             "signed product decision does not bind one exact Owner client identity"
         )
+    options = package.get("options")
+    if (
+        not isinstance(options, list)
+        or len(options) != 2
+        or [row.get("label") for row in options if isinstance(row, dict)]
+        != ["A", "B"]
+        or package.get("recommended") != "A"
+        or not isinstance(options[0].get("description"), str)
+        or receipt.get("summary")
+        != f"Approved option A: {options[0]['description']}"
+    ):
+        raise ValueError("stored product decision summary differs from the exact request")
     binding = _trusted_approver_domain(root, receipt["approved_by"])
     return {
         "decision_id": decision_id,

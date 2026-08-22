@@ -17,6 +17,19 @@ TRUSTED_APPROVERS_ENVIRONMENT = "SDDGOV_TRUSTED_APPROVERS_FILE"
 MAX_CONTROL_PLANE_BYTES = 1024 * 1024
 
 
+class _DuplicateJSONMember(ValueError):
+    pass
+
+
+def _reject_duplicate_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, member in pairs:
+        if key in value:
+            raise _DuplicateJSONMember(f"duplicate JSON member: {key}")
+        value[key] = member
+    return value
+
+
 def require_full_commit_sha(value: str | None, label: str) -> str:
     """Accept only an immutable full Git commit identifier."""
     if not isinstance(value, str) or FULL_COMMIT_SHA.fullmatch(value) is None:
@@ -87,8 +100,11 @@ def load_owner_controlled_json(path: Path, label: str) -> dict[str, Any]:
             raise ValueError(f"{label} must have owner-only permissions (0600)")
         with os.fdopen(descriptor, "r", encoding="utf-8") as handle:
             descriptor = -1
-            value = json.load(handle)
-    except (OSError, json.JSONDecodeError) as exc:
+            value = json.load(
+                handle,
+                object_pairs_hook=_reject_duplicate_json_object,
+            )
+    except (OSError, json.JSONDecodeError, _DuplicateJSONMember) as exc:
         raise ValueError(f"invalid {label}: {exc}") from exc
     finally:
         if descriptor >= 0:
@@ -246,8 +262,11 @@ def load_control_plane_json(path: Path, label: str) -> dict[str, Any]:
             ):
                 raise ValueError(f"{label} parent chain changed while it was being read")
         try:
-            value = json.loads(b"".join(chunks).decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            value = json.loads(
+                b"".join(chunks).decode("utf-8"),
+                object_pairs_hook=_reject_duplicate_json_object,
+            )
+        except (UnicodeDecodeError, json.JSONDecodeError, _DuplicateJSONMember) as exc:
             raise ValueError(f"invalid {label}: {exc}") from exc
     except OSError as exc:
         raise ValueError(f"{label} cannot be opened safely: {exc}") from exc

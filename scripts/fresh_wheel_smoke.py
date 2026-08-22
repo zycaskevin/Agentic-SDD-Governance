@@ -319,6 +319,19 @@ def _fresh_smoke_temporary_directory():
     raise RuntimeError(f"fresh-wheel smoke cannot create a short workspace: {detail}")
 
 
+@contextmanager
+def _owner_install_umask():
+    """Install the reviewed Owner artifact with deterministic non-writable modes."""
+    if os.name != "posix":
+        yield
+        return
+    previous = os.umask(0o022)
+    try:
+        yield
+    finally:
+        os.umask(previous)
+
+
 def smoke(
     wheel: Path,
     expected_version: str,
@@ -352,43 +365,46 @@ def smoke(
         bundle = _snapshot_verified_bundle(bundle, wheel, root / "verified-inputs")
         wheel = bundle["wheel"]
         virtualenv = root / "venv"
-        _run(
-            [python, "-m", "venv", str(virtualenv)],
-            cwd=root,
-            environment=environment,
-            timeout=300,
-        )
-        venv_python = virtualenv / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
-        _run(
-            [
-                str(venv_python),
-                "-m",
-                "pip",
-                "install",
-                "--no-index",
-                "--find-links",
-                str(bundle["wheelhouse"]),
-                "--require-hashes",
-                "-r",
-                str(bundle["lock"]),
-            ],
-            cwd=root,
-            environment=environment,
-            timeout=300,
-        )
-        _run(
-            [
-                str(venv_python),
-                "-m",
-                "pip",
-                "install",
-                "--no-index",
-                "--no-deps",
-                str(wheel),
-            ],
-            cwd=root,
-            environment=environment,
-        )
+        with _owner_install_umask():
+            _run(
+                [python, "-m", "venv", str(virtualenv)],
+                cwd=root,
+                environment=environment,
+                timeout=300,
+            )
+            venv_python = virtualenv / (
+                "Scripts/python.exe" if os.name == "nt" else "bin/python"
+            )
+            _run(
+                [
+                    str(venv_python),
+                    "-m",
+                    "pip",
+                    "install",
+                    "--no-index",
+                    "--find-links",
+                    str(bundle["wheelhouse"]),
+                    "--require-hashes",
+                    "-r",
+                    str(bundle["lock"]),
+                ],
+                cwd=root,
+                environment=environment,
+                timeout=300,
+            )
+            _run(
+                [
+                    str(venv_python),
+                    "-m",
+                    "pip",
+                    "install",
+                    "--no-index",
+                    "--no-deps",
+                    str(wheel),
+                ],
+                cwd=root,
+                environment=environment,
+            )
 
         actual_version = _run(
             [str(venv_python), "-m", "sddgov.cli", "--version"],
@@ -414,6 +430,26 @@ def smoke(
             or "approve-product" not in owner_help
         ):
             raise RuntimeError("installed-wheel Owner approval client is unavailable")
+        owner_runtime_environment = dict(environment)
+        owner_runtime_environment["SDDGOV_OWNER_ISOLATED_LAUNCHER"] = str(
+            owner_executable
+        )
+        owner_runtime_command = [
+            str(venv_python),
+            "-I",
+            "-c",
+            (
+                "import sys; from pathlib import Path; "
+                "from sddgov.owner_cli import _require_owner_runtime; "
+                "_require_owner_runtime(Path(sys.argv[1]))"
+            ),
+            str(root / "synthetic-repository-audience"),
+        ]
+        _run(
+            owner_runtime_command,
+            cwd=root,
+            environment=owner_runtime_environment,
+        )
         hostile_root = root / "hostile-pythonpath"
         hostile_package = hostile_root / "sddgov"
         hostile_package.mkdir(parents=True)
@@ -452,6 +488,82 @@ def smoke(
             raise RuntimeError(
                 "installed-wheel Owner launcher did not isolate imports or accept the real venv"
             )
+        venv_config = virtualenv / "pyvenv.cfg"
+        original_venv_config = venv_config.read_bytes()
+        try:
+            venv_config.write_bytes(
+                original_venv_config
+                + b"\ninclude-system-site-packages = true\n"
+            )
+            ambiguous_venv_probe = subprocess.run(
+                owner_runtime_command,
+                cwd=root,
+                env=owner_runtime_environment,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if ambiguous_venv_probe.returncode == 0:
+                raise RuntimeError(
+                    "installed-wheel Owner diagnostics accepted an ambiguous system-site setting"
+                )
+        finally:
+            venv_config.write_bytes(original_venv_config)
+
+        owner_module = Path(
+            _run(
+                [
+                    str(venv_python),
+                    "-I",
+                    "-c",
+                    "import sddgov.owner_cli; print(sddgov.owner_cli.__file__)",
+                ],
+                cwd=root,
+                environment=environment,
+            )
+        )
+        distribution_record = Path(
+            _run(
+                [
+                    str(venv_python),
+                    "-I",
+                    "-c",
+                    (
+                        "import importlib.metadata as m; "
+                        "d=m.distribution('agentic-sdd-governance'); "
+                        "print(next(str(p.locate()) for p in d.files "
+                        "if str(p).endswith('.dist-info/RECORD')))"
+                    ),
+                ],
+                cwd=root,
+                environment=environment,
+            )
+        )
+        if os.name != "nt":
+            for protected_path in (
+                owner_module,
+                distribution_record,
+                owner_module.parent,
+            ):
+                original_mode = protected_path.stat().st_mode & 0o7777
+                try:
+                    protected_path.chmod(original_mode | 0o020)
+                    unsafe_mode_probe = subprocess.run(
+                        owner_runtime_command,
+                        cwd=root,
+                        env=owner_runtime_environment,
+                        check=False,
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                    )
+                    if unsafe_mode_probe.returncode == 0:
+                        raise RuntimeError(
+                            "installed-wheel Owner diagnostics accepted a group-writable artifact"
+                        )
+                finally:
+                    protected_path.chmod(original_mode)
 
         doctors: dict[str, dict[str, Any]] = {}
         for agent in ("codex", "hermes"):

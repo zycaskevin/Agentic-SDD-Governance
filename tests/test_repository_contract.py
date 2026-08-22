@@ -192,6 +192,10 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn('"owner_approval_client": "PASS"', text)
         self.assertIn('"Scripts/sddgov-owner.exe"', text)
         self.assertIn("_snapshot_verified_bundle", text)
+        self.assertIn("with _owner_install_umask():", text)
+        self.assertIn('"-I",', text)
+        self.assertIn("installed-wheel Owner diagnostics accepted an ambiguous", text)
+        self.assertIn("installed-wheel Owner diagnostics accepted a group-writable", text)
 
     def test_skill_is_thin_and_routes_one_level_references(self):
         skill = ROOT / "skill/agentic-sdd-governance/SKILL.md"
@@ -487,6 +491,18 @@ class RepositoryContractTests(unittest.TestCase):
             "- Risk: L2 because R22 changes the public approver-authority source",
             work_package,
         )
+        request = json.loads(
+            (ROOT / "work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.request.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(
+            request["assumption_paths"],
+            [
+                "work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.md",
+                "work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.request.json",
+            ],
+        )
         decisions = json.loads(
             (ROOT / ".sddgov/decisions.json").read_text(encoding="utf-8")
         )
@@ -508,9 +524,15 @@ class RepositoryContractTests(unittest.TestCase):
                 {
                     "path": "work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.md",
                     "sha256": (
-                        "c123fab88675203b01492cba209715e2f9d695cc5c7120c10787ba0ff3592915"
+                        "2017980f8c2ee9bded5334c4a302e626afb08fb9f1e6ffea069262cbf960e1fd"
                     ),
-                }
+                },
+                {
+                    "path": "work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.request.json",
+                    "sha256": (
+                        "5272ce9cdd22ab6d66db8827ccee51f9a753938ca20354a4d2f6490a09472653"
+                    ),
+                },
             ],
         )
         rollback = (
@@ -570,6 +592,8 @@ class RepositoryContractTests(unittest.TestCase):
             "/etc/sddgov/trusted-approvers.json",
             "SDDGOV_TRUSTED_APPROVERS_FILE",
             "separate privileged Operational/L3 action",
+            "before the kernel starts the launcher",
+            "diagnostic only",
         ):
             self.assertIn(required, key_runbook)
         self.assertNotIn("calculate its SHA-256 fingerprint", key_runbook)

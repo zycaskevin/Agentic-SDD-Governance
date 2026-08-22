@@ -2,7 +2,7 @@
 
 ## Smallest sufficient change
 
-Introduce transaction-owned retained directory descriptors and complete generation verification for mutating Evidence entry points; make failure cleanup collision-safe and content-bound; repair close/fsync ordering in release and Broker helpers; correct the TestPyPI/import, release inventory, documentation, and Darwin fixed-alias contracts; bind the fixed approver source to one exact L2 decision artifact and receipt; and replace human receipt mechanics with a non-signing Agent card plus a separate Owner-terminal client that reconstructs and verifies the signed receipt through an external confirmation-constrained Ed25519 identity.
+Introduce transaction-owned retained directory descriptors and complete generation verification for mutating Evidence entry points; make failure cleanup collision-safe and content-bound; repair close/fsync ordering in release and Broker helpers; correct the TestPyPI/import, release inventory, documentation, and Darwin fixed-alias contracts; bind the fixed approver source to one exact L2 decision artifact and receipt; and replace human receipt mechanics with a non-signing Agent card plus a separate Owner-terminal client that reconstructs and verifies the signed receipt through an Agent-inaccessible Ed25519 signer channel. Generic SSH confirmation is transport, not semantic approval; the Owner-controlled client or external signer must display and bind the exact card.
 
 ## Files or components in scope
 
