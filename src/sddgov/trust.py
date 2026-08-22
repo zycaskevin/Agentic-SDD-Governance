@@ -9,6 +9,8 @@ from typing import Any
 
 
 FULL_COMMIT_SHA = re.compile(r"[0-9a-fA-F]{40}")
+TRUSTED_APPROVERS_FILE = Path("/etc/sddgov/trusted-approvers.json")
+TRUSTED_APPROVERS_ENVIRONMENT = "SDDGOV_TRUSTED_APPROVERS_FILE"
 
 
 def require_full_commit_sha(value: str | None, label: str) -> str:
@@ -16,6 +18,26 @@ def require_full_commit_sha(value: str | None, label: str) -> str:
     if not isinstance(value, str) or FULL_COMMIT_SHA.fullmatch(value) is None:
         raise ValueError(f"{label} must be a full 40-character commit SHA")
     return value.lower()
+
+
+def trusted_approvers_path(root: Path) -> Path:
+    """Return the only runtime approver authority path.
+
+    The retired environment variable is rejected even when it names the fixed
+    path. Otherwise an Agent-controlled process environment remains an apparent
+    authority-selection mechanism and unsafe deployments can silently rely on it.
+    """
+    if TRUSTED_APPROVERS_ENVIRONMENT in os.environ:
+        raise ValueError(
+            f"caller override {TRUSTED_APPROVERS_ENVIRONMENT} is forbidden; "
+            f"trusted approver authority is fixed at {TRUSTED_APPROVERS_FILE}"
+        )
+    source = TRUSTED_APPROVERS_FILE.absolute()
+    try:
+        source.resolve().relative_to(root.resolve())
+    except ValueError:
+        return source
+    raise ValueError("fixed trusted approver store must be outside the repository")
 
 
 def load_owner_controlled_json(path: Path, label: str) -> dict[str, Any]:

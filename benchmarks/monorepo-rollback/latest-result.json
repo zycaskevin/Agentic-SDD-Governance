@@ -1,0 +1,62 @@
+{
+  "schema_version": "1.0",
+  "benchmark": "exact-tree-rollback-monorepo",
+  "environment": {
+    "platform": "Linux-6.17.0-1026-nvidia-aarch64-with-glibc2.39",
+    "python": "3.12.3",
+    "git": "git version 2.43.0"
+  },
+  "threshold_seconds_p95": 5.0,
+  "cases": [
+    {
+      "file_count": 1000,
+      "changed_file_count": 1,
+      "repeats": 3,
+      "all_proofs_passed": true,
+      "setup_seconds": 0.150206,
+      "samples_seconds": [
+        0.014256,
+        0.014515,
+        0.013626
+      ],
+      "median_seconds": 0.014256,
+      "p95_seconds": 0.014515
+    },
+    {
+      "file_count": 10000,
+      "changed_file_count": 1,
+      "repeats": 3,
+      "all_proofs_passed": true,
+      "setup_seconds": 1.027917,
+      "samples_seconds": [
+        0.012734,
+        0.013782,
+        0.015329
+      ],
+      "median_seconds": 0.013782,
+      "p95_seconds": 0.015329
+    },
+    {
+      "file_count": 50000,
+      "changed_file_count": 1,
+      "repeats": 3,
+      "all_proofs_passed": true,
+      "setup_seconds": 2.88315,
+      "samples_seconds": [
+        0.017217,
+        0.014333,
+        0.012625
+      ],
+      "median_seconds": 0.014333,
+      "p95_seconds": 0.017217
+    }
+  ],
+  "decision": {
+    "state": "retain_full_tree",
+    "blocking": false,
+    "optimize_required": false,
+    "action": "retain full-tree proof; no affected-path optimization"
+  },
+  "claim_allowed": false,
+  "note": "This synthetic local benchmark measures verifier latency only. It is not a superiority, production capacity, or universal monorepo claim."
+}

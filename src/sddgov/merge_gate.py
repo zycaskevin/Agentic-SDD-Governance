@@ -23,6 +23,9 @@ from .trust import load_control_plane_json, load_owner_controlled_json
 
 
 DEFAULT_GATE = Path(".sddgov/merge-gate.json")
+AUDIT_GATE_PATH = DEFAULT_GATE.as_posix()
+AUDIT_REVIEW_PREFIX = ".sddgov/reviews/"
+AUDIT_EVIDENCE_PREFIX = "evidence/"
 LEGACY_ROLLBACK_V1_BOOTSTRAP_BASE_SHA = (
     "f44cb5f4897f6c821f817fcf178581b43777163a"
 )
@@ -36,8 +39,12 @@ ROLLBACK_V2_POSTCONDITION_BOOTSTRAP_PATH = (
     "evidence/DEP-RELEASE-READINESS-HARDENING-010/rollback.md"
 )
 AUDIT_EXCLUDES = (
-    ":(exclude).sddgov/merge-gate.json",
-    ":(exclude).sddgov/reviews/**",
+    f":(exclude){AUDIT_GATE_PATH}",
+    f":(exclude){AUDIT_REVIEW_PREFIX}**",
+)
+ROLLBACK_AUDIT_EXCLUDES = (
+    f":(exclude){AUDIT_EVIDENCE_PREFIX}**",
+    *AUDIT_EXCLUDES,
 )
 FIRST_CONSUMER_BASE_MARKERS = (
     "policies/protected-files.yaml",
@@ -384,6 +391,14 @@ def _is_protected(path: str, patterns: list[str]) -> bool:
     )
 
 
+def _is_audit_path(path: str, *, include_evidence: bool = False) -> bool:
+    return (
+        path == AUDIT_GATE_PATH
+        or path.startswith(AUDIT_REVIEW_PREFIX)
+        or (include_evidence and path.startswith(AUDIT_EVIDENCE_PREFIX))
+    )
+
+
 def changed_paths(root: Path, start: str, end: str = "HEAD") -> list[str]:
     """Return exact source and destination paths from NUL-delimited Git output."""
     fields = _git(
@@ -404,22 +419,88 @@ def changed_paths(root: Path, start: str, end: str = "HEAD") -> list[str]:
     return sorted(paths)
 
 
-def only_audit_changes_after_review(
-    root: Path, reviewed_head_sha: str, current_head_sha: str
+def _commit_edge_paths(root: Path, parent: str, commit: str) -> list[str]:
+    """Return exact paths changed on one parent-to-child edge."""
+    fields = _git(
+        root,
+        "diff",
+        "-M",
+        "--name-status",
+        "-z",
+        parent,
+        commit,
+        "--",
+    ).split("\0")
+    if fields and fields[-1] == "":
+        fields.pop()
+    paths: set[str] = set()
+    index = 0
+    while index < len(fields):
+        status = fields[index]
+        width = 3 if status.startswith(("R", "C")) else 2
+        record = fields[index : index + width]
+        if len(record) != width or not status:
+            raise ValueError("git diff produced an invalid commit-edge record")
+        paths.update(record[1:])
+        index += width
+    return sorted(paths)
+
+
+def _every_descendant_commit_is_audit_only(
+    root: Path,
+    start_sha: str,
+    end_sha: str,
+    *,
+    include_evidence: bool,
 ) -> bool:
-    completed = subprocess.run(
-        ["git", "merge-base", "--is-ancestor", reviewed_head_sha, current_head_sha],
+    """Inspect every parent edge so an intermediate edit cannot be hidden later."""
+    ancestor = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", start_sha, end_sha],
         cwd=root,
         check=False,
         capture_output=True,
         text=True,
     )
-    if completed.returncode != 0:
+    if ancestor.returncode != 0:
         return False
-    allowed = (".sddgov/merge-gate.json", ".sddgov/reviews/")
-    return all(
-        path == allowed[0] or path.startswith(allowed[1])
-        for path in changed_paths(root, reviewed_head_sha, current_head_sha)
+    try:
+        commits = _git(
+            root,
+            "rev-list",
+            "--reverse",
+            "--topo-order",
+            f"{start_sha}..{end_sha}",
+        ).splitlines()
+    except ValueError:
+        return False
+    for commit in commits:
+        try:
+            row = _git(root, "rev-list", "--parents", "-n", "1", commit).split()
+        except ValueError:
+            return False
+        if not row or row[0] != commit or len(row) < 2:
+            return False
+        for parent in row[1:]:
+            try:
+                paths = _commit_edge_paths(root, parent, commit)
+            except ValueError:
+                return False
+            if any(
+                not _is_audit_path(path, include_evidence=include_evidence)
+                for path in paths
+            ):
+                return False
+    return True
+
+
+def only_audit_changes_after_review(
+    root: Path, reviewed_head_sha: str, current_head_sha: str
+) -> bool:
+    return _every_descendant_commit_is_audit_only(
+        root,
+        reviewed_head_sha,
+        current_head_sha,
+        include_evidence=False,
     )
 
 
@@ -602,16 +683,16 @@ def _rollback_ref_is_cleanly_revertible(
         return False
     try:
         rollback_paths = changed_paths(root, parents[1], rollback_ref)
-        descendant_paths = changed_paths(root, rollback_ref, reviewed_head_sha)
     except ValueError:
         return False
-    if any(
-        path == ".sddgov/merge-gate.json"
-        or path.startswith(("evidence/", ".sddgov/reviews/"))
-        for path in rollback_paths
-    ):
+    if any(_is_audit_path(path, include_evidence=True) for path in rollback_paths):
         return False
-    if any(not path.startswith("evidence/") for path in descendant_paths):
+    if not _every_descendant_commit_is_audit_only(
+        root,
+        rollback_ref,
+        reviewed_head_sha,
+        include_evidence=True,
+    ):
         return False
     try:
         objects_text = _git(root, "rev-parse", "--git-path", "objects")
@@ -719,9 +800,7 @@ def _rollback_ref_is_cleanly_revertible(
                     result_tree,
                     "--",
                     ".",
-                    ":(exclude)evidence/**",
-                    ":(exclude).sddgov/merge-gate.json",
-                    ":(exclude).sddgov/reviews/**",
+                    *ROLLBACK_AUDIT_EXCLUDES,
                 ],
                 cwd=root,
                 check=False,
@@ -915,6 +994,18 @@ def _rollback_postcondition_is_green(
     except (OSError, KeyError, subprocess.TimeoutExpired):
         return False
     return True
+
+
+def rollback_ref_is_cleanly_revertible(
+    root: Path, rollback_ref: str, *, base_sha: str, reviewed_head_sha: str
+) -> bool:
+    """Public entry point for the exact-tree rollback proof."""
+    return _rollback_ref_is_cleanly_revertible(
+        root,
+        rollback_ref,
+        base_sha=base_sha,
+        reviewed_head_sha=reviewed_head_sha,
+    )
 
 
 def verify_merge(
