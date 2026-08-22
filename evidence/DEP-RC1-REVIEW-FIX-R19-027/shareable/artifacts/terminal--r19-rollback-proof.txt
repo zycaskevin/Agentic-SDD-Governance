@@ -1,0 +1,29 @@
+R19 DECLARATIVE ROLLBACK PROOF
+
+rollback_version=3.0
+rollback_action=git_revert
+rollback_ref=d7f40bcd1929aaab5c2327e69b7ffd2bc58a0ae0
+rollback_ref_parent=1a5a0b214eccc2b9edd076fd5e2f222c4a456725
+
+In a full isolated clone at the candidate Evidence descendant:
+git revert --no-commit <rollback_ref>: exit 0
+non-audit product diff against exact Base: empty
+
+Base reconciliation:
+setup-agent --force: updated, governance_version=0.2.0-experimental.8, managed_file_count=66
+Doctor: ok=true, errors=[], warnings=[]
+Validate: OK governance kernel, profiles, evidence schema, skill, and lifecycle docs
+Base full suite: Ran 229 tests; OK (skipped=1 sandbox AF_UNIX)
+
+Base package:
+agentic_sdd_governance-0.2.0.dev8 wheel and sdist built with --no-isolation
+Twine: both PASSED
+
+Clean Base installed-wheel consumer:
+Base governance lock installed with --require-hashes from the verified offline wheelhouse
+Base wheel installed with --no-deps
+pip check: No broken requirements found
+imported version: 0.2.0-experimental.8
+fresh consumer setup-agent: installed, managed_file_count=66
+fresh consumer Doctor: ok=true, errors=[], warnings=[]
+
