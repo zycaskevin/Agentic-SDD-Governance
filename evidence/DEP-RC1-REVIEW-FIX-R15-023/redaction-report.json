@@ -1,0 +1,76 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "git--r15-review-bindings.txt",
+      "output": "git--r15-review-bindings.txt",
+      "source_sha256": "e8844251ba0bfe22c41c21b58908c49849755d9ca3553854b64654afaa191511",
+      "source_size": 860,
+      "output_sha256": "e8844251ba0bfe22c41c21b58908c49849755d9ca3553854b64654afaa191511",
+      "output_size": 860,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--r15-fresh-wheel-smoke.json",
+      "output": "terminal--r15-fresh-wheel-smoke.json",
+      "source_sha256": "d69f08240a2fedbe3b58507186baed8644de8beda5d1fb36db2e08236d51f15f",
+      "source_size": 624,
+      "output_sha256": "d69f08240a2fedbe3b58507186baed8644de8beda5d1fb36db2e08236d51f15f",
+      "output_size": 624,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--r15-local-green.txt",
+      "output": "terminal--r15-local-green.txt",
+      "source_sha256": "064b3dec5990cd45bb4f7200501df5262275c95aeea985893022f5775f03e572",
+      "source_size": 834,
+      "output_sha256": "064b3dec5990cd45bb4f7200501df5262275c95aeea985893022f5775f03e572",
+      "output_size": 834,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--r15-package-proof.txt",
+      "output": "terminal--r15-package-proof.txt",
+      "source_sha256": "35ac09b1ec8747515bfae3b8a906246422461789c758855f2c8328f08d4bd33b",
+      "source_size": 501,
+      "output_sha256": "35ac09b1ec8747515bfae3b8a906246422461789c758855f2c8328f08d4bd33b",
+      "output_size": 501,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--r15-release-bundle.json",
+      "output": "terminal--r15-release-bundle.json",
+      "source_sha256": "c173a5d76313e68917bcdfe316f7a477cef38571c1b42f31d9ac99e9cb77250d",
+      "source_size": 303,
+      "output_sha256": "c173a5d76313e68917bcdfe316f7a477cef38571c1b42f31d9ac99e9cb77250d",
+      "output_size": 303,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--r15-review-red.txt",
+      "output": "terminal--r15-review-red.txt",
+      "source_sha256": "5f48b7dbc777350961ca26a4a1548e90a7ce5e7ba05db190135f484fb9b40f5f",
+      "source_size": 671,
+      "output_sha256": "5ab0f25c891b5afd7619e6aae21ec18e05e37964df015c4990f4d3cb13e73719",
+      "output_size": 688,
+      "redactions": {
+        "phone": 1
+      }
+    },
+    {
+      "source": "terminal--r15-rollback-drill.txt",
+      "output": "terminal--r15-rollback-drill.txt",
+      "source_sha256": "d0627ab5a91088093b1bed410755397cd18ef95e3601e14604ca84a87ae718f2",
+      "source_size": 833,
+      "output_sha256": "d0627ab5a91088093b1bed410755397cd18ef95e3601e14604ca84a87ae718f2",
+      "output_size": 833,
+      "redactions": {}
+    }
+  ],
+  "blocked": [],
+  "totals": {
+    "phone": 1
+  },
+  "dep_id": "DEP-RC1-REVIEW-FIX-R15-023",
+  "generated_at": "2026-08-22T03:37:24Z"
+}
