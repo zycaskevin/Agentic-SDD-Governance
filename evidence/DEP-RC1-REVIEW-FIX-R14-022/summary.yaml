@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-REVIEW-FIX-R14-022",
+  "issue": "PR #35 post-review blocker remediation and RC1 readiness proof",
+  "sdd_references": [
+    "work-packages/WP-RC1-READINESS-008.md"
+  ],
+  "risk_level": "L2",
+  "created_at": "2026-08-22T02:43:26Z",
+  "updated_at": "2026-08-22T02:44:49Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-22T02:43:26Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-22T02:44:46Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-22T02:44:47Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-22T02:44:48Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-22T02:44:49Z"
+      }
+    ]
+  },
+  "expected_behavior": "The RC1 candidate uses reviewed-safe release tools, removes only the Broker socket inode it created, relies on OS-owned macOS log retention, keeps installed governance assets consistent, and proves package and rollback behavior from isolated locked environments.",
+  "actual_behavior": "PR #35 pinned vulnerable setuptools 80.10.2, could strand a Broker socket after a post-bind identity failure, configured launchd pathname logs without a reopen contract, and omitted one installed service asset from validation. R14 replaces those paths and produces Green package, CI, privacy, and rollback proof.",
+  "environment": {
+    "commit": "9e8bd708fbfea7a995d6256a4b2e5f9e04d2c9d7",
+    "branch": "feat/rc1-readiness-r14",
+    "runtime": "Linux aarch64; Python 3.12; isolated hash-locked governance and release environments; no production data or authority store"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}
