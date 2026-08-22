@@ -482,14 +482,34 @@ class BrokerTests(unittest.TestCase):
                 }
             ],
         }
+        domains = {
+            "schema_version": "1.0",
+            "bindings": [
+                {
+                    "approver_id": "synthetic-production-2026q3",
+                    "repository_id": "github.com/example/synthetic",
+                    "repository_root": "/synthetic/repository",
+                    "trust_domain": "synthetic-production-2026q3",
+                    "status": "active",
+                }
+            ],
+        }
+
+        def loader_for(approvers):
+            return lambda _path, label: domains if "domain" in label else approvers
+
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary) / "repository"
             root.mkdir()
+            domains["bindings"][0]["repository_root"] = str(root)
             outside = Path(temporary) / "trusted-approvers.json"
+            outside_domains = Path(temporary) / "trusted-approver-domains.json"
             with patch(
                 "sddgov.trust.TRUSTED_APPROVERS_FILE", outside
             ), patch(
-                "sddgov.broker.load_control_plane_json", return_value=valid
+                "sddgov.trust.TRUSTED_APPROVER_DOMAINS_FILE", outside_domains
+            ), patch(
+                "sddgov.broker.load_control_plane_json", side_effect=loader_for(valid)
             ):
                 result = _approver_store(root)
             self.assertEqual(result["active"], 1)
@@ -497,7 +517,9 @@ class BrokerTests(unittest.TestCase):
             with patch(
                 "sddgov.trust.TRUSTED_APPROVERS_FILE", outside
             ), patch(
-                "sddgov.broker.load_control_plane_json", return_value=valid
+                "sddgov.trust.TRUSTED_APPROVER_DOMAINS_FILE", outside_domains
+            ), patch(
+                "sddgov.broker.load_control_plane_json", side_effect=loader_for(valid)
             ), patch(
                 "sddgov.broker.Ed25519PublicKey.from_public_bytes",
                 side_effect=UnsupportedAlgorithm("synthetic unavailable backend"),
@@ -543,7 +565,9 @@ class BrokerTests(unittest.TestCase):
                 with self.subTest(value=value), patch(
                     "sddgov.trust.TRUSTED_APPROVERS_FILE", outside
                 ), patch(
-                    "sddgov.broker.load_control_plane_json", return_value=value
+                    "sddgov.trust.TRUSTED_APPROVER_DOMAINS_FILE", outside_domains
+                ), patch(
+                    "sddgov.broker.load_control_plane_json", side_effect=loader_for(value)
                 ):
                     with self.assertRaisesRegex(ValueError, "invalid|no active"):
                         _approver_store(root)

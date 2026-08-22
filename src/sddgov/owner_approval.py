@@ -8,7 +8,9 @@ import json
 import os
 import secrets
 import socket
+import stat
 import struct
+import unicodedata
 from datetime import datetime, timedelta, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -16,17 +18,29 @@ from typing import Any
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
+from . import __version__
 from .autonomy import (
+    OWNER_CLIENT_BINDING_PREFIX,
     _canonical_receipt,
     _read_repository_regular_file,
     _trusted_approver,
+    _trusted_approver_domain,
     _verify_product_envelope,
     evaluate_escalation,
 )
-from .fs_security import write_new_regular_file
+from .fs_security import (
+    open_directory_path,
+    require_directory_path_identity,
+    write_new_regular_file,
+)
 
 
 MAX_APPROVAL_REQUEST_BYTES = 1024 * 1024
+MAX_ASSUMPTION_ARTIFACT_BYTES = 256 * 1024
+MAX_ASSUMPTION_TOTAL_BYTES = 1024 * 1024
+MAX_ASSUMPTION_PATHS = 8
+MAX_CARD_FIELD_BYTES = 8192
+MAX_RENDERED_CARD_BYTES = 32768
 MAX_AGENT_MESSAGE_BYTES = 1024 * 1024
 SSH_AGENTC_REQUEST_IDENTITIES = 11
 SSH_AGENT_IDENTITIES_ANSWER = 12
@@ -45,10 +59,113 @@ def _canonical_json(value: Any) -> bytes:
     ).encode("utf-8")
 
 
+def _read_owner_client_source(package_fd: int, name: str) -> bytes:
+    descriptor = -1
+    try:
+        descriptor = os.open(
+            name,
+            os.O_RDONLY
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_CLOEXEC", 0),
+            dir_fd=package_fd,
+        )
+        before = os.fstat(descriptor)
+        path_before = os.stat(name, dir_fd=package_fd, follow_symlinks=False)
+        if (
+            not stat.S_ISREG(before.st_mode)
+            or before.st_nlink != 1
+            or (before.st_dev, before.st_ino)
+            != (path_before.st_dev, path_before.st_ino)
+            or before.st_size > MAX_APPROVAL_REQUEST_BYTES
+        ):
+            raise ValueError("Owner client source identity cannot be read safely")
+        chunks: list[bytes] = []
+        size = 0
+        while True:
+            chunk = os.read(
+                descriptor,
+                min(1024 * 1024, MAX_APPROVAL_REQUEST_BYTES + 1 - size),
+            )
+            if not chunk:
+                break
+            chunks.append(chunk)
+            size += len(chunk)
+            if size > MAX_APPROVAL_REQUEST_BYTES:
+                raise ValueError("Owner client source identity exceeds the bounded size")
+        after = os.fstat(descriptor)
+        path_after = os.stat(name, dir_fd=package_fd, follow_symlinks=False)
+
+        def snapshot(value: os.stat_result) -> tuple[int, ...]:
+            return (
+                value.st_dev,
+                value.st_ino,
+                value.st_mode,
+                value.st_nlink,
+                value.st_size,
+                value.st_mtime_ns,
+                value.st_ctime_ns,
+            )
+
+        if snapshot(before) != snapshot(after) or snapshot(after) != snapshot(path_after):
+            raise ValueError("Owner client source identity changed while being read")
+        closing_descriptor = descriptor
+        descriptor = -1
+        os.close(closing_descriptor)
+        return b"".join(chunks)
+    except BaseException:
+        if descriptor >= 0:
+            closing_descriptor = descriptor
+            descriptor = -1
+            try:
+                os.close(closing_descriptor)
+            except OSError:
+                pass
+        raise
+
+
+def _owner_client_identity() -> dict[str, Any]:
+    package_root = Path(__file__).absolute().parent
+    files = (
+        "__init__.py",
+        "autonomy.py",
+        "fs_security.py",
+        "governance.py",
+        "owner_approval.py",
+        "owner_cli.py",
+        "trust.py",
+    )
+    rows = []
+    package_fd = open_directory_path(package_root, "Owner client package")
+    try:
+        for name in files:
+            raw = _read_owner_client_source(package_fd, name)
+            rows.append(
+                {"path": f"sddgov/{name}", "sha256": hashlib.sha256(raw).hexdigest()}
+            )
+        require_directory_path_identity(
+            package_root,
+            package_fd,
+            "Owner client package",
+        )
+    finally:
+        closing_package_fd = package_fd
+        package_fd = -1
+        try:
+            os.close(closing_package_fd)
+        except OSError:
+            pass
+    return {
+        "version": __version__,
+        "source_files": rows,
+        "source_sha256": hashlib.sha256(_canonical_json(rows)).hexdigest(),
+    }
+
+
 def _safe_relative_path(value: str, label: str) -> PurePosixPath:
     pure = PurePosixPath(value)
     if (
         not value
+        or "\x00" in value
         or "\\" in value
         or pure.is_absolute()
         or str(pure) != value
@@ -76,8 +193,11 @@ def _read_repository_json(root: Path, relative: str, label: str) -> dict[str, An
 def _assumption_rows(root: Path, values: list[str]) -> tuple[list[dict[str, str]], str]:
     if not values:
         raise ValueError("at least one decision assumption artifact is required")
+    if len(values) > MAX_ASSUMPTION_PATHS:
+        raise ValueError("too many decision assumption artifacts")
     rows: list[dict[str, str]] = []
     seen: set[str] = set()
+    total_bytes = 0
     for value in values:
         pure = _safe_relative_path(value, "decision assumption")
         if value in seen:
@@ -86,11 +206,119 @@ def _assumption_rows(root: Path, values: list[str]) -> tuple[list[dict[str, str]
         raw = _read_repository_regular_file(
             root,
             pure,
-            max_bytes=MAX_APPROVAL_REQUEST_BYTES,
+            max_bytes=MAX_ASSUMPTION_ARTIFACT_BYTES,
         )
+        total_bytes += len(raw)
+        if total_bytes > MAX_ASSUMPTION_TOTAL_BYTES:
+            raise ValueError("decision assumption artifacts exceed the aggregate limit")
         rows.append({"path": value, "sha256": hashlib.sha256(raw).hexdigest()})
     digest = hashlib.sha256(_canonical_json(rows)).hexdigest()
     return rows, digest
+
+
+def _validated_assumption_paths(request: dict[str, Any]) -> list[str]:
+    values = request.get("assumption_paths")
+    if not isinstance(values, list) or not values:
+        raise ValueError(
+            "product approval request requires canonical assumption_paths"
+        )
+    normalized: list[str] = []
+    for value in values:
+        if not isinstance(value, str):
+            raise ValueError("product approval assumption_paths must contain strings")
+        normalized.append(
+            str(_safe_relative_path(value, "product approval assumption"))
+        )
+    if normalized != sorted(set(normalized)):
+        raise ValueError(
+            "product approval assumption_paths must be unique and canonically sorted"
+        )
+    return normalized
+
+
+def _require_terminal_safe_text(value: Any, label: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{label} must be one non-empty string")
+    if any(
+        unicodedata.category(character).startswith("C")
+        or unicodedata.category(character) in {"Zl", "Zp"}
+        for character in value
+    ):
+        raise ValueError(f"{label} contains terminal control or invisible text")
+    if len(value.encode("utf-8")) > MAX_CARD_FIELD_BYTES:
+        raise ValueError(f"{label} exceeds the bounded display size")
+    return value
+
+
+def _validated_owner_card(card: dict[str, Any]) -> None:
+    for field in (
+        "heading",
+        "decision_id",
+        "risk_level",
+        "why_human_input_is_required",
+        "recommended",
+        "why",
+        "impact_if_no_decision",
+        "scope_of_approval",
+        "approver_id",
+        "repository_id",
+        "trust_domain",
+    ):
+        _require_terminal_safe_text(card.get(field), f"product approval {field}")
+    verified = card.get("what_agent_already_verified")
+    if not isinstance(verified, list) or not verified:
+        raise ValueError("product approval verified facts must be a non-empty list")
+    for index, value in enumerate(verified):
+        _require_terminal_safe_text(value, f"product approval verified fact {index}")
+    options = card.get("options")
+    if not isinstance(options, list) or len(options) != 2:
+        raise ValueError("product approval card requires exactly options A and B")
+    labels: list[str] = []
+    for index, option in enumerate(options):
+        if not isinstance(option, dict) or set(option) != {"label", "description"}:
+            raise ValueError("product approval options have an invalid contract")
+        labels.append(
+            _require_terminal_safe_text(
+                option.get("label"),
+                f"product approval option {index} label",
+            )
+        )
+        _require_terminal_safe_text(
+            option.get("description"),
+            f"product approval option {index} description",
+        )
+    if labels != ["A", "B"] or card.get("recommended") not in {"A", "B"}:
+        raise ValueError("product approval card requires unique ordered labels A and B")
+    valid_days = card.get("valid_days")
+    if not isinstance(valid_days, int) or isinstance(valid_days, bool) or not 1 <= valid_days <= 366:
+        raise ValueError("product approval validity must be between 1 and 366 days")
+    client = card.get("owner_client")
+    if (
+        not isinstance(client, dict)
+        or not isinstance(client.get("version"), str)
+        or not client["version"].strip()
+        or not isinstance(client.get("source_sha256"), str)
+        or len(client["source_sha256"]) != 64
+        or not isinstance(client.get("source_files"), list)
+        or not client["source_files"]
+    ):
+        raise ValueError("product approval Owner client identity is invalid")
+    if (
+        not isinstance(card.get("approver_key_sha256"), str)
+        or len(card["approver_key_sha256"]) != 64
+        or any(character not in "0123456789abcdef" for character in card["approver_key_sha256"])
+    ):
+        raise ValueError("product approval trusted Owner key identity is invalid")
+
+
+def _trusted_owner_public_key(root: Path, approver_id: str) -> bytes:
+    approver = _trusted_approver(root, approver_id)
+    try:
+        public_key = base64.b64decode(approver["public_key"], validate=True)
+        Ed25519PublicKey.from_public_bytes(public_key)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("trusted Owner public key is invalid") from exc
+    return public_key
 
 
 def build_product_approval_card(
@@ -105,11 +333,68 @@ def build_product_approval_card(
     card = result.get("decision_package")
     if not isinstance(card, dict) or card.get("risk_level") != "L2":
         raise ValueError("product approval request does not contain one validated L2 card")
+    card = dict(card)
+    assumption_paths = _validated_assumption_paths(request)
+    assumptions, assumptions_sha256 = _assumption_rows(root, assumption_paths)
+    card["assumption_paths"] = assumption_paths
+    card["assumptions"] = assumptions
+    card["assumptions_sha256"] = assumptions_sha256
+    card["approver_id"] = _require_terminal_safe_text(
+        request.get("approver_id"),
+        "product approval approver_id",
+    )
+    public_key = _trusted_owner_public_key(root, card["approver_id"])
+    card["approver_key_sha256"] = hashlib.sha256(public_key).hexdigest()
+    binding = _trusted_approver_domain(root, card["approver_id"])
+    card["repository_id"] = binding["repository_id"]
+    card["trust_domain"] = binding["trust_domain"]
+    card["valid_days"] = request.get("valid_days")
+    actual_client = _owner_client_identity()
+    expected_client = request.get("owner_client")
+    if (
+        not isinstance(expected_client, dict)
+        or set(expected_client) != {"version", "source_sha256"}
+        or expected_client.get("version") != actual_client["version"]
+        or not isinstance(expected_client.get("source_sha256"), str)
+        or not secrets.compare_digest(
+            expected_client["source_sha256"],
+            actual_client["source_sha256"],
+        )
+    ):
+        raise ValueError(
+            "installed Owner client does not match the governed reviewed source identity"
+        )
+    marker = (
+        OWNER_CLIENT_BINDING_PREFIX
+        + json.dumps(
+            expected_client,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+    ).encode("utf-8")
+    bound_artifacts = 0
+    for path in assumption_paths:
+        raw_assumption = _read_repository_regular_file(
+            root,
+            PurePosixPath(path),
+            max_bytes=MAX_ASSUMPTION_ARTIFACT_BYTES,
+        )
+        if marker in raw_assumption.splitlines():
+            bound_artifacts += 1
+    if bound_artifacts != 1:
+        raise ValueError(
+            "decision assumptions must bind one exact reviewed Owner client identity"
+        )
+    card["owner_client"] = actual_client
+    _validated_owner_card(card)
     return request, card
 
 
 def render_product_approval_card(card: dict[str, Any]) -> str:
     """Render only the product meaning an Owner must decide, never machine digests."""
+    _validated_owner_card(card)
     options = card.get("options")
     if not isinstance(options, list) or not options:
         raise ValueError("product approval card has no options")
@@ -118,8 +403,23 @@ def render_product_approval_card(card: dict[str, Any]) -> str:
         f"Decision: {card['decision_id']}",
         f"Risk: {card['risk_level']}",
         "",
+        "Why your decision is required:",
+        card["why_human_input_is_required"],
+        "",
+        "Already verified by Agents and machines:",
+        *[f"- {fact}" for fact in card["what_agent_already_verified"]],
+        "",
         "Scope:",
         card["scope_of_approval"],
+        "",
+        "Contract artifacts:",
+        *[f"- {path}" for path in card["assumption_paths"]],
+        "",
+        f"Approver identity: {card['approver_id']}",
+        f"Repository: {card['repository_id']}",
+        f"Trust domain: {card['trust_domain']}",
+        f"Owner client: SDG {card['owner_client']['version']} (matches governed reviewed source identity)",
+        f"Receipt validity: {card['valid_days']} days",
         "",
         "Options:",
     ]
@@ -136,7 +436,15 @@ def render_product_approval_card(card: dict[str, Any]) -> str:
             "SDG computes and verifies the receipt, assumptions, nonce, and signature.",
         ]
     )
-    return "\n".join(lines) + "\n"
+    rendered = "\n".join(lines) + "\n"
+    if len(rendered.encode("utf-8")) > MAX_RENDERED_CARD_BYTES:
+        raise ValueError("product approval card exceeds the bounded terminal size")
+    return rendered
+
+
+def product_approval_card_sha256(card: dict[str, Any]) -> str:
+    """Bind an Owner-visible card to the receipt construction call."""
+    return hashlib.sha256(_canonical_json(card)).hexdigest()
 
 
 def _ssh_string(value: bytes) -> bytes:
@@ -172,8 +480,9 @@ def _ssh_agent_exchange(socket_path: str, payload: bytes, timeout: float) -> byt
         raise ValueError("SSH_AUTH_SOCK is unavailable or invalid")
     if len(payload) > MAX_AGENT_MESSAGE_BYTES:
         raise ValueError("SSH agent request exceeds the bounded protocol size")
-    connection = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    connection: socket.socket | None = None
     try:
+        connection = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         connection.settimeout(timeout)
         connection.connect(socket_path)
         connection.sendall(struct.pack(">I", len(payload)) + payload)
@@ -184,7 +493,14 @@ def _ssh_agent_exchange(socket_path: str, payload: bytes, timeout: float) -> byt
     except (OSError, TimeoutError) as exc:
         raise ValueError("confirmed SSH signer is unavailable") from exc
     finally:
-        connection.close()
+        try:
+            if connection is not None:
+                connection.close()
+        except OSError:
+            # Socket close is resource cleanup after the complete response was
+            # received. It must not replace a signer refusal/protocol error or
+            # turn a verified response into an ambiguous second signing attempt.
+            pass
 
 
 def _ed25519_key_blob(public_key: bytes) -> bytes:
@@ -199,6 +515,8 @@ def _require_agent_identity(socket_path: str, expected_blob: bytes) -> None:
         bytes([SSH_AGENTC_REQUEST_IDENTITIES]),
         5.0,
     )
+    if not response:
+        raise ValueError("SSH agent returned an empty identity response")
     if response[0] == SSH_AGENT_FAILURE:
         raise ValueError("confirmed SSH signer refused the identity request")
     if response[0] != SSH_AGENT_IDENTITIES_ANSWER or len(response) < 5:
@@ -235,6 +553,8 @@ def _sign_with_confirmed_ssh_agent(
         + struct.pack(">I", 0)
     )
     response = _ssh_agent_exchange(socket_path, request, 120.0)
+    if not response:
+        raise ValueError("SSH agent returned an empty signing response")
     if response[0] == SSH_AGENT_FAILURE:
         raise ValueError("Owner declined or the confirmed SSH signer refused the request")
     if response[0] != SSH2_AGENT_SIGN_RESPONSE:
@@ -259,16 +579,22 @@ def _sign_with_confirmed_ssh_agent(
 def approve_product_decision(
     root: Path,
     request_path: str,
-    assumption_paths: list[str],
-    approver_id: str,
     choice: str,
     output: Path,
     *,
-    valid_days: int = 30,
     ssh_auth_sock: str | None = None,
+    expected_card_sha256: str,
 ) -> dict[str, Any]:
     """Turn one semantic Owner choice into a verified Ed25519 receipt."""
     _request, card = build_product_approval_card(root, request_path)
+    actual_card_sha256 = product_approval_card_sha256(card)
+    if (
+        not isinstance(expected_card_sha256, str)
+        or not secrets.compare_digest(actual_card_sha256, expected_card_sha256)
+    ):
+        raise ValueError(
+            "product approval card changed after Owner display; review the new card"
+        )
     options = {
         row["label"]: row["description"]
         for row in card["options"]
@@ -285,14 +611,34 @@ def approve_product_decision(
             "selected_option": choice,
             "receipt_written": False,
         }
-    if not isinstance(valid_days, int) or not 1 <= valid_days <= 366:
-        raise ValueError("product approval validity must be between 1 and 366 days")
-    approver = _trusted_approver(root, approver_id)
-    try:
-        public_key = base64.b64decode(approver["public_key"], validate=True)
-    except (TypeError, ValueError) as exc:
-        raise ValueError("trusted Owner public key is invalid") from exc
-    assumptions, assumptions_sha256 = _assumption_rows(root, assumption_paths)
+    approver_id = card["approver_id"]
+    valid_days = card["valid_days"]
+    public_key = _trusted_owner_public_key(root, approver_id)
+    if not secrets.compare_digest(
+        hashlib.sha256(public_key).hexdigest(),
+        card["approver_key_sha256"],
+    ):
+        raise ValueError("trusted Owner key changed after Owner display")
+    binding = _trusted_approver_domain(root, approver_id)
+    if (
+        binding["repository_id"] != card["repository_id"]
+        or binding["trust_domain"] != card["trust_domain"]
+    ):
+        raise ValueError("trusted Owner audience changed after Owner display")
+    assumptions, assumptions_sha256 = _assumption_rows(
+        root,
+        card["assumption_paths"],
+    )
+    if (
+        assumptions != card["assumptions"]
+        or not secrets.compare_digest(
+            assumptions_sha256,
+            card["assumptions_sha256"],
+        )
+    ):
+        raise ValueError(
+            "product approval assumptions changed before signing; review the new card"
+        )
     now = datetime.now(timezone.utc).replace(microsecond=0)
     receipt = {
         "decision_id": card["decision_id"],

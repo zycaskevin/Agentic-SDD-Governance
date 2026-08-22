@@ -2,12 +2,16 @@
 
 Decision ID: `DEC-RC1-APPROVER-AUTHORITY-R22`
 
+Owner client binding: {"source_sha256":"7f31f39ba28a2c47dc50415afcfdd7f74b748d839729c67c2e1c547a99f92ce4","version":"0.2.0rc1"}
+
 ## Exact scope
 
 This decision authorizes the RC1 implementation to:
 
+- bind every product receipt reuse to repository `github.com/zycaskevin/agentic-sdd-governance` and trust domain `agentic-sdd-governance-owner-2026q3`;
 - retire and reject `SDDGOV_TRUSTED_APPROVERS_FILE` as a runtime authority-selection mechanism;
 - use `/etc/sddgov/trusted-approvers.json` as the sole Linux and macOS runtime approver trust store;
+- keep the signed product receipt compatible with the trusted Base schema while requiring the separate fixed, root-controlled `/etc/sddgov/trusted-approver-domains.json` sidecar to bind each Owner key ID to exactly one canonical GitHub repository, one exact host-local repository root, and one trust domain;
 - require the trust-store leaf to be a root-owned, single-linked regular file that is not writable by group or other;
 - require every directory in the retained physical path chain to be root-owned, non-symlink, and not writable by group or other, after canonicalizing only macOS's fixed platform-owned `/etc` alias to `/private/etc`;
 - fail closed when the Agent runs as root, the fixed store is absent or unreadable, the path generation changes, the document is malformed or oversized, or a legacy environment override is present; and
@@ -21,10 +25,11 @@ This decision does not authorize writing `/etc/sddgov`, provisioning a real Owne
 
 - The runtime Agent is a non-root process on supported Linux or macOS hosts.
 - On macOS, `/etc` is the supported logical authority location and the verifier maps only that fixed system alias to its physical `/private/etc` path; arbitrary caller symlinks remain forbidden.
-- An operator provisions the fixed file outside the repository with readable least privilege, such as `root:sddgov 0640` or `root:wheel 0644`, and keeps its parent chain root-controlled.
+- An operator provisions both fixed control-plane files outside the repository with readable least privilege, such as `root:sddgov 0640` or `root:wheel 0644`, and keeps their parent chain root-controlled.
 - Existing deployments that set `SDDGOV_TRUSTED_APPROVERS_FILE` must remove that variable and migrate the same reviewed public trust records to the fixed path before using L2/L3 approval imports.
 - Windows and hosts without a separate root-controlled identity remain fail-closed until a platform ACL or external control-plane contract is approved.
 - Repository code, candidate CI, and Agent-controlled process environment are never an authority source.
+- The exact host-local repository root is chosen and written only during the separate privileged provisioning action; a candidate-controlled Git remote alone is never repository authority.
 - The Owner runs `sddgov-owner` from an independently installed reviewed artifact and an Owner-controlled terminal. The matching Ed25519 identity is unavailable to the Agent except through a provider that requires separate confirmation for each signature; an unconstrained Agent-accessible SSH key is a custody failure and is not supported authority.
 
 ## Options

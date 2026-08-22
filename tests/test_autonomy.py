@@ -1,4 +1,5 @@
 import base64
+import copy
 import hashlib
 import io
 import json
@@ -32,7 +33,9 @@ from sddgov.autonomy import (
     lock_artifact,
     record_decision,
     render_action_required,
+    verify_product_decision,
     verify_artifact,
+    _repository_identity,
     _consume_nonce_via_control_plane,
 )
 from sddgov.trust import load_control_plane_json
@@ -80,6 +83,49 @@ def operation_payload(operation_id, category="high_risk_operation", effects=None
     }
 
 
+class RepositoryIdentityTests(unittest.TestCase):
+    def test_repository_identity_accepts_exact_github_forms_and_rejects_aliases(self):
+        root = Path("/tmp/sddgov-repository-identity-test")
+        for remote in (
+            "https://github.com/Example/Synthetic.git",
+            "git@github.com:Example/Synthetic.git",
+            "ssh://git@github.com/Example/Synthetic.git",
+        ):
+            with (
+                self.subTest(remote=remote),
+                patch(
+                    "sddgov.autonomy.subprocess.run",
+                    side_effect=(
+                        SimpleNamespace(returncode=0, stdout=str(root) + "\n"),
+                        SimpleNamespace(returncode=0, stdout=remote + "\n"),
+                    ),
+                ),
+            ):
+                self.assertEqual(
+                    _repository_identity(root),
+                    "github.com/example/synthetic",
+                )
+
+        for remote in (
+            "https://github.com/Example/Synthetic?other",
+            "https://github.com/Example/Synthetic#fragment",
+            "https://github.com/Example/Synthetic%2Fother",
+            "https://example.com/Example/Synthetic",
+        ):
+            with (
+                self.subTest(remote=remote),
+                patch(
+                    "sddgov.autonomy.subprocess.run",
+                    side_effect=(
+                        SimpleNamespace(returncode=0, stdout=str(root) + "\n"),
+                        SimpleNamespace(returncode=0, stdout=remote + "\n"),
+                    ),
+                ),
+                self.assertRaisesRegex(ValueError, "canonical GitHub repository"),
+            ):
+                _repository_identity(root)
+
+
 class AutonomyTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
@@ -88,6 +134,7 @@ class AutonomyTests(unittest.TestCase):
         self.addCleanup(self.trust_temporary.cleanup)
         self.root = Path(self.temporary.name)
         self.trust_path = Path(self.trust_temporary.name) / "trusted-approvers.json"
+        self.domain_path = Path(self.trust_temporary.name) / "trusted-approver-domains.json"
         self.runtime_context_path = Path(self.trust_temporary.name) / "runtime-context.json"
         self.runtime_context_path.write_text(
             json.dumps({
@@ -113,6 +160,11 @@ class AutonomyTests(unittest.TestCase):
         )
         self.trust_authority_path.start()
         self.addCleanup(self.trust_authority_path.stop)
+        self.domain_authority_path = patch(
+            "sddgov.trust.TRUSTED_APPROVER_DOMAINS_FILE", self.domain_path
+        )
+        self.domain_authority_path.start()
+        self.addCleanup(self.domain_authority_path.stop)
         init_project(self.root, "team-standard")
         self.control_plane_loader = patch(
             "sddgov.autonomy.load_control_plane_json",
@@ -125,6 +177,12 @@ class AutonomyTests(unittest.TestCase):
         )
         self.nonce_broker.start()
         self.addCleanup(self.nonce_broker.stop)
+        self.repository_identity = patch(
+            "sddgov.autonomy._repository_identity",
+            return_value="github.com/example/synthetic",
+        )
+        self.repository_identity.start()
+        self.addCleanup(self.repository_identity.stop)
 
     def _signed_operation_approval(
         self,
@@ -209,6 +267,23 @@ class AutonomyTests(unittest.TestCase):
             encoding="utf-8",
         )
         self.trust_path.chmod(0o600)
+        self.domain_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "bindings": [
+                        {
+                            "approver_id": approved_by,
+                            "repository_id": "github.com/example/synthetic",
+                            "repository_root": str(self.root),
+                            "trust_domain": "synthetic-product-domain",
+                            "status": "active",
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
         now = datetime.now(timezone.utc).replace(microsecond=0)
         assumption_path = self.root / ".sddgov" / "assumptions" / f"{decision_id}.txt"
         assumption_path.parent.mkdir(parents=True, exist_ok=True)
@@ -882,6 +957,73 @@ class AutonomyTests(unittest.TestCase):
             },
         )
         self.assertEqual(stale["state"], "ACTION_REQUIRED")
+
+    def test_stored_product_decision_reverifies_signature_row_audience_and_request(self):
+        owner_client = {"version": "0.2.0rc1", "source_sha256": "a" * 64}
+        client_marker = "Owner client binding: " + json.dumps(
+            owner_client,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        approval_path, approval = self._signed_product_approval(
+            "DEC-VERIFIED",
+            scope="Exact repository authority boundary",
+            assumptions=client_marker + "\n",
+        )
+        import_product_approval(self.root, approval_path)
+        request = {
+            "risk_level": "L2",
+            "category": "product_decision",
+            "effects": {},
+            "decision_id": "DEC-VERIFIED",
+            "decision_scope": "Exact repository authority boundary",
+            "assumption_paths": [
+                approval["receipt"]["assumptions"][0]["path"]
+            ],
+            "approver_id": "product-owner",
+            "valid_days": 30,
+            "owner_client": owner_client,
+            "decision_package": decision_package(
+                decision_id="DEC-VERIFIED",
+                scope="Exact repository authority boundary",
+            ),
+        }
+        request_path = self.root / "work-packages" / "DEC-VERIFIED.request.json"
+        request_path.parent.mkdir(exist_ok=True)
+        request_path.write_text(json.dumps(request), encoding="utf-8")
+        result = verify_product_decision(
+            self.root,
+            "DEC-VERIFIED",
+            "work-packages/DEC-VERIFIED.request.json",
+        )
+        self.assertEqual(
+            result["verification"],
+            "SIGNATURE_ROW_AUDIENCE_AND_REQUEST_VERIFIED",
+        )
+        self.assertEqual(result["repository_id"], "github.com/example/synthetic")
+
+        changed_request = copy.deepcopy(request)
+        changed_request["owner_client"]["source_sha256"] = "b" * 64
+        request_path.write_text(json.dumps(changed_request), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "does not bind one exact Owner client"):
+            verify_product_decision(
+                self.root,
+                "DEC-VERIFIED",
+                "work-packages/DEC-VERIFIED.request.json",
+            )
+        request_path.write_text(json.dumps(request), encoding="utf-8")
+
+        store_path = self.root / ".sddgov" / "decisions.json"
+        store = json.loads(store_path.read_text(encoding="utf-8"))
+        store["decisions"][0]["summary"] = "forged local summary"
+        store_path.write_text(json.dumps(store), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "cryptographic verification"):
+            verify_product_decision(
+                self.root,
+                "DEC-VERIFIED",
+                "work-packages/DEC-VERIFIED.request.json",
+            )
 
     def test_l2_product_reuse_rejects_foreign_authority_and_executor_fields(self):
         approval_path, _ = self._signed_product_approval("DEC-CLOSED-L2")

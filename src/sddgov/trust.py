@@ -12,6 +12,7 @@ from .fs_security import canonicalize_platform_path
 
 FULL_COMMIT_SHA = re.compile(r"[0-9a-fA-F]{40}")
 TRUSTED_APPROVERS_FILE = Path("/etc/sddgov/trusted-approvers.json")
+TRUSTED_APPROVER_DOMAINS_FILE = Path("/etc/sddgov/trusted-approver-domains.json")
 TRUSTED_APPROVERS_ENVIRONMENT = "SDDGOV_TRUSTED_APPROVERS_FILE"
 MAX_CONTROL_PLANE_BYTES = 1024 * 1024
 
@@ -41,6 +42,16 @@ def trusted_approvers_path(root: Path) -> Path:
     except ValueError:
         return source
     raise ValueError("fixed trusted approver store must be outside the repository")
+
+
+def trusted_approver_domains_path(root: Path) -> Path:
+    """Return the fixed repository/trust-domain binding sidecar path."""
+    source = TRUSTED_APPROVER_DOMAINS_FILE.absolute()
+    try:
+        source.resolve().relative_to(root.resolve())
+    except ValueError:
+        return source
+    raise ValueError("fixed trusted approver domain store must be outside the repository")
 
 
 def load_owner_controlled_json(path: Path, label: str) -> dict[str, Any]:

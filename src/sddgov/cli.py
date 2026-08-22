@@ -14,6 +14,7 @@ from .autonomy import (
     import_external_action_resolution,
     import_operation_approval,
     import_product_approval,
+    verify_product_decision,
     lock_artifact,
     record_decision,
     verify_artifact,
@@ -125,6 +126,13 @@ def _autonomy_parsers(subparsers) -> None:
     )
     import_product.add_argument("receipt", type=Path)
     import_product.add_argument("--path", type=Path, default=Path.cwd())
+    verify_product = decision_commands.add_parser(
+        "verify-product",
+        help="Reverify one stored L2 signature, row, audience, and exact request",
+    )
+    verify_product.add_argument("decision_id")
+    verify_product.add_argument("request", help="Repository-relative L2 request JSON")
+    verify_product.add_argument("--path", type=Path, default=Path.cwd())
     show_product = decision_commands.add_parser(
         "show-product-approval",
         help="Validate and render one bounded L2 Owner approval card",
@@ -314,7 +322,9 @@ def _validate_repo(root: Path) -> list[str]:
         "policies/protected-files.yaml",
         "schemas/autonomy-policy.schema.json", "schemas/decision-record.schema.json",
         "schemas/artifact-lock.schema.json", "policies/autonomy-policy.json",
-        "schemas/trusted-approvers.schema.json", "schemas/operation-approval-receipt.schema.json",
+        "schemas/trusted-approvers.schema.json",
+        "schemas/trusted-approver-domains.schema.json",
+        "schemas/operation-approval-receipt.schema.json",
         "schemas/product-decision-approval-receipt.schema.json",
         "schemas/trusted-reviewers.schema.json", "schemas/protected-review-receipt.schema.json",
         "schemas/merge-gate.schema.json",
@@ -325,6 +335,7 @@ def _validate_repo(root: Path) -> list[str]:
         "docs/OWNER_KEY_CEREMONY.md", "docs/ROLLBACK_OPERATIONS.md",
         "templates/EXTERNAL_ACTION_RESOLUTION_RECEIPT.json",
         "templates/PRODUCT_DECISION_APPROVAL_RECEIPT.json",
+        "templates/TRUSTED_APPROVER_DOMAINS.json",
         "templates/CI_COST_GUARD.json",
         "services/com.sddgov.broker.plist", "services/sddgov-broker.service",
     )
@@ -502,6 +513,12 @@ def run(args: argparse.Namespace) -> int:
                 "approval_card": card,
                 "next_action": "select_one_displayed_option; SDG handles receipt construction and signing",
             }
+        elif args.decision_command == "verify-product":
+            result = verify_product_decision(
+                args.path,
+                args.decision_id,
+                args.request,
+            )
         else:
             result = import_operation_approval(args.path, args.receipt)
         print(json.dumps(result, ensure_ascii=False, indent=2))

@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import sddgov.fs_security as fs_security
 from sddgov.fs_security import (
     canonicalize_platform_path,
     exclusive_rename_at,
@@ -14,6 +15,67 @@ from sddgov.fs_security import (
 
 
 class FilesystemSecurityTests(unittest.TestCase):
+    def test_new_file_parent_lease_failure_removes_only_owned_generation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            output = root / "out" / "receipt.json"
+            parked = root / "parked-out"
+            replacement = b"later writer\n"
+            real_require = fs_security.require_directory_path_identity
+            swapped = False
+
+            def replace_parent(path, descriptor, label):
+                nonlocal swapped
+                if not swapped:
+                    output.parent.rename(parked)
+                    output.parent.mkdir()
+                    output.write_bytes(replacement)
+                    swapped = True
+                real_require(path, descriptor, label)
+
+            with (
+                patch(
+                    "sddgov.fs_security.require_directory_path_identity",
+                    side_effect=replace_parent,
+                ),
+                self.assertRaisesRegex(ValueError, "changed during operation"),
+            ):
+                write_new_regular_file(output, b"owned receipt\n", "test receipt")
+
+            self.assertTrue(swapped)
+            self.assertEqual(output.read_bytes(), replacement)
+            self.assertFalse((parked / output.name).exists())
+
+    def test_new_file_final_leaf_recheck_preserves_replacement(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            output = root / "receipt.json"
+            owned = root / "owned-receipt.json"
+            replacement = b"later writer\n"
+            real_require = fs_security.require_directory_path_identity
+            swapped = False
+
+            def replace_leaf_after_parent_recheck(path, descriptor, label):
+                nonlocal swapped
+                real_require(path, descriptor, label)
+                if not swapped:
+                    output.rename(owned)
+                    output.write_bytes(replacement)
+                    swapped = True
+
+            with (
+                patch(
+                    "sddgov.fs_security.require_directory_path_identity",
+                    side_effect=replace_leaf_after_parent_recheck,
+                ),
+                self.assertRaisesRegex(ValueError, "changed before path publication"),
+            ):
+                write_new_regular_file(output, b"owned receipt\n", "test receipt")
+
+            self.assertTrue(swapped)
+            self.assertEqual(output.read_bytes(), replacement)
+            self.assertEqual(owned.read_bytes(), b"owned receipt\n")
+
     def test_darwin_canonicalizes_only_fixed_system_aliases(self):
         with patch("sddgov.fs_security.sys.platform", "darwin"):
             self.assertEqual(

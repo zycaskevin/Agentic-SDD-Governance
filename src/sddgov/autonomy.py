@@ -9,6 +9,7 @@ import os
 import re
 import socket
 import stat
+import subprocess
 import sys
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
@@ -20,11 +21,17 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from .fs_security import canonicalize_platform_path
 from .governance import enqueue_external_action, resolve_external_action
-from .trust import load_control_plane_json, trusted_approvers_path
+from .trust import (
+    load_control_plane_json,
+    trusted_approver_domains_path,
+    trusted_approvers_path,
+)
 
 
 RISK_LEVELS = {"L0", "L1", "L2", "L3"}
 SHA256_PATTERN = re.compile(r"^[a-f0-9]{64}$")
+GITHUB_REPOSITORY_COMPONENT_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$")
+OWNER_CLIENT_BINDING_PREFIX = "Owner client binding: "
 ROUTINE_OPERATIONS = {
     "issue",
     "branch",
@@ -521,6 +528,124 @@ def _trusted_approver(root: Path, approver_id: str) -> dict[str, Any]:
     return approver
 
 
+def _trusted_approver_domain(root: Path, approver_id: str) -> dict[str, str]:
+    data = load_control_plane_json(
+        trusted_approver_domains_path(root),
+        "fixed trusted approver domain store",
+    )
+    if (
+        not isinstance(data, dict)
+        or set(data) != {"schema_version", "bindings"}
+        or data.get("schema_version") != "1.0"
+        or not isinstance(data.get("bindings"), list)
+    ):
+        raise ValueError("trusted approver domain store is missing or invalid")
+    seen: set[str] = set()
+    for row in data["bindings"]:
+        if (
+            not isinstance(row, dict)
+            or set(row)
+            != {
+                "approver_id",
+                "repository_id",
+                "repository_root",
+                "trust_domain",
+                "status",
+            }
+            or not all(
+                isinstance(row.get(field), str) and row[field].strip()
+                for field in (
+                    "approver_id",
+                    "repository_id",
+                    "repository_root",
+                    "trust_domain",
+                )
+            )
+            or row.get("status") not in {"active", "revoked"}
+            or row["approver_id"] in seen
+        ):
+            raise ValueError("trusted approver domain record has an invalid contract")
+        seen.add(row["approver_id"])
+    matches = [
+        row
+        for row in data["bindings"]
+        if row.get("approver_id") == approver_id and row.get("status") == "active"
+    ]
+    if len(matches) != 1:
+        raise ValueError("trusted approver has no unique active trust-domain binding")
+    binding = matches[0]
+    configured_root = canonicalize_platform_path(Path(binding["repository_root"]))
+    current_root = canonicalize_platform_path(root)
+    if (
+        not Path(binding["repository_root"]).is_absolute()
+        or os.fspath(configured_root) != binding["repository_root"]
+        or configured_root != current_root
+    ):
+        raise ValueError("trusted approver is not authorized for this repository root")
+    repository_id = _repository_identity(root)
+    if binding["repository_id"] != repository_id:
+        raise ValueError("trusted approver is not authorized for this repository")
+    return {
+        "approver_id": binding["approver_id"],
+        "repository_id": binding["repository_id"],
+        "trust_domain": binding["trust_domain"],
+        "status": binding["status"],
+    }
+
+
+def _repository_identity(root: Path) -> str:
+    """Return one canonical GitHub repository identity for approval audience checks."""
+    environment = {
+        "PATH": "/usr/bin:/bin",
+        "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_CONFIG_GLOBAL": os.devnull,
+        "GIT_TERMINAL_PROMPT": "0",
+    }
+
+    def git(*arguments: str) -> str:
+        try:
+            result = subprocess.run(
+                ["/usr/bin/git", "-C", os.fspath(root), *arguments],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=10,
+                env=environment,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise ValueError("repository identity is unavailable") from exc
+        if result.returncode != 0 or not result.stdout.strip():
+            raise ValueError("repository identity is unavailable")
+        value = result.stdout.strip()
+        if len(value.encode("utf-8")) > 4096 or "\n" in value or "\r" in value:
+            raise ValueError("repository identity output is invalid")
+        return value
+
+    top_level = Path(git("rev-parse", "--show-toplevel")).absolute()
+    if top_level != Path(root).absolute():
+        raise ValueError("approval root must be the exact Git worktree root")
+    remote = git("config", "--local", "--get", "remote.origin.url")
+    if remote.startswith("git@github.com:"):
+        repository = remote[len("git@github.com:") :]
+    else:
+        repository = ""
+        for prefix in ("https://github.com/", "ssh://git@github.com/"):
+            if remote.startswith(prefix):
+                repository = remote[len(prefix) :]
+                break
+    repository = repository.removesuffix(".git").strip("/")
+    components = repository.split("/")
+    if (
+        len(components) != 2
+        or any(
+            GITHUB_REPOSITORY_COMPONENT_PATTERN.fullmatch(component) is None
+            for component in components
+        )
+    ):
+        raise ValueError("repository origin is not one canonical GitHub repository")
+    return f"github.com/{components[0].lower()}/{components[1].lower()}"
+
+
 def _verify_product_envelope(
     root: Path, envelope: Any
 ) -> tuple[dict[str, Any], str]:
@@ -573,6 +698,7 @@ def _verify_product_envelope(
     if expires_at - issued_at > timedelta(days=366):
         raise ValueError("product approval validity exceeds 366 days")
     approver = _trusted_approver(root, receipt["approved_by"])
+    _trusted_approver_domain(root, receipt["approved_by"])
     try:
         public_key = base64.b64decode(approver["public_key"], validate=True)
         signature = base64.b64decode(envelope["signature"], validate=True)
@@ -623,6 +749,132 @@ def import_product_approval(root: Path, envelope_path: Path) -> dict[str, Any]:
         "assumptions_sha256": decision["assumptions_sha256"],
         "receipt_sha256": receipt_sha256,
         "verification": "SIGNATURE_VERIFIED",
+    }
+
+
+def verify_product_decision(
+    root: Path,
+    decision_id: str,
+    request_path: str,
+) -> dict[str, Any]:
+    """Reverify one stored L2 signature, row, audience, and exact request."""
+    pure = PurePosixPath(request_path)
+    if (
+        not request_path
+        or "\\" in request_path
+        or "\x00" in request_path
+        or pure.is_absolute()
+        or str(pure) != request_path
+        or any(part in {"", ".", ".."} for part in pure.parts)
+    ):
+        raise ValueError("product decision request must be repository-relative")
+    raw = _read_repository_regular_file(root, pure, max_bytes=1024 * 1024)
+    try:
+        request = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("product decision request must contain UTF-8 JSON") from exc
+    if (
+        not isinstance(request, dict)
+        or request.get("risk_level") != "L2"
+        or request.get("category") != "product_decision"
+        or request.get("effects") != {}
+        or _closed_category_envelope_error(request) is not None
+        or request.get("decision_id") != decision_id
+    ):
+        raise ValueError("product decision request has an invalid exact L2 contract")
+    package_input = request.get("decision_package")
+    if not isinstance(package_input, dict):
+        raise ValueError("product decision request lacks one exact Decision Package")
+    try:
+        package = build_action_required(**package_input)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("product decision request has an invalid Decision Package") from exc
+    if _action_required_binding_error(request, package) is not None:
+        raise ValueError("product decision request package is not bound to its scope")
+    decision = _find_decision(root, decision_id)
+    if decision is None or not _l2_approval_matches(
+        root,
+        decision,
+        scope=request.get("decision_scope"),
+    ):
+        raise ValueError("stored product decision failed cryptographic verification")
+    receipt, receipt_sha256 = _verify_product_envelope(
+        root,
+        decision["approval_envelope"],
+    )
+    assumption_paths = request.get("assumption_paths")
+    if (
+        not isinstance(assumption_paths, list)
+        or not assumption_paths
+        or any(
+            not isinstance(path, str)
+            or not path
+            or "\\" in path
+            or "\x00" in path
+            or PurePosixPath(path).is_absolute()
+            or str(PurePosixPath(path)) != path
+            or any(part in {"", ".", ".."} for part in PurePosixPath(path).parts)
+            for path in assumption_paths
+        )
+        or assumption_paths != sorted(set(assumption_paths))
+        or assumption_paths
+        != [row.get("path") for row in receipt["assumptions"]]
+    ):
+        raise ValueError("stored product decision assumptions do not match the request")
+    valid_days = request.get("valid_days")
+    if (
+        not isinstance(valid_days, int)
+        or isinstance(valid_days, bool)
+        or not 1 <= valid_days <= 366
+        or _parse_time(receipt["expires_at"], "expires_at")
+        - _parse_time(receipt["issued_at"], "issued_at")
+        != timedelta(days=valid_days)
+        or request.get("approver_id") != receipt["approved_by"]
+    ):
+        raise ValueError("stored product decision signer or validity differs from request")
+    owner_client = request.get("owner_client")
+    if owner_client is not None:
+        if (
+            not isinstance(owner_client, dict)
+            or set(owner_client) != {"version", "source_sha256"}
+            or not isinstance(owner_client.get("version"), str)
+            or not owner_client["version"].strip()
+            or not isinstance(owner_client.get("source_sha256"), str)
+            or SHA256_PATTERN.fullmatch(owner_client["source_sha256"]) is None
+        ):
+            raise ValueError("product decision Owner client binding is invalid")
+        marker = (
+            OWNER_CLIENT_BINDING_PREFIX
+            + json.dumps(
+                owner_client,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            )
+        ).encode("utf-8")
+        bound_artifacts = 0
+        for row in receipt["assumptions"]:
+            raw_assumption = _read_repository_regular_file(
+                root,
+                PurePosixPath(row["path"]),
+                max_bytes=1024 * 1024,
+            )
+            if marker in raw_assumption.splitlines():
+                bound_artifacts += 1
+        if bound_artifacts != 1:
+            raise ValueError(
+                "signed product decision does not bind one exact Owner client identity"
+            )
+    binding = _trusted_approver_domain(root, receipt["approved_by"])
+    return {
+        "decision_id": decision_id,
+        "approved_by": receipt["approved_by"],
+        "repository_id": binding["repository_id"],
+        "trust_domain": binding["trust_domain"],
+        "expires_at": receipt["expires_at"],
+        "receipt_sha256": receipt_sha256,
+        "verification": "SIGNATURE_ROW_AUDIENCE_AND_REQUEST_VERIFIED",
     }
 
 
@@ -1220,6 +1472,10 @@ def _closed_category_envelope_error(request: dict[str, Any]) -> str | None:
                 "reopen_condition_triggered",
                 "decision_package",
                 "unrelated_work_exists",
+                "assumption_paths",
+                "approver_id",
+                "valid_days",
+                "owner_client",
             }
         )
     elif category in {"high_risk_operation", *HIGH_RISK_CATEGORIES}:

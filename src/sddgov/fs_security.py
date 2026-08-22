@@ -373,6 +373,49 @@ def write_new_regular_file(
         descriptor = -1
         os.close(closing_descriptor)
         os.fsync(directory_fd)
+        require_directory_path_identity(
+            expanded.parent,
+            directory_fd,
+            f"{label} parent directory",
+        )
+        committed_fd = os.fstat(staging_guard)
+        committed_path = os.stat(
+            expanded.name,
+            dir_fd=directory_fd,
+            follow_symlinks=False,
+        )
+        expected_snapshot = (
+            final_fd.st_dev,
+            final_fd.st_ino,
+            final_fd.st_mode,
+            final_fd.st_nlink,
+            final_fd.st_size,
+            final_fd.st_mtime_ns,
+            final_fd.st_ctime_ns,
+        )
+        if (
+            (
+                committed_fd.st_dev,
+                committed_fd.st_ino,
+                committed_fd.st_mode,
+                committed_fd.st_nlink,
+                committed_fd.st_size,
+                committed_fd.st_mtime_ns,
+                committed_fd.st_ctime_ns,
+            )
+            != expected_snapshot
+            or (
+                committed_path.st_dev,
+                committed_path.st_ino,
+                committed_path.st_mode,
+                committed_path.st_nlink,
+                committed_path.st_size,
+                committed_path.st_mtime_ns,
+                committed_path.st_ctime_ns,
+            )
+            != expected_snapshot
+        ):
+            raise ValueError(f"{label} changed before path publication committed")
         closing_guard = staging_guard
         staging_guard = -1
         try:

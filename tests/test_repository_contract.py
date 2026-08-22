@@ -266,6 +266,7 @@ class RepositoryContractTests(unittest.TestCase):
             "schemas/product-decision-approval-receipt.schema.json",
             "schemas/protected-review-receipt.schema.json",
             "schemas/trusted-approvers.schema.json",
+            "schemas/trusted-approver-domains.schema.json",
             "schemas/trusted-reviewers.schema.json",
             "services/sddgov-broker.service",
             "services/com.sddgov.broker.plist",
@@ -277,6 +278,7 @@ class RepositoryContractTests(unittest.TestCase):
             "templates/PRODUCT_DECISION_APPROVAL_RECEIPT.json",
             "templates/PROTECTED_REVIEW_RECEIPT.json",
             "templates/TRUSTED_APPROVERS.json",
+            "templates/TRUSTED_APPROVER_DOMAINS.json",
             "templates/TRUSTED_REVIEWERS.json",
             "skill/agentic-sdd-governance/SKILL.md",
             "skill/agentic-sdd-governance/references/autonomy-workflow.md",
@@ -294,7 +296,7 @@ class RepositoryContractTests(unittest.TestCase):
     def test_current_repo_installed_governance_is_healthy_and_current(self):
         report = doctor(ROOT)
         self.assertTrue(report["ok"], report)
-        self.assertEqual(report["managed_file_count"], 71)
+        self.assertEqual(report["managed_file_count"], 73)
 
         triples = (
             (
@@ -506,7 +508,7 @@ class RepositoryContractTests(unittest.TestCase):
                 {
                     "path": "work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.md",
                     "sha256": (
-                        "ff9c41b50b60fa5f88048bc24a80898de763cedad9aec110b1d385a51d229245"
+                        "a9c685e5bb45bf39383bcec15baab18d5855824a78dac72c87a9cfdeb14da7a9"
                     ),
                 }
             ],
@@ -815,6 +817,21 @@ class RepositoryContractTests(unittest.TestCase):
             request["decision_scope"],
             request["decision_package"]["scope_of_approval"],
         )
+        self.assertEqual(
+            set(request["owner_client"]),
+            {"version", "source_sha256"},
+        )
+        self.assertRegex(request["owner_client"]["source_sha256"], r"^[a-f0-9]{64}$")
+        decision_contract = (
+            ROOT / "work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.md"
+        ).read_text(encoding="utf-8")
+        expected_binding = "Owner client binding: " + json.dumps(
+            request["owner_client"],
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        self.assertEqual(decision_contract.count(expected_binding), 1)
 
     def test_release_workflow_is_manual_isolated_and_attested(self):
         source = (ROOT / ".github/workflows/publish.yml").read_text(encoding="utf-8")
@@ -1067,7 +1084,11 @@ class RepositoryContractTests(unittest.TestCase):
 
     def test_l3_runbook_pins_authority_and_validates_launchd_assets(self):
         runbook = (ROOT / "docs/L3_BROKER_OPERATIONS.md").read_text(encoding="utf-8")
-        self.assertIn("fixed at `/etc/sddgov/trusted-approvers.json`", runbook)
+        self.assertIn(
+            "fixed paths `/etc/sddgov/trusted-approvers.json` and "
+            "`/etc/sddgov/trusted-approver-domains.json`",
+            runbook,
+        )
         self.assertNotIn("export SDDGOV_TRUSTED_APPROVERS_FILE", runbook)
         self.assertIn("test -x /opt/sddgov/venv/bin/sddgov", runbook)
         self.assertNotIn("newsyslog", runbook)

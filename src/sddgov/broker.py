@@ -28,7 +28,12 @@ from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from .autonomy import L3_NONCE_BROKER, L3_RUNTIME_CONTEXT_FILE, _runtime_context
-from .trust import load_control_plane_json, trusted_approvers_path
+from .fs_security import canonicalize_platform_path
+from .trust import (
+    load_control_plane_json,
+    trusted_approver_domains_path,
+    trusted_approvers_path,
+)
 
 
 BROKER_STATE_FILE = (
@@ -464,7 +469,66 @@ def _approver_store(root: Path) -> dict[str, Any]:
         active += row["status"] == "active"
     if active == 0:
         raise ValueError("trusted approver store has no active key")
-    return {"path": str(source), "approvers": len(seen), "active": active}
+    domain_source = trusted_approver_domains_path(root)
+    domains = load_control_plane_json(
+        domain_source,
+        "fixed trusted approver domain store",
+    )
+    if (
+        set(domains) != {"schema_version", "bindings"}
+        or domains.get("schema_version") != "1.0"
+        or not isinstance(domains.get("bindings"), list)
+    ):
+        raise ValueError("trusted approver domain store has an invalid contract")
+    domain_ids: set[str] = set()
+    for row in domains["bindings"]:
+        if (
+            not isinstance(row, dict)
+            or set(row)
+            != {
+                "approver_id",
+                "repository_id",
+                "repository_root",
+                "trust_domain",
+                "status",
+            }
+            or not all(
+                isinstance(row.get(field), str) and row[field].strip()
+                for field in (
+                    "approver_id",
+                    "repository_id",
+                    "repository_root",
+                    "trust_domain",
+                )
+            )
+            or row.get("status") not in {"active", "revoked"}
+            or row["approver_id"] in domain_ids
+        ):
+            raise ValueError("trusted approver domain store has an invalid record")
+        domain_ids.add(row["approver_id"])
+        configured_root = canonicalize_platform_path(Path(row["repository_root"]))
+        if (
+            not Path(row["repository_root"]).is_absolute()
+            or os.fspath(configured_root) != row["repository_root"]
+            or configured_root != canonicalize_platform_path(root)
+        ):
+            raise ValueError(
+                "trusted approver domain store is not bound to this repository root"
+            )
+    active_ids = {
+        row["approver_id"] for row in value["approvers"] if row["status"] == "active"
+    }
+    active_domain_ids = {
+        row["approver_id"] for row in domains["bindings"] if row["status"] == "active"
+    }
+    if active_ids != active_domain_ids:
+        raise ValueError("active approver keys and trust-domain bindings differ")
+    return {
+        "path": str(source),
+        "domain_path": str(domain_source),
+        "approvers": len(seen),
+        "active": active,
+    }
 
 
 def broker_readiness(root: Path) -> dict[str, Any]:

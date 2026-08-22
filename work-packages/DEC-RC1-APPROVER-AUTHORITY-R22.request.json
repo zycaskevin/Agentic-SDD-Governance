@@ -3,7 +3,16 @@
   "category": "product_decision",
   "effects": {},
   "decision_id": "DEC-RC1-APPROVER-AUTHORITY-R22",
-  "decision_scope": "Retire and reject SDDGOV_TRUSTED_APPROVERS_FILE; make logical /etc/sddgov/trusted-approvers.json the sole Linux/macOS runtime approver store; and add the separated non-signing Agent card plus Owner-terminal confirmed-signer flow, under the exact ownership, path-chain, migration, custody, fail-closed, and non-provisioning boundaries in work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.md.",
+  "decision_scope": "For repository github.com/zycaskevin/agentic-sdd-governance and trust domain agentic-sdd-governance-owner-2026q3, retire and reject SDDGOV_TRUSTED_APPROVERS_FILE; make logical /etc/sddgov/trusted-approvers.json the sole Linux/macOS runtime approver key store; require the Base-compatible signed receipt plus the fixed root-controlled /etc/sddgov/trusted-approver-domains.json sidecar binding the Owner key to that repository, one exact separately provisioned host-local repository root, and that trust domain; and add the separated non-signing Agent card plus Owner-terminal confirmed-signer flow, under the exact ownership, path-chain, migration, custody, fail-closed, and non-provisioning boundaries in work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.md.",
+  "assumption_paths": [
+    "work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.md"
+  ],
+  "approver_id": "zycaskevin-local-owner",
+  "valid_days": 30,
+  "owner_client": {
+    "version": "0.2.0rc1",
+    "source_sha256": "7f31f39ba28a2c47dc50415afcfdd7f74b748d839729c67c2e1c547a99f92ce4"
+  },
   "decision_package": {
     "risk_level": "L2",
     "decision_id": "DEC-RC1-APPROVER-AUTHORITY-R22",
@@ -27,6 +36,6 @@
     "recommended": "A",
     "why": "It removes caller-selected authority routing, reduces the Owner action to one semantic choice through a separately held signer, preserves fail-closed separation, and does not grant the distinct privilege to provision or operate the control plane.",
     "impact_if_no_decision": "Only the R22 merge remains blocked; tests, Evidence preparation, rollback proof, and independent review can continue.",
-    "scope_of_approval": "Retire and reject SDDGOV_TRUSTED_APPROVERS_FILE; make logical /etc/sddgov/trusted-approvers.json the sole Linux/macOS runtime approver store; and add the separated non-signing Agent card plus Owner-terminal confirmed-signer flow, under the exact ownership, path-chain, migration, custody, fail-closed, and non-provisioning boundaries in work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.md."
+    "scope_of_approval": "For repository github.com/zycaskevin/agentic-sdd-governance and trust domain agentic-sdd-governance-owner-2026q3, retire and reject SDDGOV_TRUSTED_APPROVERS_FILE; make logical /etc/sddgov/trusted-approvers.json the sole Linux/macOS runtime approver key store; require the Base-compatible signed receipt plus the fixed root-controlled /etc/sddgov/trusted-approver-domains.json sidecar binding the Owner key to that repository, one exact separately provisioned host-local repository root, and that trust domain; and add the separated non-signing Agent card plus Owner-terminal confirmed-signer flow, under the exact ownership, path-chain, migration, custody, fail-closed, and non-provisioning boundaries in work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.md."
   }
 }

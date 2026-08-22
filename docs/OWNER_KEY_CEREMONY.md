@@ -38,7 +38,7 @@ Store the ceremony record in the governed audit system. The private key and its 
 3. Generate an Ed25519 key in the approved device or vault. Disable export when the device supports it.
 4. Export only the raw 32-byte public key. Run a reviewed ceremony tool that rejects any other length or algorithm, emits padded standard Base64 and the SHA-256 fingerprint, then independently re-exports the public key and makes the machine compare the exact bytes. Preserve the command, tool version, and PASS result.
 5. Have the witness confirm the device identity, custodian, trust domain, and recorded machine PASS. Humans do not copy, calculate, compare, or approve digests.
-6. Add the public record with status `active` only to the fixed root-controlled `/etc/sddgov/trusted-approvers.json` store. On macOS this logical path is validated through only the platform-owned `/etc` to `/private/etc` alias; arbitrary symlinks remain forbidden. The Agent rejects `SDDGOV_TRUSTED_APPROVERS_FILE`; migrate legacy deployments by removing that variable and atomically provisioning the same reviewed public records at the fixed path. This provisioning is a separate privileged Operational/L3 action, not part of the L2 code decision.
+6. Add the public record with status `active` only to the fixed root-controlled `/etc/sddgov/trusted-approvers.json` store, and add the same key ID's exact canonical GitHub repository, exact canonical host-local repository root, and trust domain to `/etc/sddgov/trusted-approver-domains.json`. The separate audience sidecar preserves the trusted Base's approver-record and receipt schema while the current verifier prevents cross-repository replay; candidate-controlled Git configuration alone is not authority. On macOS these logical paths are validated through only the platform-owned `/etc` to `/private/etc` alias; arbitrary symlinks remain forbidden. The Agent rejects `SDDGOV_TRUSTED_APPROVERS_FILE`; migrate legacy deployments by removing that variable and atomically provisioning both reviewed control-plane files. This provisioning is a separate privileged Operational/L3 action, not part of the L2 code decision.
 7. Sign a synthetic, non-Production receipt and verify it through SDG. Never use a real customer, patient, payment, or Production payload for ceremony testing.
 8. Confirm `sddgov broker doctor --path <repo>` is `READY` from the non-root Agent account before enabling L3 operations.
 
@@ -60,6 +60,23 @@ The trusted store contains public keys only:
 
 The angle-bracket value is a deliberately invalid non-key placeholder. Never install this example as a trust store: replace it with machine-exported public bytes and require schema validation plus `sddgov broker doctor` to pass. Doctor fails closed on the placeholder.
 
+The Base-compatible audience sidecar contains no key material:
+
+```json
+{
+  "schema_version": "1.0",
+  "bindings": [
+    {
+      "approver_id": "myhermes-production-2026q3",
+      "repository_id": "github.com/example/myhermes",
+      "repository_root": "/srv/myhermes/repository",
+      "trust_domain": "myhermes-production-2026q3",
+      "status": "active"
+    }
+  ]
+}
+```
+
 ## Routine signing controls
 
 - The signer displays the complete canonical operation payload, environment, scope, target, effects, expiry, and nonce before signing.
@@ -78,12 +95,15 @@ The Agent-side command can only validate and render a governed request:
 sddgov decision show-product-approval work-packages/DEC-EXACT.request.json --path .
 ```
 
-The installed package exposes signing through the separate `sddgov-owner` entry point. Run it from an Owner-controlled terminal and an independently installed, reviewed wheel—not from an Agent-driven candidate checkout. It reads the same validated card, asks for one A/B choice on the controlling terminal, constructs the receipt, computes assumptions and nonce, requests a signature from the matching Ed25519 identity, verifies that signature against the fixed root-controlled trust store, and writes a new `0600` receipt. There is no private-key or raw-signature CLI argument:
+The installed package exposes signing through the separate `sddgov-owner` entry point. Run it from an Owner-controlled terminal and an independently installed, reviewed wheel—not from an Agent-driven candidate checkout. The request itself fixes the canonical assumption paths, Owner key ID, validity policy, and reviewed Owner-client source digest; the same client binding must occur exactly once inside the signed decision assumption contract. The CLI provides no overrides for them. It reads the same validated card, binds the exact repository, trust domain, installed source identity, assumptions, and validity, asks for one A/B choice on `/dev/tty`, constructs the receipt, computes the nonce, requests a signature from the matching Ed25519 identity, verifies that signature against both fixed root-controlled stores, and writes a new `0600` receipt. There is no private-key or raw-signature CLI argument.
+
+Start outside the repository, clear Python import injection variables, and invoke the reviewed Owner venv by absolute path:
 
 ```bash
-sddgov-owner approve-product work-packages/DEC-EXACT.request.json \
-  --assumption work-packages/DEC-EXACT.md \
-  --approver-id exact-owner-id \
+cd /owner-controlled/terminal
+env -u PYTHONPATH -u PYTHONHOME \
+  /absolute/owner-venv/bin/sddgov-owner \
+  approve-product work-packages/DEC-EXACT.request.json \
   --output /owner-controlled-outbox/DEC-EXACT.signed.json \
   --path /exact/repository
 ```
