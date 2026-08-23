@@ -2,8 +2,8 @@
 
 ## References
 
-- Issue：GitHub Issue 待 `gh` 重新登入後補建；本機追蹤 ID
-  `AF26-EXTERNAL-TRUSTED-RUNNER-001`。
+- Issue：本機追蹤 ID `AF26-EXTERNAL-TRUSTED-RUNNER-001`；GitHub Issue／PR 尚未建立，
+  因遠端分支發布需要 Owner 明確授權。
 - SDD：`docs/TRUSTED_RUNNER_V0_1.md`
 - Evidence：`DEP-AF26-EXTERNAL-TRUSTED-RUNNER-001`
 - Risk：L1 security-sensitive preparation；任何真實 operation 仍為 L3。
