@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SDG External Trusted Runner Signed Result Envelope",
+  "type": "object",
+  "required": ["schema_version", "algorithm", "result", "signature"],
+  "properties": {
+    "schema_version": {"const": "0.1"},
+    "algorithm": {"const": "ed25519"},
+    "result": {
+      "type": "object",
+      "required": ["contract_version", "runner_id", "operation_id", "plan_hash", "outcome", "reason", "approval_consumed", "credential_material_opened", "runtime_started", "inference_applied", "timed_out", "return_code", "input_tokens", "output_tokens", "cost_usd", "stdout_hash", "stderr_hash", "duration_ms", "credential_material_zeroized", "isolation_root_removed", "descriptors_closed", "promotion_applied", "gate_enforce_applied", "deployment_applied"],
+      "properties": {
+        "contract_version": {"const": "0.1"},
+        "runner_id": {"type": "string", "minLength": 1},
+        "operation_id": {"type": ["string", "null"]},
+        "plan_hash": {"anyOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]},
+        "outcome": {"enum": ["completed", "stopped_fail_closed"]},
+        "reason": {"type": "string", "pattern": "^[a-z0-9_]+$", "minLength": 1},
+        "approval_consumed": {"type": "boolean"},
+        "credential_material_opened": {"type": "boolean"},
+        "runtime_started": {"type": "boolean"},
+        "inference_applied": {"type": "boolean"},
+        "timed_out": {"type": "boolean"},
+        "return_code": {"type": ["integer", "null"]},
+        "input_tokens": {"type": ["integer", "null"], "minimum": 0},
+        "output_tokens": {"type": ["integer", "null"], "minimum": 0, "maximum": 1000},
+        "cost_usd": {"type": ["string", "null"], "pattern": "^(0(\\.[0-9]+)?|0?\\.25)$"},
+        "child_outcome": {"enum": ["completed", "stopped_fail_closed", "timed_out", "failed"]},
+        "stdout_hash": {"anyOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]},
+        "stderr_hash": {"anyOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]},
+        "duration_ms": {"type": "integer", "minimum": 0, "maximum": 120000},
+        "credential_material_zeroized": {"type": "boolean"},
+        "isolation_root_removed": {"type": "boolean"},
+        "descriptors_closed": {"type": "boolean"},
+        "promotion_applied": {"const": false},
+        "gate_enforce_applied": {"const": false},
+        "deployment_applied": {"const": false}
+      },
+      "additionalProperties": false
+    },
+    "signature": {"type": "string", "minLength": 88, "maxLength": 88}
+  },
+  "$defs": {"digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}},
+  "additionalProperties": false
+}

@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "terminal--final-green.log",
+      "output": "terminal--final-green.log",
+      "source_sha256": "37baa5d8b431bfa4c8a782dc0c36b262f13481801a8071307bf83f9f3a002606",
+      "output_sha256": "e1ff71d8eead750b05b66da77e11ff14e0a3b6a34456fcc782e40e85f5ef31bd",
+      "redactions": {
+        "phone": 1
+      }
+    },
+    {
+      "source": "terminal--green.log",
+      "output": "terminal--green.log",
+      "source_sha256": "da39281958fc73dfa3658a943b267be761f26a42bba4032408f366457c9593cd",
+      "output_sha256": "da39281958fc73dfa3658a943b267be761f26a42bba4032408f366457c9593cd",
+      "redactions": {}
+    },
+    {
+      "source": "terminal--red.log",
+      "output": "terminal--red.log",
+      "source_sha256": "711766b7451b52175470b993459d586637e13b1d4dade8340202708eeac61ff5",
+      "output_sha256": "711766b7451b52175470b993459d586637e13b1d4dade8340202708eeac61ff5",
+      "redactions": {}
+    }
+  ],
+  "blocked": [],
+  "totals": {
+    "phone": 1
+  },
+  "dep_id": "DEP-AF26-EXTERNAL-TRUSTED-RUNNER-001",
+  "generated_at": "2026-08-23T17:10:13Z"
+}

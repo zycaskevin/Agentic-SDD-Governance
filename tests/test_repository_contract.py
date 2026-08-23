@@ -7,7 +7,6 @@ import yaml
 
 from sddgov.cli import _validate_repo
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -64,6 +63,9 @@ class RepositoryContractTests(unittest.TestCase):
             "schemas/protected-review-receipt.schema.json",
             "schemas/trusted-approvers.schema.json",
             "schemas/trusted-reviewers.schema.json",
+            "schemas/trusted-runner-bootstrap.schema.json",
+            "schemas/trusted-runner-request.schema.json",
+            "schemas/trusted-runner-result-envelope.schema.json",
             "templates/MERGE_GATE.json",
             "templates/OPERATION_APPROVAL_RECEIPT.json",
             "templates/PROTECTED_REVIEW_RECEIPT.json",

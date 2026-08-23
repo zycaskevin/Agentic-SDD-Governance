@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-AF26-EXTERNAL-TRUSTED-RUNNER-001",
+  "issue": "AF26-EXTERNAL-TRUSTED-RUNNER-001",
+  "sdd_references": [
+    "docs/TRUSTED_RUNNER_V0_1.md"
+  ],
+  "risk_level": "L1",
+  "created_at": "2026-08-23T16:01:13Z",
+  "updated_at": "2026-08-23T17:10:36Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-23T16:01:13Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-23T16:01:54Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-23T16:01:54Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-23T16:38:59Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-23T17:10:36Z"
+      }
+    ]
+  },
+  "expected_behavior": "Agentic SDD Governance should provide a socket-activated rehearsal Trusted Runner and dedicated-UID production contract that verify peer identity, service-owned bootstrap, sealed source and profiles, exact L3 approval, secret-after-approval ordering, cleanup, and signed content-safe results while hard-denying production until cgroup-v2 descendant containment and an FD-bound runtime chain exist.",
+  "actual_behavior": "The v1.2 Hard Gates verify and atomically consume signed L3 receipts, but no sddgov.trusted_runner module or external process boundary exists; the executable import check fails before any credential, process, network, or approval action.",
+  "environment": {
+    "commit": "af0f89ff4335223093775888d317825747525590",
+    "branch": "codex/af26-trusted-runner",
+    "runtime": "Linux aarch64; Python 3.11.13; synthetic offline data only"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}

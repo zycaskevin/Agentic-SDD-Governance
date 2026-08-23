@@ -1,0 +1,44 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-AF26-EXTERNAL-TRUSTED-RUNNER-001",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--red.log",
+      "sha256": "711766b7451b52175470b993459d586637e13b1d4dade8340202708eeac61ff5",
+      "collected_at": "2026-08-23T16:01:13Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--green.log",
+      "sha256": "da39281958fc73dfa3658a943b267be761f26a42bba4032408f366457c9593cd",
+      "collected_at": "2026-08-23T16:38:59Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--final-green.log",
+      "sha256": "37baa5d8b431bfa4c8a782dc0c36b262f13481801a8071307bf83f9f3a002606",
+      "collected_at": "2026-08-23T17:10:13Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--final-green.log",
+      "sha256": "e1ff71d8eead750b05b66da77e11ff14e0a3b6a34456fcc782e40e85f5ef31bd",
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--green.log",
+      "sha256": "da39281958fc73dfa3658a943b267be761f26a42bba4032408f366457c9593cd",
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--red.log",
+      "sha256": "711766b7451b52175470b993459d586637e13b1d4dade8340202708eeac61ff5",
+      "shareable": true
+    }
+  ]
+}

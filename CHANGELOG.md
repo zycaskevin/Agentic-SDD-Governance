@@ -4,6 +4,14 @@
 
 ### Added
 
+- Added an external Trusted Runner rehearsal reference and dedicated-UID production
+  contract with service-owned
+  bootstrap identities, kernel peer authentication, sealed memfd delivery, exact L3
+  approval consumption, secret-after-approval ordering, rehearsal-bounded child lifecycle, and
+  Ed25519-signed content-safe results. Production execution is hard-denied until
+  cgroup-v2 descendant containment and an FD-bound runtime chain are implemented.
+- Added strict bootstrap, exact request, and signed result JSON Schemas plus packaged
+  resources and a child-side resource-limit launcher that avoids threaded `preexec_fn`.
 - Added fail-closed canonical action and sensitive-effect classification so dangerous work cannot be downgraded by a caller-supplied L0/L1 label.
 - Added trusted Ed25519 L3 approval receipt import, exact operation binding, nonce replay protection, expiry validation, and atomic single-use consumption on `CONTINUE`.
 - Added executable `sddgov merge verify` enforcement for exact change digest, Local Green, strict DEP, Redaction, Rollback, raw-evidence exclusion, and protected-file independent Review.
@@ -13,6 +21,10 @@
 
 ### Security
 
+- Made approval consumption atomic across Runner processes, rejected peer／binding／input／
+  runtime／credential／bundle drift and approval replay before secret access, and required
+  rehearsal TERM／KILL, descriptor cleanup, scoped mutable-buffer credential
+  zeroization, and isolation removal.
 - Removed the string-only `decision authorize-operation` and separate `consume-operation` trust paths.
 - Made unknown categories, dangerous downgrades, malformed receipts, untrusted signers, tampering, replay, stale approval, dirty worktrees, and missing Merge receipts fail closed without creating routine human approval prompts.
 - Prevented candidate branches from authorizing themselves by modifying protected-path policy or reviewer keys, and rejected duplicate trust-store identities before key selection.
