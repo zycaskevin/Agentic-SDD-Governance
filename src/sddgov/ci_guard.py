@@ -7,6 +7,7 @@ import os
 import re
 import stat
 import subprocess
+import sys
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -29,6 +30,7 @@ _SIMPLE_CONJUNCTION_ATOM = re.compile(
 _DRAFT_FALSE_ATOM = "github.event.pull_request.draft==false"
 LOCAL_GATE_LOCK_DIRECTORY_PREFIX = "sddgov-local-green-v1-"
 LOCAL_GATE_LOCK_NAME = "gate-v1.lock"
+DEFAULT_COMMAND_TIMEOUT_SECONDS = 600
 
 
 def _read_contract(root: Path) -> dict[str, Any]:
@@ -155,6 +157,17 @@ def _validate_contract(contract: dict[str, Any]) -> list[str]:
             for command in commands
         ):
             errors.append("each local_green command must be a non-empty string array")
+        command_timeout = local.get(
+            "command_timeout_seconds", DEFAULT_COMMAND_TIMEOUT_SECONDS
+        )
+        if (
+            not isinstance(command_timeout, int)
+            or isinstance(command_timeout, bool)
+            or not 1 <= command_timeout <= 3600
+        ):
+            errors.append(
+                "local_green.command_timeout_seconds must be an integer between 1 and 3600"
+            )
 
     hosted = contract.get("hosted")
     if not isinstance(hosted, dict):
@@ -190,6 +203,65 @@ def _validate_contract(contract: dict[str, Any]) -> list[str]:
         exemptions = controls.get("exempt_workflows", [])
         if not isinstance(exemptions, list) or not all(isinstance(item, str) for item in exemptions):
             errors.append("workflow_controls.exempt_workflows must be a string array")
+        elif any(not item.strip() for item in exemptions):
+            errors.append(
+                "workflow_controls.exempt_workflows must contain non-empty strings"
+            )
+        elif len(set(exemptions)) != len(exemptions):
+            errors.append("workflow_controls.exempt_workflows must not contain duplicates")
+        permission_exceptions = controls.get("write_permission_exceptions", {})
+        if not isinstance(permission_exceptions, dict):
+            errors.append(
+                "workflow_controls.write_permission_exceptions must be an object"
+            )
+        else:
+            for workflow_name, job_exceptions in permission_exceptions.items():
+                if not isinstance(workflow_name, str) or not workflow_name.strip():
+                    errors.append(
+                        "workflow_controls.write_permission_exceptions workflow names must be non-empty strings"
+                    )
+                    continue
+                if not isinstance(job_exceptions, dict):
+                    errors.append(
+                        f"workflow_controls.write_permission_exceptions.{workflow_name} must be an object"
+                    )
+                    continue
+                if not job_exceptions:
+                    errors.append(
+                        "workflow_controls.write_permission_exceptions."
+                        f"{workflow_name} must name at least one job"
+                    )
+                    continue
+                for job_name, permissions in job_exceptions.items():
+                    if not isinstance(job_name, str) or not job_name.strip():
+                        errors.append(
+                            "workflow_controls.write_permission_exceptions."
+                            f"{workflow_name} job names must be non-empty strings"
+                        )
+                        continue
+                    if (
+                        not isinstance(permissions, list)
+                        or not permissions
+                        or not all(
+                            isinstance(permission, str) and permission.strip()
+                            for permission in permissions
+                        )
+                        or len(set(permissions)) != len(permissions)
+                    ):
+                        errors.append(
+                            "workflow_controls.write_permission_exceptions."
+                            f"{workflow_name}.{job_name} must be a non-empty array of unique permission names"
+                        )
+            if isinstance(exemptions, list) and all(
+                isinstance(item, str) for item in exemptions
+            ):
+                for workflow_name in sorted(
+                    set(exemptions) & set(permission_exceptions)
+                ):
+                    errors.append(
+                        "exempt workflow must not declare write permission "
+                        f"exceptions: {workflow_name}"
+                    )
     return errors
 
 
@@ -259,15 +331,30 @@ def _event_mapping(value: Any) -> dict[str, Any]:
     return {}
 
 
-def _permission_errors(value: Any, label: str, *, require_contents: bool) -> list[str]:
+def _permission_errors(
+    value: Any,
+    label: str,
+    *,
+    require_contents: bool,
+    allowed_writes: set[str] | None = None,
+) -> list[str]:
     if not isinstance(value, dict):
         return [f"{label} permissions must be a mapping"]
+    allowed = allowed_writes or set()
     errors = []
     for key, permission in value.items():
-        if not isinstance(key, str) or permission not in {"read", "none"}:
+        if not isinstance(key, str) or (
+            permission not in {"read", "none"}
+            and not (permission == "write" and key in allowed)
+        ):
             errors.append(f"{label} permissions must not grant write access")
     if require_contents and value.get("contents") != "read":
         errors.append(f"{label} permissions must include contents: read")
+    for permission in sorted(allowed):
+        if value.get(permission) != "write":
+            errors.append(
+                f"{label} write permission exception is unused: {permission}"
+            )
     return errors
 
 
@@ -417,6 +504,7 @@ def _inspect_workflow(
     source: str,
     controls: dict[str, Any],
     hosted: dict[str, Any],
+    write_permission_exceptions: dict[str, Any] | None = None,
 ) -> tuple[list[str], dict[str, Any]]:
     errors: list[str] = []
     try:
@@ -459,6 +547,15 @@ def _inspect_workflow(
             errors.append(
                 f"{workflow_name}: job {job_name} has an invalid runs-on value"
             )
+    job_write_exceptions = (
+        write_permission_exceptions
+        if isinstance(write_permission_exceptions, dict)
+        else {}
+    )
+    for unknown_job in sorted(set(job_write_exceptions) - set(jobs)):
+        errors.append(
+            f"{workflow_name}: write permission exception references unknown job {unknown_job}"
+        )
     if controls.get("require_read_only_permissions") and jobs:
         errors.extend(
             f"{workflow_name}: {error}"
@@ -467,6 +564,13 @@ def _inspect_workflow(
             )
         )
         for job_name, job in jobs.items():
+            allowed_writes_value = job_write_exceptions.get(job_name, [])
+            allowed_writes = (
+                set(allowed_writes_value)
+                if isinstance(allowed_writes_value, list)
+                and all(isinstance(item, str) for item in allowed_writes_value)
+                else set()
+            )
             if "permissions" in job:
                 errors.extend(
                     f"{workflow_name}: {error}"
@@ -474,20 +578,24 @@ def _inspect_workflow(
                         job["permissions"],
                         f"job {job_name}",
                         require_contents=False,
+                        allowed_writes=allowed_writes,
                     )
                 )
+            elif allowed_writes:
+                errors.append(
+                    f"{workflow_name}: job {job_name} write permission exception requires an explicit permissions mapping"
+                )
     concurrency = document.get("concurrency")
-    if automatic and controls.get("require_concurrency") and not isinstance(
-        concurrency, dict
-    ):
-        errors.append(f"{workflow_name}: automatic workflow requires concurrency")
-    if automatic and isinstance(concurrency, dict) and (
-        not isinstance(concurrency.get("group"), str)
-        or not concurrency["group"].strip()
-    ):
-        errors.append(
-            f"{workflow_name}: automatic workflow concurrency requires a non-empty group"
-        )
+    if jobs and controls.get("require_concurrency"):
+        if not isinstance(concurrency, dict):
+            errors.append(f"{workflow_name}: hosted workflow requires concurrency")
+        elif (
+            not isinstance(concurrency.get("group"), str)
+            or not concurrency["group"].strip()
+        ):
+            errors.append(
+                f"{workflow_name}: hosted workflow concurrency requires a non-empty group"
+            )
     if automatic and controls.get("cancel_in_progress") and (
         not isinstance(concurrency, dict)
         or concurrency.get("cancel-in-progress") is not True
@@ -555,10 +663,23 @@ def verify_guard(root: Path) -> dict[str, Any]:
         and all(isinstance(item, str) for item in exemptions_value)
         else set()
     )
+    permission_exceptions_value = controls.get("write_permission_exceptions", {})
+    permission_exceptions = (
+        permission_exceptions_value
+        if isinstance(permission_exceptions_value, dict)
+        else {}
+    )
     documents, filesystem_errors = _safe_workflow_documents(root)
     errors.extend(filesystem_errors)
     if not documents and not filesystem_errors:
         errors.append("no GitHub Actions workflows found")
+    workflow_names = {name for name, _source in documents}
+    for missing in sorted(exemptions - workflow_names):
+        errors.append("exempt workflows reference missing workflow " + missing)
+    for missing in sorted(set(permission_exceptions) - workflow_names):
+        errors.append(
+            "write permission exceptions reference missing workflow " + missing
+        )
     for name, source in documents:
         exempt = name in exemptions
         workflow_errors, report = _inspect_workflow(
@@ -566,6 +687,7 @@ def verify_guard(root: Path) -> dict[str, Any]:
             source,
             {} if exempt else controls,
             hosted,
+            {} if exempt else permission_exceptions.get(name, {}),
         )
         errors.extend(workflow_errors)
         if exempt:
@@ -648,20 +770,54 @@ def _run_local_gate_locked(root: Path) -> dict[str, Any]:
         raise ValueError("CI Cost Guard verification failed: " + "; ".join(report["errors"]))
     contract = _read_contract(root)
     local = contract["local_green"]
+    timeout_seconds = local.get(
+        "command_timeout_seconds", DEFAULT_COMMAND_TIMEOUT_SECONDS
+    )
     environment = os.environ.copy()
     environment.update(local.get("environment", {}))
     results: list[dict[str, Any]] = []
-    for command in local["commands"]:
+    for configured_command in local["commands"]:
+        command = list(configured_command)
+        if command[0] in {"python", "python3"}:
+            command[0] = sys.executable
         started = time.monotonic()
-        completed = subprocess.run(command, cwd=root, env=environment, check=False)
+        try:
+            completed = subprocess.run(
+                command,
+                cwd=root,
+                env=environment,
+                check=False,
+                timeout=timeout_seconds,
+            )
+        except subprocess.TimeoutExpired as exc:
+            results.append(
+                {
+                    "configured_command": configured_command,
+                    "executed_command": command,
+                    "returncode": None,
+                    "duration_seconds": round(time.monotonic() - started, 3),
+                    "timeout_seconds": timeout_seconds,
+                    "timed_out": True,
+                }
+            )
+            raise ValueError(
+                "local Green Gate failed: "
+                f"{configured_command[0]} exceeded {timeout_seconds} seconds"
+            ) from exc
         result = {
-            "command": command,
+            "configured_command": configured_command,
+            "executed_command": command,
             "returncode": completed.returncode,
             "duration_seconds": round(time.monotonic() - started, 3),
+            "timeout_seconds": timeout_seconds,
+            "timed_out": False,
         }
         results.append(result)
         if completed.returncode != 0:
-            raise ValueError(f"local Green Gate failed: {command[0]} exited {completed.returncode}")
+            raise ValueError(
+                "local Green Gate failed: "
+                f"{configured_command[0]} exited {completed.returncode}"
+            )
     return {"ok": True, "project": str(root), "commands": results}
 
 

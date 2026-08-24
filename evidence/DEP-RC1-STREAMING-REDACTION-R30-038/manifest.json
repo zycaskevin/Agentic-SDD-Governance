@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-STREAMING-REDACTION-R30-038",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r30-code-review-red.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "2521fed0e581cf02d97308d3ce396d7178c03888d8f64a165291c5a62d6c7a6b",
+      "size": 446,
+      "collected_at": "2026-08-24T13:36:24Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--r30-code-review-red.txt",
+      "sha256": "2521fed0e581cf02d97308d3ce396d7178c03888d8f64a165291c5a62d6c7a6b",
+      "size": 446,
+      "shareable": true
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-MACOS-LOCAL-GREEN-R24-032",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--hosted-macos-and-local-lock-red.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "63e2318e0ca4a9ee314351e8a623a0c350c02c5234cc529e054d86f65e01bb10",
+      "size": 1051,
+      "collected_at": "2026-08-23T16:22:52Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--hosted-macos-and-local-lock-red.txt",
+      "sha256": "63e2318e0ca4a9ee314351e8a623a0c350c02c5234cc529e054d86f65e01bb10",
+      "size": 1051,
+      "shareable": true
+    }
+  ]
+}

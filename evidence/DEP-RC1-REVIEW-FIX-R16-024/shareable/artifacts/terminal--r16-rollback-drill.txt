@@ -1,0 +1,12 @@
+R16 ROLLBACK DRILL
+Atomic product: c17508e16c5e773ca457e291cc2f7355ccdf65f8
+Command: git revert --no-commit c17508e16c5e773ca457e291cc2f7355ccdf65f8
+Result outside evidence/**, .sddgov/merge-gate.json, .sddgov/reviews/**: exact Base 1a5a0b214eccc2b9edd076fd5e2f222c4a456725 PASS
+
+Fresh Base governance environment uses requirements-governance.lock with --require-hashes.
+setup-agent Codex team-standard: PASS; 66 managed files
+Doctor: PASS; no errors or warnings
+Validate: PASS
+Base unittest discover: 229 tests PASS (1 explicit sandbox skip)
+Base build/Twine and fresh installed-consumer proof are unchanged from the
+byte-identical exact Base and were independently Green in R15 rollback proof.

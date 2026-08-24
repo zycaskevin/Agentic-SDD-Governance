@@ -1,0 +1,6 @@
+R20 package proof
+
+- Built agentic_sdd_governance 0.2.0rc1 wheel and sdist with the locked release environment and no build isolation.
+- Twine check passed for wheel and sdist.
+- Offline bundle verification passed with 10 dependency wheels and 4 public assets.
+- Fresh-wheel smoke passed: checkout import false, 13 total files, 12 payload files, Codex and Hermes Doctor each verified 71 managed files, quick demo passed, and installed Linux Broker health/shutdown passed.

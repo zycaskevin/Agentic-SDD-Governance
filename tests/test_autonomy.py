@@ -1,4 +1,5 @@
 import base64
+import copy
 import hashlib
 import io
 import json
@@ -32,12 +33,19 @@ from sddgov.autonomy import (
     lock_artifact,
     record_decision,
     render_action_required,
+    verify_product_decision,
     verify_artifact,
+    _repository_identity,
     _consume_nonce_via_control_plane,
 )
-from sddgov.trust import load_control_plane_json
+from sddgov.trust import (
+    load_control_plane_json,
+    load_owner_controlled_json,
+    load_owner_runtime_control_plane_json,
+)
 from sddgov.cli import main
 from sddgov.governance import init_project
+from sddgov.fs_security import canonicalize_platform_path
 
 
 def evaluate_escalation(root, request):
@@ -80,12 +88,60 @@ def operation_payload(operation_id, category="high_risk_operation", effects=None
     }
 
 
+class RepositoryIdentityTests(unittest.TestCase):
+    def test_repository_identity_accepts_exact_github_forms_and_rejects_aliases(self):
+        root = canonicalize_platform_path(
+            Path("/tmp/sddgov-repository-identity-test")
+        )
+        for remote in (
+            "https://github.com/Example/Synthetic.git",
+            "git@github.com:Example/Synthetic.git",
+            "ssh://git@github.com/Example/Synthetic.git",
+        ):
+            with (
+                self.subTest(remote=remote),
+                patch(
+                    "sddgov.autonomy.subprocess.run",
+                    side_effect=(
+                        SimpleNamespace(returncode=0, stdout=str(root) + "\n"),
+                        SimpleNamespace(returncode=0, stdout=remote + "\n"),
+                    ),
+                ),
+            ):
+                self.assertEqual(
+                    _repository_identity(root),
+                    "github.com/example/synthetic",
+                )
+
+        for remote in (
+            "https://github.com/Example/Synthetic?other",
+            "https://github.com/Example/Synthetic#fragment",
+            "https://github.com/Example/Synthetic%2Fother",
+            "https://example.com/Example/Synthetic",
+        ):
+            with (
+                self.subTest(remote=remote),
+                patch(
+                    "sddgov.autonomy.subprocess.run",
+                    side_effect=(
+                        SimpleNamespace(returncode=0, stdout=str(root) + "\n"),
+                        SimpleNamespace(returncode=0, stdout=remote + "\n"),
+                    ),
+                ),
+                self.assertRaisesRegex(ValueError, "canonical GitHub repository"),
+            ):
+                _repository_identity(root)
+
+
 class AutonomyTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
         self.trust_temporary = tempfile.TemporaryDirectory()
-        self.root = Path(self.temporary.name)
+        self.addCleanup(self.trust_temporary.cleanup)
+        self.root = canonicalize_platform_path(Path(self.temporary.name))
         self.trust_path = Path(self.trust_temporary.name) / "trusted-approvers.json"
+        self.domain_path = Path(self.trust_temporary.name) / "trusted-approver-domains.json"
         self.runtime_context_path = Path(self.trust_temporary.name) / "runtime-context.json"
         self.runtime_context_path.write_text(
             json.dumps({
@@ -100,28 +156,40 @@ class AutonomyTests(unittest.TestCase):
             "sddgov.autonomy.L3_RUNTIME_CONTEXT_FILE", self.runtime_context_path
         )
         self.runtime_context.start()
-        self.trust_environment = patch.dict(
-            "os.environ", {"SDDGOV_TRUSTED_APPROVERS_FILE": str(self.trust_path)}
-        )
+        self.addCleanup(self.runtime_context.stop)
+        self.trust_environment = patch.dict("os.environ", {}, clear=False)
         self.trust_environment.start()
+        self.addCleanup(self.trust_environment.stop)
+        os.environ.pop("SDDGOV_TRUSTED_APPROVERS_FILE", None)
+        os.environ.pop("SDDGOV_TRUSTED_BASE_REF", None)
+        self.trust_authority_path = patch(
+            "sddgov.trust.TRUSTED_APPROVERS_FILE", self.trust_path
+        )
+        self.trust_authority_path.start()
+        self.addCleanup(self.trust_authority_path.stop)
+        self.domain_authority_path = patch(
+            "sddgov.trust.TRUSTED_APPROVER_DOMAINS_FILE", self.domain_path
+        )
+        self.domain_authority_path.start()
+        self.addCleanup(self.domain_authority_path.stop)
         init_project(self.root, "team-standard")
         self.control_plane_loader = patch(
             "sddgov.autonomy.load_control_plane_json",
             side_effect=lambda path, _label: json.loads(Path(path).read_text()),
         )
         self.control_plane_loader.start()
+        self.addCleanup(self.control_plane_loader.stop)
         self.nonce_broker = patch(
             "sddgov.autonomy._consume_nonce_via_control_plane", return_value=True
         )
         self.nonce_broker.start()
-
-    def tearDown(self):
-        self.nonce_broker.stop()
-        self.control_plane_loader.stop()
-        self.runtime_context.stop()
-        self.trust_environment.stop()
-        self.trust_temporary.cleanup()
-        self.temporary.cleanup()
+        self.addCleanup(self.nonce_broker.stop)
+        self.repository_identity = patch(
+            "sddgov.autonomy._repository_identity",
+            return_value="github.com/example/synthetic",
+        )
+        self.repository_identity.start()
+        self.addCleanup(self.repository_identity.stop)
 
     def _signed_operation_approval(
         self,
@@ -183,6 +251,8 @@ class AutonomyTests(unittest.TestCase):
         assumptions="mvp-assumptions-v1",
         approved_by="product-owner",
         reopen_condition="scope_or_assumptions_change",
+        request_path=None,
+        summary="Owner-approved bounded product decision",
     ):
         private_key = Ed25519PrivateKey.generate()
         public_key = private_key.public_key().public_bytes(
@@ -206,6 +276,23 @@ class AutonomyTests(unittest.TestCase):
             encoding="utf-8",
         )
         self.trust_path.chmod(0o600)
+        self.domain_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": "1.0",
+                    "bindings": [
+                        {
+                            "approver_id": approved_by,
+                            "repository_id": "github.com/example/synthetic",
+                            "repository_root": str(self.root),
+                            "trust_domain": "synthetic-product-domain",
+                            "status": "active",
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
         now = datetime.now(timezone.utc).replace(microsecond=0)
         assumption_path = self.root / ".sddgov" / "assumptions" / f"{decision_id}.txt"
         assumption_path.parent.mkdir(parents=True, exist_ok=True)
@@ -214,6 +301,15 @@ class AutonomyTests(unittest.TestCase):
             "path": assumption_path.relative_to(self.root).as_posix(),
             "sha256": hashlib.sha256(assumptions.encode("utf-8")).hexdigest(),
         }]
+        if request_path is not None:
+            request_raw = (self.root / request_path).read_bytes()
+            assumption_rows.append(
+                {
+                    "path": request_path,
+                    "sha256": hashlib.sha256(request_raw).hexdigest(),
+                }
+            )
+            assumption_rows.sort(key=lambda row: row["path"])
         assumptions_digest = hashlib.sha256(
             json.dumps(
                 assumption_rows,
@@ -224,7 +320,7 @@ class AutonomyTests(unittest.TestCase):
         ).hexdigest()
         receipt = {
             "decision_id": decision_id,
-            "summary": "Owner-approved bounded product decision",
+            "summary": summary,
             "scope": scope,
             "assumptions": assumption_rows,
             "assumptions_sha256": assumptions_digest,
@@ -451,7 +547,7 @@ class AutonomyTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "duplicate approver_id"):
             import_operation_approval(self.root, path)
 
-    def test_repo_local_approver_store_is_not_an_authority_source(self):
+    def test_empty_caller_approver_override_is_rejected(self):
         path, _ = self._signed_operation_approval()
         repository_store = self.root / ".sddgov/trusted-approvers.json"
         repository_store.write_text(self.trust_path.read_text())
@@ -462,7 +558,7 @@ class AutonomyTests(unittest.TestCase):
                 "SDDGOV_TRUSTED_BASE_REF": "",
             },
         ):
-            with self.assertRaisesRegex(ValueError, "separate control-plane"):
+            with self.assertRaisesRegex(ValueError, "caller override"):
                 import_operation_approval(self.root, path)
 
     def test_same_uid_external_approver_store_is_not_owner_authority(self):
@@ -479,6 +575,181 @@ class AutonomyTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Agent runs as root"):
                 load_control_plane_json(self.trust_path, "test authority")
 
+    def test_root_owner_runtime_can_read_only_one_fixed_root_owned_trust_path(self):
+        control = self.root / "owner-runtime-control"
+        control.mkdir()
+        authority = control / "trusted-approvers.json"
+        expected = {"schema_version": "1.0", "approvers": []}
+        authority.write_text(json.dumps(expected), encoding="utf-8")
+        other = control / "caller-selected.json"
+        other.write_text(json.dumps(expected), encoding="utf-8")
+        domain = control / "trusted-approver-domains.json"
+        domain.write_text(
+            json.dumps({"schema_version": "1.0", "bindings": []}),
+            encoding="utf-8",
+        )
+        real_stat = os.stat
+        real_fstat = os.fstat
+
+        def as_root_owned(metadata):
+            values = list(metadata)
+            values[0] = metadata.st_mode & ~0o022
+            values[4] = 0
+            return os.stat_result(values)
+
+        with (
+            patch("sddgov.trust.TRUSTED_APPROVERS_FILE", authority),
+            patch("sddgov.trust.TRUSTED_APPROVER_DOMAINS_FILE", domain),
+            patch("sddgov.trust.os.geteuid", return_value=0),
+            patch(
+                "sddgov.trust.os.stat",
+                side_effect=lambda *args, **kwargs: as_root_owned(
+                    real_stat(*args, **kwargs)
+                ),
+            ),
+            patch(
+                "sddgov.trust.os.fstat",
+                side_effect=lambda descriptor: as_root_owned(real_fstat(descriptor)),
+            ),
+        ):
+            self.assertEqual(
+                load_owner_runtime_control_plane_json(authority, "Owner trust"),
+                expected,
+            )
+            with self.assertRaisesRegex(ValueError, "fixed Owner trust path"):
+                load_owner_runtime_control_plane_json(other, "Owner trust")
+
+        with patch("sddgov.trust.os.geteuid", return_value=1000):
+            with self.assertRaisesRegex(ValueError, "root Owner runtime"):
+                load_owner_runtime_control_plane_json(authority, "Owner trust")
+
+    def test_control_plane_loader_retains_and_rechecks_the_root_owned_path(self):
+        control = self.root / "control-plane"
+        control.mkdir()
+        authority = control / "authority.json"
+        expected = {"schema_version": "1.0", "value": "trusted"}
+        authority.write_text(json.dumps(expected), encoding="utf-8")
+        parked = self.root / "control-plane-parked"
+        real_stat = os.stat
+        real_fstat = os.fstat
+        real_read = os.read
+        moved = False
+
+        def as_root_owned(metadata):
+            values = list(metadata)
+            values[0] = metadata.st_mode & ~0o022
+            values[4] = 0
+            return os.stat_result(values)
+
+        def replace_after_read(descriptor, size):
+            nonlocal moved
+            chunk = real_read(descriptor, size)
+            if not chunk and not moved:
+                moved = True
+                control.rename(parked)
+                control.mkdir()
+            return chunk
+
+        with (
+            patch("sddgov.trust.os.geteuid", return_value=1000),
+            patch(
+                "sddgov.trust.os.stat",
+                side_effect=lambda *args, **kwargs: as_root_owned(
+                    real_stat(*args, **kwargs)
+                ),
+            ),
+            patch(
+                "sddgov.trust.os.fstat",
+                side_effect=lambda descriptor: as_root_owned(real_fstat(descriptor)),
+            ),
+            patch("sddgov.trust.os.read", side_effect=replace_after_read),
+            self.assertRaisesRegex(ValueError, "parent chain changed"),
+        ):
+            load_control_plane_json(authority, "test authority")
+
+        self.assertTrue(moved)
+        self.assertEqual(
+            json.loads((parked / authority.name).read_text(encoding="utf-8")),
+            expected,
+        )
+        self.assertEqual(list(control.iterdir()), [])
+
+    def test_control_plane_loader_bounds_the_root_owned_document(self):
+        control = self.root / "oversized-control-plane"
+        control.mkdir()
+        authority = control / "authority.json"
+        authority.write_bytes(b"{" + b"x" * (1024 * 1024) + b"}")
+        real_stat = os.stat
+        real_fstat = os.fstat
+
+        def as_root_owned(metadata):
+            values = list(metadata)
+            values[0] = metadata.st_mode & ~0o022
+            values[4] = 0
+            return os.stat_result(values)
+
+        with (
+            patch("sddgov.trust.os.geteuid", return_value=1000),
+            patch(
+                "sddgov.trust.os.stat",
+                side_effect=lambda *args, **kwargs: as_root_owned(
+                    real_stat(*args, **kwargs)
+                ),
+            ),
+            patch(
+                "sddgov.trust.os.fstat",
+                side_effect=lambda descriptor: as_root_owned(real_fstat(descriptor)),
+            ),
+            self.assertRaisesRegex(ValueError, "1048576-byte limit"),
+        ):
+            load_control_plane_json(authority, "test authority")
+
+    def test_authority_json_loaders_reject_recursive_duplicate_members(self):
+        owner_file = self.root / "owner-controlled.json"
+        owner_file.write_text(
+            '{"approvers":[{"approver_id":"A","approver_id":"B"}]}',
+            encoding="utf-8",
+        )
+        owner_file.chmod(0o600)
+        with self.assertRaisesRegex(ValueError, "duplicate JSON member"):
+            load_owner_controlled_json(owner_file, "test owner authority")
+
+        control = self.root / "duplicate-control-plane"
+        control.mkdir()
+        authority = control / "authority.json"
+        real_stat = os.stat
+        real_fstat = os.fstat
+
+        def as_root_owned(metadata):
+            values = list(metadata)
+            values[0] = metadata.st_mode & ~0o022
+            values[4] = 0
+            return os.stat_result(values)
+
+        cases = (
+            '{"schema_version":"1.0","schema_version":"2.0"}',
+            '{"approvers":[{"approver_id":"A","approver_id":"B"}]}',
+            '{"bindings":[{"repository_id":"A","repository_id":"B"}]}',
+        )
+        for raw in cases:
+            authority.write_text(raw, encoding="utf-8")
+            with (
+                self.subTest(raw=raw),
+                patch("sddgov.trust.os.geteuid", return_value=1000),
+                patch(
+                    "sddgov.trust.os.stat",
+                    side_effect=lambda *args, **kwargs: as_root_owned(
+                        real_stat(*args, **kwargs)
+                    ),
+                ),
+                patch(
+                    "sddgov.trust.os.fstat",
+                    side_effect=lambda descriptor: as_root_owned(real_fstat(descriptor)),
+                ),
+                self.assertRaisesRegex(ValueError, "duplicate JSON member"),
+            ):
+                load_control_plane_json(authority, "test authority")
+
     def test_caller_selected_trusted_base_ref_is_never_authority(self):
         path, _ = self._signed_operation_approval()
         with patch.dict(
@@ -488,7 +759,7 @@ class AutonomyTests(unittest.TestCase):
                 "SDDGOV_TRUSTED_BASE_REF": "a" * 40,
             },
         ):
-            with self.assertRaisesRegex(ValueError, "separate control-plane"):
+            with self.assertRaisesRegex(ValueError, "caller override"):
                 import_operation_approval(self.root, path)
 
     def test_adversarial_receipt_encodings_fail_closed(self):
@@ -682,6 +953,38 @@ class AutonomyTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "signature"):
             import_product_approval(self.root, path)
 
+    def test_l2_owner_receipt_rejects_recursive_duplicate_json_members(self):
+        path, envelope = self._signed_product_approval("DEC-DUPLICATE-JSON")
+        original = json.dumps(envelope)
+        variants = (
+            original.replace(
+                '"algorithm": "ed25519",',
+                '"algorithm": "ed25519", "algorithm": "ed25519",',
+                1,
+            ),
+            original.replace(
+                '"scope": "MVP data layer",',
+                '"scope": "MVP data layer", "scope": "MVP data layer",',
+                1,
+            ),
+            original.replace(
+                '"path": ".sddgov/assumptions/DEC-DUPLICATE-JSON.txt",',
+                '"path": ".sddgov/assumptions/DEC-DUPLICATE-JSON.txt", '
+                '"path": ".sddgov/assumptions/DEC-DUPLICATE-JSON.txt",',
+                1,
+            ),
+            original.replace(
+                '"signature": "',
+                f'"signature": {json.dumps(envelope["signature"])}, "signature": "',
+                1,
+            ),
+        )
+        for raw in variants:
+            with self.subTest(raw=raw[:100]):
+                path.write_text(raw, encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "duplicate member"):
+                    import_product_approval(self.root, path)
+
     def test_l2_receipt_rejects_unsupported_free_form_reopen_condition(self):
         path, _ = self._signed_product_approval(
             "DEC-UNSUPPORTED-REOPEN",
@@ -735,7 +1038,7 @@ class AutonomyTests(unittest.TestCase):
 
         with (
             patch("sddgov.autonomy.os.open", side_effect=replace_parent),
-            self.assertRaisesRegex(ValueError, "path changed"),
+            self.assertRaisesRegex(ValueError, "changed during operation"),
         ):
             import_product_approval(self.root, approval_path)
 
@@ -798,6 +1101,203 @@ class AutonomyTests(unittest.TestCase):
             },
         )
         self.assertEqual(stale["state"], "ACTION_REQUIRED")
+
+    def test_stored_product_decision_reverifies_signature_row_audience_and_request(self):
+        from sddgov import autonomy as autonomy_module
+        from sddgov.owner_approval import _owner_client_identity
+
+        actual_client = _owner_client_identity()
+        owner_client = {
+            "version": actual_client["version"],
+            "source_sha256": actual_client["source_sha256"],
+        }
+        client_marker = "Owner client binding: " + json.dumps(
+            owner_client,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        request_relative = "work-packages/DEC-VERIFIED.request.json"
+        assumption_relative = ".sddgov/assumptions/DEC-VERIFIED.txt"
+        request = {
+            "risk_level": "L2",
+            "category": "product_decision",
+            "effects": {},
+            "decision_id": "DEC-VERIFIED",
+            "decision_scope": "Exact repository authority boundary",
+            "assumption_paths": [
+                assumption_relative,
+                request_relative,
+            ],
+            "approver_id": "product-owner",
+            "valid_days": 30,
+            "owner_client": owner_client,
+            "decision_package": decision_package(
+                decision_id="DEC-VERIFIED",
+                scope="Exact repository authority boundary",
+            ),
+        }
+        request_path = self.root / request_relative
+        request_path.parent.mkdir(exist_ok=True)
+        request_path.write_text(json.dumps(request), encoding="utf-8")
+        approval_path, _approval = self._signed_product_approval(
+            "DEC-VERIFIED",
+            scope="Exact repository authority boundary",
+            assumptions=client_marker + "\n",
+            request_path=request_relative,
+            summary="Approved option A: Keep the current product contract.",
+        )
+        import_product_approval(self.root, approval_path)
+        result = verify_product_decision(
+            self.root,
+            "DEC-VERIFIED",
+            "work-packages/DEC-VERIFIED.request.json",
+        )
+        self.assertEqual(
+            result["verification"],
+            "SIGNATURE_ROW_AUDIENCE_AND_REQUEST_VERIFIED",
+        )
+        self.assertEqual(result["repository_id"], "github.com/example/synthetic")
+
+        original_verify_envelope = autonomy_module._verify_product_envelope
+        with patch(
+            "sddgov.autonomy._verify_product_envelope",
+            wraps=original_verify_envelope,
+        ) as verify_envelope:
+            verify_product_decision(
+                self.root,
+                "DEC-VERIFIED",
+                request_relative,
+            )
+        self.assertEqual(verify_envelope.call_count, 1)
+        self.assertIsNotNone(
+            verify_envelope.call_args.kwargs.get("assumption_snapshot")
+        )
+
+        assumption_path = self.root / assumption_relative
+        parked_assumption = assumption_path.with_name("DEC-VERIFIED.parked")
+        replaced = False
+
+        def replace_after_digest(*args, **kwargs):
+            nonlocal replaced
+            verified = original_verify_envelope(*args, **kwargs)
+            if not replaced:
+                assumption_path.rename(parked_assumption)
+                assumption_path.write_text(
+                    client_marker + "\nreplacement generation\n",
+                    encoding="utf-8",
+                )
+                replaced = True
+            return verified
+
+        try:
+            with (
+                patch(
+                    "sddgov.autonomy._verify_product_envelope",
+                    side_effect=replace_after_digest,
+                ),
+                self.assertRaisesRegex(ValueError, "file set changed"),
+            ):
+                verify_product_decision(
+                    self.root,
+                    "DEC-VERIFIED",
+                    request_relative,
+                )
+        finally:
+            if replaced:
+                assumption_path.unlink()
+                parked_assumption.rename(assumption_path)
+
+        with (
+            patch(
+                "sddgov.owner_approval._owner_client_identity",
+                return_value={
+                    **actual_client,
+                    "source_sha256": "f" * 64,
+                },
+            ),
+            self.assertRaisesRegex(ValueError, "no longer matches"),
+        ):
+            verify_product_decision(
+                self.root,
+                "DEC-VERIFIED",
+                "work-packages/DEC-VERIFIED.request.json",
+            )
+
+        missing_client = copy.deepcopy(request)
+        missing_client.pop("owner_client")
+        request_path.write_text(json.dumps(missing_client), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "cryptographic verification"):
+            verify_product_decision(
+                self.root,
+                "DEC-VERIFIED",
+                "work-packages/DEC-VERIFIED.request.json",
+            )
+        request_path.write_text(json.dumps(request), encoding="utf-8")
+
+        changed_request = copy.deepcopy(request)
+        changed_request["owner_client"]["source_sha256"] = "b" * 64
+        request_path.write_text(json.dumps(changed_request), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "cryptographic verification"):
+            verify_product_decision(
+                self.root,
+                "DEC-VERIFIED",
+                "work-packages/DEC-VERIFIED.request.json",
+            )
+        request_path.write_text(json.dumps(request), encoding="utf-8")
+
+        for field, value in (
+            ("why", "Changed explanation after signature."),
+            ("impact_if_no_decision", "Changed impact after signature."),
+            ("what_agent_already_verified", ["Changed verified facts."]),
+        ):
+            with self.subTest(field=field):
+                changed_card = copy.deepcopy(request)
+                changed_card["decision_package"][field] = value
+                request_path.write_text(json.dumps(changed_card), encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "cryptographic verification"):
+                    verify_product_decision(
+                        self.root,
+                        "DEC-VERIFIED",
+                        request_relative,
+                    )
+        changed_option = copy.deepcopy(request)
+        changed_option["decision_package"]["options"][0]["description"] = (
+            "Changed Option A after signature."
+        )
+        request_path.write_text(json.dumps(changed_option), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "cryptographic verification"):
+            verify_product_decision(
+                self.root,
+                "DEC-VERIFIED",
+                request_relative,
+            )
+        request_path.write_text(json.dumps(request), encoding="utf-8")
+
+        duplicate_request = request_path.read_text(encoding="utf-8").replace(
+            '"owner_client": {',
+            '"owner_client": {"version":"DECOY",',
+            1,
+        )
+        request_path.write_text(duplicate_request, encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "duplicate member"):
+            verify_product_decision(
+                self.root,
+                "DEC-VERIFIED",
+                "work-packages/DEC-VERIFIED.request.json",
+            )
+        request_path.write_text(json.dumps(request), encoding="utf-8")
+
+        store_path = self.root / ".sddgov" / "decisions.json"
+        store = json.loads(store_path.read_text(encoding="utf-8"))
+        store["decisions"][0]["summary"] = "forged local summary"
+        store_path.write_text(json.dumps(store), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "cryptographic verification"):
+            verify_product_decision(
+                self.root,
+                "DEC-VERIFIED",
+                "work-packages/DEC-VERIFIED.request.json",
+            )
 
     def test_l2_product_reuse_rejects_foreign_authority_and_executor_fields(self):
         approval_path, _ = self._signed_product_approval("DEC-CLOSED-L2")
@@ -1115,7 +1615,12 @@ class AutonomyTests(unittest.TestCase):
             st_mode=stat.S_IFDIR | 0o755, st_uid=0, st_nlink=1, st_dev=1, st_ino=1
         )
         broker = SimpleNamespace(
-            st_mode=stat.S_IFSOCK | 0o660, st_uid=0, st_nlink=1, st_dev=1, st_ino=2
+            st_mode=stat.S_IFSOCK | 0o660,
+            st_uid=0,
+            st_gid=123,
+            st_nlink=1,
+            st_dev=1,
+            st_ino=2,
         )
         received = {}
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as server:
@@ -1139,6 +1644,10 @@ class AutonomyTests(unittest.TestCase):
             worker.start()
             with (
                 patch("sddgov.autonomy.os.geteuid", return_value=501),
+                patch(
+                    "sddgov.autonomy.grp.getgrnam",
+                    return_value=SimpleNamespace(gr_gid=123),
+                ),
                 patch("sddgov.autonomy.L3_NONCE_BROKER", broker_path),
                 patch(
                     "pathlib.Path.lstat",
@@ -1156,12 +1665,16 @@ class AutonomyTests(unittest.TestCase):
 
     def test_l3_broker_rejects_extra_response_bytes(self):
         directory = SimpleNamespace(st_mode=stat.S_IFDIR | 0o755, st_uid=0)
-        broker = SimpleNamespace(st_mode=stat.S_IFSOCK | 0o660, st_uid=0)
+        broker = SimpleNamespace(st_mode=stat.S_IFSOCK | 0o660, st_uid=0, st_gid=123)
         client = MagicMock()
         client.__enter__.return_value = client
         client.recv.side_effect = [b"CONSUMED\n", b"X"]
         with (
             patch("sddgov.autonomy.os.geteuid", return_value=501),
+            patch(
+                "sddgov.autonomy.grp.getgrnam",
+                return_value=SimpleNamespace(gr_gid=123),
+            ),
             patch(
                 "pathlib.Path.lstat",
                 autospec=True,
@@ -1174,6 +1687,75 @@ class AutonomyTests(unittest.TestCase):
                     "nonce-value-extra", "a" * 64, "b" * 64
                 )
             )
+
+    def test_l3_broker_rejects_noncanonical_socket_mode_before_connection(self):
+        directory = SimpleNamespace(st_mode=stat.S_IFDIR | 0o755, st_uid=0)
+        broker = SimpleNamespace(st_mode=stat.S_IFSOCK | 0o640, st_uid=0, st_gid=123)
+        client = MagicMock()
+        client.__enter__.return_value = client
+        client.recv.side_effect = [b"CONSUMED\n", b""]
+        with (
+            patch("sddgov.autonomy.os.geteuid", return_value=501),
+            patch(
+                "sddgov.autonomy.grp.getgrnam",
+                return_value=SimpleNamespace(gr_gid=123),
+            ),
+            patch(
+                "pathlib.Path.lstat",
+                autospec=True,
+                side_effect=lambda path: broker if path == L3_NONCE_BROKER else directory,
+            ),
+            patch("sddgov.autonomy.socket.socket", return_value=client),
+        ):
+            self.assertFalse(
+                _consume_nonce_via_control_plane(
+                    "nonce-value-mode", "a" * 64, "b" * 64
+                )
+            )
+        client.connect.assert_not_called()
+
+    def test_l3_broker_rejects_wrong_socket_group_before_connection(self):
+        directory = SimpleNamespace(st_mode=stat.S_IFDIR | 0o755, st_uid=0)
+        broker = SimpleNamespace(st_mode=stat.S_IFSOCK | 0o660, st_uid=0, st_gid=456)
+        with (
+            patch("sddgov.autonomy.os.geteuid", return_value=501),
+            patch(
+                "sddgov.autonomy.grp.getgrnam",
+                return_value=SimpleNamespace(gr_gid=123),
+            ),
+            patch(
+                "pathlib.Path.lstat",
+                autospec=True,
+                side_effect=lambda path: broker if path == L3_NONCE_BROKER else directory,
+            ),
+            patch("sddgov.autonomy.socket.socket") as socket_factory,
+        ):
+            self.assertFalse(
+                _consume_nonce_via_control_plane(
+                    "nonce-value-group", "a" * 64, "b" * 64
+                )
+            )
+        socket_factory.assert_not_called()
+
+    def test_l3_broker_rejects_missing_platform_group_before_connection(self):
+        directory = SimpleNamespace(st_mode=stat.S_IFDIR | 0o755, st_uid=0)
+        broker = SimpleNamespace(st_mode=stat.S_IFSOCK | 0o660, st_uid=0, st_gid=123)
+        with (
+            patch("sddgov.autonomy.os.geteuid", return_value=501),
+            patch("sddgov.autonomy.grp.getgrnam", side_effect=KeyError("missing")),
+            patch(
+                "pathlib.Path.lstat",
+                autospec=True,
+                side_effect=lambda path: broker if path == L3_NONCE_BROKER else directory,
+            ),
+            patch("sddgov.autonomy.socket.socket") as socket_factory,
+        ):
+            self.assertFalse(
+                _consume_nonce_via_control_plane(
+                    "nonce-value-missing-group", "a" * 64, "b" * 64
+                )
+            )
+        socket_factory.assert_not_called()
 
     def test_l3_broker_symlinked_parent_fails_before_connection(self):
         linked_parent = SimpleNamespace(

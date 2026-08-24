@@ -14,6 +14,7 @@ protected:
   - .github/workflows/
   - AGENTS.md
   - .gitignore
+  - .coderabbit.yaml
   - .agents/
   - .agentic-sdd-governance/
   - .sddgov/project.json
@@ -21,6 +22,14 @@ protected:
   - src/sddgov/
   - pyproject.toml
   - requirements-governance.lock
+  - requirements-release.in
+  - requirements-release.lock
+  - scripts/
+  - services/
+  - docs/HARD_GATES_V1_2.md
+  - docs/L3_BROKER_OPERATIONS.md
+  - docs/OWNER_KEY_CEREMONY.md
+  - docs/ROLLBACK_OPERATIONS.md
   - .sddgov/trusted-approvers.json
   - .sddgov/trusted-reviewers.json
 rules:

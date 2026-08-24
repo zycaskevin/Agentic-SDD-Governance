@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import codecs
 import hashlib
 import json
 import os
@@ -9,6 +10,12 @@ import secrets
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
+
+from .fs_security import (
+    open_directory_path,
+    remove_owned_at,
+    require_directory_path_identity,
+)
 
 
 @dataclass(frozen=True)
@@ -27,6 +34,18 @@ PROVIDER_CREDENTIAL_PATTERN = re.compile(
     r"|sk_live_[A-Za-z0-9]{20,}"
     r")\b"
 )
+LOCAL_USER_PATH_PATTERN = re.compile(
+    r'''(?i)(?<![A-Z0-9])(?:'''
+    r'''["'](?:/(?:home|Users)/|/(?:private/)?tmp(?=$|/|["'])|/(?:private/)?var/folders/|/mnt/[A-Z]/Users/|//wsl\.localhost/[^/\r\n]+/home/|(?:\\\\|\\\\\\\\)(?:wsl\.localhost|wsl\$)(?:\\|\\\\)[^\\\r\n]+(?:\\|\\\\)home(?:\\|\\\\)|[A-Z]:(?:\\{1,2}|/)Users(?:\\{1,2}|/))[^"'\r\n]*["']'''
+    r'''|/(?:home|Users)/[^\r\n:;,'"]*'''
+    r'''|/(?:private/)?tmp(?=$|/|[\s:;,'"])(?:/[^\r\n:;,'"]*)?'''
+    r'''|/(?:private/)?var/folders/[^\r\n:;,'"]*'''
+    r'''|/mnt/[A-Z]/Users/[^\r\n:;,'"]*'''
+    r'''|//wsl\.localhost/[^/\r\n]+/home/[^\r\n:;,'"]*'''
+    r'''|(?:\\\\|\\\\\\\\)(?:wsl\.localhost|wsl\$)(?:\\|\\\\)[^\\\r\n]+(?:\\|\\\\)home(?:\\|\\\\)[^\r\n:;,'"]*'''
+    r'''|[A-Z]:(?:\\{1,2}|/)Users(?:\\{1,2}|/)[^\r\n:;,'"]*'''
+    r''')'''
+)
 
 
 RULES: tuple[Rule, ...] = (
@@ -42,6 +61,96 @@ RULES: tuple[Rule, ...] = (
     Rule("email", re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b"), "[REDACTED_EMAIL]"),
     Rule("phone", re.compile(r"(?<!\w)(?:\+?\d[\d .()-]{7,}\d)(?!\w)"), "[REDACTED_PHONE_OR_NUMBER]"),
     Rule("card-like", re.compile(r"(?<!\d)(?:\d[ -]?){13,19}(?!\d)"), "[REDACTED_CARD_OR_NUMBER]"),
+    Rule("local-path", LOCAL_USER_PATH_PATTERN, "[REDACTED_LOCAL_PATH]"),
+)
+
+STREAM_RULES: tuple[Rule, ...] = tuple(
+    rule for rule in RULES if rule.rule_id != "private-key"
+)
+
+CROSS_LINE_FIELD_RULES = {
+    rule.rule_id: rule
+    for rule in STREAM_RULES
+    if rule.rule_id
+    in {
+        "authorization",
+        "cookie",
+        "password",
+        "secret-field",
+        "patient-identifier",
+        "customer-identifier",
+    }
+}
+CROSS_LINE_FIELD_STARTS: tuple[tuple[str, re.Pattern[str], re.Pattern[str]], ...] = (
+    (
+        "authorization",
+        re.compile(
+            r"(?i)^(?:authorization)(?P<tail>[^\S\r\n]*(?::[^\S\r\n]*)?\r?\n)$"
+        ),
+        re.compile(r"(?is)\s*(?::\s*(?:bearer\s*)?)?\Z"),
+    ),
+    (
+        "cookie",
+        re.compile(
+            r"(?i)^(?:(?:set-)?cookie)(?P<tail>[^\S\r\n]*(?::[^\S\r\n]*)?\r?\n)$"
+        ),
+        re.compile(r"(?s)\s*(?::\s*)?\Z"),
+    ),
+    (
+        "password",
+        re.compile(
+            r'''(?i)(?:"|')?(?:[A-Z0-9]+_)*(?:password|passwd)(?:"|')?(?P<tail>[^\S\r\n]*(?:[=:][^\S\r\n]*)?\r?\n)$'''
+        ),
+        re.compile(r"(?s)\s*(?:[=:]\s*)?\Z"),
+    ),
+    (
+        "secret-field",
+        re.compile(
+            r'''(?i)(?:"|')?(?:[A-Z0-9]+[_-])*(?:secret(?:[_-]?key)?|api[_-]?key|access[_-]?(?:token|key)|refresh[_-]?token|client[_-]?secret)(?:[_-][A-Z0-9]+)*(?:"|')?(?P<tail>[^\S\r\n]*(?:[=:][^\S\r\n]*)?\r?\n)$'''
+        ),
+        re.compile(r"(?s)\s*(?:[=:]\s*)?\Z"),
+    ),
+    (
+        "patient-identifier",
+        re.compile(
+            r'''(?i)(?:"|')?\bpatient[_-]?(?:id|identifier)\b(?:"|')?(?P<tail>[^\S\r\n]*(?:[=:][^\S\r\n]*)?\r?\n)$'''
+        ),
+        re.compile(r"(?s)\s*(?:[=:]\s*)?\Z"),
+    ),
+    (
+        "customer-identifier",
+        re.compile(
+            r'''(?i)(?:"|')?\bcustomer[_-]?(?:id|identifier)\b(?:"|')?(?P<tail>[^\S\r\n]*(?:[=:][^\S\r\n]*)?\r?\n)$'''
+        ),
+        re.compile(r"(?s)\s*(?:[=:]\s*)?\Z"),
+    ),
+)
+
+QUOTED_CROSS_LINE_FIELD_STARTS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    (
+        "password",
+        re.compile(
+            r'''(?i)(?:"|')?(?:[A-Z0-9]+_)*(?:password|passwd)(?:"|')?\s*[=:]\s*(?P<quote>["'])'''
+        ),
+    ),
+    (
+        "secret-field",
+        re.compile(
+            r'''(?i)(?:"|')?(?:[A-Z0-9]+[_-])*(?:secret(?:[_-]?key)?|api[_-]?key|access[_-]?(?:token|key)|refresh[_-]?token|client[_-]?secret)(?:[_-][A-Z0-9]+)*(?:"|')?\s*[=:]\s*(?P<quote>["'])'''
+        ),
+    ),
+    (
+        "patient-identifier",
+        re.compile(
+            r'''(?i)(?:"|')?\bpatient[_-]?(?:id|identifier)\b(?:"|')?\s*[=:]\s*(?P<quote>["'])'''
+        ),
+    ),
+    (
+        "customer-identifier",
+        re.compile(
+            r'''(?i)(?:"|')?\bcustomer[_-]?(?:id|identifier)\b(?:"|')?\s*[=:]\s*(?P<quote>["'])'''
+        ),
+    ),
 )
 
 
@@ -49,6 +158,20 @@ TEXT_SUFFIXES = {
     ".txt", ".log", ".json", ".jsonl", ".yaml", ".yml", ".xml", ".md",
     ".csv", ".tsv", ".html", ".js", ".ts", ".dart", ".sh",
 }
+
+MAX_REDACTION_FILE_BYTES = 10 * 1024 * 1024
+MAX_LOGICAL_LINE_CHARACTERS = 1024 * 1024
+STREAM_CHUNK_BYTES = 64 * 1024
+MAX_PRIVATE_KEY_MARKER_CHARACTERS = 4096
+MAX_CROSS_LINE_FIELD_CHARACTERS = 4096
+PRIVATE_KEY_BEGIN = re.compile(
+    r"-----BEGIN [^-]*(?:PRIVATE KEY|OPENSSH PRIVATE KEY)-----", re.I
+)
+PRIVATE_KEY_END = re.compile(
+    r"-----END [^-]*(?:PRIVATE KEY|OPENSSH PRIVATE KEY)-----", re.I
+)
+PRIVATE_KEY_MARKER_PREFIX = re.compile(r"-----BEGIN|-----END", re.I)
+PRIVATE_KEY_MARKER_LITERALS = ("-----begin", "-----end")
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -64,65 +187,650 @@ def redact_text(text: str) -> tuple[str, dict[str, int]]:
             counts[rule.rule_id] = count
     if PROVIDER_CREDENTIAL_PATTERN.search(output):
         raise ValueError("unredacted known provider credential identifier")
+    if LOCAL_USER_PATH_PATTERN.search(output):
+        raise ValueError("unredacted absolute user workspace path")
     return output, counts
 
 
+def _merge_counts(total: dict[str, int], added: dict[str, int]) -> None:
+    for key, value in added.items():
+        total[key] = total.get(key, 0) + value
+
+
+class _StreamingTextRedactor:
+    def __init__(self) -> None:
+        self.in_private_key = False
+        self.marker_fragment = ""
+        self.counts: dict[str, int] = {}
+        self.cross_line_field: tuple[str, str, str, re.Pattern[str]] | None = None
+        self.quoted_cross_line_field: tuple[str, str, str, int] | None = None
+
+    def _closing_quote(self, text: str, quote: str, start: int) -> int | None:
+        index = start
+        while index < len(text):
+            character = text[index]
+            if character == "\\":
+                if index + 1 >= len(text):
+                    return None
+                if text[index + 1] in "\r\n":
+                    raise ValueError(
+                        "quoted sensitive field contains an invalid line escape"
+                    )
+                index += 2
+                continue
+            if character == quote:
+                return index
+            index += 1
+        return None
+
+    def _incomplete_quoted_field(
+        self, text: str
+    ) -> tuple[str, str, int, int] | None:
+        candidates: list[tuple[int, str, str, int]] = []
+        for rule_id, start_pattern in QUOTED_CROSS_LINE_FIELD_STARTS:
+            for match in start_pattern.finditer(text):
+                quote_start = match.start("quote")
+                quote = match.group("quote")
+                if self._closing_quote(text, quote, quote_start + 1) is None:
+                    candidates.append(
+                        (match.start(), rule_id, quote, quote_start - match.start())
+                    )
+                    break
+        if not candidates:
+            return None
+        field_start, rule_id, quote, quote_offset = min(candidates)
+        return rule_id, quote, field_start, quote_offset
+
+    def _quoted_sensitive_fields(self, text: str) -> str:
+        if self.quoted_cross_line_field is not None:
+            rule_id, quote, candidate, quote_offset = self.quoted_cross_line_field
+            candidate += text
+            closing_quote = self._closing_quote(candidate, quote, quote_offset + 1)
+            if closing_quote is None:
+                if len(candidate) > MAX_CROSS_LINE_FIELD_CHARACTERS:
+                    raise ValueError(
+                        "quoted sensitive field exceeds the streaming safety limit"
+                    )
+                self.quoted_cross_line_field = (
+                    rule_id,
+                    quote,
+                    candidate,
+                    quote_offset,
+                )
+                return ""
+            if closing_quote + 1 > MAX_CROSS_LINE_FIELD_CHARACTERS:
+                raise ValueError(
+                    "quoted sensitive field exceeds the streaming safety limit"
+                )
+            self.quoted_cross_line_field = None
+            field = candidate[: closing_quote + 1]
+            remainder = candidate[closing_quote + 1 :]
+            return self._apply_stream_rules(self._private_keys(field)) + self.redact_line(
+                remainder
+            )
+
+        incomplete = self._incomplete_quoted_field(text)
+        if incomplete is None:
+            return self._apply_stream_rules(self._private_keys(text))
+        rule_id, quote, field_start, quote_offset = incomplete
+        candidate = text[field_start:]
+        if len(candidate) > MAX_CROSS_LINE_FIELD_CHARACTERS:
+            raise ValueError(
+                "quoted sensitive field exceeds the streaming safety limit"
+            )
+        self.quoted_cross_line_field = (
+            rule_id,
+            quote,
+            candidate,
+            quote_offset,
+        )
+        return self._apply_stream_rules(self._private_keys(text[:field_start]))
+
+    def _reject_cross_line_sensitive_field(self, line: str) -> None:
+        if self.cross_line_field is not None:
+            rule_id, candidate, tail, pending = self.cross_line_field
+            candidate += line
+            tail += line
+            if len(candidate) > MAX_CROSS_LINE_FIELD_CHARACTERS:
+                raise ValueError(
+                    "cross-line sensitive field exceeds the streaming safety limit"
+                )
+            for match in CROSS_LINE_FIELD_RULES[rule_id].pattern.finditer(candidate):
+                if "\n" in match.group(0) or "\r" in match.group(0):
+                    raise ValueError(
+                        f"cross-line sensitive field is not shareable: {rule_id}"
+                    )
+            if pending.fullmatch(tail) is not None:
+                self.cross_line_field = (rule_id, candidate, tail, pending)
+                return
+            self.cross_line_field = None
+
+        for rule_id, start, pending in CROSS_LINE_FIELD_STARTS:
+            match = start.search(line)
+            if match is not None:
+                self.cross_line_field = (
+                    rule_id,
+                    match.group(0),
+                    match.group("tail"),
+                    pending,
+                )
+                return
+
+    def _hold_incomplete_marker(self, text: str, prefix: str) -> tuple[str, str]:
+        marker = -1
+        for match in PRIVATE_KEY_MARKER_PREFIX.finditer(text):
+            if match.group(0).casefold() == prefix.casefold():
+                marker = match.start()
+        if marker < 0:
+            logical = text.removesuffix("\n").removesuffix("\r")
+            for literal in PRIVATE_KEY_MARKER_LITERALS:
+                for length in range(min(len(literal) - 1, len(logical)), 0, -1):
+                    candidate_start = len(logical) - length
+                    if (
+                        logical[-length:].lower() == literal[:length]
+                        and (
+                            candidate_start == 0
+                            or logical[candidate_start - 1] != "-"
+                        )
+                    ):
+                        marker = len(logical) - length
+                        break
+                if marker >= 0:
+                    break
+            if marker < 0:
+                return text, ""
+        elif "-----" in text[marker + len(prefix) :]:
+            return text, ""
+        fragment = text[marker:]
+        if len(fragment) > MAX_PRIVATE_KEY_MARKER_CHARACTERS:
+            raise ValueError("private key marker exceeds the streaming safety limit")
+        return text[:marker], fragment
+
+    def _private_keys(self, text: str) -> str:
+        output: list[str] = []
+        carried = self.marker_fragment
+        self.marker_fragment = ""
+        if carried.endswith(("\n", "\r")):
+            logical = carried.rstrip("\r\n")
+            if any(
+                literal in logical.lower()
+                for literal in PRIVATE_KEY_MARKER_LITERALS
+            ):
+                remaining = carried + text
+            else:
+                for literal in PRIVATE_KEY_MARKER_LITERALS:
+                    probe = (logical + text)[: len(literal)].lower()
+                    if literal.startswith(probe):
+                        raise ValueError(
+                            "private key marker is split across a logical-line boundary"
+                        )
+                output.append(carried)
+                remaining = text
+        else:
+            remaining = carried + text
+        while remaining:
+            if self.in_private_key:
+                end = PRIVATE_KEY_END.search(remaining)
+                if end is None:
+                    _, self.marker_fragment = self._hold_incomplete_marker(
+                        remaining, "-----END"
+                    )
+                    return "".join(output)
+                self.in_private_key = False
+                remaining = remaining[end.end() :]
+                continue
+            begin = PRIVATE_KEY_BEGIN.search(remaining)
+            if begin is None:
+                safe, self.marker_fragment = self._hold_incomplete_marker(
+                    remaining, "-----BEGIN"
+                )
+                output.append(safe)
+                break
+            output.append(remaining[: begin.start()])
+            output.append("[REDACTED_PRIVATE_KEY]")
+            self.counts["private-key"] = self.counts.get("private-key", 0) + 1
+            remaining = remaining[begin.end() :]
+            end = PRIVATE_KEY_END.search(remaining)
+            if end is None:
+                self.in_private_key = True
+                break
+            remaining = remaining[end.end() :]
+        return "".join(output)
+
+    def _apply_stream_rules(self, text: str) -> str:
+        cleaned = text
+        counts: dict[str, int] = {}
+        for rule in STREAM_RULES:
+            cleaned, count = rule.pattern.subn(rule.replacement, cleaned)
+            if count:
+                counts[rule.rule_id] = count
+        if PROVIDER_CREDENTIAL_PATTERN.search(cleaned):
+            raise ValueError("unredacted known provider credential identifier")
+        if LOCAL_USER_PATH_PATTERN.search(cleaned):
+            raise ValueError("unredacted absolute user workspace path")
+        _merge_counts(self.counts, counts)
+        return cleaned
+
+    def redact_line(self, line: str) -> str:
+        self._reject_cross_line_sensitive_field(line)
+        return self._quoted_sensitive_fields(line)
+
+    def finish(self) -> str:
+        if self.quoted_cross_line_field is not None:
+            raise ValueError("unterminated quoted sensitive field in redaction source")
+        if self.in_private_key:
+            raise ValueError("unterminated private key block in redaction source")
+        trailing = self.marker_fragment
+        self.marker_fragment = ""
+        if not trailing:
+            return ""
+        return self._apply_stream_rules(trailing)
+
+
 def _open_directory(path: Path, label: str) -> int:
-    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
     try:
-        descriptor = os.open(path, flags)
+        return open_directory_path(path, label)
     except OSError as exc:
         raise ValueError(f"{label} cannot be opened safely: {exc}") from exc
-    metadata = os.fstat(descriptor)
-    if not stat.S_ISDIR(metadata.st_mode):
-        os.close(descriptor)
-        raise ValueError(f"{label} must be a directory")
-    return descriptor
 
 
-def _write_at(
+def _validate_published_identity(
+    directory_fd: int, name: str, temporary_metadata: os.stat_result
+) -> tuple[int, int]:
+    published = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+    identity = (temporary_metadata.st_dev, temporary_metadata.st_ino)
+    if (
+        not stat.S_ISREG(published.st_mode)
+        or published.st_nlink != 1
+        or (published.st_dev, published.st_ino) != identity
+    ):
+        raise ValueError(f"redaction destination changed during publish: {name}")
+    return identity
+
+
+def _validate_published_bytes(
     directory_fd: int,
     name: str,
-    data: bytes,
-    published_outputs: dict[str, tuple[int, int]] | None = None,
+    expected_identity: tuple[int, int],
+    expected_size: int,
+    expected_digest: str,
 ) -> None:
     try:
-        existing = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+        descriptor = os.open(
+            name,
+            os.O_RDONLY
+            | getattr(os, "O_NONBLOCK", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_CLOEXEC", 0),
+            dir_fd=directory_fd,
+        )
+    except OSError as exc:
+        raise ValueError(f"redaction destination cannot be opened safely: {name}") from exc
+    try:
+        metadata = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or metadata.st_nlink != 1
+            or (metadata.st_dev, metadata.st_ino) != expected_identity
+            or metadata.st_size != expected_size
+        ):
+            raise ValueError(f"redaction destination changed during publish: {name}")
+        digest = hashlib.sha256()
+        size = 0
+        while True:
+            chunk = os.read(descriptor, STREAM_CHUNK_BYTES)
+            if not chunk:
+                break
+            size += len(chunk)
+            if size > MAX_REDACTION_FILE_BYTES:
+                raise ValueError(f"redaction destination is oversized: {name}")
+            digest.update(chunk)
+        final = os.fstat(descriptor)
+        if (
+            _source_identity(final) != _source_identity(metadata)
+            or size != expected_size
+            or digest.hexdigest() != expected_digest
+        ):
+            raise ValueError(f"redaction destination bytes changed: {name}")
+    finally:
+        os.close(descriptor)
+
+
+def _reconcile_failed_publication(
+    directory_fd: int,
+    name: str,
+    expected_identity: tuple[int, int],
+    *,
+    expected_size: int | None = None,
+    expected_digest: str | None = None,
+) -> None:
+    """Remove our generation while preserving any later writer at ``name``."""
+    remove_owned_at(
+        directory_fd,
+        name,
+        expected_identity,
+        "redaction destination",
+        expected_size=expected_size,
+        expected_digest=expected_digest,
+    )
+
+
+def _stream_text_at(
+    source_descriptor: int,
+    output_directory_fd: int,
+    name: str,
+    published_outputs: dict[str, tuple[int, int]] | None,
+) -> tuple[str, int, str, int, dict[str, int]]:
+    try:
+        existing = os.stat(name, dir_fd=output_directory_fd, follow_symlinks=False)
     except FileNotFoundError:
         existing = None
     if existing is not None and stat.S_ISLNK(existing.st_mode):
         raise ValueError(f"redaction destination must not be a symlink: {name}")
-    if existing is not None and not stat.S_ISREG(existing.st_mode):
-        raise ValueError(f"redaction destination must be a regular file: {name}")
-    temporary = f".{name}.{secrets.token_hex(16)}.tmp"
-    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
-    descriptor = -1
+    if existing is not None:
+        if not stat.S_ISREG(existing.st_mode):
+            raise ValueError(f"redaction destination must be a regular file: {name}")
+        raise FileExistsError(f"redaction destination already exists: {name}")
+
+    temporary = f".sddgov.redaction-stage-{secrets.token_hex(16)}"
+    claimed = f".sddgov.redaction-claim-{secrets.token_hex(16)}"
+    output_descriptor = -1
+    staging_guard = -1
+    publication_descriptor = -1
+    temporary_identity: tuple[int, int] | None = None
+    claim_verified = False
+    published = False
+    committed = False
+    source_digest = hashlib.sha256()
+    output_digest = hashlib.sha256()
+    source_size = 0
+    output_size = 0
+    decoder = codecs.getincrementaldecoder("utf-8")("strict")
+    pending = ""
+    redactor = _StreamingTextRedactor()
     try:
-        descriptor = os.open(temporary, flags, 0o600, dir_fd=directory_fd)
-        view = memoryview(data)
-        while view:
-            written = os.write(descriptor, view)
-            view = view[written:]
-        os.fsync(descriptor)
-        os.close(descriptor)
-        descriptor = -1
-        os.replace(
+        output_descriptor = os.open(
             temporary,
-            name,
-            src_dir_fd=directory_fd,
-            dst_dir_fd=directory_fd,
+            os.O_WRONLY
+            | os.O_CREAT
+            | os.O_EXCL
+            | getattr(os, "O_NOFOLLOW", 0),
+            0o600,
+            dir_fd=output_directory_fd,
         )
-        published = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
-        if published_outputs is not None:
-            published_outputs[name] = (published.st_dev, published.st_ino)
-        os.fsync(directory_fd)
-    finally:
-        if descriptor >= 0:
-            os.close(descriptor)
+        opened = os.fstat(output_descriptor)
+        temporary_identity = (opened.st_dev, opened.st_ino)
+        if not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1:
+            raise ValueError(f"redaction staging file is unsafe: {name}")
+
+        def publish_text(value: str) -> None:
+            nonlocal output_size
+            encoded = value.encode("utf-8")
+            remaining = memoryview(encoded)
+            while remaining:
+                written = os.write(output_descriptor, remaining)
+                if written <= 0:
+                    raise OSError("redaction output write made no progress")
+                remaining = remaining[written:]
+            output_digest.update(encoded)
+            output_size += len(encoded)
+
+        while True:
+            chunk = os.read(source_descriptor, STREAM_CHUNK_BYTES)
+            if not chunk:
+                break
+            source_size += len(chunk)
+            if source_size > MAX_REDACTION_FILE_BYTES:
+                raise ValueError(
+                    f"redaction source exceeds {MAX_REDACTION_FILE_BYTES} bytes: {name}; collect a bounded excerpt or summary"
+                )
+            source_digest.update(chunk)
+            pending += decoder.decode(chunk, final=False)
+            while True:
+                newline = pending.find("\n")
+                if newline < 0:
+                    if len(pending) > MAX_LOGICAL_LINE_CHARACTERS:
+                        raise ValueError(
+                            f"redaction source has a logical line exceeding {MAX_LOGICAL_LINE_CHARACTERS} characters: {name}"
+                        )
+                    break
+                line = pending[: newline + 1]
+                pending = pending[newline + 1 :]
+                if len(line) - 1 > MAX_LOGICAL_LINE_CHARACTERS:
+                    raise ValueError(
+                        f"redaction source has a logical line exceeding {MAX_LOGICAL_LINE_CHARACTERS} characters: {name}"
+                    )
+                publish_text(redactor.redact_line(line))
+        pending += decoder.decode(b"", final=True)
+        if len(pending) > MAX_LOGICAL_LINE_CHARACTERS:
+            raise ValueError(
+                f"redaction source has a logical line exceeding {MAX_LOGICAL_LINE_CHARACTERS} characters: {name}"
+            )
+        if pending:
+            publish_text(redactor.redact_line(pending))
+        publish_text(redactor.finish())
+        os.fsync(output_descriptor)
+        temporary_metadata = os.fstat(output_descriptor)
+        temporary_path = os.stat(
+            temporary,
+            dir_fd=output_directory_fd,
+            follow_symlinks=False,
+        )
+        if (
+            not stat.S_ISREG(temporary_path.st_mode)
+            or temporary_path.st_nlink != 1
+            or (temporary_metadata.st_dev, temporary_metadata.st_ino)
+            != temporary_identity
+            or (temporary_path.st_dev, temporary_path.st_ino)
+            != temporary_identity
+            or temporary_metadata.st_size != output_size
+        ):
+            raise ValueError(f"redaction staging file changed during write: {name}")
+        closing_descriptor = output_descriptor
+        staging_guard = os.dup(output_descriptor)
+        output_descriptor = -1
+        os.close(closing_descriptor)
+        os.fsync(output_directory_fd)
+
+        os.link(
+            temporary,
+            claimed,
+            src_dir_fd=output_directory_fd,
+            dst_dir_fd=output_directory_fd,
+            follow_symlinks=False,
+        )
+        closing_guard = staging_guard
+        staging_guard = -1
         try:
-            os.unlink(temporary, dir_fd=directory_fd)
-        except FileNotFoundError:
+            os.close(closing_guard)
+        except OSError:
             pass
+        remove_owned_at(
+            output_directory_fd,
+            temporary,
+            temporary_identity,
+            "redaction staging file",
+        )
+        _validate_published_bytes(
+            output_directory_fd,
+            claimed,
+            temporary_identity,
+            output_size,
+            output_digest.hexdigest(),
+        )
+        claim_verified = True
+        try:
+            os.link(
+                claimed,
+                name,
+                src_dir_fd=output_directory_fd,
+                dst_dir_fd=output_directory_fd,
+                follow_symlinks=False,
+            )
+        except FileExistsError as exc:
+            raise FileExistsError(
+                f"redaction destination received a later writer: {name}"
+            ) from exc
+        published = True
+        publication_descriptor = os.open(
+            name,
+            os.O_RDONLY
+            | getattr(os, "O_NONBLOCK", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_CLOEXEC", 0),
+            dir_fd=output_directory_fd,
+        )
+        publication_metadata = os.fstat(publication_descriptor)
+        if (
+            not stat.S_ISREG(publication_metadata.st_mode)
+            or (publication_metadata.st_dev, publication_metadata.st_ino)
+            != temporary_identity
+        ):
+            raise ValueError(f"redaction destination changed during publish: {name}")
+        remove_owned_at(
+            output_directory_fd,
+            claimed,
+            temporary_identity,
+            "claimed redaction staging file",
+        )
+        claimed = ""
+        try:
+            published_identity = _validate_published_identity(
+                output_directory_fd, name, temporary_metadata
+            )
+            _validate_published_bytes(
+                output_directory_fd,
+                name,
+                temporary_identity,
+                output_size,
+                output_digest.hexdigest(),
+            )
+        except BaseException as primary:
+            try:
+                _reconcile_failed_publication(
+                    output_directory_fd,
+                    name,
+                    (temporary_metadata.st_dev, temporary_metadata.st_ino),
+                    expected_size=output_size,
+                    expected_digest=output_digest.hexdigest(),
+                )
+            except BaseException as cleanup_error:
+                raise primary from cleanup_error
+            raise
+        if published_outputs is not None:
+            published_outputs[name] = published_identity
+        os.fsync(output_directory_fd)
+        _validate_published_bytes(
+            output_directory_fd,
+            name,
+            temporary_identity,
+            output_size,
+            output_digest.hexdigest(),
+        )
+        committed = True
+        closing_publication_descriptor = publication_descriptor
+        publication_descriptor = -1
+        try:
+            os.close(closing_publication_descriptor)
+        except OSError:
+            pass
+        return (
+            source_digest.hexdigest(),
+            source_size,
+            output_digest.hexdigest(),
+            output_size,
+            redactor.counts,
+        )
+    except BaseException as primary:
+        cleanup_error: BaseException | None = None
+        if output_descriptor >= 0:
+            closing_descriptor = output_descriptor
+            output_descriptor = -1
+            try:
+                os.close(closing_descriptor)
+            except BaseException as exc:
+                cleanup_error = exc
+        if published and not committed and temporary_identity is not None:
+            try:
+                remove_owned_at(
+                    output_directory_fd,
+                    name,
+                    temporary_identity,
+                    "redaction destination",
+                    expected_size=output_size,
+                    expected_digest=output_digest.hexdigest(),
+                )
+            except BaseException as exc:
+                if cleanup_error is None:
+                    cleanup_error = exc
+        if publication_descriptor >= 0:
+            closing_publication_descriptor = publication_descriptor
+            publication_descriptor = -1
+            try:
+                os.close(closing_publication_descriptor)
+            except BaseException as exc:
+                if cleanup_error is None:
+                    cleanup_error = exc
+        if cleanup_error is not None:
+            raise primary from cleanup_error
+        raise
+    finally:
+        if temporary_identity is not None and temporary:
+            try:
+                remove_owned_at(
+                    output_directory_fd,
+                    temporary,
+                    temporary_identity,
+                    "redaction staging file",
+                    expected_size=output_size,
+                    expected_digest=output_digest.hexdigest(),
+                )
+            except (OSError, ValueError):
+                pass
+        if temporary_identity is not None and claimed:
+            try:
+                remove_owned_at(
+                    output_directory_fd,
+                    claimed,
+                    temporary_identity,
+                    "claimed redaction staging file",
+                    expected_size=output_size,
+                    expected_digest=output_digest.hexdigest(),
+                )
+            except (OSError, ValueError):
+                pass
+        if staging_guard >= 0:
+            try:
+                os.close(staging_guard)
+            except OSError:
+                pass
+
+
+def _hash_descriptor(descriptor: int, name: str) -> tuple[str, int]:
+    digest = hashlib.sha256()
+    size = 0
+    while True:
+        chunk = os.read(descriptor, STREAM_CHUNK_BYTES)
+        if not chunk:
+            break
+        size += len(chunk)
+        if size > MAX_REDACTION_FILE_BYTES:
+            raise ValueError(
+                f"redaction source exceeds {MAX_REDACTION_FILE_BYTES} bytes: {name}; collect a bounded excerpt or summary"
+            )
+        digest.update(chunk)
+    return digest.hexdigest(), size
+
+
+def _source_identity(metadata: os.stat_result) -> tuple[int, int, int, int, int, int]:
+    return (
+        metadata.st_dev,
+        metadata.st_ino,
+        metadata.st_size,
+        metadata.st_mtime_ns,
+        metadata.st_ctime_ns,
+        metadata.st_nlink,
+    )
 
 
 def redact_files(
@@ -134,18 +842,25 @@ def redact_files(
     output_dir_fd: int | None = None,
     published_outputs: dict[str, tuple[int, int]] | None = None,
 ) -> dict:
-    if output_dir.is_symlink():
-        raise ValueError("redaction output directory must not be a symlink")
-    output_dir.mkdir(parents=True, exist_ok=True)
     owned_output_fd = output_dir_fd is None
-    active_output_fd = (
-        _open_directory(output_dir, "redaction output directory")
-        if owned_output_fd
-        else output_dir_fd
-    )
+    if owned_output_fd:
+        try:
+            active_output_fd = open_directory_path(
+                output_dir,
+                "redaction output directory",
+                create=True,
+            )
+        except OSError as exc:
+            raise ValueError(
+                f"redaction output directory cannot be opened safely: {exc}"
+            ) from exc
+    else:
+        active_output_fd = output_dir_fd
     if active_output_fd is None:
         raise ValueError("redaction output directory is unavailable")
     report = {"schema_version": "1.0", "files": [], "blocked": [], "totals": {}}
+    call_publications: dict[str, tuple[int, int]] = {}
+    call_snapshots: dict[str, tuple[int, str]] = {}
     try:
         for source in files:
             rel_name = source.name
@@ -178,66 +893,213 @@ def redact_files(
                 if owned_source_fd:
                     os.close(active_source_fd)
                 raise ValueError(f"redaction source cannot be opened safely: {rel_name}") from exc
+            source_publications: dict[str, tuple[int, int]] = {}
+            source_snapshots: dict[str, tuple[int, str]] = {}
             try:
                 current = os.fstat(descriptor)
                 if not stat.S_ISREG(current.st_mode) or current.st_nlink != 1:
                     raise ValueError(
                         f"redaction source must be a non-linked regular file: {rel_name}"
                     )
-                chunks: list[bytes] = []
-                while True:
-                    chunk = os.read(descriptor, 1024 * 1024)
-                    if not chunk:
-                        break
-                    chunks.append(chunk)
-                raw = b"".join(chunks)
-            finally:
-                os.close(descriptor)
+                if current.st_size > MAX_REDACTION_FILE_BYTES:
+                    raise ValueError(
+                        f"redaction source exceeds {MAX_REDACTION_FILE_BYTES} bytes: {rel_name}; collect a bounded excerpt or summary"
+                    )
+                artifact_metadata = (metadata_by_name or {}).get(rel_name, {})
+                is_har = (
+                    artifact_metadata.get("collector") == "browser-har"
+                    or artifact_metadata.get("media_type") == "application/har+json"
+                    or source.suffix.lower() == ".har"
+                )
+                if is_har or source.suffix.lower() not in TEXT_SUFFIXES:
+                    source_sha256, source_size = _hash_descriptor(descriptor, rel_name)
+                    report["blocked"].append({
+                        "file": rel_name,
+                        "reason": (
+                            "har_requires_dedicated_body_stripping"
+                            if is_har
+                            else "binary_requires_manual_visual_redaction"
+                        ),
+                        "sha256": source_sha256,
+                        "size": source_size,
+                    })
+                else:
+                    try:
+                        (
+                            source_sha256,
+                            source_size,
+                            output_sha256,
+                            output_size,
+                            counts,
+                        ) = _stream_text_at(
+                            descriptor,
+                            active_output_fd,
+                            rel_name,
+                            source_publications,
+                        )
+                    except UnicodeDecodeError:
+                        os.lseek(descriptor, 0, os.SEEK_SET)
+                        source_sha256, source_size = _hash_descriptor(
+                            descriptor, rel_name
+                        )
+                        report["blocked"].append({
+                            "file": rel_name,
+                            "reason": "non_utf8_requires_manual_review",
+                            "sha256": source_sha256,
+                            "size": source_size,
+                        })
+                    else:
+                        # Publication is the transaction's linearization point.
+                        # Track the owned generation before any report,
+                        # source-identity, or descriptor-cleanup step can fail.
+                        call_publications.update(source_publications)
+                        source_snapshots[rel_name] = (output_size, output_sha256)
+                        call_snapshots.update(source_snapshots)
+                        _merge_counts(report["totals"], counts)
+                        report["files"].append({
+                            "source": rel_name,
+                            "output": rel_name,
+                            "source_sha256": source_sha256,
+                            "source_size": source_size,
+                            "output_sha256": output_sha256,
+                            "output_size": output_size,
+                            "redactions": counts,
+                        })
+                after = os.fstat(descriptor)
+                leaf = os.stat(
+                    rel_name, dir_fd=active_source_fd, follow_symlinks=False
+                )
+                if (
+                    _source_identity(before) != _source_identity(current)
+                    or _source_identity(current) != _source_identity(after)
+                    or _source_identity(after) != _source_identity(leaf)
+                ):
+                    raise ValueError(f"redaction source changed during read: {rel_name}")
                 if owned_source_fd:
-                    os.close(active_source_fd)
-            artifact_metadata = (metadata_by_name or {}).get(rel_name, {})
-            is_har = (
-                artifact_metadata.get("collector") == "browser-har"
-                or artifact_metadata.get("media_type") == "application/har+json"
-                or source.suffix.lower() == ".har"
-            )
-            if is_har or source.suffix.lower() not in TEXT_SUFFIXES:
-                report["blocked"].append({
-                    "file": rel_name,
-                    "reason": (
-                        "har_requires_dedicated_body_stripping"
-                        if is_har
-                        else "binary_requires_manual_visual_redaction"
-                    ),
-                    "sha256": sha256_bytes(raw),
-                    "size": len(raw),
-                })
-                continue
-            try:
-                text = raw.decode("utf-8")
-            except UnicodeDecodeError:
-                report["blocked"].append({
-                    "file": rel_name,
-                    "reason": "non_utf8_requires_manual_review",
-                    "sha256": sha256_bytes(raw),
-                    "size": len(raw),
-                })
-                continue
-            cleaned, counts = redact_text(text)
-            encoded = cleaned.encode("utf-8")
-            _write_at(active_output_fd, rel_name, encoded, published_outputs)
-            for key, value in counts.items():
-                report["totals"][key] = report["totals"].get(key, 0) + value
-            report["files"].append({
-                "source": rel_name,
-                "output": rel_name,
-                "source_sha256": sha256_bytes(raw),
-                "source_size": len(raw),
-                "output_sha256": sha256_bytes(encoded),
-                "output_size": len(encoded),
-                "redactions": counts,
-            })
-    finally:
+                    require_directory_path_identity(
+                        source.parent,
+                        active_source_fd,
+                        f"redaction source directory for {rel_name}",
+                    )
+                if published_outputs is not None:
+                    published_outputs.update(source_publications)
+            except BaseException as primary:
+                try:
+                    for published_name, published_identity in source_publications.items():
+                        expected_size, expected_digest = source_snapshots.get(
+                            published_name, (None, None)
+                        )
+                        _reconcile_failed_publication(
+                            active_output_fd,
+                            published_name,
+                            published_identity,
+                            expected_size=expected_size,
+                            expected_digest=expected_digest,
+                        )
+                        call_publications.pop(published_name, None)
+                        call_snapshots.pop(published_name, None)
+                        if (
+                            published_outputs is not None
+                            and published_outputs.get(published_name)
+                            == published_identity
+                        ):
+                            published_outputs.pop(published_name)
+                except BaseException as cleanup_error:
+                    raise primary from cleanup_error
+                raise
+            finally:
+                close_error: OSError | None = None
+                try:
+                    os.close(descriptor)
+                except OSError as exc:
+                    close_error = exc
+                if owned_source_fd:
+                    try:
+                        os.close(active_source_fd)
+                    except OSError as exc:
+                        if close_error is None:
+                            close_error = exc
+                if close_error is not None:
+                    raise close_error
+    except BaseException as primary:
+        cleanup_error: BaseException | None = None
+        try:
+            for published_name, published_identity in call_publications.items():
+                expected_size, expected_digest = call_snapshots.get(
+                    published_name, (None, None)
+                )
+                _reconcile_failed_publication(
+                    active_output_fd,
+                    published_name,
+                    published_identity,
+                    expected_size=expected_size,
+                    expected_digest=expected_digest,
+                )
+                if (
+                    published_outputs is not None
+                    and published_outputs.get(published_name) == published_identity
+                ):
+                    published_outputs.pop(published_name)
+        except BaseException as exc:
+            cleanup_error = exc
         if owned_output_fd:
-            os.close(active_output_fd)
-    return report
+            try:
+                os.close(active_output_fd)
+            except OSError as exc:
+                if cleanup_error is None:
+                    cleanup_error = exc
+        if cleanup_error is not None:
+            raise primary from cleanup_error
+        raise
+    else:
+        if owned_output_fd:
+            try:
+                require_directory_path_identity(
+                    output_dir,
+                    active_output_fd,
+                    "redaction output directory",
+                )
+            except BaseException as primary:
+                cleanup_error: BaseException | None = None
+                try:
+                    for published_name, published_identity in call_publications.items():
+                        expected_size, expected_digest = call_snapshots.get(
+                            published_name, (None, None)
+                        )
+                        _reconcile_failed_publication(
+                            active_output_fd,
+                            published_name,
+                            published_identity,
+                            expected_size=expected_size,
+                            expected_digest=expected_digest,
+                        )
+                        if (
+                            published_outputs is not None
+                            and published_outputs.get(published_name)
+                            == published_identity
+                        ):
+                            published_outputs.pop(published_name)
+                except BaseException as exc:
+                    cleanup_error = exc
+                try:
+                    closing_output_fd = active_output_fd
+                    active_output_fd = -1
+                    os.close(closing_output_fd)
+                except OSError as exc:
+                    if cleanup_error is None:
+                        cleanup_error = exc
+                if cleanup_error is not None:
+                    raise primary from cleanup_error
+                raise
+        if owned_output_fd:
+            try:
+                closing_output_fd = active_output_fd
+                active_output_fd = -1
+                os.close(closing_output_fd)
+            except OSError:
+                # The outputs and report are already committed. POSIX close(2)
+                # errors are not safely retryable because the fd may have been
+                # released and reused; do not turn a committed call into an
+                # apparent failure with unreturned outputs.
+                pass
+        return report

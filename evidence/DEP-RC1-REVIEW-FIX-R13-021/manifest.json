@@ -1,0 +1,152 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-REVIEW-FIX-R13-021",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r13-independent-review-red.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "fa9b14c9c55a4cb48961cb7ab755155c82c2551c4d1477ac1c80b0e8fe7419b1",
+      "size": 1510,
+      "collected_at": "2026-08-22T01:31:36Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r13-release-venv-red.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "b73962f1d597b9378470f834f7e0cf8f91c4dc9f34dc626d7bc709a23f5747bf",
+      "size": 958,
+      "collected_at": "2026-08-22T01:31:36Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r13-local-green.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "467a43e9474387ff034f62dca7a2d0897da40546781263df537351ca05e5841e",
+      "size": 56377,
+      "collected_at": "2026-08-22T01:31:37Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r13-ci-verify.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "18824a01de4a5012e50b38b6783686267b2e8bac1d7162e8c3ae699adf639080",
+      "size": 1013,
+      "collected_at": "2026-08-22T01:31:37Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r13-local-gate.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "27b95976d9c0f5b9c0c759cfc29180ff83c460c38be3b31af6cc16d709f00f98",
+      "size": 56931,
+      "collected_at": "2026-08-22T01:31:37Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r13-package-proof.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "8160fa7d8f4554b0b22f108c417d9fe017586ecd0934ec4fd056b9ee5615a05d",
+      "size": 58157,
+      "collected_at": "2026-08-22T01:31:37Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r13-release-bundle.json",
+      "source_suffix": ".json",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "c173a5d76313e68917bcdfe316f7a477cef38571c1b42f31d9ac99e9cb77250d",
+      "size": 303,
+      "collected_at": "2026-08-22T01:31:37Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r13-fresh-wheel-smoke.json",
+      "source_suffix": ".json",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "babfc2700c5994eaef98a9003ddefa9d16164225dac32a4680d5506966b6c13b",
+      "size": 517,
+      "collected_at": "2026-08-22T01:31:38Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r13-rollback-drill.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "58d5873b1e2eb6122a85d3db8fe0ddd31a8a044d930c33aaff8312a150f2e9b9",
+      "size": 88718,
+      "collected_at": "2026-08-22T01:31:38Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--r13-ci-verify.txt",
+      "sha256": "08fc4b9b51c5935300dd4f837a2d3537fd099eaa236e0d35dc02d21c08dccc3e",
+      "size": 1039,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r13-fresh-wheel-smoke.json",
+      "sha256": "babfc2700c5994eaef98a9003ddefa9d16164225dac32a4680d5506966b6c13b",
+      "size": 517,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r13-independent-review-red.txt",
+      "sha256": "fa9b14c9c55a4cb48961cb7ab755155c82c2551c4d1477ac1c80b0e8fe7419b1",
+      "size": 1510,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r13-local-gate.txt",
+      "sha256": "d3c701044996b0fb400f4e15fa05eb61ea626ab338a45056b635eeed51603097",
+      "size": 56957,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r13-local-green.txt",
+      "sha256": "218d6fc783008f98a2a2985ad205c90f22d8fe82840c8be41df20bd3c9ec4f74",
+      "size": 56403,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r13-package-proof.txt",
+      "sha256": "9f44beb6eeaa07d9aaee3bd213b1698620920f1bd338d83b9841bbb613d8768c",
+      "size": 58183,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r13-release-bundle.json",
+      "sha256": "c173a5d76313e68917bcdfe316f7a477cef38571c1b42f31d9ac99e9cb77250d",
+      "size": 303,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r13-release-venv-red.txt",
+      "sha256": "b73962f1d597b9378470f834f7e0cf8f91c4dc9f34dc626d7bc709a23f5747bf",
+      "size": 958,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--r13-rollback-drill.txt",
+      "sha256": "58d5873b1e2eb6122a85d3db8fe0ddd31a8a044d930c33aaff8312a150f2e9b9",
+      "size": 88718,
+      "shareable": true
+    }
+  ]
+}

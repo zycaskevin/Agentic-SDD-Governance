@@ -1,0 +1,6 @@
+PR #51 hosted macOS 15 installed-wheel rehearsal: FAIL
+Ubuntu installed-wheel rehearsal: PASS
+Stage: complete fresh-wheel smoke, installed Owner runtime probe
+Observed error: Owner client must run by absolute path from an independently installed virtual environment
+Cause under test: the smoke workspace used a fixed Darwin system alias while the reviewed venv and module used its canonical target, so one venv had two inconsistent absolute spellings.
+Required boundary: canonicalize the fixed Darwin system alias in the smoke harness before creating and invoking the venv; do not weaken the Owner runtime checks.

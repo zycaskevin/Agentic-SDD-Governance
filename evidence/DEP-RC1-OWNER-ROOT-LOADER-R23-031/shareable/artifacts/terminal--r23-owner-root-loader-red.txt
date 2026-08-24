@@ -1,0 +1,19 @@
+R22 root Owner loader Red reproduction
+
+Observed boundary:
+- The reviewed root Owner runtime passed isolated-runtime validation.
+- Card construction failed closed at the trusted public key stage.
+- The signer stage was not reached.
+- The outbox stage was not reached and no receipt was created.
+
+Machine-confirmed root cause:
+- The root-owned Owner runtime reused the Agent-facing control-plane JSON loader.
+- The Agent loader deliberately rejects effective UID zero because a root Agent is not independent from a root-owned trust store.
+- The Owner runtime deliberately requires effective UID zero for its protected installation and one-way outbox contract.
+- Those two policies made the Owner card path deterministically unavailable.
+
+Required invariant:
+- Keep the Agent loader root refusal unchanged.
+- Permit only the isolated root Owner runtime to read the two fixed public trust documents.
+- Reuse the complete retained-descriptor, root-owned path-chain, single-link, bounded-size, and recursive-unique-JSON validation.
+- Reject every caller-selected or repository-local authority path.

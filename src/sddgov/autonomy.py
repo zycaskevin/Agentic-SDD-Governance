@@ -7,23 +7,37 @@ import hashlib
 import json
 import os
 import re
+import secrets
 import socket
 import stat
+import subprocess
 import sys
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path, PurePosixPath
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
+
+try:
+    import grp
+except ImportError:  # pragma: no cover - exercised by native non-POSIX hosts
+    grp = None  # type: ignore[assignment]
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
+from .fs_security import FileSetSnapshot, canonicalize_platform_path
 from .governance import enqueue_external_action, resolve_external_action
-from .trust import load_control_plane_json
+from .trust import (
+    load_control_plane_json,
+    trusted_approver_domains_path,
+    trusted_approvers_path,
+)
 
 
 RISK_LEVELS = {"L0", "L1", "L2", "L3"}
 SHA256_PATTERN = re.compile(r"^[a-f0-9]{64}$")
+GITHUB_REPOSITORY_COMPONENT_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$")
+OWNER_CLIENT_BINDING_PREFIX = "Owner client binding: "
 ROUTINE_OPERATIONS = {
     "issue",
     "branch",
@@ -99,6 +113,7 @@ L3_NONCE_BROKER = (
     if sys.platform == "darwin"
     else Path("/run/sddgov/approval-broker.sock")
 )
+L3_NONCE_BROKER_GROUP = "_sddgov" if sys.platform == "darwin" else "sddgov"
 L3_RUNTIME_CONTEXT_FILE = Path("/etc/sddgov/runtime-context.json")
 L2_REOPEN_CONDITIONS = {"scope_or_assumptions_change"}
 
@@ -115,6 +130,31 @@ def _read_json(path: Path, default: Any = None) -> Any:
     if not path.exists():
         return default
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _reject_duplicate_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Build one JSON object while rejecting recursive duplicate member names."""
+    value: dict[str, Any] = {}
+    for key, member in pairs:
+        if key in value:
+            raise ValueError(f"JSON object contains duplicate member: {key}")
+        value[key] = member
+    return value
+
+
+def _load_unique_json_bytes(raw: bytes, label: str) -> Any:
+    try:
+        return json.loads(
+            raw.decode("utf-8"),
+            object_pairs_hook=_reject_duplicate_json_object,
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"{label} must contain UTF-8 JSON") from exc
+
+
+def _exact_line_occurrences(artifacts: list[bytes], marker: bytes) -> int:
+    """Count one exact marker line across every bounded signed artifact."""
+    return sum(raw.splitlines().count(marker) for raw in artifacts)
 
 
 def _atomic_json(path: Path, value: Any) -> None:
@@ -203,127 +243,65 @@ def _canonical_digest(value: dict[str, Any]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def _read_repository_regular_file(root: Path, relative: PurePosixPath) -> bytes:
-    """Read a repository file through retained, non-symlink directory descriptors."""
-    candidate_root = root if root.is_absolute() else Path.cwd() / root
-    if sys.platform == "darwin" and candidate_root.parts[:2] == ("/", "var"):
-        candidate_root = Path("/private/var").joinpath(*candidate_root.parts[2:])
-    directory_parts = list(candidate_root.parts[1:]) + list(relative.parts[:-1])
-    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
-    descriptors = [os.open(candidate_root.anchor or os.sep, flags)]
-    names: list[str] = []
-    file_descriptor = -1
-    try:
-        for part in directory_parts:
-            try:
-                child = os.open(part, flags, dir_fd=descriptors[-1])
-            except OSError as exc:
-                raise ValueError(
-                    "product approval assumption path cannot be opened safely"
-                ) from exc
-            metadata = os.fstat(child)
-            if not stat.S_ISDIR(metadata.st_mode):
-                os.close(child)
-                raise ValueError(
-                    "product approval assumption path component is unsafe"
-                )
-            descriptors.append(child)
-            names.append(part)
-        final_name = relative.name
-        try:
-            file_descriptor = os.open(
-                final_name,
-                os.O_RDONLY
-                | getattr(os, "O_NONBLOCK", 0)
-                | getattr(os, "O_NOFOLLOW", 0),
-                dir_fd=descriptors[-1],
-            )
-        except OSError as exc:
-            raise ValueError(
-                "product approval assumption cannot be opened safely"
-            ) from exc
-        metadata = os.fstat(file_descriptor)
-        if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
-            raise ValueError(
-                "product approval assumption must be a non-linked regular file"
-            )
-        chunks: list[bytes] = []
-        while True:
-            chunk = os.read(file_descriptor, 1024 * 1024)
-            if not chunk:
-                break
-            chunks.append(chunk)
-        try:
-            final_entry = os.stat(
-                final_name, dir_fd=descriptors[-1], follow_symlinks=False
-            )
-        except OSError as exc:
-            raise ValueError("product approval assumption path changed") from exc
-        if (
-            stat.S_ISLNK(final_entry.st_mode)
-            or (final_entry.st_dev, final_entry.st_ino)
-            != (metadata.st_dev, metadata.st_ino)
-        ):
-            raise ValueError("product approval assumption path changed")
-        for index, part in enumerate(names):
-            try:
-                current = os.stat(
-                    part, dir_fd=descriptors[index], follow_symlinks=False
-                )
-            except OSError as exc:
-                raise ValueError("product approval assumption path changed") from exc
-            opened = os.fstat(descriptors[index + 1])
-            if (
-                stat.S_ISLNK(current.st_mode)
-                or not stat.S_ISDIR(current.st_mode)
-                or (current.st_dev, current.st_ino)
-                != (opened.st_dev, opened.st_ino)
-            ):
-                raise ValueError("product approval assumption path changed")
-        return b"".join(chunks)
-    finally:
-        if file_descriptor >= 0:
-            os.close(file_descriptor)
-        for descriptor in reversed(descriptors):
-            os.close(descriptor)
+def _read_repository_regular_file(
+    root: Path,
+    relative: PurePosixPath,
+    *,
+    max_bytes: int | None = None,
+) -> bytes:
+    """Read one repository file through a call-wide descriptor snapshot."""
+    with FileSetSnapshot(root, "product approval repository") as snapshot:
+        return snapshot.read(relative, max_bytes=max_bytes or 1024 * 1024)
 
 
-def _verified_assumptions_digest(root: Path, assumptions: Any) -> str:
+def _verified_assumptions_digest(
+    root: Path,
+    assumptions: Any,
+    *,
+    snapshot: FileSetSnapshot | None = None,
+) -> str:
     """Recalculate the signed L2 assumptions from current repository bytes."""
     if not isinstance(assumptions, list) or not assumptions:
         raise ValueError("product approval assumptions must be a non-empty array")
-    normalized: list[dict[str, str]] = []
-    seen: set[str] = set()
-    for index, row in enumerate(assumptions):
-        if (
-            not isinstance(row, dict)
-            or set(row) != {"path", "sha256"}
-            or not isinstance(row.get("path"), str)
-            or not row["path"].strip()
-            or not isinstance(row.get("sha256"), str)
-            or not SHA256_PATTERN.fullmatch(row["sha256"])
-        ):
-            raise ValueError(f"product approval assumptions[{index}] is invalid")
-        value = row["path"]
-        pure = PurePosixPath(value)
-        if (
-            "\\" in value
-            or pure.is_absolute()
-            or str(pure) != value
-            or any(part in {"", ".", ".."} for part in pure.parts)
-            or value in seen
-        ):
-            raise ValueError(f"product approval assumptions[{index}] path is unsafe")
-        seen.add(value)
-        raw = _read_repository_regular_file(root, pure)
-        digest = hashlib.sha256(raw)
-        if digest.hexdigest() != row["sha256"]:
-            raise ValueError("product approval assumption artifact changed")
-        normalized.append({"path": value, "sha256": row["sha256"]})
-    encoded = json.dumps(
-        normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":")
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
+
+    def verify(active_snapshot: FileSetSnapshot) -> str:
+        normalized: list[dict[str, str]] = []
+        seen: set[str] = set()
+        for index, row in enumerate(assumptions):
+            if (
+                not isinstance(row, dict)
+                or set(row) != {"path", "sha256"}
+                or not isinstance(row.get("path"), str)
+                or not row["path"].strip()
+                or not isinstance(row.get("sha256"), str)
+                or not SHA256_PATTERN.fullmatch(row["sha256"])
+            ):
+                raise ValueError(f"product approval assumptions[{index}] is invalid")
+            value = row["path"]
+            pure = PurePosixPath(value)
+            if (
+                "\\" in value
+                or pure.is_absolute()
+                or str(pure) != value
+                or any(part in {"", ".", ".."} for part in pure.parts)
+                or value in seen
+            ):
+                raise ValueError(f"product approval assumptions[{index}] path is unsafe")
+            seen.add(value)
+            raw = active_snapshot.read(pure, max_bytes=1024 * 1024)
+            digest = hashlib.sha256(raw)
+            if digest.hexdigest() != row["sha256"]:
+                raise ValueError("product approval assumption artifact changed")
+            normalized.append({"path": value, "sha256": row["sha256"]})
+        encoded = json.dumps(
+            normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+        return hashlib.sha256(encoded).hexdigest()
+
+    if snapshot is not None:
+        return verify(snapshot)
+    with FileSetSnapshot(root, "product approval assumptions") as owned_snapshot:
+        return verify(owned_snapshot)
 
 
 def _validate_operation_payload(payload: Any) -> str:
@@ -400,30 +378,32 @@ def _parse_time(value: Any, field: str) -> datetime:
     return parsed.astimezone(timezone.utc)
 
 
-def _trusted_approver_store(root: Path) -> dict[str, Any]:
-    external = os.environ.get("SDDGOV_TRUSTED_APPROVERS_FILE")
-    if not external:
-        raise ValueError(
-            "trusted approver authority requires a separate control-plane file"
-        )
-    source = Path(external).expanduser().absolute()
-    try:
-        source.resolve().relative_to(root.resolve())
-    except ValueError:
-        data = load_control_plane_json(
-            source, "out-of-band trusted approver store"
-        )
-    else:
-        raise ValueError(
-            "out-of-band trusted approver store must be outside the repository"
-        )
+ControlPlaneLoader = Callable[[Path, str], dict[str, Any]]
+
+
+def _trusted_approver_store(
+    root: Path,
+    *,
+    control_plane_loader: ControlPlaneLoader | None = None,
+) -> dict[str, Any]:
+    source = trusted_approvers_path(root)
+    loader = load_control_plane_json if control_plane_loader is None else control_plane_loader
+    data = loader(source, "fixed trusted approver store")
     if not isinstance(data, dict):
         raise ValueError("trusted approver store must contain a JSON object")
     return data
 
 
-def _trusted_approver(root: Path, approver_id: str) -> dict[str, Any]:
-    data = _trusted_approver_store(root)
+def _trusted_approver(
+    root: Path,
+    approver_id: str,
+    *,
+    control_plane_loader: ControlPlaneLoader | None = None,
+) -> dict[str, Any]:
+    data = _trusted_approver_store(
+        root,
+        control_plane_loader=control_plane_loader,
+    )
     if (
         not isinstance(data, dict)
         or set(data) != {"schema_version", "approvers"}
@@ -459,8 +439,144 @@ def _trusted_approver(root: Path, approver_id: str) -> dict[str, Any]:
     return approver
 
 
+def _trusted_approver_domain(
+    root: Path,
+    approver_id: str,
+    *,
+    control_plane_loader: ControlPlaneLoader | None = None,
+) -> dict[str, str]:
+    loader = load_control_plane_json if control_plane_loader is None else control_plane_loader
+    data = loader(
+        trusted_approver_domains_path(root),
+        "fixed trusted approver domain store",
+    )
+    if (
+        not isinstance(data, dict)
+        or set(data) != {"schema_version", "bindings"}
+        or data.get("schema_version") != "1.0"
+        or not isinstance(data.get("bindings"), list)
+    ):
+        raise ValueError("trusted approver domain store is missing or invalid")
+    seen: set[str] = set()
+    for row in data["bindings"]:
+        if (
+            not isinstance(row, dict)
+            or set(row)
+            != {
+                "approver_id",
+                "repository_id",
+                "repository_root",
+                "trust_domain",
+                "status",
+            }
+            or not all(
+                isinstance(row.get(field), str) and row[field].strip()
+                for field in (
+                    "approver_id",
+                    "repository_id",
+                    "repository_root",
+                    "trust_domain",
+                )
+            )
+            or row.get("status") not in {"active", "revoked"}
+            or row["approver_id"] in seen
+        ):
+            raise ValueError("trusted approver domain record has an invalid contract")
+        seen.add(row["approver_id"])
+    matches = [
+        row
+        for row in data["bindings"]
+        if row.get("approver_id") == approver_id and row.get("status") == "active"
+    ]
+    if len(matches) != 1:
+        raise ValueError("trusted approver has no unique active trust-domain binding")
+    binding = matches[0]
+    configured_root = canonicalize_platform_path(Path(binding["repository_root"]))
+    current_root = canonicalize_platform_path(root)
+    if (
+        not Path(binding["repository_root"]).is_absolute()
+        or os.fspath(configured_root) != binding["repository_root"]
+        or configured_root != current_root
+    ):
+        raise ValueError("trusted approver is not authorized for this repository root")
+    repository_id = _repository_identity(root)
+    if binding["repository_id"] != repository_id:
+        raise ValueError("trusted approver is not authorized for this repository")
+    return {
+        "approver_id": binding["approver_id"],
+        "repository_id": binding["repository_id"],
+        "trust_domain": binding["trust_domain"],
+        "status": binding["status"],
+    }
+
+
+def _repository_identity(root: Path) -> str:
+    """Return one canonical GitHub repository identity for approval audience checks."""
+    safe_root = canonicalize_platform_path(root)
+    environment = {
+        "PATH": "/usr/bin:/bin",
+        "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_CONFIG_GLOBAL": os.devnull,
+        "GIT_TERMINAL_PROMPT": "0",
+    }
+
+    def git(*arguments: str) -> str:
+        try:
+            result = subprocess.run(
+                [
+                    "/usr/bin/git",
+                    "-c",
+                    f"safe.directory={os.fspath(safe_root)}",
+                    "-C",
+                    os.fspath(safe_root),
+                    *arguments,
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=10,
+                env=environment,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise ValueError("repository identity is unavailable") from exc
+        if result.returncode != 0 or not result.stdout.strip():
+            raise ValueError("repository identity is unavailable")
+        value = result.stdout.strip()
+        if len(value.encode("utf-8")) > 4096 or "\n" in value or "\r" in value:
+            raise ValueError("repository identity output is invalid")
+        return value
+
+    top_level = Path(git("rev-parse", "--show-toplevel")).absolute()
+    if top_level != safe_root:
+        raise ValueError("approval root must be the exact Git worktree root")
+    remote = git("config", "--local", "--get", "remote.origin.url")
+    if remote.startswith("git@github.com:"):
+        repository = remote[len("git@github.com:") :]
+    else:
+        repository = ""
+        for prefix in ("https://github.com/", "ssh://git@github.com/"):
+            if remote.startswith(prefix):
+                repository = remote[len(prefix) :]
+                break
+    repository = repository.removesuffix(".git").strip("/")
+    components = repository.split("/")
+    if (
+        len(components) != 2
+        or any(
+            GITHUB_REPOSITORY_COMPONENT_PATTERN.fullmatch(component) is None
+            for component in components
+        )
+    ):
+        raise ValueError("repository origin is not one canonical GitHub repository")
+    return f"github.com/{components[0].lower()}/{components[1].lower()}"
+
+
 def _verify_product_envelope(
-    root: Path, envelope: Any
+    root: Path,
+    envelope: Any,
+    *,
+    control_plane_loader: ControlPlaneLoader | None = None,
+    assumption_snapshot: FileSetSnapshot | None = None,
 ) -> tuple[dict[str, Any], str]:
     """Verify one trusted-owner-signed L2 product decision."""
     if (
@@ -497,7 +613,14 @@ def _verify_product_envelope(
         )
     if not SHA256_PATTERN.fullmatch(receipt["assumptions_sha256"]):
         raise ValueError("product approval assumptions_sha256 is invalid")
-    if _verified_assumptions_digest(root, receipt["assumptions"]) != receipt["assumptions_sha256"]:
+    if (
+        _verified_assumptions_digest(
+            root,
+            receipt["assumptions"],
+            snapshot=assumption_snapshot,
+        )
+        != receipt["assumptions_sha256"]
+    ):
         raise ValueError("product approval assumptions digest does not match artifacts")
     if len(receipt["nonce"]) < 12:
         raise ValueError("product approval nonce must contain at least 12 characters")
@@ -510,7 +633,16 @@ def _verify_product_envelope(
         raise ValueError("product approval is expired or has an invalid validity window")
     if expires_at - issued_at > timedelta(days=366):
         raise ValueError("product approval validity exceeds 366 days")
-    approver = _trusted_approver(root, receipt["approved_by"])
+    approver = _trusted_approver(
+        root,
+        receipt["approved_by"],
+        control_plane_loader=control_plane_loader,
+    )
+    _trusted_approver_domain(
+        root,
+        receipt["approved_by"],
+        control_plane_loader=control_plane_loader,
+    )
     try:
         public_key = base64.b64decode(approver["public_key"], validate=True)
         signature = base64.b64decode(envelope["signature"], validate=True)
@@ -524,7 +656,21 @@ def _verify_product_envelope(
 
 def import_product_approval(root: Path, envelope_path: Path) -> dict[str, Any]:
     """Verify and import one trusted-owner-signed L2 product decision."""
-    envelope = _read_json(envelope_path)
+    expanded = canonicalize_platform_path(envelope_path)
+    if not expanded.name or expanded.name in {".", ".."}:
+        raise ValueError("signed product approval path is unsafe")
+    with FileSetSnapshot(
+        expanded.parent,
+        "signed product approval envelope",
+    ) as snapshot:
+        raw_envelope = snapshot.read(
+            PurePosixPath(expanded.name),
+            max_bytes=1024 * 1024,
+        )
+        envelope = _load_unique_json_bytes(
+            raw_envelope,
+            "signed product approval envelope",
+        )
     receipt, receipt_sha256 = _verify_product_envelope(root, envelope)
     with _decision_lock(root):
         data = _decision_store(root)
@@ -562,6 +708,187 @@ def import_product_approval(root: Path, envelope_path: Path) -> dict[str, Any]:
         "receipt_sha256": receipt_sha256,
         "verification": "SIGNATURE_VERIFIED",
     }
+
+
+def verify_product_decision(
+    root: Path,
+    decision_id: str,
+    request_path: str,
+) -> dict[str, Any]:
+    """Reverify one stored L2 signature, row, audience, and exact request."""
+    pure = PurePosixPath(request_path)
+    if (
+        not request_path
+        or "\\" in request_path
+        or "\x00" in request_path
+        or pure.is_absolute()
+        or str(pure) != request_path
+        or any(part in {"", ".", ".."} for part in pure.parts)
+    ):
+        raise ValueError("product decision request must be repository-relative")
+    with FileSetSnapshot(
+        root,
+        "stored product decision repository",
+    ) as snapshot:
+        raw = snapshot.read(pure, max_bytes=1024 * 1024)
+        request = _load_unique_json_bytes(raw, "product decision request")
+        if (
+            not isinstance(request, dict)
+            or request.get("risk_level") != "L2"
+            or request.get("category") != "product_decision"
+            or request.get("effects") != {}
+            or _closed_category_envelope_error(request) is not None
+            or request.get("decision_id") != decision_id
+        ):
+            raise ValueError("product decision request has an invalid exact L2 contract")
+        package_input = request.get("decision_package")
+        if not isinstance(package_input, dict):
+            raise ValueError("product decision request lacks one exact Decision Package")
+        try:
+            package = build_action_required(**package_input)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "product decision request has an invalid Decision Package"
+            ) from exc
+        if _action_required_binding_error(request, package) is not None:
+            raise ValueError("product decision request package is not bound to its scope")
+        decision = _find_decision(root, decision_id)
+        if decision is None:
+            raise ValueError("stored product decision failed cryptographic verification")
+        try:
+            receipt, receipt_sha256 = _verify_product_envelope(
+                root,
+                decision["approval_envelope"],
+                assumption_snapshot=snapshot,
+            )
+        except (KeyError, ValueError) as exc:
+            raise ValueError(
+                "stored product decision failed cryptographic verification"
+            ) from exc
+        if not _l2_approval_matches_verified(
+            decision,
+            scope=request.get("decision_scope"),
+            receipt=receipt,
+            receipt_sha256=receipt_sha256,
+        ):
+            raise ValueError("stored product decision failed cryptographic verification")
+        assumption_paths = request.get("assumption_paths")
+        if (
+            not isinstance(assumption_paths, list)
+            or not assumption_paths
+            or any(
+                not isinstance(path, str)
+                or not path
+                or "\\" in path
+                or "\x00" in path
+                or PurePosixPath(path).is_absolute()
+                or str(PurePosixPath(path)) != path
+                or any(
+                    part in {"", ".", ".."}
+                    for part in PurePosixPath(path).parts
+                )
+                for path in assumption_paths
+            )
+            or assumption_paths != sorted(set(assumption_paths))
+            or assumption_paths.count(request_path) != 1
+            or assumption_paths
+            != [row.get("path") for row in receipt["assumptions"]]
+        ):
+            raise ValueError("stored product decision assumptions do not match the request")
+        request_rows = [
+            row for row in receipt["assumptions"] if row.get("path") == request_path
+        ]
+        if (
+            len(request_rows) != 1
+            or not secrets.compare_digest(
+                request_rows[0]["sha256"],
+                hashlib.sha256(raw).hexdigest(),
+            )
+        ):
+            raise ValueError("stored product decision is not bound to this exact request")
+        valid_days = request.get("valid_days")
+        if (
+            not isinstance(valid_days, int)
+            or isinstance(valid_days, bool)
+            or not 1 <= valid_days <= 366
+            or _parse_time(receipt["expires_at"], "expires_at")
+            - _parse_time(receipt["issued_at"], "issued_at")
+            != timedelta(days=valid_days)
+            or request.get("approver_id") != receipt["approved_by"]
+        ):
+            raise ValueError("stored product decision signer or validity differs from request")
+        owner_client = request.get("owner_client")
+        if (
+            not isinstance(owner_client, dict)
+            or set(owner_client) != {"version", "source_sha256"}
+            or not isinstance(owner_client.get("version"), str)
+            or not owner_client["version"].strip()
+            or not isinstance(owner_client.get("source_sha256"), str)
+            or SHA256_PATTERN.fullmatch(owner_client["source_sha256"]) is None
+        ):
+            raise ValueError("product decision Owner client binding is invalid")
+        # Import lazily to avoid an autonomy/Owner-client module cycle.  Reuse is
+        # authorized only while the currently installed reviewed client is still
+        # byte-identical to the identity signed into the decision.
+        from .owner_approval import _owner_client_identity
+
+        current_owner_client = _owner_client_identity()
+        if (
+            owner_client.get("version") != current_owner_client.get("version")
+            or not secrets.compare_digest(
+                owner_client["source_sha256"],
+                current_owner_client.get("source_sha256", ""),
+            )
+        ):
+            raise ValueError(
+                "stored product decision Owner client no longer matches the reviewed installed source"
+            )
+        marker = (
+            OWNER_CLIENT_BINDING_PREFIX
+            + json.dumps(
+                owner_client,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            )
+        ).encode("utf-8")
+        assumption_artifacts = [
+            snapshot.read(
+                PurePosixPath(row["path"]),
+                max_bytes=1024 * 1024,
+            )
+            for row in receipt["assumptions"]
+        ]
+        if _exact_line_occurrences(assumption_artifacts, marker) != 1:
+            raise ValueError(
+                "signed product decision does not bind one exact Owner client identity"
+            )
+        options = package.get("options")
+        if (
+            not isinstance(options, list)
+            or len(options) != 2
+            or [row.get("label") for row in options if isinstance(row, dict)]
+            != ["A", "B"]
+            or package.get("recommended") != "A"
+            or not isinstance(options[0].get("description"), str)
+            or receipt.get("summary")
+            != f"Approved option A: {options[0]['description']}"
+        ):
+            raise ValueError(
+                "stored product decision summary differs from the exact request"
+            )
+        binding = _trusted_approver_domain(root, receipt["approved_by"])
+        result = {
+            "decision_id": decision_id,
+            "approved_by": receipt["approved_by"],
+            "repository_id": binding["repository_id"],
+            "trust_domain": binding["trust_domain"],
+            "expires_at": receipt["expires_at"],
+            "receipt_sha256": receipt_sha256,
+            "verification": "SIGNATURE_ROW_AUDIENCE_AND_REQUEST_VERIFIED",
+        }
+    return result
 
 
 def _verify_external_action_resolution_envelope(
@@ -833,7 +1160,13 @@ def _consume_nonce_via_control_plane(
     nonce: str, receipt_sha256: str, operation_payload_sha256: str
 ) -> bool:
     """Atomically consume an L3 nonce through an independent Unix service."""
-    if os.name == "nt" or not hasattr(os, "geteuid") or os.geteuid() == 0:
+    if (
+        os.name != "posix"
+        or sys.platform not in {"linux", "darwin"}
+        or grp is None
+        or not hasattr(os, "geteuid")
+        or os.geteuid() == 0
+    ):
         return False
     if not L3_NONCE_BROKER.is_absolute():
         return False
@@ -853,9 +1186,14 @@ def _consume_nonce_via_control_plane(
         metadata = L3_NONCE_BROKER.lstat()
     except OSError:
         return False
+    try:
+        expected_group_id = grp.getgrnam(L3_NONCE_BROKER_GROUP).gr_gid
+    except (AttributeError, KeyError, OSError, TypeError, ValueError):
+        return False
     if (
         metadata.st_uid != 0
-        or metadata.st_mode & 0o002
+        or metadata.st_gid != expected_group_id
+        or stat.S_IMODE(metadata.st_mode) != 0o660
         or not stat.S_ISSOCK(metadata.st_mode)
     ):
         return False
@@ -903,11 +1241,12 @@ def _find_decision(root: Path, decision_id: str | None) -> dict[str, Any] | None
     )
 
 
-def _l2_approval_matches(
-    root: Path,
+def _l2_approval_matches_verified(
     decision: dict[str, Any],
     *,
     scope: Any,
+    receipt: dict[str, Any],
+    receipt_sha256: str,
 ) -> bool:
     if (
         decision.get("risk_level") != "L2"
@@ -915,12 +1254,6 @@ def _l2_approval_matches(
         or not isinstance(scope, str)
         or not scope.strip()
     ):
-        return False
-    try:
-        receipt, receipt_sha256 = _verify_product_envelope(
-            root, decision.get("approval_envelope")
-        )
-    except ValueError:
         return False
     signed_fields = {
         "decision_id": receipt["decision_id"],
@@ -938,6 +1271,26 @@ def _l2_approval_matches(
     if any(decision.get(field) != value for field, value in signed_fields.items()):
         return False
     return receipt["scope"] == scope
+
+
+def _l2_approval_matches(
+    root: Path,
+    decision: dict[str, Any],
+    *,
+    scope: Any,
+) -> bool:
+    try:
+        receipt, receipt_sha256 = _verify_product_envelope(
+            root, decision.get("approval_envelope")
+        )
+    except ValueError:
+        return False
+    return _l2_approval_matches_verified(
+        decision,
+        scope=scope,
+        receipt=receipt,
+        receipt_sha256=receipt_sha256,
+    )
 
 
 def _l3_approval_is_fresh(decision: dict[str, Any], operation_id: str | None) -> bool:
@@ -1158,6 +1511,10 @@ def _closed_category_envelope_error(request: dict[str, Any]) -> str | None:
                 "reopen_condition_triggered",
                 "decision_package",
                 "unrelated_work_exists",
+                "assumption_paths",
+                "approver_id",
+                "valid_days",
+                "owner_client",
             }
         )
     elif category in {"high_risk_operation", *HIGH_RISK_CATEGORIES}:

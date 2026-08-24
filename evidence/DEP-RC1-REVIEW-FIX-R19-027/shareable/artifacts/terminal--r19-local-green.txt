@@ -1,0 +1,34 @@
+R19 LOCAL GREEN
+
+Exact Base: 1a5a0b214eccc2b9edd076fd5e2f222c4a456725
+Atomic product commit: d7f40bcd1929aaab5c2327e69b7ffd2bc58a0ae0
+Branch: feat/rc1-readiness-r19-final
+Runtime: Python 3.12, Linux aarch64
+
+Dual hash-locked environment:
+pip check: No broken requirements found.
+
+Candidate validation:
+sddgov validate: OK managed governance contracts and lifecycle assets
+sddgov ci verify: ok=true, errors=[]
+
+Full suite and exact-interpreter Local Gate:
+Ran 403 tests in 14.627s
+OK (skipped=12: sandbox-native AF_UNIX cases)
+Local Gate commands resolved to the active isolated Python interpreter.
+Local Gate validate returned 0.
+
+Sandbox-external real AF_UNIX suite:
+Ran 8 tests in 3.209s
+OK (skipped=1: installed-wheel provenance reserved for wheel smoke/hosted CI)
+Seven active tests covered distinct descriptor/path inodes, no-clobber publication,
+replacement preservation, staging cleanup, signal cleanup/restart, and real health.
+
+Focused regression boundaries all passed:
+- owned cleanup later-writer preservation
+- benchmark leaf and parent symlink rejection
+- exact Darwin system-temp and system-var alias mapping without general realpath
+- Darwin and WSL local-path masking, including streaming boundaries
+- EOF-aware Broker health delayed-extra, oversize, and timeout rejection
+- exact manifest artifact withdrawal matching
+- CodeRabbit product/current-DEP selection under the documented ceiling

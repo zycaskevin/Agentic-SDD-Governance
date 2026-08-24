@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-CI-COMPAT-R28-036",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r28-code-review-red.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "2efa62be01b8f99f6b7b72a77c5233f1a456ee598c9b2cd6d0cdf0f88eb63405",
+      "size": 1296,
+      "collected_at": "2026-08-24T04:12:51Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--r28-code-review-red.txt",
+      "sha256": "e493648221bfba5f7a755172cc50d1e0fec22a9fadf83e2a893a6e3071b962c2",
+      "size": 1360,
+      "shareable": true
+    }
+  ]
+}

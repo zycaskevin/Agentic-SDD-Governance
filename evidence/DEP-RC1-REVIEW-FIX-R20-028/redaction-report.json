@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "terminal--local-green.txt",
+      "output": "terminal--local-green.txt",
+      "source_sha256": "876493256682caa54171bdef8ab5877f06a44f744b472110cdea940e4c02974a",
+      "source_size": 646,
+      "output_sha256": "876493256682caa54171bdef8ab5877f06a44f744b472110cdea940e4c02974a",
+      "output_size": 646,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--package-proof.txt",
+      "output": "terminal--package-proof.txt",
+      "source_sha256": "8f10346aba2ee4a5caf022fda47fdc0ecbf3ed2790fe6354e0bc5eeea4dbea48",
+      "source_size": 472,
+      "output_sha256": "8f10346aba2ee4a5caf022fda47fdc0ecbf3ed2790fe6354e0bc5eeea4dbea48",
+      "output_size": 472,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--review-red.txt",
+      "output": "terminal--review-red.txt",
+      "source_sha256": "7028aa22279790ef39655b2dbb011c4853434e1f1d93ff650387e3ab3c53228e",
+      "source_size": 663,
+      "output_sha256": "7028aa22279790ef39655b2dbb011c4853434e1f1d93ff650387e3ab3c53228e",
+      "output_size": 663,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--rollback-proof.txt",
+      "output": "terminal--rollback-proof.txt",
+      "source_sha256": "403e31c33124ca8061ff5e4fd454891f11fa0b4572a56a969821ee86610898c2",
+      "source_size": 470,
+      "output_sha256": "403e31c33124ca8061ff5e4fd454891f11fa0b4572a56a969821ee86610898c2",
+      "output_size": 470,
+      "redactions": {}
+    }
+  ],
+  "blocked": [],
+  "totals": {},
+  "dep_id": "DEP-RC1-REVIEW-FIX-R20-028",
+  "generated_at": "2026-08-22T06:49:09Z"
+}

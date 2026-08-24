@@ -1,0 +1,21 @@
+R26 exact Gate: 8a2caa1df505eb2c0aedd17e6cde278ce7998943
+Independent reviewer verdict: FAIL / NO-SIGN
+
+Red 1: product decision verification consumed separate filesystem generations.
+The R26 verifier read the request through one FileSetSnapshot, verified the
+signed assumption digest through another snapshot, verified the envelope a
+second time, and read each Owner-client marker through additional snapshots.
+There was no call-wide retained file set whose exit reconciled all request and
+assumption paths together.
+
+Red 2: a cached file bypassed a later smaller bound.
+Command executed against exact R26 source:
+  PYTHONPATH=src python -c <FileSetSnapshot 300 KiB large-then-small probe>
+Observed output:
+  FIRST_BYTES=307200
+  R26_UNEXPECTED_SECOND_PASS=307200
+Expected second read: ValueError because 307200 exceeds 262144 bytes.
+
+CodeRabbit exact R26 review: [REDACTED_PHONE_OR_NUMBER]. It independently identified the same
+cache-bound defect. Hosted Ubuntu and macOS were Green, showing the missing
+hostile boundaries were not covered by the prior ordinary suite.

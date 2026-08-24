@@ -1,0 +1,21 @@
+R22 Red reproduction summary
+
+Exact baseline Gate Head: 1d226f4d9dc919ab7fc147391394b9e65f98e2a2
+Independent R21 verdict: FAIL; no review receipt created.
+CodeRabbit exact-Head review: 9 actionable inline findings.
+
+Machine reproductions before the R22 corrections:
+- Evidence caller raised after publication: caller inferred commit from the publication list and returned success instead of rolling back the outer transaction.
+- Release writer returned a short write and failed on the next write: cleanup compared the partial file with the full payload digest and retained an owned residual generation.
+- Darwin logical authority path /etc/sddgov/trusted-approvers.json: the no-follow walker did not map the fixed platform-owned /etc alias to /private/etc.
+- New DEP root replacement plus later child: recursive cleanup lacked a per-child no-clobber generation claim.
+
+Current authorization guard:
+- Full unit suite: 460 tests executed; 459 passed, 14 platform/sandbox skips, 1 expected failure.
+- Expected failure: repository contract requires exactly one verified DEC-RC1-APPROVER-AUTHORITY-R22 decision, while .sddgov/decisions.json is intentionally empty.
+- Source validate: PASS.
+- CI contract verify: PASS.
+- Wheel and sdist build: PASS.
+- Twine metadata check: PASS.
+
+No real secret, user data, Owner private key, privileged filesystem mutation, package publication, or Production operation was used.

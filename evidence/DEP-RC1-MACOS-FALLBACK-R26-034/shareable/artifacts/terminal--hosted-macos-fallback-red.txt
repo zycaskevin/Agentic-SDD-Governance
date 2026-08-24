@@ -1,0 +1,4 @@
+PR #51 R25 hosted macOS source Green failed before packaging.
+The single failure compared the canonical target of a fixed Darwin system alias with the raw logical alias used by the synthetic fallback fixture.
+The harness behavior was correct; the test expectation did not use the shared platform canonicalizer.
+R26 changes only that expectation and preserves all runtime path, custody, and no-follow checks.

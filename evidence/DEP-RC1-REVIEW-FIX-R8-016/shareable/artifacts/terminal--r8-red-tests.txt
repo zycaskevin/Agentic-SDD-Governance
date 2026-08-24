@@ -1,0 +1,322 @@
+test_clean_zero_match_text_remains_eligible (tests.test_redaction.RedactionTests.test_clean_zero_match_text_remains_eligible) ... ok
+test_cross_chunk_private_key_preserves_unicode_before_marker (tests.test_redaction.RedactionTests.test_cross_chunk_private_key_preserves_unicode_before_marker) ... ok
+test_dash_only_test_separator_is_not_a_private_key_marker (tests.test_redaction.RedactionTests.test_dash_only_test_separator_is_not_a_private_key_marker) ... ok
+test_failed_post_publish_validation_preserves_changed_generation (tests.test_redaction.RedactionTests.test_failed_post_publish_validation_preserves_changed_generation) ... ok
+test_failed_post_publish_validation_removes_only_owned_generation (tests.test_redaction.RedactionTests.test_failed_post_publish_validation_removes_only_owned_generation) ... ok
+test_masks_absolute_user_workspace_paths (tests.test_redaction.RedactionTests.test_masks_absolute_user_workspace_paths) ... ok
+test_masks_credentials_and_identifiers (tests.test_redaction.RedactionTests.test_masks_credentials_and_identifiers) ... ok
+test_masks_explicit_password_patient_and_customer_identifiers (tests.test_redaction.RedactionTests.test_masks_explicit_password_patient_and_customer_identifiers) ... ok
+test_masks_known_provider_credential_identifiers (tests.test_redaction.RedactionTests.test_masks_known_provider_credential_identifiers) ... ok
+test_masks_quoted_json_keys_and_escaped_quoted_values (tests.test_redaction.RedactionTests.test_masks_quoted_json_keys_and_escaped_quoted_values) ... ok
+test_masks_uppercase_snake_case_credentials (tests.test_redaction.RedactionTests.test_masks_uppercase_snake_case_credentials) ... ok
+test_oversized_file_fails_before_redaction_output_is_created (tests.test_redaction.RedactionTests.test_oversized_file_fails_before_redaction_output_is_created) ... ok
+test_oversized_logical_line_with_newline_publishes_no_output (tests.test_redaction.RedactionTests.test_oversized_logical_line_with_newline_publishes_no_output) ... ok
+test_oversized_logical_line_without_newline_publishes_no_output (tests.test_redaction.RedactionTests.test_oversized_logical_line_without_newline_publishes_no_output) ... ok
+test_partial_private_key_delimiter_split_across_lines_fails_closed (tests.test_redaction.RedactionTests.test_partial_private_key_delimiter_split_across_lines_fails_closed) ... ok
+test_removes_private_key_block (tests.test_redaction.RedactionTests.test_removes_private_key_block) ... ok
+test_streaming_destination_symlink_is_rejected_without_overwrite (tests.test_redaction.RedactionTests.test_streaming_destination_symlink_is_rejected_without_overwrite) ... ok
+test_streaming_masks_user_workspace_paths_across_chunks (tests.test_redaction.RedactionTests.test_streaming_masks_user_workspace_paths_across_chunks) ... ok
+test_streaming_redacts_private_key_markers_split_across_lines (tests.test_redaction.RedactionTests.test_streaming_redacts_private_key_markers_split_across_lines) ... ok
+test_streaming_redacts_secrets_and_private_keys_across_chunks (tests.test_redaction.RedactionTests.test_streaming_redacts_secrets_and_private_keys_across_chunks) ... ok
+test_streaming_rules_exclude_private_keys_by_identity (tests.test_redaction.RedactionTests.test_streaming_rules_exclude_private_keys_by_identity) ... ok
+test_unterminated_private_key_fails_closed (tests.test_redaction.RedactionTests.test_unterminated_private_key_fails_closed) ... ok
+test_attach_rejects_atomic_control_document_replacement (tests.test_evidence_flow.EvidenceFlowTests.test_attach_rejects_atomic_control_document_replacement) ... ok
+test_attach_verification_and_read_share_one_dep_snapshot (tests.test_evidence_flow.EvidenceFlowTests.test_attach_verification_and_read_share_one_dep_snapshot) ... ok
+test_attachment_cleanup_preserves_later_writer_at_claim_boundary (tests.test_evidence_flow.EvidenceFlowTests.test_attachment_cleanup_preserves_later_writer_at_claim_boundary) ... ok
+test_attachment_publish_never_clobbers_a_later_writer (tests.test_evidence_flow.EvidenceFlowTests.test_attachment_publish_never_clobbers_a_later_writer) ... ok
+test_attachment_rechecks_verified_artifact_before_publication (tests.test_evidence_flow.EvidenceFlowTests.test_attachment_rechecks_verified_artifact_before_publication) ... ok
+test_attachment_staging_cleans_up_on_controlled_interruption (tests.test_evidence_flow.EvidenceFlowTests.test_attachment_staging_cleans_up_on_controlled_interruption) ... ok
+test_binary_evidence_blocks_verification (tests.test_evidence_flow.EvidenceFlowTests.test_binary_evidence_blocks_verification) ... ok
+test_browser_har_collector_cannot_hide_behind_text_label (tests.test_evidence_flow.EvidenceFlowTests.test_browser_har_collector_cannot_hide_behind_text_label) ... ok
+test_collect_after_redaction_fails_without_staling_the_report (tests.test_evidence_flow.EvidenceFlowTests.test_collect_after_redaction_fails_without_staling_the_report) ... FAIL
+test_collect_failure_removes_unregistered_raw_artifact (tests.test_evidence_flow.EvidenceFlowTests.test_collect_failure_removes_unregistered_raw_artifact) ... ok
+test_collect_post_publish_failure_is_treated_as_committed (tests.test_evidence_flow.EvidenceFlowTests.test_collect_post_publish_failure_is_treated_as_committed) ... ok
+test_collect_preserves_later_manifest_writer_and_removes_owned_raw (tests.test_evidence_flow.EvidenceFlowTests.test_collect_preserves_later_manifest_writer_and_removes_owned_raw) ... ok
+test_collect_rename_boundary_preserves_later_manifest_writer (tests.test_evidence_flow.EvidenceFlowTests.test_collect_rename_boundary_preserves_later_manifest_writer) ... ok
+test_collector_input_parent_replacement_fails_closed (tests.test_evidence_flow.EvidenceFlowTests.test_collector_input_parent_replacement_fails_closed) ... ok
+test_collector_keeps_verified_dirfd_during_parent_replacement (tests.test_evidence_flow.EvidenceFlowTests.test_collector_keeps_verified_dirfd_during_parent_replacement) ... ok
+test_collector_rejects_hardlinked_source (tests.test_evidence_flow.EvidenceFlowTests.test_collector_rejects_hardlinked_source) ... ok
+test_collector_rejects_platform_normalized_or_symlinked_destinations (tests.test_evidence_flow.EvidenceFlowTests.test_collector_rejects_platform_normalized_or_symlinked_destinations) ... ok
+test_collector_rejects_symlink_source_and_duplicate_label (tests.test_evidence_flow.EvidenceFlowTests.test_collector_rejects_symlink_source_and_duplicate_label) ... ok
+test_consistent_manifest_tampering_cannot_forge_redaction_provenance (tests.test_evidence_flow.EvidenceFlowTests.test_consistent_manifest_tampering_cannot_forge_redaction_provenance) ... ok
+test_control_files_and_attachment_outputs_reject_symlinks (tests.test_evidence_flow.EvidenceFlowTests.test_control_files_and_attachment_outputs_reject_symlinks) ... ok
+test_control_writes_fail_closed_when_dep_parent_is_replaced (tests.test_evidence_flow.EvidenceFlowTests.test_control_writes_fail_closed_when_dep_parent_is_replaced) ... ok
+test_custom_attachment_output_parent_replacement_fails_closed (tests.test_evidence_flow.EvidenceFlowTests.test_custom_attachment_output_parent_replacement_fails_closed) ... ok
+test_custom_attachment_preserves_later_writer_when_control_changes (tests.test_evidence_flow.EvidenceFlowTests.test_custom_attachment_preserves_later_writer_when_control_changes) ... ok
+test_custom_attachment_publishes_to_an_absent_output (tests.test_evidence_flow.EvidenceFlowTests.test_custom_attachment_publishes_to_an_absent_output) ... ok
+test_default_attachment_preserves_later_writer_when_control_changes (tests.test_evidence_flow.EvidenceFlowTests.test_default_attachment_preserves_later_writer_when_control_changes) ... ok
+test_dep_id_cannot_escape_evidence_root (tests.test_evidence_flow.EvidenceFlowTests.test_dep_id_cannot_escape_evidence_root) ... ok
+test_dep_root_rejects_an_intermediate_symlink_component (tests.test_evidence_flow.EvidenceFlowTests.test_dep_root_rejects_an_intermediate_symlink_component) ... ok
+test_every_raw_artifact_must_be_in_files_or_blocked (tests.test_evidence_flow.EvidenceFlowTests.test_every_raw_artifact_must_be_in_files_or_blocked) ... ok
+test_full_red_to_proof_flow (tests.test_evidence_flow.EvidenceFlowTests.test_full_red_to_proof_flow) ... ok
+test_har_with_body_is_blocked_by_default (tests.test_evidence_flow.EvidenceFlowTests.test_har_with_body_is_blocked_by_default) ... ok
+test_link_boundary_control_update_blocks_attachment_publication (tests.test_evidence_flow.EvidenceFlowTests.test_link_boundary_control_update_blocks_attachment_publication) ... ok
+test_lowercase_rfc3339_separators_are_accepted (tests.test_evidence_flow.EvidenceFlowTests.test_lowercase_rfc3339_separators_are_accepted) ... ok
+test_make_dep_fails_closed_when_evidence_root_is_replaced (tests.test_evidence_flow.EvidenceFlowTests.test_make_dep_fails_closed_when_evidence_root_is_replaced) ... ok
+test_raw_zone_is_owner_only (tests.test_evidence_flow.EvidenceFlowTests.test_raw_zone_is_owner_only) ... ok
+test_redact_artifact_post_publish_failure_cleans_owned_output (tests.test_evidence_flow.EvidenceFlowTests.test_redact_artifact_post_publish_failure_cleans_owned_output) ... ok
+test_redact_cleanup_preserves_output_later_writer_at_claim_boundary (tests.test_evidence_flow.EvidenceFlowTests.test_redact_cleanup_preserves_output_later_writer_at_claim_boundary) ... ok
+test_redact_failure_removes_unregistered_shareable_artifacts (tests.test_evidence_flow.EvidenceFlowTests.test_redact_failure_removes_unregistered_shareable_artifacts) ... ok
+test_redact_preserves_later_manifest_writer (tests.test_evidence_flow.EvidenceFlowTests.test_redact_preserves_later_manifest_writer) ... ok
+test_redact_report_post_publish_failure_completes_consistent_commit (tests.test_evidence_flow.EvidenceFlowTests.test_redact_report_post_publish_failure_completes_consistent_commit) ... ok
+test_redaction_keeps_verified_output_dirfd_during_parent_replacement (tests.test_evidence_flow.EvidenceFlowTests.test_redaction_keeps_verified_output_dirfd_during_parent_replacement) ... ok
+test_redaction_rejects_fifo_without_blocking_or_mutation (tests.test_evidence_flow.EvidenceFlowTests.test_redaction_rejects_fifo_without_blocking_or_mutation) ... ok
+test_redaction_rejects_per_file_symlinks (tests.test_evidence_flow.EvidenceFlowTests.test_redaction_rejects_per_file_symlinks) ... ok
+test_regular_file_reader_requests_nonblocking_open (tests.test_evidence_flow.EvidenceFlowTests.test_regular_file_reader_requests_nonblocking_open) ... ok
+test_same_inode_same_size_control_rewrite_blocks_attachment (tests.test_evidence_flow.EvidenceFlowTests.test_same_inode_same_size_control_rewrite_blocks_attachment) ... ok
+test_strict_verify_rejects_pending_attachment_residue (tests.test_evidence_flow.EvidenceFlowTests.test_strict_verify_rejects_pending_attachment_residue) ... ok
+test_summary_cannot_reference_raw_evidence (tests.test_evidence_flow.EvidenceFlowTests.test_summary_cannot_reference_raw_evidence) ... ok
+test_summary_datetime_formats_are_enforced (tests.test_evidence_flow.EvidenceFlowTests.test_summary_datetime_formats_are_enforced) ... ok
+test_summary_rejects_unknown_root_history_and_attachment_fields (tests.test_evidence_flow.EvidenceFlowTests.test_summary_rejects_unknown_root_history_and_attachment_fields) ... ok
+test_transition_fails_closed_on_incomplete_template (tests.test_evidence_flow.EvidenceFlowTests.test_transition_fails_closed_on_incomplete_template) ... ok
+test_transition_post_publish_failure_is_treated_as_committed (tests.test_evidence_flow.EvidenceFlowTests.test_transition_post_publish_failure_is_treated_as_committed) ... ok
+test_transition_preserves_later_summary_writer (tests.test_evidence_flow.EvidenceFlowTests.test_transition_preserves_later_summary_writer) ... ok
+test_unknown_extension_cannot_bypass_deterministic_redaction (tests.test_evidence_flow.EvidenceFlowTests.test_unknown_extension_cannot_bypass_deterministic_redaction) ... ok
+test_verifier_fails_closed_when_artifact_parent_is_replaced (tests.test_evidence_flow.EvidenceFlowTests.test_verifier_fails_closed_when_artifact_parent_is_replaced) ... ok
+test_workflow_history_must_be_exact_nonduplicated_phase_prefix (tests.test_evidence_flow.EvidenceFlowTests.test_workflow_history_must_be_exact_nonduplicated_phase_prefix) ... ok
+test_ci_contract_symlink_and_hardlink_are_rejected (tests.test_ci_guard.CICostGuardTests.test_ci_contract_symlink_and_hardlink_are_rejected) ... ok
+test_comments_cannot_fake_types_or_hide_job_write_permissions (tests.test_ci_guard.CICostGuardTests.test_comments_cannot_fake_types_or_hide_job_write_permissions) ... ok
+test_contract_rejects_shell_string_and_local_failure (tests.test_ci_guard.CICostGuardTests.test_contract_rejects_shell_string_and_local_failure) ... ok
+test_draft_conversion_must_cancel_the_active_pull_request_run (tests.test_ci_guard.CICostGuardTests.test_draft_conversion_must_cancel_the_active_pull_request_run) ... ok
+test_draft_guard_must_not_be_hidden_inside_always_true_expression (tests.test_ci_guard.CICostGuardTests.test_draft_guard_must_not_be_hidden_inside_always_true_expression) ... ok
+test_duplicate_yaml_keys_fail_closed (tests.test_ci_guard.CICostGuardTests.test_duplicate_yaml_keys_fail_closed) ... ok
+test_every_pull_request_job_must_skip_drafts (tests.test_ci_guard.CICostGuardTests.test_every_pull_request_job_must_skip_drafts) ... ok
+test_exempt_workflow_names_must_be_nonempty_and_unique (tests.test_ci_guard.CICostGuardTests.test_exempt_workflow_names_must_be_nonempty_and_unique) ... 
+  test_exempt_workflow_names_must_be_nonempty_and_unique (tests.test_ci_guard.CICostGuardTests.test_exempt_workflow_names_must_be_nonempty_and_unique) (exemptions=['']) ... FAIL
+  test_exempt_workflow_names_must_be_nonempty_and_unique (tests.test_ci_guard.CICostGuardTests.test_exempt_workflow_names_must_be_nonempty_and_unique) (exemptions=['ci.yml', 'ci.yml']) ... FAIL
+test_invalid_contract_mappings_fail_closed_without_exception (tests.test_ci_guard.CICostGuardTests.test_invalid_contract_mappings_fail_closed_without_exception) ... ok
+test_invalid_exemption_entry_returns_structured_error (tests.test_ci_guard.CICostGuardTests.test_invalid_exemption_entry_returns_structured_error) ... ok
+test_manual_only_post_merge_verification_rejects_automatic_push (tests.test_ci_guard.CICostGuardTests.test_manual_only_post_merge_verification_rejects_automatic_push) ... ok
+test_manual_only_push_cannot_hide_behind_workflow_exemption (tests.test_ci_guard.CICostGuardTests.test_manual_only_push_cannot_hide_behind_workflow_exemption) ... ok
+test_manual_release_uses_only_exact_write_permission_exceptions (tests.test_ci_guard.CICostGuardTests.test_manual_release_uses_only_exact_write_permission_exceptions) ... ok
+test_manual_workflow_concurrency_error_uses_hosted_wording (tests.test_ci_guard.CICostGuardTests.test_manual_workflow_concurrency_error_uses_hosted_wording) ... ok
+test_missing_controls_fail_closed (tests.test_ci_guard.CICostGuardTests.test_missing_controls_fail_closed) ... ok
+test_non_mapping_job_fails_closed (tests.test_ci_guard.CICostGuardTests.test_non_mapping_job_fails_closed) ... ok
+test_runner_and_concurrency_values_are_semantically_validated (tests.test_ci_guard.CICostGuardTests.test_runner_and_concurrency_values_are_semantically_validated) ... ok
+test_v1_contract_defaults_missing_post_merge_policy_to_automatic (tests.test_ci_guard.CICostGuardTests.test_v1_contract_defaults_missing_post_merge_policy_to_automatic) ... ok
+test_verify_and_local_gate (tests.test_ci_guard.CICostGuardTests.test_verify_and_local_gate) ... green
+ok
+test_workflow_leaf_symlink_and_hardlink_are_rejected (tests.test_ci_guard.CICostGuardTests.test_workflow_leaf_symlink_and_hardlink_are_rejected) ... ok
+test_workflow_parent_symlink_is_rejected (tests.test_ci_guard.CICostGuardTests.test_workflow_parent_symlink_is_rejected) ... ok
+test_write_permission_exception_job_map_must_not_be_empty (tests.test_ci_guard.CICostGuardTests.test_write_permission_exception_job_map_must_not_be_empty) ... ok
+test_write_permission_exception_must_be_used_by_the_exact_job (tests.test_ci_guard.CICostGuardTests.test_write_permission_exception_must_be_used_by_the_exact_job) ... ok
+test_write_permission_exception_names_must_not_be_blank (tests.test_ci_guard.CICostGuardTests.test_write_permission_exception_names_must_not_be_blank) ... 
+  test_write_permission_exception_names_must_not_be_blank (tests.test_ci_guard.CICostGuardTests.test_write_permission_exception_names_must_not_be_blank) (exceptions={'ci.yml': {'': ['id-token']}}) ... FAIL
+test_yaml_11_boolean_alias_cannot_hide_duplicate_on_key (tests.test_ci_guard.CICostGuardTests.test_yaml_11_boolean_alias_cannot_hide_duplicate_on_key) ... ok
+test_adapters_route_to_canonical_skill (tests.test_repository_contract.RepositoryContractTests.test_adapters_route_to_canonical_skill) ... ok
+test_autonomy_v1_2_contract_is_machine_enforced (tests.test_repository_contract.RepositoryContractTests.test_autonomy_v1_2_contract_is_machine_enforced) ... ok
+test_broker_service_unit_is_hardened (tests.test_repository_contract.RepositoryContractTests.test_broker_service_unit_is_hardened) ... FAIL
+test_ci_permission_exception_schema_rejects_empty_job_maps (tests.test_repository_contract.RepositoryContractTests.test_ci_permission_exception_schema_rejects_empty_job_maps) ... ok
+test_coderabbit_upstream_review_contracts (tests.test_repository_contract.RepositoryContractTests.test_coderabbit_upstream_review_contracts) ... ok
+test_codex_adapter_preserves_repository_bootstrap_before_layered_loading (tests.test_repository_contract.RepositoryContractTests.test_codex_adapter_preserves_repository_bootstrap_before_layered_loading) ... ok
+test_collector_playbooks_preserve_safe_reproduction_context (tests.test_repository_contract.RepositoryContractTests.test_collector_playbooks_preserve_safe_reproduction_context) ... ok
+test_current_repo_installed_governance_is_healthy_and_current (tests.test_repository_contract.RepositoryContractTests.test_current_repo_installed_governance_is_healthy_and_current) ... ok
+test_dep_security_boundary_objects_reject_unknown_fields (tests.test_repository_contract.RepositoryContractTests.test_dep_security_boundary_objects_reject_unknown_fields) ... ok
+test_english_readme_exposes_first_run_and_governance_tables (tests.test_repository_contract.RepositoryContractTests.test_english_readme_exposes_first_run_and_governance_tables) ... ok
+test_every_tracked_proof_dep_is_portable_strict (tests.test_repository_contract.RepositoryContractTests.test_every_tracked_proof_dep_is_portable_strict) ... ok
+test_evidence_paths_are_normalized_and_zone_bounded (tests.test_repository_contract.RepositoryContractTests.test_evidence_paths_are_normalized_and_zone_bounded) ... ok
+test_fresh_wheel_smoke_does_not_import_the_source_checkout (tests.test_repository_contract.RepositoryContractTests.test_fresh_wheel_smoke_does_not_import_the_source_checkout) ... ok
+test_json_schemas_are_parseable (tests.test_repository_contract.RepositoryContractTests.test_json_schemas_are_parseable) ... ok
+test_monorepo_benchmark_cannot_authorize_weaker_tree_proof (tests.test_repository_contract.RepositoryContractTests.test_monorepo_benchmark_cannot_authorize_weaker_tree_proof) ... ok
+test_objective_contract_lists_reject_blank_items (tests.test_repository_contract.RepositoryContractTests.test_objective_contract_lists_reject_blank_items) ... ok
+test_owner_key_and_broker_runbooks_cover_operational_failure_modes (tests.test_repository_contract.RepositoryContractTests.test_owner_key_and_broker_runbooks_cover_operational_failure_modes) ... FAIL
+test_packaged_hard_gate_assets_match_canonical_sources (tests.test_repository_contract.RepositoryContractTests.test_packaged_hard_gate_assets_match_canonical_sources) ... ok
+test_pull_request_gate_uses_base_trusted_verifier (tests.test_repository_contract.RepositoryContractTests.test_pull_request_gate_uses_base_trusted_verifier) ... ok
+test_rc1_uses_patched_cryptography_line (tests.test_repository_contract.RepositoryContractTests.test_rc1_uses_patched_cryptography_line) ... ok
+test_rc1_work_package_and_rollback_bind_current_proof (tests.test_repository_contract.RepositoryContractTests.test_rc1_work_package_and_rollback_bind_current_proof) ... ok
+test_redaction_inventory_matches_sensitive_identifier_contract (tests.test_repository_contract.RepositoryContractTests.test_redaction_inventory_matches_sensitive_identifier_contract) ... ok
+test_release_workflow_is_manual_isolated_and_attested (tests.test_repository_contract.RepositoryContractTests.test_release_workflow_is_manual_isolated_and_attested) ... FAIL
+test_repository_assets_validate (tests.test_repository_contract.RepositoryContractTests.test_repository_assets_validate) ... ok
+test_rollback_runbook_preserves_fail_closed_verifier_and_squash_mapping (tests.test_repository_contract.RepositoryContractTests.test_rollback_runbook_preserves_fail_closed_verifier_and_squash_mapping) ... ok
+test_security_critical_sources_and_dependency_inputs_are_protected (tests.test_repository_contract.RepositoryContractTests.test_security_critical_sources_and_dependency_inputs_are_protected) ... ok
+test_shareable_evidence_contains_no_absolute_user_workspace_paths (tests.test_repository_contract.RepositoryContractTests.test_shareable_evidence_contains_no_absolute_user_workspace_paths) ... ok
+test_skill_is_thin_and_routes_one_level_references (tests.test_repository_contract.RepositoryContractTests.test_skill_is_thin_and_routes_one_level_references) ... ok
+test_source_validation_requires_broker_and_pilot_runtime_modules (tests.test_repository_contract.RepositoryContractTests.test_source_validation_requires_broker_and_pilot_runtime_modules) ... 
+  test_source_validation_requires_broker_and_pilot_runtime_modules (tests.test_repository_contract.RepositoryContractTests.test_source_validation_requires_broker_and_pilot_runtime_modules) (missing='broker.py') ... FAIL
+  test_source_validation_requires_broker_and_pilot_runtime_modules (tests.test_repository_contract.RepositoryContractTests.test_source_validation_requires_broker_and_pilot_runtime_modules) (missing='pilot.py') ... FAIL
+test_terminal_external_action_schema_requires_signed_resolution_proof (tests.test_repository_contract.RepositoryContractTests.test_terminal_external_action_schema_requires_signed_resolution_proof) ... ok
+test_user_guide_preserves_red_evidence_before_returning_test_status (tests.test_repository_contract.RepositoryContractTests.test_user_guide_preserves_red_evidence_before_returning_test_status) ... FAIL
+test_cli_rejects_caller_selected_threshold (tests.test_monorepo_benchmark.MonorepoRollbackBenchmarkTests.test_cli_rejects_caller_selected_threshold) ... ok
+test_proof_failure_is_a_correctness_failure_not_an_optimization_signal (tests.test_monorepo_benchmark.MonorepoRollbackBenchmarkTests.test_proof_failure_is_a_correctness_failure_not_an_optimization_signal) ... ERROR
+test_small_smoke_preserves_exact_proof_and_claim_boundary (tests.test_monorepo_benchmark.MonorepoRollbackBenchmarkTests.test_small_smoke_preserves_exact_proof_and_claim_boundary) ... ok
+test_connection_reply_uses_a_fresh_send_deadline (tests.test_broker.BrokerTests.test_connection_reply_uses_a_fresh_send_deadline) ... ok
+test_corrupt_or_duplicate_ledger_records_fail_closed (tests.test_broker.BrokerTests.test_corrupt_or_duplicate_ledger_records_fail_closed) ... ok
+test_health_is_read_only_and_nonce_is_consumed_once (tests.test_broker.BrokerTests.test_health_is_read_only_and_nonce_is_consumed_once) ... ok
+test_ledger_initialization_creates_and_validation_checks_the_store (tests.test_broker.BrokerTests.test_ledger_initialization_creates_and_validation_checks_the_store) ... ok
+test_malformed_requests_fail_closed_without_ledger_write (tests.test_broker.BrokerTests.test_malformed_requests_fail_closed_without_ledger_write) ... ok
+test_nonce_ledger_fails_cleanly_without_posix_locking (tests.test_broker.BrokerTests.test_nonce_ledger_fails_cleanly_without_posix_locking) ... ok
+test_partial_connection_deadline_allows_next_valid_request (tests.test_broker.BrokerTests.test_partial_connection_deadline_allows_next_valid_request) ... ok
+test_readiness_aggregates_not_ready_check_details (tests.test_broker.BrokerTests.test_readiness_aggregates_not_ready_check_details) ... ok
+test_readiness_reports_all_required_controls (tests.test_broker.BrokerTests.test_readiness_reports_all_required_controls) ... ok
+test_real_approver_store_contract_and_repository_boundary (tests.test_broker.BrokerTests.test_real_approver_store_contract_and_repository_boundary) ... ok
+test_receive_request_enforces_one_monotonic_deadline (tests.test_broker.BrokerTests.test_receive_request_enforces_one_monotonic_deadline) ... ok
+test_receive_request_rejects_a_record_over_the_size_limit (tests.test_broker.BrokerTests.test_receive_request_rejects_a_record_over_the_size_limit) ... ok
+test_receive_request_returns_at_newline_without_waiting_for_eof (tests.test_broker.BrokerTests.test_receive_request_returns_at_newline_without_waiting_for_eof) ... ok
+test_service_signals_remove_only_the_bound_socket_and_allow_restart (tests.test_broker.BrokerTests.test_service_signals_remove_only_the_bound_socket_and_allow_restart) ... ok
+test_socket_access_uses_real_path_chmod (tests.test_broker.BrokerTests.test_socket_access_uses_real_path_chmod) ... ok
+test_transient_accept_error_does_not_kill_the_daemon (tests.test_broker.BrokerTests.test_transient_accept_error_does_not_kill_the_daemon) ... ERROR
+test_release_bundle (unittest.loader._FailedTest.test_release_bundle) ... ERROR
+test_api_read_does_not_retry_non_transient_http_error (tests.test_release_environment.ReleaseEnvironmentTests.test_api_read_does_not_retry_non_transient_http_error) ... ERROR
+test_api_read_retries_only_transient_failures_with_bounded_backoff (tests.test_release_environment.ReleaseEnvironmentTests.test_api_read_retries_only_transient_failures_with_bounded_backoff) ... ERROR
+test_exact_protected_tag_passes (tests.test_release_environment.ReleaseEnvironmentTests.test_exact_protected_tag_passes) ... ok
+test_incomplete_policy_page_fails_closed (tests.test_release_environment.ReleaseEnvironmentTests.test_incomplete_policy_page_fails_closed) ... ok
+test_missing_review_or_broad_policy_fails_closed (tests.test_release_environment.ReleaseEnvironmentTests.test_missing_review_or_broad_policy_fails_closed) ... ok
+
+======================================================================
+ERROR: test_proof_failure_is_a_correctness_failure_not_an_optimization_signal (tests.test_monorepo_benchmark.MonorepoRollbackBenchmarkTests.test_proof_failure_is_a_correctness_failure_not_an_optimization_signal)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 60, in test_proof_failure_is_a_correctness_failure_not_an_optimization_signal
+    self.assertEqual(report["decision"]["state"], "proof_failure")
+                     ~~~~~~~~~~~~~~~~~~^^^^^^^^^
+KeyError: 'state'
+
+======================================================================
+ERROR: test_transient_accept_error_does_not_kill_the_daemon (tests.test_broker.BrokerTests.test_transient_accept_error_does_not_kill_the_daemon)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 646, in test_transient_accept_error_does_not_kill_the_daemon
+    serve_broker("sddgov")
+  File "[REDACTED_LOCAL_PATH]", line 514, in serve_broker
+    connection, _ = server.accept()
+                    ^^^^^^^^^^^^^^^
+  File "[REDACTED_LOCAL_PATH]", line 616, in accept
+    raise OSError("synthetic transient accept failure")
+OSError: synthetic transient accept failure
+
+======================================================================
+ERROR: test_release_bundle (unittest.loader._FailedTest.test_release_bundle)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_release_bundle
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/unittest/loader.py", line 137, in loadTestsFromName
+    module = __import__(module_name)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "[REDACTED_LOCAL_PATH]", line 20, in <module>
+    from scripts.release_files import open_regular_file
+ImportError: cannot import name 'open_regular_file' from 'scripts.release_files' ([REDACTED_LOCAL_PATH])
+
+
+======================================================================
+ERROR: test_api_read_does_not_retry_non_transient_http_error (tests.test_release_environment.ReleaseEnvironmentTests.test_api_read_does_not_retry_non_transient_http_error)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 93, in test_api_read_does_not_retry_non_transient_http_error
+    with patch(
+  File "/usr/lib/python3.12/unittest/mock.py", line 1442, in __enter__
+    self.target = self.getter()
+                  ^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pkgutil.py", line 528, in resolve_name
+    result = getattr(result, p)
+             ^^^^^^^^^^^^^^^^^^
+AttributeError: module 'scripts.check_release_environment' has no attribute 'time'
+
+======================================================================
+ERROR: test_api_read_retries_only_transient_failures_with_bounded_backoff (tests.test_release_environment.ReleaseEnvironmentTests.test_api_read_retries_only_transient_failures_with_bounded_backoff)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 73, in test_api_read_retries_only_transient_failures_with_bounded_backoff
+    with patch(
+  File "/usr/lib/python3.12/unittest/mock.py", line 1442, in __enter__
+    self.target = self.getter()
+                  ^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pkgutil.py", line 528, in resolve_name
+    result = getattr(result, p)
+             ^^^^^^^^^^^^^^^^^^
+AttributeError: module 'scripts.check_release_environment' has no attribute 'time'
+
+======================================================================
+FAIL: test_collect_after_redaction_fails_without_staling_the_report (tests.test_evidence_flow.EvidenceFlowTests.test_collect_after_redaction_fails_without_staling_the_report)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 216, in test_collect_after_redaction_fails_without_staling_the_report
+    collect(self.dep, "terminal", later)
+  File "[REDACTED_LOCAL_PATH]", line 821, in collect
+    raw = _read_regular_bytes(input_path, "collector input")
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1134, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1138, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1193, in _execute_mock_call
+    raise effect
+AssertionError: closed DEP read collector input
+
+======================================================================
+FAIL: test_exempt_workflow_names_must_be_nonempty_and_unique (tests.test_ci_guard.CICostGuardTests.test_exempt_workflow_names_must_be_nonempty_and_unique) (exemptions=[''])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 268, in test_exempt_workflow_names_must_be_nonempty_and_unique
+    self.assertIn(expected_error, "\n".join(report["errors"]))
+AssertionError: 'must contain non-empty strings' not found in 'ci.yml: job publish permissions must not grant write access'
+
+======================================================================
+FAIL: test_exempt_workflow_names_must_be_nonempty_and_unique (tests.test_ci_guard.CICostGuardTests.test_exempt_workflow_names_must_be_nonempty_and_unique) (exemptions=['ci.yml', 'ci.yml'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 267, in test_exempt_workflow_names_must_be_nonempty_and_unique
+    self.assertFalse(report["ok"])
+AssertionError: True is not false
+
+======================================================================
+FAIL: test_write_permission_exception_names_must_not_be_blank (tests.test_ci_guard.CICostGuardTests.test_write_permission_exception_names_must_not_be_blank) (exceptions={'ci.yml': {'': ['id-token']}})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 336, in test_write_permission_exception_names_must_not_be_blank
+    self.assertIn(expected_error, "\n".join(report["errors"]))
+AssertionError: 'job names must be non-empty strings' not found in 'workflow_controls.write_permission_exceptions.ci.yml. must be a non-empty array of unique permission names\nci.yml: write permission exception references unknown job \nci.yml: job publish permissions must not grant write access'
+
+======================================================================
+FAIL: test_broker_service_unit_is_hardened (tests.test_repository_contract.RepositoryContractTests.test_broker_service_unit_is_hardened)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 660, in test_broker_service_unit_is_hardened
+    self.assertIn(required, systemd)
+AssertionError: 'RestrictRealtime=true' not found in '[Unit]\nDescription=Agentic SDD Governance L3 nonce broker\nAfter=local-fs.target\n\n[Service]\nType=simple\nUser=root\n# Security contract: Group= must equal the --socket-group argument below.\nGroup=sddgov\nUMask=0007\nRuntimeDirectory=sddgov\nRuntimeDirectoryMode=0750\nStateDirectory=sddgov\nStateDirectoryMode=0700\nExecStart=/opt/sddgov/venv/bin/sddgov broker serve --socket-group sddgov\nRestart=on-failure\nRestartSec=2\nNoNewPrivileges=true\nCapabilityBoundingSet=\nAmbientCapabilities=\nPrivateTmp=true\nPrivateDevices=true\nPrivateNetwork=true\nProtectSystem=strict\nProtectHome=true\nProtectProc=invisible\nProtectClock=true\nProtectControlGroups=true\nProtectKernelLogs=true\nProtectKernelModules=true\nProtectKernelTunables=true\nLockPersonality=true\nRestrictNamespaces=true\nRestrictSUIDSGID=true\nReadWritePaths=/run/sddgov /var/lib/sddgov\nRestrictAddressFamilies=AF_UNIX\n\n[Install]\nWantedBy=multi-user.target\n'
+
+======================================================================
+FAIL: test_owner_key_and_broker_runbooks_cover_operational_failure_modes (tests.test_repository_contract.RepositoryContractTests.test_owner_key_and_broker_runbooks_cover_operational_failure_modes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 429, in test_owner_key_and_broker_runbooks_cover_operational_failure_modes
+    self.assertIn("persistent control-plane files", broker_runbook)
+AssertionError: 'persistent control-plane files' not found in "# L3 Broker Operations and Readiness\n\nThe L3 Broker is a separately running, root-owned Unix service that atomically consumes an approval nonce once across clones and Agent sessions. It is not a signer and does not grant authority: SDG verifies the Owner signature, exact operation payload, runtime context, and expiry before asking the Broker to consume the nonce.\n\nThere is deliberately no production `--mock-broker`, alternate socket path, or repository-local ledger.\n\n## Fixed control-plane paths\n\n| Platform | Socket | Nonce ledger | Runtime context |\n| --- | --- | --- | --- |\n| Linux / WSL2 | `/run/sddgov/approval-broker.sock` | `/var/lib/sddgov/consumed-nonces.jsonl` | `/etc/sddgov/runtime-context.json` |\n| macOS | `/private/var/db/sddgov/approval-broker.sock` | `/private/var/db/sddgov/consumed-nonces.jsonl` | `/etc/sddgov/runtime-context.json` |\n\nThe trusted approver store is also outside the repository and is selected by `SDDGOV_TRUSTED_APPROVERS_FILE`. All control-plane files are root-owned and not writable by group or other. The Agent process must be non-root.\n\n## Readiness check\n\nRun this from the same non-root account and environment that will run the Agent:\n\n```bash\nexport SDDGOV_TRUSTED_APPROVERS_FILE=/etc/sddgov/trusted-approvers.json\nsddgov broker doctor --path /absolute/path/to/repository\n```\n\n`READY` requires all five checks: supported platform, non-root Agent identity, valid root-owned runtime context, valid out-of-band Ed25519 public trust store, and the exact `READY` response from a trusted fixed-path socket. The health request does not create or consume a nonce.\n\nThe daemon validates or creates the owner-only ledger and fsyncs its parent directory when the ledger is first created. An existing ledger is opened and fully validated before the socket is bound. A malformed, linked, broadly writable, or unreadable ledger prevents service startup, so a running health endpoint cannot hide a deferred ledger-open failure.\n\nThe daemon is deliberately single-request-at-a-time. Each connection may send\none newline-terminated record of at most 2048 bytes within a two-second monotonic\nread deadline; malformed, partial, extra-line, oversized, or late input receives\n`REJECTED` without a ledger write. The reply uses a new independent two-second\nsend deadline, so a trickling or disconnected client cannot consume the next\nrequest's service window.\n\n`NOT_READY` is a hard block on real L3 operations. It is not permission to retry with a caller-selected context, a copied socket, or a repository-local trust file.\n\n## Linux systemd installation\n\nThe repository provides `services/sddgov-broker.service`. Review and replace its `/opt/sddgov/venv/bin/sddgov` path with the independently installed, pinned wheel location.\n\n1. Create a dedicated system group `sddgov` and add only approved Agent service accounts. The unit's `Group=` value must remain identical to the `--socket-group` value because the empty capability set intentionally removes `CAP_CHOWN`.\n2. Install the pinned wheel under `/opt/sddgov/venv`; the Agent must not be able to modify that environment.\n3. Create root-owned `/etc/sddgov/runtime-context.json` and `/etc/sddgov/trusted-approvers.json` with mode `0644` or stricter. The private key never goes on this host unless it is itself the approved external signer.\n4. Install the reviewed unit as `/etc/systemd/system/sddgov-broker.service`, then enable and start it.\n5. Start a new login session so group membership is refreshed, export the trust-store path, and run `broker doctor` as the non-root Agent user.\n\nThe systemd unit creates `/run/sddgov` and `/var/lib/sddgov` with bounded modes. Do not place either path on a shared volume.\n\n## WSL2 checklist\n\n- Enable systemd in `/etc/wsl.conf`, shut down the WSL distribution, and start it again before installing the unit.\n- Keep socket, ledger, runtime context, trust store, and SDG environment inside the Linux filesystem, never `/mnt/c` or another DrvFS mount.\n- Verify `id -u` is not `0`, `id -Gn` includes `sddgov`, and every parent of `/run/sddgov` is root-owned and not group/world-writable.\n- Restart WSL and confirm the service returns, the ledger remains under `/var/lib/sddgov`, and an already consumed synthetic nonce remains rejected.\n\n## macOS launchd installation\n\nThe repository provides `services/com.sddgov.broker.plist`. Review its binary path and `_sddgov` group before installation.\n\n1. Create a dedicated `_sddgov` group and add only approved Agent accounts.\n2. Create `/private/var/db/sddgov` as `root:_sddgov` mode `0750`; the ledger itself remains root-owned mode `0600`.\n3. Create the root-owned runtime context and trusted approver store under `/etc/sddgov`.\n4. Install the reviewed plist in `/Library/LaunchDaemons/com.sddgov.broker.plist` as `root:wheel` mode `0644`, then bootstrap it in the system launchd domain.\n5. Start a new login session and run `broker doctor` from the non-root Agent account.\n\nlaunchd does not create `/private/var/db/sddgov` for this job; step 2 is therefore a mandatory preflight, not an optional hardening step. After `SIGKILL`, a host crash, or another unclean exit, `KeepAlive` may encounter the deliberately preserved socket pathname and repeatedly fail closed. Unload the job first, record the exact pathname metadata and process/listener inspection, and remove `/private/var/db/sddgov/approval-broker.sock` only when it is a root-owned Unix socket with no live Broker. Never put wildcard deletion or unconditional stale-socket removal in the plist. Then bootstrap the job and re-run `broker doctor`.\n\n## Ledger capacity and controlled epoch rollover\n\nThe active ledger is scanned on each consume request, so monitor its byte size, record count, and Broker latency. Ordinary operation never truncates, compacts, restores over, or automatically rotates it. When an operational threshold is reached, stop issuing L3 receipts and wait until every receipt issued in the current ledger epoch has expired; SDG permits at most 24 hours, and the runbook must also include the organization's positive clock-safety interval. If complete expiry and trustworthy clocks cannot be proven, do not roll the ledger.\n\nWith the Broker stopped, validate and preserve the old ledger as a root-owned, immutable audit archive, move it to a unique same-filesystem epoch name under change control, fsync the directory, and let the Broker create a new owner-only ledger. Record the old ledger digest, final record count, last receipt issuance time, expiry calculation, archive path, new epoch start, and readiness result. Never restore an archived or older epoch as the active ledger. This bounds active scan memory and latency without treating archive deletion as replay protection; receipt signature, exact payload, runtime context, and expiry checks remain mandatory before Broker consumption.\n\n## Incident and restart behavior\n\n- A duplicate nonce returns `ALREADY_CONSUMED`; the SDG client accepts only the exact `CONSUMED` response for a fresh operation.\n- An invalid, oversized, extra-line, or malformed request returns `REJECTED` and does not modify the ledger.\n- The append-only ledger is fsynced before `CONSUMED` is returned. Do not truncate, edit, replace, restore over, or delete it during ordinary operation.\n- The service refuses to replace an existing socket path automatically. Inspect an unexpected or stale path as a security event before removal and restart.\n- Back up the ledger according to audit retention rules. Restoring an older ledger can re-enable nonce replay and is forbidden.\n\nBefore sensitive-data adoption, rehearse service stop/start, host reboot, synthetic consumption, replay rejection, key revocation, and lost-key recovery. Record the results in a redacted DEP.\n"
+
+======================================================================
+FAIL: test_release_workflow_is_manual_isolated_and_attested (tests.test_repository_contract.RepositoryContractTests.test_release_workflow_is_manual_isolated_and_attested)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 614, in test_release_workflow_is_manual_isolated_and_attested
+    self.assertIn("python -m venv .governance-venv", source)
+AssertionError: 'python -m venv .governance-venv' not found in 'name: publish\n\non:\n  workflow_dispatch:\n    inputs:\n      publish_pypi:\n        description: In this same run, wait for protected PyPI approval after TestPyPI verification\n        required: true\n        default: false\n        type: boolean\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: publish-${{ github.ref }}\n  cancel-in-progress: false\n\nenv:\n  RELEASE_VERSION: 0.2.0rc1\n  WHEEL_NAME: agentic_sdd_governance-0.2.0rc1-py3-none-any.whl\n\njobs:\n  build-and-smoke:\n    if: ${{ github.ref == \'refs/tags/v0.2.0rc1\' }}\n    runs-on: ubuntu-latest\n    timeout-minutes: 15\n    steps:\n      - name: Check out the exact release source\n        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2\n        with:\n          persist-credentials: false\n      - name: Set up Python\n        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0\n        with:\n          python-version: "3.12"\n          cache: pip\n          cache-dependency-path: |\n            requirements-governance.lock\n            requirements-release.lock\n      - name: Require the exact immutable release tag\n        run: |\n          test "$GITHUB_REF_TYPE" = "tag"\n          test "$GITHUB_REF_NAME" = "v$RELEASE_VERSION"\n          test "$GITHUB_SHA" = "$(git rev-list -n 1 "v$RELEASE_VERSION")"\n          test "$(uname -m)" = "x86_64"\n      - name: Install hash-locked release tools\n        run: python -m pip install --require-hashes -r requirements-release.lock\n      - name: Validate the source contracts\n        run: |\n          python -m pip install --require-hashes -r requirements-governance.lock\n          PYTHONPATH=src python -m unittest discover -s tests -v\n          PYTHONPATH=src python -m sddgov.cli validate .\n      - name: Build and inspect distributions\n        run: |\n          python -m build --no-isolation\n          python -m twine check dist/*\n          test -f "dist/$WHEEL_NAME"\n          test "$(find dist -maxdepth 1 -type f -name \'*.whl\' | wc -l)" -eq 1\n      - name: Prepare a hash-locked offline dependency wheelhouse\n        run: python -m pip download --require-hashes -r requirements-governance.lock --dest wheelhouse\n      - name: Assemble inventoried release assets\n        run: >-\n          python scripts/prepare_release_bundle.py\n          --dist dist\n          --wheelhouse wheelhouse\n          --lock requirements-governance.lock\n          --output release\n          --version "$RELEASE_VERSION"\n          --platform-label linux-x86_64-py312\n          --report release-bundle.json\n      - name: Smoke-test only the fresh wheel\n        run: >-\n          python scripts/fresh_wheel_smoke.py\n          --wheel "dist/$WHEEL_NAME"\n          --expected-version "$RELEASE_VERSION"\n          --bundle-root release/offline\n          --output fresh-wheel-smoke.json\n      - name: Upload immutable release candidates\n        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1\n        with:\n          name: distributions-${{ github.sha }}\n          path: release/\n          if-no-files-found: error\n          retention-days: 7\n\n  publish-testpypi:\n    if: ${{ github.ref == \'refs/tags/v0.2.0rc1\' }}\n    needs: build-and-smoke\n    runs-on: ubuntu-latest\n    timeout-minutes: 10\n    environment:\n      name: testpypi\n      url: https://test.pypi.org/p/agentic-sdd-governance\n    permissions:\n      contents: read\n      id-token: write\n    steps:\n      - name: Check out the exact protected release tag\n        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2\n        with:\n          persist-credentials: false\n      - name: Verify the protected TestPyPI environment\n        env:\n          GITHUB_TOKEN: ${{ secrets.RELEASE_CONFIGURATION_READ_TOKEN }}\n        run: |\n          test "$GITHUB_REF_TYPE" = "tag"\n          test "$GITHUB_REF_NAME" = "v$RELEASE_VERSION"\n          test "$GITHUB_SHA" = "$(git rev-list -n 1 "v$RELEASE_VERSION")"\n          python scripts/check_release_environment.py --environment testpypi --expected-tag "v$RELEASE_VERSION"\n      - name: Download the tested distributions\n        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0\n        with:\n          name: distributions-${{ github.sha }}\n          path: release\n      - name: Publish to TestPyPI with OIDC and attestations\n        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2\n        with:\n          repository-url: https://test.pypi.org/legacy/\n          attestations: true\n          packages-dir: release/distributions\n\n  verify-testpypi:\n    needs: publish-testpypi\n    runs-on: ubuntu-latest\n    timeout-minutes: 15\n    steps:\n      - name: Check out the smoke-test harness\n        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2\n        with:\n          persist-credentials: false\n      - name: Set up Python\n        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0\n        with:\n          python-version: "3.12"\n      - name: Download the tested offline dependency bundle\n        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0\n        with:\n          name: distributions-${{ github.sha }}\n          path: release\n      - name: Download the exact wheel back from TestPyPI\n        run: >-\n          python -m pip download\n          --index-url https://test.pypi.org/simple/\n          --no-deps\n          --retries 10\n          --dest testpypi-dist\n          "agentic-sdd-governance==$RELEASE_VERSION"\n      - name: Require byte equality with the built wheel\n        run: |\n          python - <<\'PY\'\n          import os\n          from pathlib import Path\n          from scripts.release_files import sha256_file\n\n          wheel_name = os.environ["WHEEL_NAME"]\n          built = sha256_file(Path("release/distributions") / wheel_name)\n          downloaded = sha256_file(Path("testpypi-dist") / wheel_name)\n          if downloaded != built:\n              raise SystemExit("TestPyPI wheel bytes differ from the built wheel")\n          print(f"verified identical wheel SHA-256: {built}")\n          PY\n      - name: Verify the registry round trip in a fresh environment\n        run: >-\n          python scripts/fresh_wheel_smoke.py\n          --wheel "testpypi-dist/$WHEEL_NAME"\n          --expected-version "$RELEASE_VERSION"\n          --bundle-root release/offline\n          --output testpypi-smoke.json\n\n  publish-github-release:\n    if: ${{ github.ref == \'refs/tags/v0.2.0rc1\' }}\n    needs: verify-testpypi\n    runs-on: ubuntu-latest\n    timeout-minutes: 10\n    environment:\n      name: github-release\n      url: https://github.com/${{ github.repository }}/releases/tag/v${{ env.RELEASE_VERSION }}\n    permissions:\n      contents: write\n    steps:\n      - name: Check out immutable release notes\n        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2\n        with:\n          persist-credentials: false\n      - name: Verify the protected GitHub Release environment\n        env:\n          GITHUB_TOKEN: ${{ secrets.RELEASE_CONFIGURATION_READ_TOKEN }}\n        run: |\n          test "$GITHUB_REF_TYPE" = "tag"\n          test "$GITHUB_REF_NAME" = "v$RELEASE_VERSION"\n          test "$GITHUB_SHA" = "$(git rev-list -n 1 "v$RELEASE_VERSION")"\n          python scripts/check_release_environment.py --environment github-release --expected-tag "v$RELEASE_VERSION"\n      - name: Download the tested release assets\n        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0\n        with:\n          name: distributions-${{ github.sha }}\n          path: release\n      - name: Publish the exact protected-tag release assets\n        env:\n          GH_TOKEN: ${{ github.token }}\n        run: >-\n          gh release create "$GITHUB_REF_NAME"\n          release/distributions/*\n          release/*-offline-*.zip\n          release/SHA256SUMS.txt\n          --verify-tag\n          --prerelease\n          --title "$GITHUB_REF_NAME"\n          --notes-file RELEASE_NOTES.md\n\n  publish-pypi:\n    if: ${{ inputs.publish_pypi && github.ref == \'refs/tags/v0.2.0rc1\' }}\n    needs:\n      - verify-testpypi\n      - publish-github-release\n    runs-on: ubuntu-latest\n    timeout-minutes: 10\n    environment:\n      name: pypi\n      url: https://pypi.org/p/agentic-sdd-governance\n    permissions:\n      contents: read\n      id-token: write\n    steps:\n      - name: Check out the exact protected release tag\n        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2\n        with:\n          persist-credentials: false\n      - name: Verify the protected PyPI environment\n        env:\n          GITHUB_TOKEN: ${{ secrets.RELEASE_CONFIGURATION_READ_TOKEN }}\n        run: |\n          test "$GITHUB_REF_TYPE" = "tag"\n          test "$GITHUB_REF_NAME" = "v$RELEASE_VERSION"\n          test "$GITHUB_SHA" = "$(git rev-list -n 1 "v$RELEASE_VERSION")"\n          python scripts/check_release_environment.py --environment pypi --expected-tag "v$RELEASE_VERSION"\n      - name: Download the exact distributions tested before TestPyPI\n        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0\n        with:\n          name: distributions-${{ github.sha }}\n          path: release\n      - name: Publish to PyPI with OIDC and attestations\n        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2\n        with:\n          attestations: true\n          packages-dir: release/distributions\n'
+
+======================================================================
+FAIL: test_source_validation_requires_broker_and_pilot_runtime_modules (tests.test_repository_contract.RepositoryContractTests.test_source_validation_requires_broker_and_pilot_runtime_modules) (missing='broker.py')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 37, in test_source_validation_requires_broker_and_pilot_runtime_modules
+    self.assertIn(
+AssertionError: 'missing src/sddgov/broker.py' not found in []
+
+======================================================================
+FAIL: test_source_validation_requires_broker_and_pilot_runtime_modules (tests.test_repository_contract.RepositoryContractTests.test_source_validation_requires_broker_and_pilot_runtime_modules) (missing='pilot.py')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 37, in test_source_validation_requires_broker_and_pilot_runtime_modules
+    self.assertIn(
+AssertionError: 'missing src/sddgov/pilot.py' not found in []
+
+======================================================================
+FAIL: test_user_guide_preserves_red_evidence_before_returning_test_status (tests.test_repository_contract.RepositoryContractTests.test_user_guide_preserves_red_evidence_before_returning_test_status)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_LOCAL_PATH]", line 441, in test_user_guide_preserves_red_evidence_before_returning_test_status
+    self.assertLess(transition, test_guard)
+AssertionError: 7112 not less than 7014
+
+----------------------------------------------------------------------
+Ran 157 tests in 2.770s
+
+FAILED (failures=10, errors=5)

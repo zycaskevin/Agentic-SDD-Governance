@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "terminal--hosted-macos-owner-smoke-red.txt",
+      "output": "terminal--hosted-macos-owner-smoke-red.txt",
+      "source_sha256": "77c64dec8aee4707e1b0b5532ab8361eb160b3dfcc793cccd3b2dc92477721ec",
+      "source_size": 614,
+      "output_sha256": "77c64dec8aee4707e1b0b5532ab8361eb160b3dfcc793cccd3b2dc92477721ec",
+      "output_size": 614,
+      "redactions": {}
+    }
+  ],
+  "blocked": [],
+  "totals": {},
+  "dep_id": "DEP-RC1-MACOS-OWNER-SMOKE-R25-033",
+  "generated_at": "2026-08-23T16:50:02Z"
+}

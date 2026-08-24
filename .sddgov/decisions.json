@@ -1,4 +1,57 @@
 {
   "schema_version": "1.0",
-  "decisions": []
+  "decisions": [
+    {
+      "decision_id": "DEC-RC1-APPROVER-AUTHORITY-R22",
+      "risk_level": "L2",
+      "summary": "Approved option A: Approve the exact fixed-path authority contract, custody assumptions, and separated Owner approval client bound by work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.md.",
+      "scope": "For repository github.com/zycaskevin/agentic-sdd-governance and trust domain agentic-sdd-governance-owner-2026q3, retire and reject SDDGOV_TRUSTED_APPROVERS_FILE; make logical /etc/sddgov/trusted-approvers.json the sole Linux/macOS runtime approver key store; require the Base-compatible signed receipt plus the fixed root-controlled /etc/sddgov/trusted-approver-domains.json sidecar binding the Owner key to that repository, one exact separately provisioned host-local repository root, and that trust domain; and add the separated non-signing Agent card plus Owner-terminal Agent-inaccessible-signer flow, under the exact ownership, path-chain, migration, custody, fail-closed, and non-provisioning boundaries in work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.md.",
+      "basis": "verified owner-signed L2 product approval receipt",
+      "status": "approved",
+      "recorded_at": "2026-08-24T12:19:57Z",
+      "reopen_condition": "scope_or_assumptions_change",
+      "assumptions_sha256": "b594c5cfea3d210c2cada6d6b669ae04bbaac61d595137bb8178140df1fd37e2",
+      "assumptions": [
+        {
+          "path": "work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.md",
+          "sha256": "8271356ba1d29478ccdeba6650e5c64f487ffea763b5918f117e5b04f45fa8ef"
+        },
+        {
+          "path": "work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.request.json",
+          "sha256": "160a417a8388e73ae44236f36e62bd6a8adaeef6946f3386879bd946b54d551d"
+        }
+      ],
+      "approved_by": "zycaskevin-agentic-sdd-governance-owner-2026q3",
+      "expires_at": "2026-09-23T12:17:28Z",
+      "approval_nonce": "0CrsWrSLtbpGuBXOX--kaeSjphz_3s_3",
+      "receipt_sha256": "f1d3a7a02be7ab7a2e9e74c972d1df79f7b4d35d3abd0f7886df6853f2611a73",
+      "signature_algorithm": "ed25519",
+      "approval_envelope": {
+        "schema_version": "1.0",
+        "algorithm": "ed25519",
+        "receipt": {
+          "decision_id": "DEC-RC1-APPROVER-AUTHORITY-R22",
+          "summary": "Approved option A: Approve the exact fixed-path authority contract, custody assumptions, and separated Owner approval client bound by work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.md.",
+          "scope": "For repository github.com/zycaskevin/agentic-sdd-governance and trust domain agentic-sdd-governance-owner-2026q3, retire and reject SDDGOV_TRUSTED_APPROVERS_FILE; make logical /etc/sddgov/trusted-approvers.json the sole Linux/macOS runtime approver key store; require the Base-compatible signed receipt plus the fixed root-controlled /etc/sddgov/trusted-approver-domains.json sidecar binding the Owner key to that repository, one exact separately provisioned host-local repository root, and that trust domain; and add the separated non-signing Agent card plus Owner-terminal Agent-inaccessible-signer flow, under the exact ownership, path-chain, migration, custody, fail-closed, and non-provisioning boundaries in work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.md.",
+          "assumptions": [
+            {
+              "path": "work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.md",
+              "sha256": "8271356ba1d29478ccdeba6650e5c64f487ffea763b5918f117e5b04f45fa8ef"
+            },
+            {
+              "path": "work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.request.json",
+              "sha256": "160a417a8388e73ae44236f36e62bd6a8adaeef6946f3386879bd946b54d551d"
+            }
+          ],
+          "assumptions_sha256": "b594c5cfea3d210c2cada6d6b669ae04bbaac61d595137bb8178140df1fd37e2",
+          "reopen_condition": "scope_or_assumptions_change",
+          "approved_by": "zycaskevin-agentic-sdd-governance-owner-2026q3",
+          "issued_at": "2026-08-24T12:17:28Z",
+          "expires_at": "2026-09-23T12:17:28Z",
+          "nonce": "0CrsWrSLtbpGuBXOX--kaeSjphz_3s_3"
+        },
+        "signature": "c05Qdk9vZedx964IflSwSA3sylAqLEFeIVkufcW7r58Cv+mL7voyuohC4e5+iQXFYsyXTj/MsxqVArAbEggNDw=="
+      }
+    }
+  ]
 }

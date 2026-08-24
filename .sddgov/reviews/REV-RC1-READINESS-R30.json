@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "algorithm": "ed25519",
+  "review": {
+    "review_id": "REV-RC1-READINESS-R30",
+    "reviewer_id": "codex-independent-r13-reviewer",
+    "builder_id": "codex-r30-streaming-redaction-builder",
+    "change_digest": "9f9bc7c5a6d47a968658d67731f5a6e387593bed74d83f15e5dbafecf6be93a0",
+    "gate_metadata_digest": "2d44ba6a3821461f4844b1d7ef52692b479dafa7181924e0d0606544e8629768",
+    "verdict": "approved",
+    "issued_at": "2026-08-24T14:07:53Z",
+    "expires_at": "2026-08-24T15:07:53Z",
+    "nonce": "IL0Qd0Yj2fUNC1sghrdiNFJ-"
+  },
+  "signature": "2uVy5d26bfWHizDyr/j4DfwO7RVdFAkqsMguXVBre0mLnEXKTwxhlmQx1EF4F05fUb6LjiUFb0fBizXdoiSnCQ=="
+}

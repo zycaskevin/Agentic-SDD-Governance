@@ -1,0 +1,24 @@
+R28 RED REPRODUCTION
+
+Exact candidate Gate: d1aec48e8896f0da3cb3c7733e66787f0f3671bc
+Exact CodeRabbit review: [REDACTED_PHONE_OR_NUMBER]
+
+VALID MAJOR [REDACTED_PHONE_OR_NUMBER]
+- A schema-1.0 Local Green contract without command_timeout_seconds is preserved by setup-agent --force.
+- Candidate ci verify then fails with: local_green.command_timeout_seconds must be an integer between 1 and 3600.
+- This breaks an existing governed repository instead of applying a bounded compatibility behavior.
+
+VALID MINOR [REDACTED_PHONE_OR_NUMBER]
+- An exempt workflow with a malformed concurrency group still returns: hosted workflow concurrency requires a non-empty group.
+- The documented exemption says concurrency checks are disabled.
+
+VALID MINOR [REDACTED_PHONE_OR_NUMBER]
+- Documentation calls 600 seconds a managed default even though only templates contain 600 and runtime has no fallback.
+
+VALID MINOR review-body benchmark finding
+- The scaled setup timeout is applied only to the first bulk add and commit.
+- Later fixture Git operations fall back to 180 seconds even for the 50000-file case whose computed setup timeout is 750 seconds.
+
+DEFERRED PERFORMANCE-ONLY REVIEW NOTE
+- Reusing one trust-domain lookup has no current correctness or merge-safety effect.
+- It is intentionally deferred because autonomy.py is part of the approved Owner-client identity.
