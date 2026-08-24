@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-AF26-MAIN-INTEGRATION-001",
+  "issue": "52",
+  "sdd_references": [
+    "docs/TRUSTED_RUNNER_V0_1.md"
+  ],
+  "risk_level": "L2",
+  "created_at": "2026-08-24T03:47:14Z",
+  "updated_at": "2026-08-24T12:05:53Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-24T03:47:14Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-24T03:51:32Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-24T03:51:41Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-24T12:05:53Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-24T12:05:53Z"
+      }
+    ]
+  },
+  "expected_behavior": "AF26 在合併最新 origin/main 後，Trusted Runner targeted tests、repository contracts、portable strict DEP 與完整 Local Green 應維持全綠。",
+  "actual_behavior": "最新 main 將 L3 approval 收緊為 exact operation_payload、trusted runtime context 與 independent nonce broker，AF26 舊 receipt／decision request 未帶 payload，且舊 DEP metadata 與 installed governance manifest 未符合新版 portable contract；targeted 32 tests 有 9 failures，完整 250-test Gate fail closed。",
+  "environment": {
+    "commit": "6534fce64c9c1806edd666ad36a577907cfa1d46",
+    "branch": "codex/af26-trusted-runner",
+    "runtime": "Linux aarch64; system Python 3.12.3; synthetic offline rehearsal only"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}

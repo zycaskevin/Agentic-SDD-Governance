@@ -5,21 +5,30 @@
     {
       "collector": "terminal",
       "path": "private/raw/terminal--red.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
       "sha256": "711766b7451b52175470b993459d586637e13b1d4dade8340202708eeac61ff5",
+      "size": 672,
       "collected_at": "2026-08-23T16:01:13Z",
       "shareable": false
     },
     {
       "collector": "terminal",
       "path": "private/raw/terminal--green.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
       "sha256": "da39281958fc73dfa3658a943b267be761f26a42bba4032408f366457c9593cd",
+      "size": 98,
       "collected_at": "2026-08-23T16:38:59Z",
       "shareable": false
     },
     {
       "collector": "terminal",
       "path": "private/raw/terminal--final-green.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
       "sha256": "37baa5d8b431bfa4c8a782dc0c36b262f13481801a8071307bf83f9f3a002606",
+      "size": 857,
       "collected_at": "2026-08-23T17:10:13Z",
       "shareable": false
     }
@@ -28,16 +37,19 @@
     {
       "path": "shareable/artifacts/terminal--final-green.log",
       "sha256": "e1ff71d8eead750b05b66da77e11ff14e0a3b6a34456fcc782e40e85f5ef31bd",
+      "size": 873,
       "shareable": true
     },
     {
       "path": "shareable/artifacts/terminal--green.log",
       "sha256": "da39281958fc73dfa3658a943b267be761f26a42bba4032408f366457c9593cd",
+      "size": 98,
       "shareable": true
     },
     {
       "path": "shareable/artifacts/terminal--red.log",
       "sha256": "711766b7451b52175470b993459d586637e13b1d4dade8340202708eeac61ff5",
+      "size": 672,
       "shareable": true
     }
   ]

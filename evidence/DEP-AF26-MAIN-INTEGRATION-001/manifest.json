@@ -1,0 +1,56 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-AF26-MAIN-INTEGRATION-001",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--red.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "a5aec5815fd5cf79d362958331545b34d8a3c252ae1b16b2abfe1037fb6b4792",
+      "size": 12802,
+      "collected_at": "2026-08-24T03:47:46Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--context.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "94adb608f8ffd3f395ec42e374fd76f57eabe4e7ce38c42758838c2148575364",
+      "size": 519,
+      "collected_at": "2026-08-24T03:47:55Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--green.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "4e1f21ab74c021533fbbaa5d56b809ea878affe9d78b3918541a98dd1634f11c",
+      "size": 1626,
+      "collected_at": "2026-08-24T12:05:17Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--context.txt",
+      "sha256": "94adb608f8ffd3f395ec42e374fd76f57eabe4e7ce38c42758838c2148575364",
+      "size": 519,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--green.log",
+      "sha256": "1479590c4f896a874e01a8ac0b50c4cd205a2348ba41ad9f662b11756df00d5f",
+      "size": 1642,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--red.log",
+      "sha256": "a5aec5815fd5cf79d362958331545b34d8a3c252ae1b16b2abfe1037fb6b4792",
+      "size": 12802,
+      "shareable": true
+    }
+  ]
+}

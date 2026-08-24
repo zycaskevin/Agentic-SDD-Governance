@@ -5,14 +5,20 @@
     {
       "collector": "terminal",
       "path": "private/raw/terminal--red.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
       "sha256": "991a325538664bc034df379d7caae0eddd9151e0c9dafc1af9aef3229262fa66",
+      "size": 818,
       "collected_at": "2026-08-24T03:32:22Z",
       "shareable": false
     },
     {
       "collector": "terminal",
       "path": "private/raw/terminal--green.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
       "sha256": "9a8f8a143f12fe63658785c80f7b68d1aa46d1277d305e5d7e7660c1e9e855e9",
+      "size": 800,
       "collected_at": "2026-08-24T03:39:22Z",
       "shareable": false
     }
@@ -21,11 +27,13 @@
     {
       "path": "shareable/artifacts/terminal--green.log",
       "sha256": "65bd691f63d951efeaf74e2329fd709c03bc3a4080646eb3b1fdff2f1340c1e4",
+      "size": 816,
       "shareable": true
     },
     {
       "path": "shareable/artifacts/terminal--red.log",
       "sha256": "3777ce48a13d7a1b4261e1ddb83d3148e163949d1c5566d230f4fbb39141db61",
+      "size": 834,
       "shareable": true
     }
   ]

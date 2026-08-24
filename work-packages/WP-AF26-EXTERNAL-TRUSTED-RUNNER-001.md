@@ -52,5 +52,5 @@
 - Builder：Codex。
 - Status：Rehearsal Runner、production hard-deny、Schema、Agent Factory 0.3 串接、
   synthetic test-double rehearsal、latest-main 251-test Local Green、Wheel／fresh doctor
-  與獨立安全審查均已完成；`DEP-AF26-MAIN-INTEGRATION-001` 正在封存 Proof，production
+  與獨立安全審查均已完成；`DEP-AF26-MAIN-INTEGRATION-001` 已進入 Proof，production
   authority 未放寬，且不宣稱真實 L3 全鏈路。

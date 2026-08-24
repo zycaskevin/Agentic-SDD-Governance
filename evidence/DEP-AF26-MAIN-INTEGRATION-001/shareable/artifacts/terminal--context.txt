@@ -1,0 +1,9 @@
+command=env PYTHONPATH=src python3 -m unittest -v tests.test_trusted_runner tests.test_repository_contract
+exit_status=1
+head=6534fce64c9c1806edd666ad36a577907cfa1d46
+branch=codex/af26-trusted-runner
+base=origin/main@92f4ba8
+runtime=Linux aarch64; Python 3.12.3
+scope=synthetic offline tests only
+expected=AF26 targeted tests and repository contracts pass after latest main integration
+actual=32 tests run; 9 failures; approval verification, installed manifest drift, and portable strict DEP verification failed closed

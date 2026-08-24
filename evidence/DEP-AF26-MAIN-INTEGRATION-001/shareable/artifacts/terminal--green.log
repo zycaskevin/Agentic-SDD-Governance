@@ -1,0 +1,29 @@
+AF26 latest-main integration Green summary
+Date: [REDACTED_PHONE_OR_NUMBER] Asia/Taipei
+Branch: codex/af26-trusted-runner
+Base integrated: origin/main@92f4ba8
+Candidate code commit: e27eb8ef99908c8143f6cef706a25f8b569fddfa
+
+Authorization boundary:
+- Synthetic offline harness may use a control-plane test double only in tests.
+- Production source has no local nonce or control-plane fallback.
+- Production continues to require root-owned runtime context, an independent nonce broker,
+  cgroup v2 descendant containment, dedicated UID, and an FD-bound runtime chain.
+- Production remains hard-denied; this is not real L3, Live, Promotion, or deployment proof.
+
+Verification results:
+- Targeted Trusted Runner and repository contracts: 33 tests passed.
+- Full Local Gate: 251 tests passed; both contract commands returned 0; repository validation passed.
+- No-double regression: approval failed closed before credential open or runtime start.
+- Existing AF26 DEP portable strict verification: 2 passed.
+- Ruff 0.14.10 scoped check: passed.
+- Python compileall: passed.
+- git diff check: passed.
+- Fresh dev9 Wheel isolated import, co-located launcher, packaged request schema: passed.
+- Fresh setup-agent and doctor: 69 managed files, 0 errors, 0 warnings.
+- Independent read-only security final pass: no Critical, Major, or Medium blockers.
+
+Independent review residuals:
+- Real production containment and authority infrastructure remain unimplemented and separately reviewable.
+- The static review did not rerun tests; executable results are listed above.
+- The rejecting broker stub proves fail-closed behavior, not real broker integration.
