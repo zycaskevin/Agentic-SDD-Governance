@@ -2,7 +2,7 @@
 ERROR: test_trusted_runner_contract_is_public (tests.test_trusted_runner.TrustedRunnerContractTests.test_trusted_runner_contract_is_public)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/zycas/repos/Agentic-SDD-Governance/tests/test_trusted_runner.py", line 8, in test_trusted_runner_contract_is_public
+  File "[REDACTED_HOME_PATH]", line 8, in test_trusted_runner_contract_is_public
     from sddgov.trusted_runner import TrustedRunner
 ModuleNotFoundError: No module named 'sddgov.trusted_runner'
 

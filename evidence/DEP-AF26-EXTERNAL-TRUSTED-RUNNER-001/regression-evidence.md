@@ -10,7 +10,8 @@ bytes 重算、authority snapshot、parent-free secret pipe、timeout／TERM／c
 
 ## Related tests executed
 
-- AF26＋repository contract：26 tests。
+- 初始 pre-latest-main Proof snapshot（AF26 初版提交範圍）：26 tests；此為歷史結果，
+  不代表 PR #53 final targeted count。
 - 完整 Governance：113 tests。
 - Approval concurrent second consumer：20 次重複壓測全綠。
 - Ruff、compileall、`sddgov validate`、Wheel build、fresh import／packaged Schema、

@@ -6,7 +6,7 @@ test_duplicate_json_and_cli_surface_are_fail_closed (tests.test_trusted_runner.T
 test_exact_rehearsal_consumes_approval_then_opens_secret_and_cleans_up (tests.test_trusted_runner.TrustedRunnerContractTests.test_exact_rehearsal_consumes_approval_then_opens_secret_and_cleans_up) ... FAIL
 test_profile_and_source_manifest_drift_fail_before_approval (tests.test_trusted_runner.TrustedRunnerContractTests.test_profile_and_source_manifest_drift_fail_before_approval) ... ok
 test_published_schemas_accept_exact_bootstrap_request_and_result (tests.test_trusted_runner.TrustedRunnerContractTests.test_published_schemas_accept_exact_bootstrap_request_and_result) ... ok
-test_runtime_and_credential_drift_are_detected_after_approval_before_child (tests.test_trusted_runner.TrustedRunnerContractTests.test_runtime_and_credential_drift_are_detected_after_approval_before_child) ... 
+test_runtime_and_credential_drift_are_detected_after_approval_before_child (tests.test_trusted_runner.TrustedRunnerContractTests.test_runtime_and_credential_drift_are_detected_after_approval_before_child) ...
   test_runtime_and_credential_drift_are_detected_after_approval_before_child (tests.test_trusted_runner.TrustedRunnerContractTests.test_runtime_and_credential_drift_are_detected_after_approval_before_child) (label='runtime') ... FAIL
   test_runtime_and_credential_drift_are_detected_after_approval_before_child (tests.test_trusted_runner.TrustedRunnerContractTests.test_runtime_and_credential_drift_are_detected_after_approval_before_child) (label='credential') ... FAIL
 test_socket_activation_uses_kernel_peer_credentials_and_scm_rights (tests.test_trusted_runner.TrustedRunnerContractTests.test_socket_activation_uses_kernel_peer_credentials_and_scm_rights) ... FAIL
@@ -37,7 +37,7 @@ test_terminal_external_action_schema_requires_signed_resolution_proof (tests.tes
 FAIL: test_approval_consumer_uses_service_private_authority_snapshot (tests.test_trusted_runner.TrustedRunnerContractTests.test_approval_consumer_uses_service_private_authority_snapshot)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/zycas/repos/Agentic-SDD-Governance/tests/test_trusted_runner.py", line 596, in test_approval_consumer_uses_service_private_authority_snapshot
+  File "[REDACTED_HOME_PATH]", line 596, in test_approval_consumer_uses_service_private_authority_snapshot
     self.assertEqual(result["outcome"], "completed")
 AssertionError: 'stopped_fail_closed' != 'completed'
 - stopped_fail_closed
@@ -48,7 +48,7 @@ AssertionError: 'stopped_fail_closed' != 'completed'
 FAIL: test_approval_replay_and_concurrent_second_consumer_are_denied (tests.test_trusted_runner.TrustedRunnerContractTests.test_approval_replay_and_concurrent_second_consumer_are_denied)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/zycas/repos/Agentic-SDD-Governance/tests/test_trusted_runner.py", line 633, in test_approval_replay_and_concurrent_second_consumer_are_denied
+  File "[REDACTED_HOME_PATH]", line 633, in test_approval_replay_and_concurrent_second_consumer_are_denied
     self.assertEqual(first["outcome"], "completed")
 AssertionError: 'stopped_fail_closed' != 'completed'
 - stopped_fail_closed
@@ -59,7 +59,7 @@ AssertionError: 'stopped_fail_closed' != 'completed'
 FAIL: test_exact_rehearsal_consumes_approval_then_opens_secret_and_cleans_up (tests.test_trusted_runner.TrustedRunnerContractTests.test_exact_rehearsal_consumes_approval_then_opens_secret_and_cleans_up)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/zycas/repos/Agentic-SDD-Governance/tests/test_trusted_runner.py", line 442, in test_exact_rehearsal_consumes_approval_then_opens_secret_and_cleans_up
+  File "[REDACTED_HOME_PATH]", line 442, in test_exact_rehearsal_consumes_approval_then_opens_secret_and_cleans_up
     self.assertEqual(
 AssertionError: Lists differ: [] != ['approval_consumed', 'credential_opened', 'parent_env_secret_absent']
 
@@ -74,7 +74,7 @@ First extra element 0:
 FAIL: test_runtime_and_credential_drift_are_detected_after_approval_before_child (tests.test_trusted_runner.TrustedRunnerContractTests.test_runtime_and_credential_drift_are_detected_after_approval_before_child) (label='runtime')
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/zycas/repos/Agentic-SDD-Governance/tests/test_trusted_runner.py", line 706, in test_runtime_and_credential_drift_are_detected_after_approval_before_child
+  File "[REDACTED_HOME_PATH]", line 706, in test_runtime_and_credential_drift_are_detected_after_approval_before_child
     self.assertTrue(result["approval_consumed"])
 AssertionError: False is not true
 
@@ -82,7 +82,7 @@ AssertionError: False is not true
 FAIL: test_runtime_and_credential_drift_are_detected_after_approval_before_child (tests.test_trusted_runner.TrustedRunnerContractTests.test_runtime_and_credential_drift_are_detected_after_approval_before_child) (label='credential')
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/zycas/repos/Agentic-SDD-Governance/tests/test_trusted_runner.py", line 706, in test_runtime_and_credential_drift_are_detected_after_approval_before_child
+  File "[REDACTED_HOME_PATH]", line 706, in test_runtime_and_credential_drift_are_detected_after_approval_before_child
     self.assertTrue(result["approval_consumed"])
 AssertionError: False is not true
 
@@ -90,7 +90,7 @@ AssertionError: False is not true
 FAIL: test_socket_activation_uses_kernel_peer_credentials_and_scm_rights (tests.test_trusted_runner.TrustedRunnerContractTests.test_socket_activation_uses_kernel_peer_credentials_and_scm_rights)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/zycas/repos/Agentic-SDD-Governance/tests/test_trusted_runner.py", line 796, in test_socket_activation_uses_kernel_peer_credentials_and_scm_rights
+  File "[REDACTED_HOME_PATH]", line 796, in test_socket_activation_uses_kernel_peer_credentials_and_scm_rights
     self.assertEqual(outcome["code"], 0)
 AssertionError: 2 != 0
 
@@ -98,7 +98,7 @@ AssertionError: 2 != 0
 FAIL: test_timeout_terminates_child_and_removes_isolation (tests.test_trusted_runner.TrustedRunnerContractTests.test_timeout_terminates_child_and_removes_isolation)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/zycas/repos/Agentic-SDD-Governance/tests/test_trusted_runner.py", line 735, in test_timeout_terminates_child_and_removes_isolation
+  File "[REDACTED_HOME_PATH]", line 735, in test_timeout_terminates_child_and_removes_isolation
     self.assertEqual(result["reason"], "child_timeout")
 AssertionError: 'approval_verification_failed' != 'child_timeout'
 - approval_verification_failed
@@ -109,15 +109,15 @@ AssertionError: 'approval_verification_failed' != 'child_timeout'
 FAIL: test_current_repo_installed_governance_is_healthy_and_current (tests.test_repository_contract.RepositoryContractTests.test_current_repo_installed_governance_is_healthy_and_current)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/zycas/repos/Agentic-SDD-Governance/tests/test_repository_contract.py", line 108, in test_current_repo_installed_governance_is_healthy_and_current
+  File "[REDACTED_HOME_PATH]", line 108, in test_current_repo_installed_governance_is_healthy_and_current
     self.assertTrue(report["ok"], report)
-AssertionError: False is not true : {'ok': False, 'project': '/home/zycas/repos/Agentic-SDD-Governance', 'agent': 'codex', 'profile': 'team-standard', 'governance_version': '0.2.0-experimental.9', 'managed_file_count': 66, 'errors': ['manifest omitted managed file: .agentic-sdd-governance/schemas/trusted-runner-bootstrap.schema.json', 'manifest omitted managed file: .agentic-sdd-governance/schemas/trusted-runner-request.schema.json', 'manifest omitted managed file: .agentic-sdd-governance/schemas/trusted-runner-result-envelope.schema.json'], 'warnings': []}
+AssertionError: False is not true : {'ok': False, 'project': '[REDACTED_HOME_PATH]', 'agent': 'codex', 'profile': 'team-standard', 'governance_version': '0.2.0-experimental.9', 'managed_file_count': 66, 'errors': ['manifest omitted managed file: .agentic-sdd-governance/schemas/trusted-runner-bootstrap.schema.json', 'manifest omitted managed file: .agentic-sdd-governance/schemas/trusted-runner-request.schema.json', 'manifest omitted managed file: .agentic-sdd-governance/schemas/trusted-runner-result-envelope.schema.json'], 'warnings': []}
 
 ======================================================================
 FAIL: test_every_tracked_proof_dep_is_portable_strict (tests.test_repository_contract.RepositoryContractTests.test_every_tracked_proof_dep_is_portable_strict)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/home/zycas/repos/Agentic-SDD-Governance/tests/test_repository_contract.py", line 261, in test_every_tracked_proof_dep_is_portable_strict
+  File "[REDACTED_HOME_PATH]", line 261, in test_every_tracked_proof_dep_is_portable_strict
     self.assertEqual(failures, {})
 AssertionError: {'DEP-AF26-EXTERNAL-TRUSTED-RUNNER-001': [[1676 chars]og']} != {}
 Diff is 3956 characters long. Set self.maxDiff to None to see it.

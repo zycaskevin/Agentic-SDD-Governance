@@ -3,7 +3,8 @@
 ## Green command and result
 
 - `env PYTHONPATH=src python3 -m unittest -q tests.test_trusted_runner
-  tests.test_repository_contract`：33 tests，通過。
+  tests.test_repository_contract`：latest-main integration收集時的歷史 33-test run，通過；
+  PR #53 review-fix current count另見 `DEP-AF26-PR-REVIEW-FIX-001`。
 - `.venv/bin/sddgov ci local-gate .`：251 tests，通過；兩個 contract commands
   return code 0，repository validation 通過。
 - `DEP-AF26-EXTERNAL-TRUSTED-RUNNER-001` 與
@@ -17,8 +18,9 @@
 
 ## Before/after evidence
 
-Before：targeted 32 tests／full 250 tests 均有 9 failures。After：相同範圍擴充 no-fallback
-guard 後為 targeted 33／full 251 tests 全綠；正式 source 仍無 control-plane fallback。
+Before：當次 targeted 32 tests／full 250 tests 均有 9 failures。After：相同歷史範圍擴充
+no-fallback guard 後為 targeted 33／full 251 tests 全綠；正式 source 仍無 control-plane
+fallback。PR #53 review-fix新增測試不回寫成此歷史 run的數量。
 
 ## Remaining limitations
 

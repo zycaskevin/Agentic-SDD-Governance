@@ -1,0 +1,34 @@
+AF26 PR review-fix Green summary
+Date: [REDACTED_PHONE_OR_NUMBER] Asia/Taipei
+Issue: 52
+PR: 53
+Branch: codex/af26-trusted-runner
+Base: 92f4ba8388ecf1ef1f3407db6c49cef62f6ee196
+Candidate code commit: 8fc5c47bc63569da629dd5e7b1f7a053970832cb
+Risk: L1 regression fix
+
+Fixed boundaries:
+- stderr-open, secret-pipe-write, and Popen early failures close every parent-owned FD.
+- A descriptor close failure returns descriptor_cleanup_failed and descriptors_closed=false.
+- Unexpected failures emit the fixed schema-safe reason unexpected_error.
+- duration_ms is an observed lifecycle duration and may include bounded TERM/KILL cleanup after the 120-second child deadline.
+- unittest setup resources use failure-safe cleanups.
+- deterministic text redaction removes home-directory paths and trailing whitespace.
+- launcher rollback invalidates affected Proof and requires recollection and strict verification.
+
+Verification:
+- Targeted Trusted Runner, redaction, and repository contracts: 45 tests passed.
+- Full Local Gate: 256 tests passed; repository validation passed.
+- CI contract verify: passed; no hosted workflow triggered.
+- Ruff 0.14.10: passed.
+- Python compileall with isolated pycache: passed.
+- git diff check: passed.
+- Existing affected AF26 DEPs rebuilt under the new redaction rules: portable strict passed.
+- Doctor: 69 managed files, 0 errors, 0 warnings.
+- Fresh Wheel: b440c22d0b073ce533a3108385df806c87436f268507db61f3f58e9f2cfb918d.
+- Fresh Wheel isolated import, packaged schema/rules parity, setup-agent, and doctor: passed.
+
+Authority boundary:
+- Synthetic offline only; no real credential, network, provider inference, production, promotion, gate enforcement, release, or deployment.
+- Production remains hard-denied; no local nonce/control-plane fallback was added.
+- Post-fix independent signed protected review and replacement hosted run remain pending.

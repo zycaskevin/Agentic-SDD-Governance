@@ -1,15 +1,15 @@
 {
   "schema_version": "1.0",
-  "dep_id": "DEP-AF26-MAIN-INTEGRATION-001",
+  "dep_id": "DEP-AF26-PR-REVIEW-FIX-001",
   "raw": [
     {
       "collector": "terminal",
       "path": "private/raw/terminal--red.log",
       "source_suffix": ".log",
       "media_type": "text/plain; charset=utf-8",
-      "sha256": "a5aec5815fd5cf79d362958331545b34d8a3c252ae1b16b2abfe1037fb6b4792",
-      "size": 12802,
-      "collected_at": "2026-08-24T03:47:46Z",
+      "sha256": "87a3725f9cabaa9056688478d5d6ac64f1847d617e5d8371edd1a3cd0dab913c",
+      "size": 5541,
+      "collected_at": "2026-08-24T15:23:25Z",
       "shareable": false
     },
     {
@@ -17,9 +17,9 @@
       "path": "private/raw/terminal--context.txt",
       "source_suffix": ".txt",
       "media_type": "text/plain; charset=utf-8",
-      "sha256": "94adb608f8ffd3f395ec42e374fd76f57eabe4e7ce38c42758838c2148575364",
-      "size": 519,
-      "collected_at": "2026-08-24T03:47:55Z",
+      "sha256": "19a4cf6d2d7fdbfe931e85a4ea49048f2ca7f4da30d816eef471548bac9b57e2",
+      "size": 1329,
+      "collected_at": "2026-08-24T15:23:25Z",
       "shareable": false
     },
     {
@@ -27,29 +27,29 @@
       "path": "private/raw/terminal--green.log",
       "source_suffix": ".log",
       "media_type": "text/plain; charset=utf-8",
-      "sha256": "4e1f21ab74c021533fbbaa5d56b809ea878affe9d78b3918541a98dd1634f11c",
-      "size": 1626,
-      "collected_at": "2026-08-24T12:05:17Z",
+      "sha256": "381e96e50fd7ac00c0c83fab53c0a74d17e45877d39242db1616a442c996640a",
+      "size": 1862,
+      "collected_at": "2026-08-24T15:35:18Z",
       "shareable": false
     }
   ],
   "shareable": [
     {
       "path": "shareable/artifacts/terminal--context.txt",
-      "sha256": "94adb608f8ffd3f395ec42e374fd76f57eabe4e7ce38c42758838c2148575364",
-      "size": 519,
+      "sha256": "6820cec0a81aac820b6c8859bf184d45e1c702f48722be8189dc356097e7e582",
+      "size": 1325,
       "shareable": true
     },
     {
       "path": "shareable/artifacts/terminal--green.log",
-      "sha256": "1479590c4f896a874e01a8ac0b50c4cd205a2348ba41ad9f662b11756df00d5f",
-      "size": 1642,
+      "sha256": "59f932539d0744cb722a75d9750648fd8678e008e0d6d305b6b5cb7ce1d9c310",
+      "size": 1878,
       "shareable": true
     },
     {
       "path": "shareable/artifacts/terminal--red.log",
-      "sha256": "70c810f4c9ea58c37e5ab0fc31e772986cdb19436785944dd7f3be859e1367bf",
-      "size": 12330,
+      "sha256": "1227ed36dad1666034441c6a442059dcea98151c76d9a01e7a70218664bd3084",
+      "size": 5246,
       "shareable": true
     }
   ]

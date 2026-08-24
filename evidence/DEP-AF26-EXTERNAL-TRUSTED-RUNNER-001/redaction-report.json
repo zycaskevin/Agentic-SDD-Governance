@@ -26,15 +26,18 @@
       "output": "terminal--red.log",
       "source_sha256": "711766b7451b52175470b993459d586637e13b1d4dade8340202708eeac61ff5",
       "source_size": 672,
-      "output_sha256": "711766b7451b52175470b993459d586637e13b1d4dade8340202708eeac61ff5",
-      "output_size": 672,
-      "redactions": {}
+      "output_sha256": "19d7e46ed4dd595fc1f4b359ceea3dfe6359c2e54683cb1a357afb27861fa144",
+      "output_size": 623,
+      "redactions": {
+        "home-path": 1
+      }
     }
   ],
   "blocked": [],
   "totals": {
-    "phone": 1
+    "phone": 1,
+    "home-path": 1
   },
   "dep_id": "DEP-AF26-EXTERNAL-TRUSTED-RUNNER-001",
-  "generated_at": "2026-08-23T17:10:13Z"
+  "generated_at": "2026-08-24T15:29:07Z"
 }

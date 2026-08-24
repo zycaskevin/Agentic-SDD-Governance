@@ -1,0 +1,74 @@
+test_child_setup_failures_close_every_owned_descriptor (tests.test_trusted_runner.TrustedRunnerContractTests.test_child_setup_failures_close_every_owned_descriptor) ...
+  test_child_setup_failures_close_every_owned_descriptor (tests.test_trusted_runner.TrustedRunnerContractTests.test_child_setup_failures_close_every_owned_descriptor) (label='stderr-open') ... FAIL
+  test_child_setup_failures_close_every_owned_descriptor (tests.test_trusted_runner.TrustedRunnerContractTests.test_child_setup_failures_close_every_owned_descriptor) (label='pipe-write') ... FAIL
+  test_child_setup_failures_close_every_owned_descriptor (tests.test_trusted_runner.TrustedRunnerContractTests.test_child_setup_failures_close_every_owned_descriptor) (label='popen') ... FAIL
+test_unexpected_failure_emits_schema_safe_reason (tests.test_trusted_runner.TrustedRunnerContractTests.test_unexpected_failure_emits_schema_safe_reason) ... FAIL
+test_published_schemas_accept_exact_bootstrap_request_and_result (tests.test_trusted_runner.TrustedRunnerContractTests.test_published_schemas_accept_exact_bootstrap_request_and_result) ... FAIL
+test_setup_failure_runs_registered_cleanups (tests.test_trusted_runner.TrustedRunnerContractTests.test_setup_failure_runs_registered_cleanups) ... FAIL
+
+======================================================================
+FAIL: test_child_setup_failures_close_every_owned_descriptor (tests.test_trusted_runner.TrustedRunnerContractTests.test_child_setup_failures_close_every_owned_descriptor) (label='stderr-open')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_HOME_PATH]", line 643, in test_child_setup_failures_close_every_owned_descriptor
+    with self.assertRaises(OSError):
+AssertionError: OSError not raised
+
+======================================================================
+FAIL: test_child_setup_failures_close_every_owned_descriptor (tests.test_trusted_runner.TrustedRunnerContractTests.test_child_setup_failures_close_every_owned_descriptor) (label='pipe-write')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_HOME_PATH]", line 643, in test_child_setup_failures_close_every_owned_descriptor
+    with self.assertRaises(OSError):
+AssertionError: OSError not raised
+
+======================================================================
+FAIL: test_child_setup_failures_close_every_owned_descriptor (tests.test_trusted_runner.TrustedRunnerContractTests.test_child_setup_failures_close_every_owned_descriptor) (label='popen')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_HOME_PATH]", line 646, in test_child_setup_failures_close_every_owned_descriptor
+    self.assertEqual(result["reason"], "unexpected_error")
+AssertionError: 'unexpected_error:OSError' != 'unexpected_error'
+- unexpected_error:OSError
+?                 --------
++ unexpected_error
+
+
+======================================================================
+FAIL: test_unexpected_failure_emits_schema_safe_reason (tests.test_trusted_runner.TrustedRunnerContractTests.test_unexpected_failure_emits_schema_safe_reason)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_HOME_PATH]", line 578, in test_unexpected_failure_emits_schema_safe_reason
+    self.assertEqual(result["reason"], "unexpected_error")
+AssertionError: 'unexpected_error:RuntimeError' != 'unexpected_error'
+- unexpected_error:RuntimeError
++ unexpected_error
+
+
+======================================================================
+FAIL: test_published_schemas_accept_exact_bootstrap_request_and_result (tests.test_trusted_runner.TrustedRunnerContractTests.test_published_schemas_accept_exact_bootstrap_request_and_result)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_HOME_PATH]", line 558, in test_published_schemas_accept_exact_bootstrap_request_and_result
+    self.assertEqual(validate_instance(extended, result_schema), [])
+AssertionError: Lists differ: ['result.duration_ms: 124000 is greater than the maximum of 120000'] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+'result.duration_ms: 124000 is greater than the maximum of 120000'
+
+- ['result.duration_ms: 124000 is greater than the maximum of 120000']
++ []
+
+======================================================================
+FAIL: test_setup_failure_runs_registered_cleanups (tests.test_trusted_runner.TrustedRunnerContractTests.test_setup_failure_runs_registered_cleanups)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "[REDACTED_HOME_PATH]", line 670, in test_setup_failure_runs_registered_cleanups
+    self.assertEqual(autonomy_module.L3_RUNTIME_CONTEXT_FILE, original_context)
+AssertionError: PosixPath('/tmp/sddgov-af26-runner-7iq276_0/runtime-context.json') != PosixPath('/tmp/sddgov-af26-runner-cnsqjqmu/runtime-context.json')
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.084s
+
+FAILED (failures=6)

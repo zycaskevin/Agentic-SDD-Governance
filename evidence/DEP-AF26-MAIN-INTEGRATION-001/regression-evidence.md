@@ -9,7 +9,8 @@
 
 ## Related tests executed
 
-- 原始 targeted integration：33 tests，通過。
+- 2026-08-24 latest-main integration收集時的歷史 targeted run：33 tests，通過；
+  PR #53 review-fix後的 current count另由 `DEP-AF26-PR-REVIEW-FIX-001` 記錄。
 - full Local Gate：251 tests，通過；repository validation 通過。
 - 兩個既有 AF26 Proof DEP portable strict verification：通過。
 - Ruff 0.14.10 scoped check、compileall、`git diff --check`：通過。

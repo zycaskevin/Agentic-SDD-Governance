@@ -1,0 +1,48 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "terminal--context.txt",
+      "output": "terminal--context.txt",
+      "source_sha256": "19a4cf6d2d7fdbfe931e85a4ea49048f2ca7f4da30d816eef471548bac9b57e2",
+      "source_size": 1329,
+      "output_sha256": "6820cec0a81aac820b6c8859bf184d45e1c702f48722be8189dc356097e7e582",
+      "output_size": 1325,
+      "redactions": {
+        "home-path": 1,
+        "phone": 1
+      }
+    },
+    {
+      "source": "terminal--green.log",
+      "output": "terminal--green.log",
+      "source_sha256": "381e96e50fd7ac00c0c83fab53c0a74d17e45877d39242db1616a442c996640a",
+      "source_size": 1862,
+      "output_sha256": "59f932539d0744cb722a75d9750648fd8678e008e0d6d305b6b5cb7ce1d9c310",
+      "output_size": 1878,
+      "redactions": {
+        "phone": 1
+      }
+    },
+    {
+      "source": "terminal--red.log",
+      "output": "terminal--red.log",
+      "source_sha256": "87a3725f9cabaa9056688478d5d6ac64f1847d617e5d8371edd1a3cd0dab913c",
+      "source_size": 5541,
+      "output_sha256": "1227ed36dad1666034441c6a442059dcea98151c76d9a01e7a70218664bd3084",
+      "output_size": 5246,
+      "redactions": {
+        "home-path": 6,
+        "trailing-whitespace": 1
+      }
+    }
+  ],
+  "blocked": [],
+  "totals": {
+    "home-path": 7,
+    "phone": 2,
+    "trailing-whitespace": 1
+  },
+  "dep_id": "DEP-AF26-PR-REVIEW-FIX-001",
+  "generated_at": "2026-08-24T15:35:41Z"
+}

@@ -1,0 +1,23 @@
+AF26 PR review regression Red context
+date=[REDACTED_PHONE_OR_NUMBER] Asia/Taipei
+issue=52
+pr=53
+branch=codex/af26-trusted-runner
+base=92f4ba8388ecf1ef1f3407db6c49cef62f6ee196
+head_before_fix=2f9107b50a79aca4389f84ffa55706fccce46f26
+risk=L1 regression fix
+runtime=Linux aarch64; Python 3.12.3
+
+red_command=env PYTHONPATH=src python3 -m unittest -v tests.test_trusted_runner.TrustedRunnerContractTests.test_child_setup_failures_close_every_owned_descriptor tests.test_trusted_runner.TrustedRunnerContractTests.test_unexpected_failure_emits_schema_safe_reason tests.test_trusted_runner.TrustedRunnerContractTests.test_published_schemas_accept_exact_bootstrap_request_and_result tests.test_trusted_runner.TrustedRunnerContractTests.test_setup_failure_runs_registered_cleanups
+red_exit=1
+red_result=4 test methods, 6 failures
+
+additional_reproduction:
+- git diff --check origin/main...HEAD exits 2 on terminal--red.log trailing whitespace.
+- shareable AF26 Red logs contain [REDACTED_HOME_PATH] paths.
+- independent subagent verdict: 1 Major, 3 Medium, 3 Minor; no Critical.
+
+authority_boundary:
+- Synthetic offline test harness only.
+- No credential, network, provider inference, production, promotion, gate enforcement, release, or deployment.
+- Production remains hard-denied and no nonce/control-plane fallback is permitted.

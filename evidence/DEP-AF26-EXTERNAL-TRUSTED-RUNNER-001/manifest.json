@@ -48,8 +48,8 @@
     },
     {
       "path": "shareable/artifacts/terminal--red.log",
-      "sha256": "711766b7451b52175470b993459d586637e13b1d4dade8340202708eeac61ff5",
-      "size": 672,
+      "sha256": "19d7e46ed4dd595fc1f4b359ceea3dfe6359c2e54683cb1a357afb27861fa144",
+      "size": 623,
       "shareable": true
     }
   ]
