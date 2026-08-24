@@ -1,0 +1,22 @@
+{
+  "ok": true,
+  "project": "[REDACTED_HOME_PATH]",
+  "contract": ".sddgov/ci-cost-guard.json",
+  "hosted_budget": {
+    "max_runs_per_work_package": 1,
+    "max_reruns_per_revision": 1,
+    "expected_minutes": 5,
+    "full_matrix": "manual_or_ready_for_review",
+    "post_merge_verification": "manual_only"
+  },
+  "workflows": [
+    {
+      "workflow": "governance.yml",
+      "automatic": true,
+      "hosted_jobs": [
+        "verify"
+      ]
+    }
+  ],
+  "errors": []
+}

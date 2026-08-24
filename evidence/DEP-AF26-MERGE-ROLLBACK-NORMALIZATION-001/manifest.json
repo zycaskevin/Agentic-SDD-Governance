@@ -1,0 +1,88 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-AF26-MERGE-ROLLBACK-NORMALIZATION-001",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--red.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "70a48b3f026b202fe89c3574744e288f445dbbcceac418ce52800fccd282ae26",
+      "size": 49,
+      "collected_at": "2026-08-24T16:08:14Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--context.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "09d6918670ece3c25622a3c084be79883ec75f2cc68878b7c64b3bede9df265e",
+      "size": 214,
+      "collected_at": "2026-08-24T16:08:20Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--green.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "af0e8dca848db5338bdd1b0cfeea8ea4610eb4de7500708e62a46efe4f34150b",
+      "size": 305,
+      "collected_at": "2026-08-24T16:12:30Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--ci-verify.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "b42ee91b8f193e2d21ea461279225184a741a45309853f3b2d7718672501b730",
+      "size": 494,
+      "collected_at": "2026-08-24T16:14:24Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--local-gate.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "d0f35eedb808b3d7a62f1ed8a8c7535e62a4239c1ab1705062126366722bc3ee",
+      "size": 39777,
+      "collected_at": "2026-08-24T16:14:29Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--ci-verify.log",
+      "sha256": "f02c4e9f19e86480efda20b713aaca1e0f75fdbe70a1b1fe8ca05a3aca00c987",
+      "size": 474,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--context.txt",
+      "sha256": "09d6918670ece3c25622a3c084be79883ec75f2cc68878b7c64b3bede9df265e",
+      "size": 214,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--green.log",
+      "sha256": "af0e8dca848db5338bdd1b0cfeea8ea4610eb4de7500708e62a46efe4f34150b",
+      "size": 305,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--local-gate.log",
+      "sha256": "de1e56da1f299b4bcb8c4fb5e1a029d40436e7b33699af365fce5f707e44f226",
+      "size": 39757,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--red.log",
+      "sha256": "70a48b3f026b202fe89c3574744e288f445dbbcceac418ce52800fccd282ae26",
+      "size": 49,
+      "shareable": true
+    }
+  ]
+}

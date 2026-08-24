@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-AF26-MERGE-ROLLBACK-NORMALIZATION-001",
+  "issue": "52",
+  "sdd_references": [
+    "docs/TRUSTED_RUNNER_V0_1.md"
+  ],
+  "risk_level": "L1",
+  "created_at": "2026-08-24T16:07:16Z",
+  "updated_at": "2026-08-24T16:15:17Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-24T16:07:16Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-24T16:09:22Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-24T16:10:08Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-24T16:13:43Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-24T16:15:17Z"
+      }
+    ]
+  },
+  "expected_behavior": "AF26 exact Merge Gate 應通過可執行 rollback contract，並只在 fresh protected-review receipt 缺失時 fail closed。",
+  "actual_behavior": "Clean audit head 9b38261 在 receipt 驗證前以 rollback record is missing or incomplete、exit status 3 拒絕。",
+  "environment": {
+    "commit": "9b382612bdf7d83efa35a88f1a7560ce4c9f5815",
+    "branch": "codex/af26-trusted-runner",
+    "runtime": "Linux aarch64; Python 3.11.15; sddgov 0.2.0-experimental.9"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}

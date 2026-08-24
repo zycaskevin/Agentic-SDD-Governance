@@ -1,0 +1,5 @@
+expected_patch_sha256=90eca65831b8f1fbc57429a71b9fbf605344a1767e39d6d2d45ab706f595cfde
+90eca65831b8f1fbc57429a71b9fbf605344a1767e39d6d2d45ab706f595cfde  /tmp/af26-rollback-normalization-committed.patch
+patch_byte_equality=true
+rollback_ref=8a8d43405701101a443512c7444b8ff44c0bfa93
+rollback_predicate=True

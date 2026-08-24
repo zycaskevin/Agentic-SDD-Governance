@@ -1,0 +1,60 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "terminal--ci-verify.log",
+      "output": "terminal--ci-verify.log",
+      "source_sha256": "b42ee91b8f193e2d21ea461279225184a741a45309853f3b2d7718672501b730",
+      "source_size": 494,
+      "output_sha256": "f02c4e9f19e86480efda20b713aaca1e0f75fdbe70a1b1fe8ca05a3aca00c987",
+      "output_size": 474,
+      "redactions": {
+        "home-path": 1
+      }
+    },
+    {
+      "source": "terminal--context.txt",
+      "output": "terminal--context.txt",
+      "source_sha256": "09d6918670ece3c25622a3c084be79883ec75f2cc68878b7c64b3bede9df265e",
+      "source_size": 214,
+      "output_sha256": "09d6918670ece3c25622a3c084be79883ec75f2cc68878b7c64b3bede9df265e",
+      "output_size": 214,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--green.log",
+      "output": "terminal--green.log",
+      "source_sha256": "af0e8dca848db5338bdd1b0cfeea8ea4610eb4de7500708e62a46efe4f34150b",
+      "source_size": 305,
+      "output_sha256": "af0e8dca848db5338bdd1b0cfeea8ea4610eb4de7500708e62a46efe4f34150b",
+      "output_size": 305,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--local-gate.log",
+      "output": "terminal--local-gate.log",
+      "source_sha256": "d0f35eedb808b3d7a62f1ed8a8c7535e62a4239c1ab1705062126366722bc3ee",
+      "source_size": 39777,
+      "output_sha256": "de1e56da1f299b4bcb8c4fb5e1a029d40436e7b33699af365fce5f707e44f226",
+      "output_size": 39757,
+      "redactions": {
+        "home-path": 1
+      }
+    },
+    {
+      "source": "terminal--red.log",
+      "output": "terminal--red.log",
+      "source_sha256": "70a48b3f026b202fe89c3574744e288f445dbbcceac418ce52800fccd282ae26",
+      "source_size": 49,
+      "output_sha256": "70a48b3f026b202fe89c3574744e288f445dbbcceac418ce52800fccd282ae26",
+      "output_size": 49,
+      "redactions": {}
+    }
+  ],
+  "blocked": [],
+  "totals": {
+    "home-path": 2
+  },
+  "dep_id": "DEP-AF26-MERGE-ROLLBACK-NORMALIZATION-001",
+  "generated_at": "2026-08-24T16:14:51Z"
+}

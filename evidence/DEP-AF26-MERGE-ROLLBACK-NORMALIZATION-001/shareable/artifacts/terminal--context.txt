@@ -1,0 +1,4 @@
+command=python -m sddgov.cli merge verify <isolated-checkout> --base-ref 92f4ba8388ecf1ef1f3407db6c49cef62f6ee196 --skip-local-checks
+exit_status=3
+head=9b382612bdf7d83efa35a88f1a7560ce4c9f5815
+## HEAD (no branch)
