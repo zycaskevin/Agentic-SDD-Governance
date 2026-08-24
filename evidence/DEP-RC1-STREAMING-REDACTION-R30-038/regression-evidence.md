@@ -11,11 +11,15 @@ cleanup of both the current and a prior owned output.
 ## Related tests executed
 
 The affected redaction suite passed 45 tests. With all predecessor Evidence
-restored and the R30 DEP in Fix, the complete source suite executed 537 tests:
-523 passed and 14 platform or sandbox cases were skipped. Repository validation
-and CI Guard verification both passed. Local Green, package, rollback, and
-installed-wheel results are recorded after the final product and Evidence
-topology is frozen.
+restored and the R30 DEP in Green, the complete source suite executed 537
+tests: 523 passed and 14 platform or sandbox cases were skipped. Repository
+validation and CI Guard verification both passed. Candidate build, Twine,
+offline bundle, and fresh installed-wheel smoke passed. The installed-wheel
+smoke imported no source checkout, validated both managed Agent adapters,
+passed the synthetic demo, and passed the native Linux Broker checks. An
+actual revert restored the exact trusted-Base non-audit tree; Base setup,
+Doctor, validation, build, Twine, and 237-test suite passed with one expected
+sandbox skip.
 
 ## Unaffected paths sampled
 

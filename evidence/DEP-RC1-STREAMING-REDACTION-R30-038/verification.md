@@ -12,8 +12,23 @@
   sandbox skips.
 - `sddgov validate .` and `sddgov ci verify .`: PASS.
 - Owner-client identity: unchanged and equal to the signed Decision request.
-- Full source, Local Green, package, rollback, hosted, automated-review, and
-  independent-review results remain pending until the final R30 topology.
+- Candidate wheel and sdist build: PASS; Twine validation: PASS.
+- Candidate wheel SHA-256:
+  `e8148ec64f8809da567bf9f8ca3e14774244d207316195d7020eaad62861f766`.
+- Candidate sdist SHA-256:
+  `a3d15308e41adeecfc3b51a9c41b934c8bfdd488b226885870962c9ca57642de`.
+- Offline release bundle: PASS with 10 dependency wheels and four public
+  assets. Fresh installed-wheel smoke: PASS outside the source checkout;
+  `source_checkout_imported=false`, bundle 13 files/12 payload files, Codex
+  and Hermes Doctor/validation each reported 73 managed files, the synthetic
+  quick demo passed, and native Linux Broker checks passed.
+- Actual declarative rollback rehearsal: PASS. Reverting
+  `01e882a3a2a8fa98fc062110fdc0f273b03065c8` at the Evidence Head restored
+  the exact trusted-Base non-audit product tree. Base setup-agent, Doctor,
+  validation, package build, and Twine validation passed; the Base suite ran
+  237 tests with one expected sandbox skip and no failure.
+- Final Local Green, hosted, automated-review, and independent-review results
+  remain pending until the final R30 Evidence Head and Gate are frozen.
 
 ## Before/after evidence
 
