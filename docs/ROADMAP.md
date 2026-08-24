@@ -1,6 +1,30 @@
 # Roadmap
 
-## v0.2.0-experimental.6 — current v1.2 Hard Gates patch
+## v0.2.0-experimental.8 — release candidate complete 2026-08-16
+
+- Exact outer/inner authority consistency before autonomous L0/L1 continuation.
+- Machine-readable L2 reopen semantics and retained-fd assumption freshness.
+- Parsed CI workflow semantics with duplicate-key and job-permission rejection.
+- Evidence artifact-generation recheck, intermediate-symlink/FIFO rejection, pending-transaction visibility, and bounded collect/redact recovery.
+- Durable deduplicated Operational Action state, meaningful Rollback validation, complete protected-source inventory, provider-token redaction, and patched hash-locked cryptography.
+- PR #12 completed exact independent review with P0=0/P1=0, trusted Merge receipt, one Hosted Base-workflow proof, and merge-commit integration while preserving the verified rollback commit.
+- All eight experimental.8 DEPs completed Local Green/Proof, including Python 3.11/3.14 test runs, package build, fresh-wheel Codex/Hermes doctor, and an offline synthetic Muse pilot.
+- Issue #13 and PR #14 merged pre-authorized routine review sharing for an already-configured Reviewer without weakening Private Repo, Secret, raw Evidence, personal-data, access, vendor, or cost boundaries.
+- Issue #15 and PR #16 merged executable rollback post-conditions and one automatic hosted Work Package run; runtime rollback Doctor/tests proof is Green.
+- Final release-readiness work closes machine-significant classifier exit codes, exact `ACTION REQUIRED` binding, durable Necessary UAT and Operational Action resolution, first-consumer trusted Merge bootstrap, current portable verification for every tracked Proof DEP, and invalid CI exemption handling.
+- Final Security and Autonomy reviews completed with P0=0/P1=0; required GitHub `verify`, branch protection, Secret Scanning, Push Protection, and Dependabot security updates were enabled and read back. The release transaction records signed/attested exact-commit provenance and freshly downloaded asset verification in the GitHub Release; no intermediate candidate is published.
+
+## v0.2.0-experimental.7 — security hardening candidate
+
+- Base-controlled trusted verifier separated from candidate PR code and candidate-defined commands.
+- Full Evidence artifact recomputation plus complete raw/report associations, Collector/media-type binding, retained directory descriptors, and fail-closed path, symlink, hardlink, duplicate, missing, extra, content-type, HAR, and tamper checks.
+- Separate-identity L2 trust roots, byte-recalculated assumption artifacts, root-controlled L3 Runtime Context, complete canonical operation-payload binding, and a root-provisioned clone-external Unix Broker service.
+- Full-SHA-pinned Actions and hash-locked trusted-verifier dependencies.
+- Authoritative Base Reviewer revocation that cannot be bypassed by stale bootstrap state.
+- Offline synthetic Muse/Hermes clone pilot with synthetic text, one generated image, binary fail-closed behavior, and full/portable DEP proof.
+- Remaining before release: exact-Head independent Review, Merge Gate receipt, hosted Base-workflow transition check, and independently downloaded artifact smoke test.
+
+## v0.2.0-experimental.6 — released 2026-08-15
 
 - External Trusted Runner preparation with dedicated-UID bootstrap contracts, exact
   signed L3 operation handoff, sealed FD validation, bounded child cleanup, and an

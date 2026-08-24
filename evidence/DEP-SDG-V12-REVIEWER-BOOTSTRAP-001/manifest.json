@@ -5,7 +5,10 @@
     {
       "collector": "terminal",
       "path": "private/raw/terminal--hermes-pilot-red.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
       "sha256": "133ccbd2f0286ca2d7231186177908e01433633c92028f1f62adaef2ead2758b",
+      "size": 915,
       "collected_at": "2026-08-14T05:19:08Z",
       "shareable": false
     }
@@ -14,6 +17,7 @@
     {
       "path": "shareable/artifacts/terminal--hermes-pilot-red.txt",
       "sha256": "dfc38f0047b5f2afc59895826ec238d512d07c411e63d7f09e9b8cb438282d97",
+      "size": 931,
       "shareable": true
     }
   ]

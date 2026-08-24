@@ -1,0 +1,13 @@
+RELEASE_NOTES.md:1:# v0.2.0-experimental.6 Release Notes
+RELEASE_NOTES.md:18:gh release download v0.2.0-experimental.6 \
+RELEASE_NOTES.md:42:test "$installed_version" = "0.2.0-experimental.6"
+docs/ROADMAP.md:3:## v0.2.0-experimental.8 — proof and authority hardening in progress
+docs/ROADMAP.md:15:- Remaining before release: one complete final independent review with P0=0/P1=0, activate and read back the required GitHub security controls, produce signed/attested exact-commit provenance, and verify freshly downloaded assets. No intermediate Release is published.
+docs/ROADMAP.md:25:- Remaining before release: exact-Head independent Review, Merge Gate receipt, hosted Base-workflow transition check, and independently downloaded artifact smoke test.
+docs/ROADMAP.md:27:## v0.2.0-experimental.6 — released [REDACTED_PHONE_OR_NUMBER]
+docs/USER_GUIDE.zh-TW.md:39:gh release download v0.2.0-experimental.6 \
+docs/USER_GUIDE.zh-TW.md:81:git clone agentic-sdd-governance-v0.2.0-experimental.6.bundle \
+README.zh-TW.md:50:gh release download v0.2.0-experimental.6 \
+README.zh-TW.md:243:- GitHub Release `v0.2.0-experimental.6` 已發布；若 Repo 仍為 Private，未登入或沒有權限的使用者會看到 404。
+CHANGELOG.md:3:## 0.2.0-experimental.8 — [REDACTED_PHONE_OR_NUMBER] security hardening (unreleased)
+CHANGELOG.md:69:## 0.2.0-experimental.6 — [REDACTED_PHONE_OR_NUMBER]

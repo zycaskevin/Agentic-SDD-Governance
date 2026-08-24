@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "algorithm": "ed25519",
+  "review": {
+    "review_id": "REV-RELEASE-READINESS-HARDENING-010",
+    "reviewer_id": "codex-independent-reviewer-pr10",
+    "builder_id": "codex-builder",
+    "change_digest": "a08e56d092721e8fc54fe4faa65449f8dd6c7d3acb1128c9307e0566f217913d",
+    "gate_metadata_digest": "b4447c62d0151243c2cea7b09d2abfd72d02fc8172f1a4a5e5adb39e4b422338",
+    "verdict": "approved",
+    "issued_at": "2026-08-16T08:06:00Z",
+    "expires_at": "2026-08-16T20:06:00Z",
+    "nonce": "vxWtrQG3zQzoqY5AGp3R_2wi"
+  },
+  "signature": "g6DbEf3MKUKOBNCLeW4XEsnIeVBpaQuS+ThEceh36JEaWLwjx546XxrRGOaJyme5TyHRjlJfRC9ipAlZS64OAQ=="
+}

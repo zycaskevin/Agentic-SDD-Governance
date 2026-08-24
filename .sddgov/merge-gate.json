@@ -1,14 +1,13 @@
 {
   "schema_version": "1.0",
-  "base_sha": "849c2becd9104c65dedd6d84533f8986db02f7e1",
-  "head_sha": "a710fba3bcc34abf308bdfa320989a69e67b85b2",
+  "base_sha": "55d480a09764827e89531eef75bb7c5f21ab18cd",
+  "head_sha": "cd9c7fa17cabb1e44768726a2bea074d3c0d12fb",
   "risk_level": "L1",
-  "builder_id": "codex-builder",
-  "change_digest": "bc36fd06c7cc23ae9beeff43d6e7905d0effb2b2513e76b5577deadeaa6b1445",
+  "builder_id": "codex-local-green-serialization-builder",
+  "change_digest": "4ecdf23a9c7d7ab18d02adddac6408e5f524ec3a3e1fa15d9e76dee119db84b9",
   "deps": [
-    "evidence/DEP-SDG-V12-HARD-GATES-001",
-    "evidence/DEP-SDG-V12-REVIEWER-BOOTSTRAP-001"
+    "evidence/DEP-SDG-CI-LOCK-016"
   ],
-  "rollback_path": "evidence/DEP-SDG-V12-HARD-GATES-001/rollback.md",
-  "protected_file_review": ".sddgov/reviews/REV-SDG-V12-HARD-GATES-001.json"
+  "rollback_path": "evidence/DEP-SDG-CI-LOCK-016/rollback.md",
+  "protected_file_review": ".sddgov/reviews/REV-SDG-CI-LOCK-001.json"
 }

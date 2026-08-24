@@ -1,0 +1,53 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-EXPERIMENTAL8-RELEASE-DOCS-015",
+  "issue": "20",
+  "sdd_references": [
+    "work-packages/WP-EXPERIMENTAL8-RELEASE-DOCS-007.md"
+  ],
+  "risk_level": "L0",
+  "created_at": "2026-08-16T11:54:55Z",
+  "updated_at": "2026-08-16T12:02:49Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-16T11:54:55Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-16T12:02:49Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-16T12:02:49Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-16T12:02:49Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-16T12:02:49Z"
+      }
+    ]
+  },
+  "expected_behavior": "Current Traditional Chinese installation guidance and Release Notes select v0.2.0-experimental.8, preserve machine checksum verification, and describe the verified release state.",
+  "actual_behavior": "The frozen runtime candidate was Green, but README.zh-TW.md, docs/USER_GUIDE.zh-TW.md, and RELEASE_NOTES.md still installed experimental.6 while CHANGELOG and Roadmap called experimental.8 unreleased or in progress.",
+  "environment": {
+    "commit": "b09edcf65a57ce5f01c26eca1419dfa5f3395a7f",
+    "branch": "docs/experimental8-release-metadata",
+    "runtime": "macOS arm64; Python 3.14.3; pytest 8.4.2; final runtime Base dd84c538624cdda4e65d7189821b43747c2c535f",
+    "red_baseline": "dd84c538624cdda4e65d7189821b43747c2c535f"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": [
+    {
+      "path": "shareable/artifacts/terminal--release-docs-red.txt",
+      "sha256": "2fcf34f6e0adf188b7f8c0de11b912a6bad767cb852b7f336ffdcf5fa286fc17",
+      "collector": "terminal"
+    }
+  ]
+}

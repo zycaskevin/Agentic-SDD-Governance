@@ -10,7 +10,9 @@ from .autonomy import (
     checkpoint,
     evaluate_deployment,
     evaluate_escalation,
+    import_external_action_resolution,
     import_operation_approval,
+    import_product_approval,
     lock_artifact,
     record_decision,
     verify_artifact,
@@ -32,9 +34,18 @@ from .merge_gate import (
     compute_gate_metadata_digest,
     verify_merge,
 )
+from .pilot import run_synthetic_muse_pilot
 from .reviewer import bootstrap_reviewer, export_trust, sign_protected_review
 from .schema_validation import check_schema, load_schema, validate_instance
 from .trusted_runner import describe_bootstrap, serve_connection
+
+
+class SDGArgumentParser(argparse.ArgumentParser):
+    """Keep parser failures distinct from validated owner decisions."""
+
+    def error(self, message: str) -> None:
+        self.print_usage(sys.stderr)
+        self.exit(3, f"{self.prog}: error: {message}\n")
 
 
 def _evidence_parser(subparsers) -> None:
@@ -64,6 +75,11 @@ def _evidence_parser(subparsers) -> None:
     check = commands.add_parser("verify", help="Verify DEP structure and gates")
     check.add_argument("dep", type=Path)
     check.add_argument("--strict", action="store_true")
+    check.add_argument(
+        "--portable",
+        action="store_true",
+        help="Verify a portable tracked DEP while allowing local-only raw files to be absent",
+    )
 
     link = commands.add_parser("attach", help="Generate a safe local evidence block")
     link.add_argument("dep", type=Path)
@@ -99,13 +115,21 @@ def _autonomy_parsers(subparsers) -> None:
 
     decision = subparsers.add_parser("decision", help="Record and reuse bounded L2/L3 decisions")
     decision_commands = decision.add_subparsers(dest="decision_command", required=True)
-    record = decision_commands.add_parser("record", help="Record one approved L2 decision")
+    record = decision_commands.add_parser(
+        "record", help="Deprecated unsafe L2 path; always fails closed"
+    )
     record.add_argument("decision_id")
     record.add_argument("--summary", required=True)
     record.add_argument("--scope", required=True)
     record.add_argument("--basis", required=True)
     record.add_argument("--reopen-condition", required=True)
     record.add_argument("--path", type=Path, default=Path.cwd())
+    import_product = decision_commands.add_parser(
+        "import-product-approval",
+        help="Verify and import one trusted owner-signed L2 product decision",
+    )
+    import_product.add_argument("receipt", type=Path)
+    import_product.add_argument("--path", type=Path, default=Path.cwd())
     import_approval = decision_commands.add_parser(
         "import-operation-approval",
         help="Verify and import one trusted owner-signed L3 approval receipt",
@@ -144,7 +168,7 @@ def _trusted_runner_parser(subparsers) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="sddgov")
+    parser = SDGArgumentParser(prog="sddgov")
     parser.add_argument("--version", action="version", version=__version__)
     sub = parser.add_subparsers(dest="command", required=True)
     _evidence_parser(sub)
@@ -169,6 +193,11 @@ def build_parser() -> argparse.ArgumentParser:
     merge_verify.add_argument("path", nargs="?", type=Path, default=Path.cwd())
     merge_verify.add_argument("--base-ref", required=True)
     merge_verify.add_argument("--gate", type=Path, default=DEFAULT_GATE)
+    merge_verify.add_argument(
+        "--skip-local-checks",
+        action="store_true",
+        help="Do not execute candidate-defined Local Green commands (trusted hosted verifier only)",
+    )
     reviewer = sub.add_parser(
         "reviewer", help="Provision and use an independent review identity"
     )
@@ -227,17 +256,44 @@ def build_parser() -> argparse.ArgumentParser:
     event.add_argument("--risk", choices=("L0", "L1", "L2", "L3"), required=True)
     event.add_argument("--payload", default="{}", help="JSON object")
     event.add_argument("--path", type=Path, default=Path.cwd())
-    external = sub.add_parser("external-action", help="Queue one bounded owner action")
-    external.add_argument("action_id")
-    external.add_argument("--summary", required=True)
-    external.add_argument("--risk", choices=("L2", "L3"), required=True)
-    external.add_argument("--owner", required=True)
-    external.add_argument("--path", type=Path, default=Path.cwd())
+    external = sub.add_parser(
+        "external-action", help="Queue or resolve one bounded owner action"
+    )
+    external_commands = external.add_subparsers(
+        dest="external_action_command", required=True
+    )
+    external_queue = external_commands.add_parser(
+        "queue", help="Queue one bounded Operational Action or Necessary UAT"
+    )
+    external_queue.add_argument("action_id")
+    external_queue.add_argument("--summary", required=True)
+    external_queue.add_argument("--risk", choices=("L1", "L2", "L3"), required=True)
+    external_queue.add_argument("--owner", required=True)
+    external_queue.add_argument("--scope", required=True)
+    external_queue.add_argument(
+        "--class",
+        dest="action_class",
+        choices=("operational_action", "necessary_uat"),
+        default="operational_action",
+    )
+    external_queue.add_argument("--ttl-minutes", type=int, default=1440)
+    external_queue.add_argument("--path", type=Path, default=Path.cwd())
+    external_resolve = external_commands.add_parser(
+        "resolve", help="Import one trusted owner-signed terminal resolution"
+    )
+    external_resolve.add_argument("receipt", type=Path)
+    external_resolve.add_argument("--path", type=Path, default=Path.cwd())
     bench = sub.add_parser("benchmark", help="Compare paired debugging run results")
     bench_sub = bench.add_subparsers(dest="benchmark_command", required=True)
     cmp = bench_sub.add_parser("compare")
     cmp.add_argument("--screenshot", type=Path, required=True)
     cmp.add_argument("--evidence", type=Path, required=True)
+    pilot = sub.add_parser("pilot", help="Run isolated synthetic adoption pilots")
+    pilot_sub = pilot.add_subparsers(dest="pilot_command", required=True)
+    synthetic_muse = pilot_sub.add_parser(
+        "synthetic-muse", help="Run the offline synthetic Muse/Hermes pilot"
+    )
+    synthetic_muse.add_argument("--output", type=Path)
     validate = sub.add_parser("validate", help="Validate repository governance assets")
     validate.add_argument("path", nargs="?", type=Path, default=Path.cwd())
     return parser
@@ -250,10 +306,13 @@ def _validate_repo(root: Path) -> list[str]:
         "schemas/debug-evidence-package.schema.json", "schemas/collector-event.schema.json",
         "schemas/objective-contract.schema.json",
         "schemas/governance-event.schema.json", "schemas/work-claim.schema.json",
-        "schemas/external-action.schema.json", "policies/protected-files.yaml",
+        "schemas/external-action.schema.json",
+        "schemas/external-action-resolution-receipt.schema.json",
+        "policies/protected-files.yaml",
         "schemas/autonomy-policy.schema.json", "schemas/decision-record.schema.json",
         "schemas/artifact-lock.schema.json", "policies/autonomy-policy.json",
         "schemas/trusted-approvers.schema.json", "schemas/operation-approval-receipt.schema.json",
+        "schemas/product-decision-approval-receipt.schema.json",
         "schemas/trusted-reviewers.schema.json", "schemas/protected-review-receipt.schema.json",
         "schemas/merge-gate.schema.json", "src/sddgov/merge_gate.py",
         "src/sddgov/reviewer.py",
@@ -268,6 +327,8 @@ def _validate_repo(root: Path) -> list[str]:
         "skill/agentic-sdd-governance/references/independent-reviewer.md",
         "docs/EVIDENCE_DRIVEN_SDD.md", "docs/AGENT_INSTALLATION.md", "docs/CI_COST_GUARD.md",
         "docs/AUTONOMOUS_DEVELOPMENT_V1_2.md", "templates/ACTION_REQUIRED.md",
+        "templates/EXTERNAL_ACTION_RESOLUTION_RECEIPT.json",
+        "templates/PRODUCT_DECISION_APPROVAL_RECEIPT.json",
         "templates/CI_COST_GUARD.json", "src/sddgov/ci_guard.py",
         "src/sddgov/installer.py",
         "src/sddgov/resources/governance/VERSION",
@@ -329,14 +390,45 @@ def run(args: argparse.Namespace) -> int:
         print(json.dumps(emit_event(args.path, args.event_type, args.risk, payload), ensure_ascii=False, indent=2))
         return 0
     if args.command == "external-action":
-        print(json.dumps(enqueue_external_action(args.path, args.action_id, args.summary, args.risk, args.owner), ensure_ascii=False, indent=2))
+        if args.external_action_command == "queue":
+            result = enqueue_external_action(
+                args.path,
+                args.action_id,
+                args.summary,
+                args.risk,
+                args.owner,
+                scope=args.scope,
+                ttl_minutes=args.ttl_minutes,
+                action_class=args.action_class,
+            )
+        else:
+            result = import_external_action_resolution(args.path, args.receipt)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
+    if args.command == "pilot":
+        result = run_synthetic_muse_pilot(args.output)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0 if result["verdict"] == "PASS" else 1
     if args.command == "autonomy":
-        request = json.loads(args.request.read_text(encoding="utf-8"))
-        if not isinstance(request, dict):
-            raise ValueError("autonomy request must be a JSON object")
-        print(json.dumps(evaluate_escalation(args.path, request), ensure_ascii=False, indent=2))
-        return 0
+        try:
+            request = json.loads(args.request.read_text(encoding="utf-8"))
+            if not isinstance(request, dict):
+                raise ValueError("autonomy request must be a JSON object")
+            result = evaluate_escalation(args.path, request)
+        except (OSError, TypeError, ValueError) as exc:
+            result = {
+                "state": "BLOCKED",
+                "requires_response": False,
+                "reason": "autonomy_request_has_an_invalid_contract",
+                "detail": str(exc),
+                "next_action": "repair_the_machine_request_before_reclassification",
+            }
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        if result.get("state") == "CONTINUE":
+            return 0
+        if result.get("state") == "ACTION_REQUIRED":
+            return 2
+        return 1
     if args.command == "artifact":
         if args.artifact_command == "lock":
             result = lock_artifact(args.artifact, args.release, args.output)
@@ -354,6 +446,8 @@ def run(args: argparse.Namespace) -> int:
                 args.basis,
                 args.reopen_condition,
             )
+        elif args.decision_command == "import-product-approval":
+            result = import_product_approval(args.path, args.receipt)
         else:
             result = import_operation_approval(args.path, args.receipt)
         print(json.dumps(result, ensure_ascii=False, indent=2))
@@ -380,7 +474,12 @@ def run(args: argparse.Namespace) -> int:
         elif args.merge_command == "gate-digest":
             result = compute_gate_metadata_digest(args.path, args.gate)
         else:
-            result = verify_merge(args.path, args.base_ref, args.gate)
+            result = verify_merge(
+                args.path,
+                args.base_ref,
+                args.gate,
+                run_checks=not args.skip_local_checks,
+            )
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0 if result.get("ok", True) else 1
     if args.command == "reviewer":
@@ -432,7 +531,7 @@ def run(args: argparse.Namespace) -> int:
     elif args.evidence_command == "transition":
         print(json.dumps(transition(args.dep, args.phase), ensure_ascii=False, indent=2))
     elif args.evidence_command == "verify":
-        errors = verify(args.dep, args.strict)
+        errors = verify(args.dep, args.strict, args.portable)
         if errors:
             print("\n".join(f"[ERROR] {e}" for e in errors), file=sys.stderr)
             return 1
@@ -447,7 +546,7 @@ def main() -> None:
         raise SystemExit(run(build_parser().parse_args()))
     except (ValueError, FileNotFoundError, FileExistsError) as exc:
         print(f"[ERROR] {exc}", file=sys.stderr)
-        raise SystemExit(2)
+        raise SystemExit(3)
 
 
 def evidence_main() -> None:
@@ -456,7 +555,7 @@ def evidence_main() -> None:
         raise SystemExit(run(build_parser().parse_args(argv)))
     except (ValueError, FileNotFoundError, FileExistsError) as exc:
         print(f"[ERROR] {exc}", file=sys.stderr)
-        raise SystemExit(2)
+        raise SystemExit(3)
 
 
 if __name__ == "__main__":

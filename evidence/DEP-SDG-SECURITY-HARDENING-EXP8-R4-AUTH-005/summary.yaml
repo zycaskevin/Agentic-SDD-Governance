@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-SDG-SECURITY-HARDENING-EXP8-R4-AUTH-005",
+  "issue": "11",
+  "sdd_references": [
+    "HARD-GATES-V1.2"
+  ],
+  "risk_level": "L1",
+  "created_at": "2026-08-15T18:19:13Z",
+  "updated_at": "2026-08-15T18:20:30Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-15T18:19:13Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-15T18:20:29Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-15T18:20:29Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-15T18:20:30Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-15T18:20:30Z"
+      }
+    ]
+  },
+  "expected_behavior": "Existing L2 decision reuse contains only the exact decision identity and scope; a new Decision Package must enter the strict escalation path and cannot be silently ignored.",
+  "actual_behavior": "At exact candidate 9978359, a valid L2 reuse request carrying a Decision Package with nested foreign operation data returned CONTINUE before package validation.",
+  "environment": {
+    "commit": "9978359b77d60765466860429dc58f50609f07ec",
+    "branch": "fix/security-hardening-exp8",
+    "runtime": "macOS; Python 3.11/3.12/3.14; fresh independent nested-authority review"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}

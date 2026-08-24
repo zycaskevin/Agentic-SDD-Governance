@@ -5,9 +5,13 @@ import binascii
 import hashlib
 import json
 import os
+import re
 import subprocess
+import sys
+import tempfile
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from importlib import resources
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from cryptography.exceptions import InvalidSignature
@@ -15,13 +19,33 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from .ci_guard import run_local_gate
 from .evidence import verify as verify_dep
-from .trust import load_owner_controlled_json
+from .trust import load_control_plane_json, load_owner_controlled_json
 
 
 DEFAULT_GATE = Path(".sddgov/merge-gate.json")
+LEGACY_ROLLBACK_V1_BOOTSTRAP_BASE_SHA = (
+    "f44cb5f4897f6c821f817fcf178581b43777163a"
+)
+LEGACY_ROLLBACK_V1_BOOTSTRAP_PATH = (
+    "evidence/DEP-SDG-SECURITY-HARDENING-EXP8-001/rollback.md"
+)
+ROLLBACK_V2_POSTCONDITION_BOOTSTRAP_BASE_SHA = (
+    "ce08f48c5d7c4232e9c0154dabb3b43c63b920c1"
+)
+ROLLBACK_V2_POSTCONDITION_BOOTSTRAP_PATH = (
+    "evidence/DEP-RELEASE-READINESS-HARDENING-010/rollback.md"
+)
 AUDIT_EXCLUDES = (
     ":(exclude).sddgov/merge-gate.json",
     ":(exclude).sddgov/reviews/**",
+)
+FIRST_CONSUMER_BASE_MARKERS = (
+    "policies/protected-files.yaml",
+    ".agentic-sdd-governance/policies/protected-files.yaml",
+    ".agentic-sdd-governance/manifest.json",
+    ".sddgov/project.json",
+    ".sddgov/trusted-reviewers.json",
+    ".github/workflows/governance.yml",
 )
 
 
@@ -68,6 +92,29 @@ def _load_json(path: Path, label: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError(f"{label} must contain a JSON object")
     return value
+
+
+def _bounded_repository_path(root: Path, relative: Any, label: str) -> Path:
+    if not isinstance(relative, str) or not relative or "\\" in relative:
+        raise ValueError(f"{label} path is invalid")
+    pure = PurePosixPath(relative)
+    if (
+        pure.is_absolute()
+        or str(pure) != relative
+        or any(part in {"", ".", ".."} for part in pure.parts)
+    ):
+        raise ValueError(f"{label} path escapes or is not normalized")
+    current = root
+    for part in pure.parts:
+        current = current / part
+        if current.is_symlink():
+            raise ValueError(f"{label} path contains a symlink")
+    resolved = current.resolve()
+    try:
+        resolved.relative_to(root)
+    except ValueError as exc:
+        raise ValueError(f"{label} path escapes the repository") from exc
+    return resolved
 
 
 def _canonical(value: dict[str, Any]) -> bytes:
@@ -124,7 +171,7 @@ def _verify_review_receipt(
     metadata_digest: str,
     trust: dict[str, Any],
 ) -> dict[str, Any]:
-    path = (root / relative).resolve()
+    path = _bounded_repository_path(root, relative, "review receipt")
     try:
         path.relative_to(root / ".sddgov" / "reviews")
     except ValueError as exc:
@@ -216,11 +263,25 @@ def _verify_review_receipt(
     return review
 
 
-def _protected_patterns(root: Path, base_ref: str) -> list[str]:
-    try:
-        text = _git(root, "show", f"{base_ref}:policies/protected-files.yaml")
-    except ValueError as exc:
-        raise ValueError("protected-file policy is required at the trusted base") from exc
+def _base_has_path(root: Path, base_ref: str, relative: str) -> bool:
+    completed = subprocess.run(
+        ["git", "cat-file", "-e", f"{base_ref}:{relative}"],
+        cwd=root,
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return completed.returncode == 0
+
+
+def _first_consumer_base(root: Path, base_ref: str) -> bool:
+    return not any(
+        _base_has_path(root, base_ref, marker)
+        for marker in FIRST_CONSUMER_BASE_MARKERS
+    )
+
+
+def _parse_protected_patterns(text: str) -> list[str]:
     patterns: list[str] = []
     in_protected = False
     for raw in text.splitlines():
@@ -237,43 +298,83 @@ def _protected_patterns(root: Path, base_ref: str) -> list[str]:
     return patterns
 
 
-def _trusted_reviewers(root: Path, base_ref: str) -> dict[str, Any]:
-    """Prefer base-anchored reviewer authority; use external trust for bootstrap only."""
-    base_store: dict[str, Any] | None = None
-    try:
-        text = _git(root, "show", f"{base_ref}:.sddgov/trusted-reviewers.json")
-    except ValueError:
-        base_store = None
-    else:
+def _protected_patterns(root: Path, base_ref: str) -> list[str]:
+    for relative in (
+        "policies/protected-files.yaml",
+        ".agentic-sdd-governance/policies/protected-files.yaml",
+    ):
         try:
-            value = json.loads(text)
-        except json.JSONDecodeError as exc:
-            raise ValueError("trusted reviewer store at trusted base is invalid") from exc
-        if not isinstance(value, dict):
-            raise ValueError("trusted reviewer store at trusted base must contain a JSON object")
-        base_store = value
-    reviewers = base_store.get("reviewers") if isinstance(base_store, dict) else None
-    has_active = isinstance(reviewers, list) and any(
-        isinstance(record, dict) and record.get("status") == "active"
-        for record in reviewers
+            text = _git(root, "show", f"{base_ref}:{relative}")
+        except ValueError:
+            continue
+        return _parse_protected_patterns(text)
+    if not _first_consumer_base(root, base_ref):
+        raise ValueError("protected-file policy is required at the trusted base")
+    # A first installation has no Base policy.  Use only the verifier package's
+    # immutable built-in policy; never fall back to Candidate bytes.
+    text = (
+        resources.files("sddgov")
+        .joinpath("resources")
+        .joinpath("governance")
+        .joinpath("policies")
+        .joinpath("protected-files.yaml")
+        .read_text(encoding="utf-8")
     )
-    if has_active:
-        return base_store
+    return _parse_protected_patterns(text)
 
+
+def _external_trusted_reviewers(
+    root: Path, *, require_separate_identity: bool = False
+) -> dict[str, Any]:
     external = os.environ.get("SDDGOV_TRUSTED_REVIEWERS_FILE")
     if not external:
         raise ValueError(
-            "trusted reviewer store at the trusted base has no active reviewer; "
-            "bootstrap requires SDDGOV_TRUSTED_REVIEWERS_FILE"
+            "trusted reviewer bootstrap requires SDDGOV_TRUSTED_REVIEWERS_FILE"
         )
+    resolved_root = root.resolve()
     source = Path(external).expanduser().absolute()
     try:
-        source.resolve().relative_to(root)
+        source.resolve().relative_to(resolved_root)
     except ValueError:
+        if require_separate_identity:
+            return load_control_plane_json(
+                source, "first-consumer trusted reviewer store"
+            )
         return load_owner_controlled_json(
             source, "out-of-band trusted reviewer store"
         )
     raise ValueError("out-of-band trusted reviewer store must be outside the repository")
+
+
+def _trusted_reviewers(root: Path, base_ref: str) -> dict[str, Any]:
+    """Prefer base-anchored reviewer authority; use external trust for bootstrap only."""
+    try:
+        text = _git(root, "show", f"{base_ref}:.sddgov/trusted-reviewers.json")
+    except ValueError as exc:
+        if _first_consumer_base(root, base_ref):
+            return _external_trusted_reviewers(
+                root, require_separate_identity=True
+            )
+        raise ValueError("trusted reviewer store is required at the trusted base") from exc
+    try:
+        value = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ValueError("trusted reviewer store at trusted base is invalid") from exc
+    if (
+        not isinstance(value, dict)
+        or set(value) != {"schema_version", "reviewers"}
+        or value.get("schema_version") != "1.0"
+        or not isinstance(value.get("reviewers"), list)
+    ):
+        raise ValueError("trusted reviewer store at trusted base has an invalid contract")
+    base_store = value
+    reviewers = base_store["reviewers"]
+    if reviewers:
+        # A populated Base store is authoritative even when every key is revoked.
+        # Falling back here would let a stale bootstrap variable resurrect a key.
+        return base_store
+
+    return _external_trusted_reviewers(root)
 
 
 def _is_protected(path: str, patterns: list[str]) -> bool:
@@ -322,24 +423,498 @@ def only_audit_changes_after_review(
     )
 
 
-def _real_rollback(path: Path) -> bool:
-    if not path.is_file():
-        return False
+def _rollback_contract(
+    text: str,
+    *,
+    allow_legacy_v1: bool = False,
+    allow_v2_postcondition_bridge: bool = False,
+) -> dict[str, str] | None:
+    """Validate rollback bytes loaded from the immutable candidate commit.
+
+    Declarative v2 is the normal contract.  One exact legacy v1 form remains as a
+    migration bridge for a trusted Base verifier that predates v2; it is an
+    allowlist, not a shell parser, and no value from the document is executed.
+    """
     fields: dict[str, str] = {}
-    for raw in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+    for raw in text.splitlines():
         line = raw.strip()
-        if not line or line.startswith("#") or ":" not in line:
+        if not line or line.startswith("#"):
             continue
-        key, value = line.split(":", 1)
-        fields[key.strip().lower()] = value.strip().strip("`")
-    required = {"rollback_version", "target", "command", "verify"}
-    if not required.issubset(fields) or fields["rollback_version"] != "1.0":
-        return False
-    forbidden = ("todo", "replace", "unavailable", "<", ">")
-    return all(
-        fields[key] and not any(token in fields[key].lower() for token in forbidden)
-        for key in ("target", "command", "verify")
+        if ":" not in raw:
+            return None
+        key, value = raw.split(":", 1)
+        if (
+            raw != line
+            or not key
+            or key != key.strip()
+            or key != key.lower()
+            or key in fields
+            or not value.startswith(" ")
+            or value.startswith("  ")
+            or value[1:] != value[1:].strip()
+        ):
+            return None
+        fields[key] = value[1:]
+    target = fields.get("target", "")
+    if (
+        not target
+        or len(target) > 240
+        or any(token in target.lower() for token in ("todo", "unavailable", "<", ">"))
+    ):
+        return None
+    version = fields.get("rollback_version")
+    if version == "1.0":
+        if not allow_legacy_v1 or set(fields) != {
+            "rollback_version",
+            "target",
+            "command",
+            "verify",
+        }:
+            return None
+        match = re.fullmatch(r"git revert --no-edit ([0-9a-f]{40})", fields["command"])
+        if match is None or fields["verify"] != "python -m pytest":
+            return None
+        return {"version": version, "rollback_ref": match.group(1)}
+    required_v2 = {
+        "rollback_version",
+        "target",
+        "rollback_action",
+        "rollback_ref",
+        "verify_action",
+        "verify_module",
+    }
+    if version == "2.0":
+        if set(fields) != required_v2 or not allow_v2_postcondition_bridge:
+            return None
+        bridge_comments = (
+            "# reconcile_action: setup_agent_from_reverted_source",
+            "# reconcile_agent: codex",
+            "# reconcile_profile: team-standard",
+            "# post_verify_action: doctor_and_python_module",
+        )
+        lines = text.splitlines()
+        if any(lines.count(comment) != 1 for comment in bridge_comments):
+            return None
+        if fields["rollback_action"] != "git_revert":
+            return None
+        if not re.fullmatch(r"[0-9a-f]{40}", fields["rollback_ref"]):
+            return None
+        if fields["verify_action"] != "python_module":
+            return None
+        if fields["verify_module"] not in {"pytest", "unittest"}:
+            return None
+        return {
+            "version": version,
+            "rollback_ref": fields["rollback_ref"],
+            "reconcile_action": "setup_agent_from_reverted_source",
+            "reconcile_agent": "codex",
+            "reconcile_profile": "team-standard",
+            "verify_action": "doctor_and_python_module",
+            "verify_module": fields["verify_module"],
+        }
+    required_v3 = required_v2 | {
+        "reconcile_action",
+        "reconcile_agent",
+        "reconcile_profile",
+    }
+    if set(fields) != required_v3 or version != "3.0":
+        return None
+    if fields["rollback_action"] != "git_revert":
+        return None
+    if not re.fullmatch(r"[0-9a-f]{40}", fields["rollback_ref"]):
+        return None
+    if fields["reconcile_action"] != "setup_agent_from_reverted_source":
+        return None
+    if fields["reconcile_agent"] not in {"codex", "hermes"}:
+        return None
+    if fields["reconcile_profile"] not in {
+        "solo-fast",
+        "team-standard",
+        "regulated",
+    }:
+        return None
+    if fields["verify_action"] != "doctor_and_python_module":
+        return None
+    if fields["verify_module"] not in {"pytest", "unittest"}:
+        return None
+    return {key: fields[key] for key in required_v3}
+
+
+def _real_rollback(
+    text: str,
+    *,
+    allow_legacy_v1: bool = False,
+    allow_v2_postcondition_bridge: bool = False,
+) -> bool:
+    return (
+        _rollback_contract(
+            text,
+            allow_legacy_v1=allow_legacy_v1,
+            allow_v2_postcondition_bridge=allow_v2_postcondition_bridge,
+        )
+        is not None
     )
+
+
+def _rollback_ref_is_in_candidate_range(
+    root: Path, rollback_ref: str, *, base_sha: str, reviewed_head_sha: str
+) -> bool:
+    try:
+        resolved = _git(root, "rev-parse", "--verify", f"{rollback_ref}^{{commit}}")
+    except ValueError:
+        return False
+    if resolved != rollback_ref or rollback_ref == base_sha:
+        return False
+    for older, newer in (
+        (base_sha, rollback_ref),
+        (rollback_ref, reviewed_head_sha),
+    ):
+        completed = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", older, newer],
+            cwd=root,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if completed.returncode != 0:
+            return False
+    return True
+
+
+def _rollback_ref_is_cleanly_revertible(
+    root: Path, rollback_ref: str, *, base_sha: str, reviewed_head_sha: str
+) -> bool:
+    """Prove the declared single-commit rollback applies without conflicts.
+
+    ``git merge-tree`` performs the same three-way merge shape as reverting the
+    commit: the rollback commit is the merge base, the reviewed Head is ours,
+    and the rollback commit's sole parent is theirs.  An isolated bare Git
+    directory prevents repository config, hooks, lazy fetches, or custom merge
+    drivers from becoming executable authority.  The result must restore the
+    trusted Base outside Evidence/audit paths, not merely avoid conflicts.
+    """
+    try:
+        parent_row = _git(root, "rev-list", "--parents", "-n", "1", rollback_ref)
+    except ValueError:
+        return False
+    parents = parent_row.split()
+    if len(parents) != 2 or parents[0] != rollback_ref:
+        return False
+    try:
+        rollback_paths = changed_paths(root, parents[1], rollback_ref)
+        descendant_paths = changed_paths(root, rollback_ref, reviewed_head_sha)
+    except ValueError:
+        return False
+    if any(
+        path == ".sddgov/merge-gate.json"
+        or path.startswith(("evidence/", ".sddgov/reviews/"))
+        for path in rollback_paths
+    ):
+        return False
+    if any(not path.startswith("evidence/") for path in descendant_paths):
+        return False
+    try:
+        objects_text = _git(root, "rev-parse", "--git-path", "objects")
+        objects = Path(objects_text)
+        if not objects.is_absolute():
+            objects = root / objects
+        objects = objects.resolve(strict=True)
+    except (OSError, ValueError):
+        return False
+    if not objects.is_dir():
+        return False
+
+    environment = os.environ.copy()
+    for key in tuple(environment):
+        if key.startswith(("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_")) or key in {
+            "GIT_DIR",
+            "GIT_WORK_TREE",
+            "GIT_COMMON_DIR",
+            "GIT_OBJECT_DIRECTORY",
+            "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+            "GIT_CONFIG_COUNT",
+        }:
+            environment.pop(key, None)
+    environment.update(
+        {
+            "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_CONFIG_SYSTEM": os.devnull,
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_NO_LAZY_FETCH": "1",
+            "GIT_NO_REPLACE_OBJECTS": "1",
+            "GIT_TERMINAL_PROMPT": "0",
+            "GIT_OPTIONAL_LOCKS": "0",
+        }
+    )
+    try:
+        with tempfile.TemporaryDirectory(prefix="sddgov-rollback-") as temporary:
+            isolated_git = Path(temporary) / "git"
+            empty_hooks = Path(temporary) / "hooks"
+            empty_hooks.mkdir(mode=0o700)
+            initialized = subprocess.run(
+                [
+                    "git",
+                    "-c",
+                    f"core.hooksPath={empty_hooks}",
+                    "-c",
+                    "protocol.allow=never",
+                    "init",
+                    "--bare",
+                    "--quiet",
+                    "--template=",
+                    str(isolated_git),
+                ],
+                cwd=root,
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                env=environment,
+                timeout=10,
+            )
+            if initialized.returncode != 0:
+                return False
+            isolated_environment = dict(environment)
+            isolated_environment.update(
+                {
+                    "GIT_DIR": str(isolated_git),
+                    "GIT_ALTERNATE_OBJECT_DIRECTORIES": str(objects),
+                }
+            )
+            completed = subprocess.run(
+                [
+                    "git",
+                    "-c",
+                    f"core.hooksPath={empty_hooks}",
+                    "-c",
+                    "protocol.allow=never",
+                    "merge-tree",
+                    "--write-tree",
+                    "--no-messages",
+                    "--merge-base",
+                    rollback_ref,
+                    reviewed_head_sha,
+                    parents[1],
+                ],
+                cwd=root,
+                check=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                env=isolated_environment,
+                timeout=15,
+                text=True,
+            )
+            if completed.returncode != 0 or not re.fullmatch(
+                r"[0-9a-f]{40,64}\n?", completed.stdout
+            ):
+                return False
+            result_tree = completed.stdout.strip()
+            exact_base_restore = subprocess.run(
+                [
+                    "git",
+                    "-c",
+                    "protocol.allow=never",
+                    "diff",
+                    "--quiet",
+                    base_sha,
+                    result_tree,
+                    "--",
+                    ".",
+                    ":(exclude)evidence/**",
+                    ":(exclude).sddgov/merge-gate.json",
+                    ":(exclude).sddgov/reviews/**",
+                ],
+                cwd=root,
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                env=isolated_environment,
+                timeout=15,
+            )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return exact_base_restore.returncode == 0
+
+
+def _rollback_postcondition_is_green(
+    root: Path,
+    rollback: dict[str, str],
+    *,
+    reviewed_head_sha: str,
+) -> bool:
+    """Execute the closed rollback post-condition only in local verification.
+
+    The privileged hosted verifier never calls this function because it receives
+    ``--skip-local-checks``.  A fresh local clone loads the reverted source tree,
+    reconciles only managed Agent-governance files, then runs Doctor and the
+    allowlisted Python test module without a shell. Candidate-controlled
+    reverted CLI and test code still has the local reviewer's process access;
+    callers must provide a disposable no-credential, network-isolated runtime.
+    """
+    if (
+        rollback.get("reconcile_action")
+        != "setup_agent_from_reverted_source"
+        or rollback.get("verify_action") != "doctor_and_python_module"
+    ):
+        return False
+    agent = rollback.get("reconcile_agent")
+    profile = rollback.get("reconcile_profile")
+    verify_module = rollback.get("verify_module")
+    if agent not in {"codex", "hermes"}:
+        return False
+    if profile not in {"solo-fast", "team-standard", "regulated"}:
+        return False
+    if verify_module not in {"pytest", "unittest"}:
+        return False
+
+    environment = os.environ.copy()
+    for key in tuple(environment):
+        if key.startswith(("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_")) or key in {
+            "GIT_DIR",
+            "GIT_WORK_TREE",
+            "GIT_COMMON_DIR",
+            "GIT_OBJECT_DIRECTORY",
+            "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+            "GIT_CONFIG_COUNT",
+            "GIT_CONFIG_PARAMETERS",
+            "GIT_ATTR_SOURCE",
+            "GIT_REPLACE_REF_BASE",
+        }:
+            environment.pop(key, None)
+    environment.update(
+        {
+            "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_CONFIG_SYSTEM": os.devnull,
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_NO_LAZY_FETCH": "1",
+            "GIT_NO_REPLACE_OBJECTS": "1",
+            "GIT_TERMINAL_PROMPT": "0",
+            "GIT_OPTIONAL_LOCKS": "0",
+        }
+    )
+
+    try:
+        with tempfile.TemporaryDirectory(prefix="sddgov-rollback-drill-") as temporary:
+            temporary_root = Path(temporary)
+            drill = temporary_root / "repository"
+            empty_hooks = temporary_root / "hooks"
+            empty_hooks.mkdir(mode=0o700)
+            commands = (
+                (
+                    [
+                        "git",
+                        "-c",
+                        f"core.hooksPath={empty_hooks}",
+                        "-c",
+                        "protocol.file.allow=always",
+                        "clone",
+                        "--no-local",
+                        "--no-checkout",
+                        "--quiet",
+                        "--template=",
+                        str(root),
+                        str(drill),
+                    ],
+                    root,
+                    environment,
+                    60,
+                ),
+                (
+                    [
+                        "git",
+                        "-c",
+                        f"core.hooksPath={empty_hooks}",
+                        "-c",
+                        "protocol.allow=never",
+                        "checkout",
+                        "--detach",
+                        "--quiet",
+                        reviewed_head_sha,
+                    ],
+                    drill,
+                    environment,
+                    30,
+                ),
+                (
+                    [
+                        "git",
+                        "-c",
+                        f"core.hooksPath={empty_hooks}",
+                        "-c",
+                        "protocol.allow=never",
+                        "revert",
+                        "--no-commit",
+                        rollback["rollback_ref"],
+                    ],
+                    drill,
+                    environment,
+                    30,
+                ),
+            )
+            for argv, cwd, command_environment, timeout in commands:
+                completed = subprocess.run(
+                    argv,
+                    cwd=cwd,
+                    check=False,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    env=command_environment,
+                    timeout=timeout,
+                )
+                if completed.returncode != 0:
+                    return False
+
+            python_environment = dict(environment)
+            python_environment["PYTHONPATH"] = str(drill / "src")
+            python_commands = [
+                [
+                    sys.executable,
+                    "-m",
+                    "sddgov.cli",
+                    "setup-agent",
+                    str(drill),
+                    "--agent",
+                    agent,
+                    "--profile",
+                    profile,
+                    "--force",
+                ],
+                [
+                    sys.executable,
+                    "-m",
+                    "sddgov.cli",
+                    "doctor",
+                    str(drill),
+                ],
+            ]
+            if verify_module == "pytest":
+                python_commands.append([sys.executable, "-m", "pytest"])
+            else:
+                python_commands.append(
+                    [
+                        sys.executable,
+                        "-m",
+                        "unittest",
+                        "discover",
+                        "-s",
+                        "tests",
+                        "-v",
+                    ]
+                )
+            for index, argv in enumerate(python_commands):
+                completed = subprocess.run(
+                    argv,
+                    cwd=drill,
+                    check=False,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    env=python_environment,
+                    timeout=300 if index == len(python_commands) - 1 else 60,
+                )
+                if completed.returncode != 0:
+                    return False
+    except (OSError, KeyError, subprocess.TimeoutExpired):
+        return False
+    return True
 
 
 def verify_merge(
@@ -392,21 +967,54 @@ def verify_merge(
         raise ValueError("L1-L3 Merge requires at least one strict DEP")
     dep_errors: list[str] = []
     for relative in deps:
-        dep = (root / relative).resolve()
-        try:
-            dep.relative_to(root)
-        except ValueError as exc:
-            raise ValueError("merge DEP escapes the repository") from exc
-        dep_errors.extend(f"{relative}: {error}" for error in verify_dep(dep, strict=True))
+        dep = _bounded_repository_path(root, relative, "merge DEP")
+        dep_errors.extend(
+            f"{relative}: {error}"
+            for error in verify_dep(dep, strict=True, portable=True)
+        )
     if dep_errors:
         raise ValueError("strict DEP verification failed: " + "; ".join(dep_errors))
-    rollback = (root / str(gate.get("rollback_path", ""))).resolve()
+    rollback_relative = gate.get("rollback_path")
+    _bounded_repository_path(root, rollback_relative, "rollback")
     try:
-        rollback.relative_to(root)
+        rollback_text = _git(root, "show", f"{gate['head_sha']}:{rollback_relative}")
     except ValueError as exc:
-        raise ValueError("rollback path escapes the repository") from exc
-    if not _real_rollback(rollback):
+        raise ValueError("rollback record is missing or incomplete") from exc
+    allow_legacy_v1 = (
+        base_sha == LEGACY_ROLLBACK_V1_BOOTSTRAP_BASE_SHA
+        and rollback_relative == LEGACY_ROLLBACK_V1_BOOTSTRAP_PATH
+    )
+    allow_v2_postcondition_bridge = (
+        base_sha == ROLLBACK_V2_POSTCONDITION_BOOTSTRAP_BASE_SHA
+        and rollback_relative == ROLLBACK_V2_POSTCONDITION_BOOTSTRAP_PATH
+    )
+    rollback = _rollback_contract(
+        rollback_text,
+        allow_legacy_v1=allow_legacy_v1,
+        allow_v2_postcondition_bridge=allow_v2_postcondition_bridge,
+    )
+    if (
+        rollback is None
+        or not _rollback_ref_is_in_candidate_range(
+            root,
+            rollback["rollback_ref"],
+            base_sha=base_sha,
+            reviewed_head_sha=gate["head_sha"],
+        )
+        or not _rollback_ref_is_cleanly_revertible(
+            root,
+            rollback["rollback_ref"],
+            base_sha=base_sha,
+            reviewed_head_sha=gate["head_sha"],
+        )
+    ):
         raise ValueError("rollback record is missing or incomplete")
+    if run_checks and not _rollback_postcondition_is_green(
+        root,
+        rollback,
+        reviewed_head_sha=gate["head_sha"],
+    ):
+        raise ValueError("rollback post-condition did not return to Green")
     commits = _git(root, "rev-list", f"{base_ref}..HEAD").splitlines()
     raw = sorted(
         {

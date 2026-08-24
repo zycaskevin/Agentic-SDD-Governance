@@ -1,0 +1,5 @@
+base_commit=1a5a0b214eccc2b9edd076fd5e2f222c4a456725
+branch=codex/fix-stricter-draft-guards
+runtime=Ubuntu 24.04; Linux aarch64; Python 3.12.3
+governance_version=0.2.0-experimental.8
+scope=tests/test_ci_guard.py only before implementation

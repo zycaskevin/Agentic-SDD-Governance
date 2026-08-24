@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-SDG-SECURITY-HARDENING-001",
+  "issue": "9",
+  "sdd_references": [
+    "docs/HARD_GATES_V1_2.md"
+  ],
+  "risk_level": "L2",
+  "created_at": "2026-08-15T09:05:36Z",
+  "updated_at": "2026-08-15T09:30:44Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-15T09:05:36Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-15T09:08:51Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-15T09:10:16Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-15T09:30:44Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-15T09:30:44Z"
+      }
+    ]
+  },
+  "expected_behavior": "Trusted verification must be independent of candidate code; Evidence must be path-bounded, non-linked, unique, present, regular, size-matched, and SHA-256-matched; only trusted owner signatures may authorize L2/L3 scope.",
+  "actual_behavior": "The released experimental.6 verifier accepted multiple synthetic Evidence tampering and authority-downgrade cases, and the PR workflow executed the candidate verifier.",
+  "environment": {
+    "commit": "d03d0a855d32fbfb8b42c29db2f008263de0f806",
+    "branch": "fix/security-hardening-exp7",
+    "runtime": "Python 3.14 source checkout plus freshly downloaded v0.2.0-experimental.6 wheel; synthetic temporary files only"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}

@@ -20,7 +20,7 @@ sddgov ci verify .
 sddgov ci local-gate .
 ```
 
-`verify` checks the contract and automatic GitHub-hosted workflows. `local-gate` first verifies those controls, then runs every configured local command sequentially and stops on the first failure.
+`verify` checks the contract and automatic GitHub-hosted workflows. `local-gate` first acquires one owner-only current-user coordination lock, then verifies those controls, runs every configured local command sequentially, and stops on the first failure. Independent Local Green invocations for the same POSIX user wait rather than execute repository-controlled gates concurrently; the lock does not retry, skip, or change any configured command.
 
 ## Workflow controls
 
@@ -30,6 +30,23 @@ Automatic hosted workflows must:
 - cancel stale runs for the same PR or ref;
 - avoid allocating runners for Draft PRs;
 - set `timeout-minutes` for every hosted job.
+
+Draft skipping accepts either the exact legacy cross-event guard or a stricter
+flat conjunction. A stricter conjunction must contain independent top-level
+comparisons that bind `github.event_name` to the workflow's single PR event
+family and require `github.event.pull_request.draft == false`. Disjunctions,
+parentheses, functions, nested interpolation, incomplete comparisons, and
+missing or mismatched event/Draft atoms fail closed.
+
+`hosted.post_merge_verification` accepts only `manual_only` or `automatic`.
+For schema `1.0`, an omitted field retains the legacy `automatic` behavior so
+an existing governed repository has an explicit migration path. New installs
+and upgraded repositories should add the field explicitly. When it is
+`manual_only`, automatic `push` events are forbidden even for workflows listed
+under `exempt_workflows`. Use the one non-Draft PR verification as the Work
+Package's hosted run; keep `workflow_dispatch` for a deliberately requested
+Release verification. A successful Merge must not silently consume a second
+hosted run.
 
 Do not use path or commit-message skipping for a required check without coordinating branch protection: GitHub may leave the required check pending. Prefer one cheap required workflow and conditionally activated expensive jobs.
 

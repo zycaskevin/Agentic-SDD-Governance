@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "terminal--final-review-r2-red.txt",
+      "output": "terminal--final-review-r2-red.txt",
+      "source_sha256": "f71fc66c75840d0e592d25b04bace4922a579f60a14d794695a1d30d3becac8b",
+      "source_size": 964,
+      "output_sha256": "f71fc66c75840d0e592d25b04bace4922a579f60a14d794695a1d30d3becac8b",
+      "output_size": 964,
+      "redactions": {}
+    }
+  ],
+  "blocked": [],
+  "totals": {},
+  "dep_id": "DEP-FINAL-RELEASE-READINESS-R2-012",
+  "generated_at": "2026-08-16T09:56:17Z"
+}

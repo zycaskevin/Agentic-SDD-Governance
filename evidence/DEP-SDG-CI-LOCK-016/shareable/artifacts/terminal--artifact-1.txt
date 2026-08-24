@@ -1,0 +1,7 @@
+command=PYTHONPATH=src python -m unittest discover -s tests -p test_ci_guard_lock.py -v
+exit_status=1
+test_lock_serializes_competing_descriptors=ERROR
+test_run_local_gate_enters_lock_before_verification_and_commands=ERROR
+error_type=AttributeError
+missing_contract=sddgov.ci_guard._local_gate_lock
+result=FAILED errors=2

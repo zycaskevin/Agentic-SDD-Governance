@@ -1,27 +1,128 @@
 from __future__ import annotations
 
+import copy
+import fcntl
 import json
 import os
 import re
+import stat
 import subprocess
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
+
+import yaml
+from yaml.constructor import ConstructorError
 
 
 CONTRACT_PATH = Path(".sddgov/ci-cost-guard.json")
 WORKFLOW_SUFFIXES = (".yml", ".yaml")
 FULL_MATRIX_VALUES = {"manual", "ready_for_review", "manual_or_ready_for_review", "release"}
+POST_MERGE_VERIFICATION_VALUES = {"manual_only", "automatic"}
+_SIMPLE_CONJUNCTION_ATOM = re.compile(
+    r"^github(?:\.[A-Za-z_][A-Za-z0-9_]*)+"
+    r"(?:==|!=)"
+    r"(?:'(?:[^'\\\r\n]*)'|\"(?:[^\"\\\r\n]*)\"|-?[0-9]+|true|false)$"
+)
+_DRAFT_FALSE_ATOM = "github.event.pull_request.draft==false"
+LOCAL_GATE_LOCK_DIRECTORY_PREFIX = "sddgov-local-green-v1-"
+LOCAL_GATE_LOCK_NAME = "gate-v1.lock"
 
 
 def _read_contract(root: Path) -> dict[str, Any]:
-    path = root / CONTRACT_PATH
-    if not path.is_file():
-        raise FileNotFoundError(f"{CONTRACT_PATH}; copy templates/CI_COST_GUARD.json and customize it")
+    directory_flags = (
+        os.O_RDONLY
+        | getattr(os, "O_DIRECTORY", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+    )
+    descriptors: list[int] = []
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
+        descriptors.append(os.open(root, directory_flags))
+        descriptors.append(
+            os.open(".sddgov", directory_flags, dir_fd=descriptors[-1])
+        )
+        state_fd = descriptors[-1]
+        before = os.stat(
+            "ci-cost-guard.json", dir_fd=state_fd, follow_symlinks=False
+        )
+        if (
+            not stat.S_ISREG(before.st_mode)
+            or before.st_nlink != 1
+        ):
+            raise ValueError(f"{CONTRACT_PATH} must be a single-linked regular file")
+        descriptor = os.open(
+            "ci-cost-guard.json",
+            os.O_RDONLY
+            | getattr(os, "O_NONBLOCK", 0)
+            | getattr(os, "O_NOFOLLOW", 0),
+            dir_fd=state_fd,
+        )
+        descriptors.append(descriptor)
+        opened = os.fstat(descriptor)
+        chunks: list[bytes] = []
+        while True:
+            chunk = os.read(descriptor, 1024 * 1024)
+            if not chunk:
+                break
+            chunks.append(chunk)
+        after = os.stat(
+            "ci-cost-guard.json", dir_fd=state_fd, follow_symlinks=False
+        )
+        identity = (
+            opened.st_dev,
+            opened.st_ino,
+            opened.st_size,
+            opened.st_mtime_ns,
+            opened.st_ctime_ns,
+            opened.st_nlink,
+        )
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or identity
+            != (
+                before.st_dev,
+                before.st_ino,
+                before.st_size,
+                before.st_mtime_ns,
+                before.st_ctime_ns,
+                before.st_nlink,
+            )
+            or identity
+            != (
+                after.st_dev,
+                after.st_ino,
+                after.st_size,
+                after.st_mtime_ns,
+                after.st_ctime_ns,
+                after.st_nlink,
+            )
+        ):
+            raise ValueError(f"{CONTRACT_PATH} changed during read")
+        state_entry = os.stat(
+            ".sddgov", dir_fd=descriptors[0], follow_symlinks=False
+        )
+        state_opened = os.fstat(state_fd)
+        if (
+            stat.S_ISLNK(state_entry.st_mode)
+            or not stat.S_ISDIR(state_entry.st_mode)
+            or (state_entry.st_dev, state_entry.st_ino)
+            != (state_opened.st_dev, state_opened.st_ino)
+        ):
+            raise ValueError(f"{CONTRACT_PATH} parent changed during read")
+        value = json.loads(b"".join(chunks).decode("utf-8"))
+    except FileNotFoundError as exc:
+        raise FileNotFoundError(
+            f"{CONTRACT_PATH}; copy templates/CI_COST_GUARD.json and customize it"
+        ) from exc
+    except (OSError, UnicodeDecodeError) as exc:
+        raise ValueError(f"unsafe {CONTRACT_PATH}: {exc}") from exc
     except json.JSONDecodeError as exc:
         raise ValueError(f"invalid {CONTRACT_PATH}: {exc}") from exc
+    finally:
+        for descriptor in reversed(descriptors):
+            os.close(descriptor)
     if not isinstance(value, dict):
         raise ValueError(f"{CONTRACT_PATH} must contain a JSON object")
     return value
@@ -69,6 +170,8 @@ def _validate_contract(contract: dict[str, Any]) -> list[str]:
                 errors.append(f"hosted.{key} must be an integer >= {minimum}")
         if hosted.get("full_matrix") not in FULL_MATRIX_VALUES:
             errors.append("hosted.full_matrix is invalid")
+        if hosted.get("post_merge_verification", "automatic") not in POST_MERGE_VERIFICATION_VALUES:
+            errors.append("hosted.post_merge_verification is invalid")
 
     controls = contract.get("workflow_controls")
     required_controls = (
@@ -90,94 +193,349 @@ def _validate_contract(contract: dict[str, Any]) -> list[str]:
     return errors
 
 
-def _workflow_paths(root: Path) -> list[Path]:
-    workflow_root = root / ".github" / "workflows"
-    if not workflow_root.is_dir():
-        return []
-    return sorted(
-        path for path in workflow_root.iterdir()
-        if path.is_file() and path.suffix.lower() in WORKFLOW_SUFFIXES
-    )
+class _UniqueKeyLoader(yaml.SafeLoader):
+    pass
 
 
-def _job_blocks(text: str) -> list[tuple[str, str]]:
-    lines = text.splitlines()
-    try:
-        jobs_index = next(index for index, line in enumerate(lines) if line.strip() == "jobs:" and not line.startswith(" "))
-    except StopIteration:
-        return []
-    starts: list[tuple[int, str]] = []
-    for index in range(jobs_index + 1, len(lines)):
-        match = re.match(r"^  ([A-Za-z0-9_-]+):\s*$", lines[index])
-        if match:
-            starts.append((index, match.group(1)))
-    blocks: list[tuple[str, str]] = []
-    for position, (start, name) in enumerate(starts):
-        end = starts[position + 1][0] if position + 1 < len(starts) else len(lines)
-        blocks.append((name, "\n".join(lines[start:end])))
-    return blocks
+_UniqueKeyLoader.yaml_implicit_resolvers = copy.deepcopy(
+    yaml.SafeLoader.yaml_implicit_resolvers
+)
+for first_character, resolvers in list(
+    _UniqueKeyLoader.yaml_implicit_resolvers.items()
+):
+    _UniqueKeyLoader.yaml_implicit_resolvers[first_character] = [
+        resolver
+        for resolver in resolvers
+        if resolver[0] != "tag:yaml.org,2002:bool"
+    ]
+_UniqueKeyLoader.add_implicit_resolver(
+    "tag:yaml.org,2002:bool",
+    re.compile(r"^(?:true|false)$", re.IGNORECASE),
+    list("tTfF"),
+)
 
 
-def _automatic(text: str) -> bool:
-    return bool(re.search(r"(?m)^  (pull_request|push|schedule):", text))
+def _construct_unique_mapping(loader, node, deep=False):
+    mapping = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        try:
+            duplicate = key in mapping
+        except TypeError as exc:
+            raise ConstructorError(
+                "while constructing a mapping",
+                node.start_mark,
+                "mapping key must be a scalar value",
+                key_node.start_mark,
+            ) from exc
+        if duplicate:
+            raise ConstructorError(
+                "while constructing a mapping",
+                node.start_mark,
+                f"duplicate key: {key}",
+                key_node.start_mark,
+            )
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+    return mapping
 
 
-def _pull_request(text: str) -> bool:
-    return bool(re.search(r"(?m)^  pull_request:", text))
+_UniqueKeyLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+    _construct_unique_mapping,
+)
 
 
-def _pull_request_has_ready_for_review(text: str) -> bool:
-    match = re.search(
-        r"(?ms)^  pull_request:\s*\n(?P<body>(?:^    .*\n?)*)",
-        text,
-    )
-    return bool(match and "ready_for_review" in match.group("body"))
+def _workflow_events(document: dict[str, Any]) -> Any:
+    return document.get("on")
 
 
-def _pull_request_has_converted_to_draft(text: str) -> bool:
-    match = re.search(
-        r"(?ms)^  pull_request:\s*\n(?P<body>(?:^    .*\n?)*)",
-        text,
-    )
-    return bool(match and "converted_to_draft" in match.group("body"))
+def _event_mapping(value: Any) -> dict[str, Any]:
+    if isinstance(value, str):
+        return {value: None}
+    if isinstance(value, list) and all(isinstance(item, str) for item in value):
+        return {item: None for item in value}
+    if isinstance(value, dict):
+        return value
+    return {}
 
 
-def _inspect_workflow(path: Path, controls: dict[str, Any]) -> tuple[list[str], dict[str, Any]]:
-    text = path.read_text(encoding="utf-8")
-    jobs = [(name, block) for name, block in _job_blocks(text) if "runs-on:" in block]
-    automatic = _automatic(text)
+def _permission_errors(value: Any, label: str, *, require_contents: bool) -> list[str]:
+    if not isinstance(value, dict):
+        return [f"{label} permissions must be a mapping"]
+    errors = []
+    for key, permission in value.items():
+        if not isinstance(key, str) or permission not in {"read", "none"}:
+            errors.append(f"{label} permissions must not grant write access")
+    if require_contents and value.get("contents") != "read":
+        errors.append(f"{label} permissions must include contents: read")
+    return errors
+
+
+def _safe_workflow_documents(root: Path) -> tuple[list[tuple[str, str]], list[str]]:
+    """Read workflow files without following repository-controlled links."""
+    documents: list[tuple[str, str]] = []
     errors: list[str] = []
-    if controls.get("require_read_only_permissions") and "runs-on:" in text:
-        if not re.search(r"(?ms)^permissions:\s*\n(?:^[ \t].*\n)*?^  contents:\s*read\s*$", text):
-            errors.append(f"{path.name}: default permissions must include contents: read")
-    if automatic and controls.get("require_concurrency") and not re.search(r"(?m)^concurrency:", text):
-        errors.append(f"{path.name}: automatic workflow requires concurrency")
-    if automatic and controls.get("cancel_in_progress") and not re.search(
-        r"(?m)^  cancel-in-progress:\s*true\s*$", text
+    directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+    directory_flags |= getattr(os, "O_NOFOLLOW", 0)
+    descriptors: list[int] = []
+    try:
+        descriptors.append(os.open(root, directory_flags))
+        for component in (".github", "workflows"):
+            try:
+                child = os.open(component, directory_flags, dir_fd=descriptors[-1])
+            except FileNotFoundError:
+                return [], ["no GitHub Actions workflows found"]
+            except OSError as exc:
+                return [], [f"workflow directory is unsafe: {exc}"]
+            metadata = os.fstat(child)
+            if not stat.S_ISDIR(metadata.st_mode):
+                os.close(child)
+                return [], ["workflow directory component must be a directory"]
+            descriptors.append(child)
+        workflows_fd = descriptors[-1]
+        for name in sorted(os.listdir(workflows_fd)):
+            if Path(name).suffix.lower() not in WORKFLOW_SUFFIXES:
+                continue
+            descriptor = -1
+            try:
+                before = os.stat(name, dir_fd=workflows_fd, follow_symlinks=False)
+                if (
+                    stat.S_ISLNK(before.st_mode)
+                    or not stat.S_ISREG(before.st_mode)
+                    or before.st_nlink != 1
+                ):
+                    errors.append(
+                        f"{name}: workflow must be a single-linked regular file"
+                    )
+                    continue
+                descriptor = os.open(
+                    name,
+                    os.O_RDONLY
+                    | getattr(os, "O_NONBLOCK", 0)
+                    | getattr(os, "O_NOFOLLOW", 0),
+                    dir_fd=workflows_fd,
+                )
+                opened = os.fstat(descriptor)
+                if (
+                    not stat.S_ISREG(opened.st_mode)
+                    or opened.st_nlink != 1
+                    or (opened.st_dev, opened.st_ino)
+                    != (before.st_dev, before.st_ino)
+                ):
+                    raise ValueError("workflow identity changed before read")
+                chunks: list[bytes] = []
+                while True:
+                    chunk = os.read(descriptor, 1024 * 1024)
+                    if not chunk:
+                        break
+                    chunks.append(chunk)
+                after = os.stat(name, dir_fd=workflows_fd, follow_symlinks=False)
+                if (
+                    not stat.S_ISREG(after.st_mode)
+                    or after.st_nlink != 1
+                    or (
+                        after.st_dev,
+                        after.st_ino,
+                        after.st_size,
+                        after.st_mtime_ns,
+                        after.st_ctime_ns,
+                    )
+                    != (
+                        opened.st_dev,
+                        opened.st_ino,
+                        opened.st_size,
+                        opened.st_mtime_ns,
+                        opened.st_ctime_ns,
+                    )
+                ):
+                    raise ValueError("workflow identity changed during read")
+                documents.append((name, b"".join(chunks).decode("utf-8")))
+            except (OSError, UnicodeDecodeError, ValueError) as exc:
+                errors.append(f"{name}: workflow file is unsafe: {exc}")
+            finally:
+                if descriptor >= 0:
+                    os.close(descriptor)
+        for index, component in enumerate((".github", "workflows")):
+            current = os.stat(
+                component, dir_fd=descriptors[index], follow_symlinks=False
+            )
+            opened = os.fstat(descriptors[index + 1])
+            if (
+                stat.S_ISLNK(current.st_mode)
+                or not stat.S_ISDIR(current.st_mode)
+                or (current.st_dev, current.st_ino)
+                != (opened.st_dev, opened.st_ino)
+            ):
+                errors.append("workflow directory changed during verification")
+    except OSError as exc:
+        errors.append(f"workflow filesystem boundary is unsafe: {exc}")
+    finally:
+        for descriptor in reversed(descriptors):
+            os.close(descriptor)
+    return documents, errors
+
+
+def _draft_condition_is_safe(condition: Any, event_names: set[str]) -> bool:
+    if not isinstance(condition, str) or len(event_names) != 1:
+        return False
+    expression = condition.strip()
+    if expression.startswith("${{") and expression.endswith("}}"):
+        expression = expression[3:-2].strip()
+    compact = re.sub(r"\s+", "", expression)
+    event_name = next(iter(event_names))
+    accepted = {
+        f"github.event_name!='{event_name}'||github.event.pull_request.draft==false",
+        f'github.event_name!="{event_name}"||github.event.pull_request.draft==false',
+    }
+    if compact in accepted:
+        return True
+    if "||" in compact or "(" in compact or ")" in compact:
+        return False
+    atoms = compact.split("&&")
+    required_event_atoms = {
+        f"github.event_name=='{event_name}'",
+        f'github.event_name=="{event_name}"',
+    }
+    return (
+        len(atoms) >= 2
+        and _DRAFT_FALSE_ATOM in atoms
+        and bool(required_event_atoms.intersection(atoms))
+        and all(_SIMPLE_CONJUNCTION_ATOM.fullmatch(atom) for atom in atoms)
+    )
+
+
+def _valid_runner(value: Any) -> bool:
+    return (isinstance(value, str) and bool(value.strip())) or (
+        isinstance(value, list)
+        and bool(value)
+        and all(isinstance(item, str) and item.strip() for item in value)
+    )
+
+
+def _inspect_workflow(
+    workflow_name: str,
+    source: str,
+    controls: dict[str, Any],
+    hosted: dict[str, Any],
+) -> tuple[list[str], dict[str, Any]]:
+    errors: list[str] = []
+    try:
+        document = yaml.load(source, Loader=_UniqueKeyLoader)
+    except yaml.YAMLError as exc:
+        return [f"{workflow_name}: workflow YAML is invalid: {exc}"], {
+            "workflow": workflow_name,
+            "automatic": False,
+            "hosted_jobs": [],
+        }
+    if not isinstance(document, dict):
+        return [f"{workflow_name}: workflow must be a YAML mapping"], {
+            "workflow": workflow_name,
+            "automatic": False,
+            "hosted_jobs": [],
+        }
+    events = _event_mapping(_workflow_events(document))
+    automatic = bool(
+        set(events) & {"pull_request", "pull_request_target", "push", "schedule"}
+    )
+    if hosted.get("post_merge_verification", "automatic") == "manual_only" and "push" in events:
+        errors.append(
+            f"{workflow_name}: manual-only post-merge verification forbids automatic push"
+        )
+    jobs_value = document.get("jobs")
+    if not isinstance(jobs_value, dict):
+        jobs_value = {}
+        errors.append(f"{workflow_name}: jobs must be a mapping")
+    jobs = {
+        job_name: job
+        for job_name, job in jobs_value.items()
+        if isinstance(job_name, str) and isinstance(job, dict)
+    }
+    if len(jobs) != len(jobs_value):
+        errors.append(
+            f"{workflow_name}: every job must be a named mapping with an explicit runner"
+        )
+    for job_name, job in jobs.items():
+        if not _valid_runner(job.get("runs-on")):
+            errors.append(
+                f"{workflow_name}: job {job_name} has an invalid runs-on value"
+            )
+    if controls.get("require_read_only_permissions") and jobs:
+        errors.extend(
+            f"{workflow_name}: {error}"
+            for error in _permission_errors(
+                document.get("permissions"), "default", require_contents=True
+            )
+        )
+        for job_name, job in jobs.items():
+            if "permissions" in job:
+                errors.extend(
+                    f"{workflow_name}: {error}"
+                    for error in _permission_errors(
+                        job["permissions"],
+                        f"job {job_name}",
+                        require_contents=False,
+                    )
+                )
+    concurrency = document.get("concurrency")
+    if automatic and controls.get("require_concurrency") and not isinstance(
+        concurrency, dict
     ):
-        errors.append(f"{path.name}: automatic workflow must cancel stale runs")
-    if _pull_request(text) and controls.get("skip_draft_pull_requests"):
-        if not _pull_request_has_ready_for_review(text):
-            errors.append(
-                f"{path.name}: pull_request types must include ready_for_review"
-            )
-        if not _pull_request_has_converted_to_draft(text):
-            errors.append(
-                f"{path.name}: pull_request types must include converted_to_draft"
-            )
-        for name, block in jobs:
-            if "github.event.pull_request.draft == false" not in block:
+        errors.append(f"{workflow_name}: automatic workflow requires concurrency")
+    if automatic and isinstance(concurrency, dict) and (
+        not isinstance(concurrency.get("group"), str)
+        or not concurrency["group"].strip()
+    ):
+        errors.append(
+            f"{workflow_name}: automatic workflow concurrency requires a non-empty group"
+        )
+    if automatic and controls.get("cancel_in_progress") and (
+        not isinstance(concurrency, dict)
+        or concurrency.get("cancel-in-progress") is not True
+    ):
+        errors.append(f"{workflow_name}: automatic workflow must cancel stale runs")
+    pull_request_events = [
+        events[name]
+        for name in ("pull_request", "pull_request_target")
+        if name in events
+    ]
+    if pull_request_events and controls.get("skip_draft_pull_requests"):
+        types: set[str] = set()
+        for config in pull_request_events:
+            if isinstance(config, dict) and isinstance(config.get("types"), list):
+                types.update(
+                    item for item in config["types"] if isinstance(item, str)
+                )
+        for required in ("ready_for_review", "converted_to_draft"):
+            if required not in types:
                 errors.append(
-                    f"{path.name}: pull-request job {name} must skip Draft PR runners"
+                    f"{workflow_name}: pull_request types must include {required}"
+                )
+        event_names = {
+            event_name
+            for event_name in ("pull_request", "pull_request_target")
+            if event_name in events
+        }
+        for job_name, job in jobs.items():
+            condition = job.get("if")
+            if not _draft_condition_is_safe(condition, event_names):
+                errors.append(
+                    f"{workflow_name}: pull-request job {job_name} must skip Draft PR runners with the exact guard or a stricter fail-closed conjunction"
                 )
     if controls.get("require_job_timeouts"):
-        for name, block in jobs:
-            if "timeout-minutes:" not in block:
-                errors.append(f"{path.name}: hosted job {name} requires timeout-minutes")
+        for job_name, job in jobs.items():
+            timeout = job.get("timeout-minutes")
+            if (
+                not isinstance(timeout, int)
+                or isinstance(timeout, bool)
+                or not 1 <= timeout <= 360
+            ):
+                errors.append(
+                    f"{workflow_name}: hosted job {job_name} requires timeout-minutes between 1 and 360"
+                )
     return errors, {
-        "workflow": path.name,
+        "workflow": workflow_name,
         "automatic": automatic,
-        "hosted_jobs": [name for name, _ in jobs],
+        "hosted_jobs": sorted(jobs),
     }
 
 
@@ -186,17 +544,32 @@ def verify_guard(root: Path) -> dict[str, Any]:
     contract = _read_contract(root)
     errors = _validate_contract(contract)
     reports: list[dict[str, Any]] = []
-    controls = contract.get("workflow_controls", {})
-    exemptions = set(controls.get("exempt_workflows", [])) if isinstance(controls, dict) else set()
-    paths = _workflow_paths(root)
-    if not paths:
+    controls_value = contract.get("workflow_controls", {})
+    hosted_value = contract.get("hosted", {})
+    controls = controls_value if isinstance(controls_value, dict) else {}
+    hosted = hosted_value if isinstance(hosted_value, dict) else {}
+    exemptions_value = controls.get("exempt_workflows", [])
+    exemptions = (
+        set(exemptions_value)
+        if isinstance(exemptions_value, list)
+        and all(isinstance(item, str) for item in exemptions_value)
+        else set()
+    )
+    documents, filesystem_errors = _safe_workflow_documents(root)
+    errors.extend(filesystem_errors)
+    if not documents and not filesystem_errors:
         errors.append("no GitHub Actions workflows found")
-    for path in paths:
-        if path.name in exemptions:
-            reports.append({"workflow": path.name, "exempt": True})
-            continue
-        workflow_errors, report = _inspect_workflow(path, controls)
+    for name, source in documents:
+        exempt = name in exemptions
+        workflow_errors, report = _inspect_workflow(
+            name,
+            source,
+            {} if exempt else controls,
+            hosted,
+        )
         errors.extend(workflow_errors)
+        if exempt:
+            report["exempt"] = True
         reports.append(report)
     return {
         "ok": not errors,
@@ -208,8 +581,68 @@ def verify_guard(root: Path) -> dict[str, Any]:
     }
 
 
-def run_local_gate(root: Path) -> dict[str, Any]:
-    root = root.resolve()
+@contextmanager
+def _local_gate_lock(*, runtime_root: Path | None = None) -> Iterator[Path]:
+    """Serialize complete Local Green gates for the current POSIX user."""
+    if os.name != "posix" or not hasattr(os, "getuid"):
+        raise ValueError("Local Green serialization requires a POSIX user identity")
+    base = (runtime_root if runtime_root is not None else Path("/tmp")).resolve(
+        strict=True
+    )
+    base_info = base.lstat()
+    if not stat.S_ISDIR(base_info.st_mode) or stat.S_ISLNK(base_info.st_mode):
+        raise ValueError("Local Green lock base must be a physical directory")
+    lock_directory = base / f"{LOCAL_GATE_LOCK_DIRECTORY_PREFIX}{os.getuid()}"
+    lock_directory.mkdir(mode=0o700, exist_ok=True)
+    directory_info = lock_directory.lstat()
+    if (
+        not stat.S_ISDIR(directory_info.st_mode)
+        or stat.S_ISLNK(directory_info.st_mode)
+        or stat.S_IMODE(directory_info.st_mode) != 0o700
+        or directory_info.st_uid != os.getuid()
+    ):
+        raise ValueError("Local Green lock directory must be owner-only")
+    required_flags = ("O_CLOEXEC", "O_NOFOLLOW")
+    if any(not hasattr(os, name) for name in required_flags):
+        raise ValueError("Local Green lock flags are unavailable")
+    lock_path = lock_directory / LOCAL_GATE_LOCK_NAME
+    descriptor = os.open(
+        lock_path,
+        os.O_RDWR | os.O_CREAT | os.O_CLOEXEC | os.O_NOFOLLOW,
+        0o600,
+    )
+    locked = False
+    try:
+        opened = os.fstat(descriptor)
+        path_info = lock_path.lstat()
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or stat.S_IMODE(opened.st_mode) != 0o600
+            or opened.st_uid != os.getuid()
+            or opened.st_nlink != 1
+            or (opened.st_dev, opened.st_ino)
+            != (path_info.st_dev, path_info.st_ino)
+        ):
+            raise ValueError("Local Green lock must be an owner-only regular file")
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        locked = True
+        locked_path_info = lock_path.lstat()
+        locked_directory_info = lock_directory.lstat()
+        if (
+            (opened.st_dev, opened.st_ino)
+            != (locked_path_info.st_dev, locked_path_info.st_ino)
+            or (directory_info.st_dev, directory_info.st_ino)
+            != (locked_directory_info.st_dev, locked_directory_info.st_ino)
+        ):
+            raise ValueError("Local Green lock identity changed")
+        yield lock_path
+    finally:
+        if locked:
+            fcntl.flock(descriptor, fcntl.LOCK_UN)
+        os.close(descriptor)
+
+
+def _run_local_gate_locked(root: Path) -> dict[str, Any]:
     report = verify_guard(root)
     if not report["ok"]:
         raise ValueError("CI Cost Guard verification failed: " + "; ".join(report["errors"]))
@@ -230,3 +663,9 @@ def run_local_gate(root: Path) -> dict[str, Any]:
         if completed.returncode != 0:
             raise ValueError(f"local Green Gate failed: {command[0]} exited {completed.returncode}")
     return {"ok": True, "project": str(root), "commands": results}
+
+
+def run_local_gate(root: Path) -> dict[str, Any]:
+    root = root.resolve()
+    with _local_gate_lock():
+        return _run_local_gate_locked(root)

@@ -1,6 +1,88 @@
 # Changelog
 
-## 0.2.0-experimental.6 — Unreleased
+## 0.2.0-experimental.9 — 2026-08-22 CI Cost Guard patch
+
+### Fixed
+
+- Accept a deliberately bounded flat conjunction only when it independently
+  binds `github.event_name` to the workflow's single PR event family and
+  requires `github.event.pull_request.draft == false`.
+- Keep legacy cross-event Draft guards compatible while rejecting disjunctions,
+  parentheses, functions, nested interpolation, incomplete comparisons,
+  missing event/Draft atoms, and mismatched event families.
+
+### Evidence
+
+- Issue #44; Work Package `WP-CI-STRICTER-DRAFT-GUARDS-008`; full L1 DEP
+  `DEP-CI-STRICTER-DRAFT-GUARDS-016`.
+
+## 0.2.0-experimental.8 — 2026-08-16 security hardening
+
+### Security
+
+- Reserve exit `2` exclusively for a validated owner `ACTION REQUIRED`; parser, filesystem, and process failures now exit `3`, so automation cannot turn a machine error into an owner prompt.
+- Reject `machine_verifiable` Necessary UAT as a contradictory category without prompting the owner; deterministic work must gather Evidence and return through a machine-verifiable route, while subjective UAT retains durable one-prompt state.
+- Validate and recompute every durable External Action row before mutation so a missing or downgraded risk cannot persist terminal state or falsify its audit event.
+- Close partial first-consumer trust bootstrap when the Base already contains the installed protected-file policy, and keep bundled policy/resource lookup compatible with the declared Python 3.10 floor.
+- Reserve classifier exit `2` for a fully validated `ACTION REQUIRED`; malformed packages and category/risk mismatch now fail closed as `BLOCKED`/exit `1`, and generic uncertainty can no longer be promoted into an owner prompt by a caller-supplied label.
+- Reverify owner signatures for both completed and cancelled Operational Action/Necessary UAT state on every reuse, treating only deterministic TTL expiry as an unsigned terminal transition; synchronize the installed Governance Root and manifest with these exact rules.
+- Make `sddgov autonomy evaluate` return distinct process exit codes for `CONTINUE`, `BLOCKED`, and `ACTION_REQUIRED`; bind every Decision Package risk, identity, scope, and L3 payload to the outer request before asking the owner.
+- Persist Necessary UAT as well as Operational Action, deduplicate the first prompt, continue unrelated Work Packages, and require a separate-identity owner-signed terminal resolution receipt for completion or cancellation.
+- Add a fail-closed first-consumer Merge bootstrap that takes protected paths only from the immutable trusted verifier package and Reviewer keys only from a Repo-external separate-identity store; Candidate policy and trust never authorize the first Governance PR.
+- Require every tracked Proof DEP to pass the current portable strict verifier and migrate the three legacy proof packages to the current raw/report/shareable association contract.
+- Treat malformed CI exemption lists as structured fail-closed input instead of an unhandled exception, and protect `.gitignore` plus `.sddgov/project.json` as Governance inputs.
+- Require rollback v3 to reconcile managed Agent governance from the reverted source, run Doctor, and execute an allowlisted Python test module during local Merge verification; add one exact v2-to-v3 bootstrap for Issue #15.
+- Enforce `post_merge_verification: manual_only` before workflow exemptions, reject automatic `push` workflows under that contract, preserve the schema-1.0 legacy automatic default when the new field is absent, and keep Release verification on explicit `workflow_dispatch` so one Work Package does not silently consume a second hosted run after Merge.
+- Pre-authorize minimum routine review submission for an already-configured Reviewer: committed public PR changes and public repository instructions may be reviewed without a per-PR owner prompt, while Private Repo content without a recorded pair decision, Secrets, raw Evidence, real user data, new vendors/access, and new cost remain fail-closed.
+- Restrict every autonomy category and risk level to one closed request schema before decision or approval reuse; L0/L1 stays targetless and parameterless, product L2 reuse rejects foreign L3 fields and any new nested Decision Package, and product receipts cannot authorize Operational Action or Necessary UAT categories.
+- Constrain L2 reopen behavior to the machine-readable `scope_or_assumptions_change` contract and retain non-symlink repository directory descriptors while recalculating assumption artifacts.
+- Replace CI workflow regex checks with YAML 1.2 duplicate-key-rejecting semantic validation for triggers, exact non-bypassable Draft conditions, valid runners, concurrency, permissions, and bounded job timeouts; read every workflow through retained non-symlink directory descriptors.
+- Recheck the exact verified Evidence artifact generation immediately before attachment publication; reject intermediate symlinks, nonblocking-open non-regular inputs, pending attachment residue, and interrupted staging.
+- Use generation-bound no-clobber control publication, clean only transaction-owned collect/redact outputs on failure, preserve later writers, replace free-form rollback shell strings with closed declarative contracts, and protect the complete trusted source/workflow/dependency surface including Agent-loaded installed governance copies.
+- Add non-executing exact transition bridges so the experimental.7 trusted Base can validate v2 and the PR #14 Base can validate the v3 post-condition migration; wrappers, chaining, alternate commands, duplicates, extra fields, placeholders, and incomplete transition markers remain rejected.
+- Bind each temporary bridge to its exact Base and migration DEP, reject standalone unknown text, and require every rollback ref to resolve to a full immutable commit inside the reviewed candidate range.
+- Require the selected rollback ref to be a single-parent implementation-only commit whose inverse applies conflict-free at the exact reviewed Head, proven with a non-executing Git tree simulation before Merge.
+- Persist one owner-, scope-, TTL-, and digest-bound Operational Action record so repeated calls do not emit duplicate prompts.
+- Add known provider-credential detectors while preserving clean zero-match text, and upgrade the trusted verifier dependency line to hash-locked `cryptography==50.0.0`.
+
+### Evidence
+
+- Added `DEP-SDG-SECURITY-HARDENING-EXP8-001`, second-round `DEP-SDG-SECURITY-HARDENING-EXP8-R2-002`, third-round authority-envelope `DEP-SDG-SECURITY-HARDENING-EXP8-R3-003`, protected-inventory `DEP-SDG-SECURITY-HARDENING-EXP8-R3-PROTECTED-004`, nested-authority `DEP-SDG-SECURITY-HARDENING-EXP8-R4-AUTH-005`, rollback-contract DEPs R5-R7, and permanent defensive regression tests for Issue #11.
+- This entry records implemented local work only; independent review, exact Merge verification, GitHub-hosted proof, and release publication remain separate gates.
+
+### Changed
+
+- `sddgov external-action` now requires the explicit `queue` or `resolve` subcommand. Replace the former flat form with `sddgov external-action queue <ACTION_ID> ...` or `sddgov external-action resolve <SIGNED_RECEIPT> --path .`.
+
+## 0.2.0-experimental.7 — 2026-08-15 security hardening candidate
+
+### Security
+
+- Separated the authoritative PR verifier from candidate code: the Base-controlled `pull_request_target` workflow installs the exact Base verifier, treats the candidate checkout only as data, and never executes candidate-defined Local Green commands.
+- Made strict DEP verification reopen and recalculate every available artifact's normalized path, regular-file type, link count, size, and SHA-256; missing, altered, extra, escaped, symlinked, hardlinked, and duplicate artifacts now fail closed.
+- Required every raw artifact to appear exactly once in deterministic `files` or fail-closed `blocked`; unknown/binary suffixes and every HAR are blocked from the generic text redactor.
+- Prevented collector label overwrite, DEP ID path escape, redaction input/output symlink traversal, pre-rejection external directory creation, and pathname-reopen TOCTOU.
+- Replaced caller-authored L2 authority with Owner Ed25519 receipts loaded from a separate-identity trust root and bound to assumption artifact paths whose current bytes are recalculated on every reuse.
+- Bound L3 receipts to repository, project, environment, scope, category, target, non-secret parameters, and sensitive effects; `CONTINUE` now requires a root-owned clone-external atomic nonce broker.
+- Made Base Reviewer revocation authoritative so a stale external bootstrap variable cannot reactivate a revoked key.
+- Required the Base Reviewer store itself to match the exact bootstrap contract before any external key is accepted; missing or malformed Base state fails closed.
+- Bound Evidence to Collector identity, immutable source suffix, and detected media type, and retained verified base/source/DEP/zone/output directory descriptors through DEP creation, collection, redaction, strict verification, attachment, and atomic control-document writes. Attachment generation consumes the exact in-memory summary/manifest snapshot that strict verification checked, records its framed SHA-256 generation digest in both content and default filename, stages before the final control check, and uses atomic no-clobber publish so concurrent control generations cannot contaminate each other or overwrite a later writer.
+- Required L3 repository/project/environment to match a separate root-controlled Runtime Context, made outer/inner scope identical, rejected root Agent execution, and moved atomic nonce consumption to a root-provisioned Unix service on fixed macOS/Linux paths.
+- Pinned privileged GitHub Actions to full commit SHAs and hash-locked every Python dependency used by the trusted verifier.
+
+### Added
+
+- Added L2 product-decision receipt Schema/template, an L3 Runtime Context Schema/template, a hashed Governance dependency lock, and expanded L3/Decision Record contracts.
+- Added adversarial regression tests for Evidence tampering, path boundaries, authority downgrade, receipt tampering/replay, and exact L3 payload mismatch.
+- Added an offline disposable synthetic Muse/Hermes pilot using synthetic relationship text and one generated image; binary sharing fails closed and the reviewed derivative completes full and portable DEP verification.
+
+### Changed
+
+- Added `sddgov evidence verify --portable` for Base-controlled PR verification where local raw bytes are intentionally absent; full local strict verification remains mandatory before attachment.
+- Added `sddgov pilot synthetic-muse` for the bounded isolation pilot.
+- Kept this version experimental: the synthetic pilot does not authorize Production, real Muse data, credentials, or L2/L3 operations.
+
+## 0.2.0-experimental.6 — 2026-08-15
 
 ### Added
 

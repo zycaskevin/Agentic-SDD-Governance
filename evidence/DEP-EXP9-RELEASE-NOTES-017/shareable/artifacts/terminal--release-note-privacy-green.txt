@@ -1,0 +1,9 @@
+check=public-release-note-downstream-identifier-absence
+expected_matches=0
+actual_matches=0
+generic_behavior_statement_present=true
+ci_verify=PASS
+local_gate_tests=232
+local_gate_failures=0
+sandbox_only_skips=1
+implementation_commit=686f27d34471a771d0d50d47d084c926c5c2da3e

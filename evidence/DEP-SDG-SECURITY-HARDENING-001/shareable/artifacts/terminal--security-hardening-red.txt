@@ -1,0 +1,20 @@
+baseline=v0.2.0-experimental.6
+commit=d03d0a855d32fbfb8b42c29db2f008263de0f806
+runtime=downloaded GitHub Release wheel and source checkout
+synthetic_only=true
+
+CONFIRMED RED
+- strict verification accepted a modified shareable artifact whose SHA-256 no longer matched manifest.json
+- strict verification accepted a missing shareable artifact
+- DEP ID ../escaped-dep created a package outside the requested Evidence root
+- collector accepted a symlink source
+- redaction followed a raw-file symlink and overwrote a shareable-output symlink target outside the DEP
+- duplicate collector labels overwrote the original raw artifact while appending a second manifest row
+- product_decision classified as L1 returned CONTINUE
+- high_risk_operation with empty effects classified as L1 returned CONTINUE
+- caller-created L2 decision was stored as approved and reused without explicit freshness inputs
+- pull-request workflow installed and executed the candidate verifier
+
+RED TEST RESULT
+tests/test_evidence_flow.py: 4 failed, 9 passed
+Failing boundaries: DEP path escape, symlink source/output, duplicate label, missing size and digest recalculation.

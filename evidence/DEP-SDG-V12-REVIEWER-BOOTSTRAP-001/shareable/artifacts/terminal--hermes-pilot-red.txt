@@ -3,7 +3,7 @@ GB10 Hermes independent-review pilot, [REDACTED_PHONE_OR_NUMBER].
 Observed:
 - Reviewer reported an unclean checkout with untracked files, then continued instead of using a fresh clone.
 - All 83 existing tests passed and the code/security review was otherwise positive.
-- Reviewer did not create the required protected-file review receipt with a valid signature.
+- Reviewer did not create the required signed protected-file review receipt.
 - Reviewer did not configure the public-key-only GitHub trust variable.
 - Reviewer asked Arthur to provide a Reviewer ID and Ed25519 public key.
 - Targeted command `PYTHONPATH=src python3 -m unittest tests.test_reviewer -v` failed before implementation with `ModuleNotFoundError: No module named 'sddgov.reviewer'`.

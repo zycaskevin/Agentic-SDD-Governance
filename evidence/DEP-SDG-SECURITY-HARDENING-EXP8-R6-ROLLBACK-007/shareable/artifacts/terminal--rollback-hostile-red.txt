@@ -1,0 +1,15 @@
+command=python -m pytest tests/test_merge_gate.py -k legacy_v1_bridge_is_an_exact_non_executable_allowlist or v2_rollback_requires_a_full_immutable_ref or v2_rollback_ref_must_exist_in_the_candidate_range -q
+exit_status=1
+exact_head=3c11f977f1a36d87511047437d8e4f631b6ddf9e
+exact_base=f44cb5f4897f6c821f817fcf178581b43777163a
+
+RED failures:
+1. _real_rollback has no allow_legacy_v1 discriminator, so v1 is not scoped to the trusted Base bootstrap.
+2. v2 rollback_ref HEAD is accepted even though it is mutable.
+3. a nonexistent full hexadecimal rollback ref is accepted without Git existence or candidate-range verification.
+4. standalone non-comment text without a colon is ignored by the parser.
+
+Expected:
+- v1 is accepted only for the exact experimental.7 Base bootstrap and selected migration DEP.
+- v1 and v2 reference a full existing immutable commit inside base..reviewed_head.
+- every non-empty non-comment non-field line fails closed.

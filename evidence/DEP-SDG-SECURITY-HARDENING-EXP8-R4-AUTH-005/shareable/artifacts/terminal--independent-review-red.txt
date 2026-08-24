@@ -1,0 +1,5 @@
+Fresh independent review of PR #12 exact candidate 9978359b77d[REDACTED_CARD_OR_NUMBER]dc58f50609f07ec reproduced a P1 nested-authority gap.
+
+Top-level foreign fields were correctly blocked, but an exact valid L2 product-decision reuse request could still include a decision_package containing foreign structured operation data. Because reuse returned before strict Decision Package validation, the request continued.
+
+Required invariant: an existing L2 decision reuse request must not contain a new Decision Package. A new package represents a new or reopened decision and must enter the strict ACTION REQUIRED path instead of being ignored.

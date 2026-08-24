@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-SDG-SECURITY-HARDENING-EXP8-R3-003",
+  "issue": "11",
+  "sdd_references": [
+    "HARD-GATES-V1.2"
+  ],
+  "risk_level": "L1",
+  "created_at": "2026-08-15T18:03:01Z",
+  "updated_at": "2026-08-15T18:04:24Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-15T18:03:01Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-15T18:04:24Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-15T18:04:24Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-15T18:04:24Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-15T18:04:24Z"
+      }
+    ]
+  },
+  "expected_behavior": "Every risk level and category is validated against one closed request schema before any existing approval or decision can authorize continuation.",
+  "actual_behavior": "At exact candidate d03213a, L2 product-decision reuse ignored foreign L3 authority and executor fields because the closed-envelope check applied only to L0/L1.",
+  "environment": {
+    "commit": "d03213a62abb1d5752eea3380d3f75275e069dbf",
+    "branch": "fix/security-hardening-exp8",
+    "runtime": "macOS; Python 3.14.3; fresh independent review plus local hostile regression suite"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}

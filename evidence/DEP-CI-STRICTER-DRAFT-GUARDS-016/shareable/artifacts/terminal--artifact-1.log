@@ -1,0 +1,5 @@
+command=PYTHONPATH=src python3 -m unittest tests.test_ci_guard.CICostGuardTests.test_stricter_flat_conjunction_may_require_non_draft_pr tests.test_ci_guard.CICostGuardTests.test_stricter_draft_guard_grammar_fails_closed -v
+exit_status=1
+positive_case=FAIL: verify_guard(project)["ok"] was false
+hostile_cases=PASS: all seven unsupported or bypassable expressions remained rejected
+result=FAILED (failures=1)

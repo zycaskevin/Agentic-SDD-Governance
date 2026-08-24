@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "algorithm": "ed25519",
+  "review": {
+    "review_id": "REV-SDG-SECURITY-HARDENING-EXP8-BRIDGE-006",
+    "reviewer_id": "codex-independent-reviewer-pr10",
+    "builder_id": "codex-builder",
+    "change_digest": "a7da0ad82ae2b902994aae3b6a71111a97167308e5deb3ad646513f815931511",
+    "gate_metadata_digest": "bca0bb79b74edde159975138694013042ca71f455494da8f825447015d5ac01d",
+    "verdict": "approved",
+    "issued_at": "2026-08-16T01:40:16Z",
+    "expires_at": "2026-08-16T02:40:16Z",
+    "nonce": "mKv2-Fy_WE5MVmEvDn33GUJH"
+  },
+  "signature": "MH65VFLOAVr2/6MzBFWD5NakM3kFHMnknVeibPXlZErWoK5H5WCdAT4Wnf2yGCkZ8WezDCndYER1o41gYTbeDg=="
+}

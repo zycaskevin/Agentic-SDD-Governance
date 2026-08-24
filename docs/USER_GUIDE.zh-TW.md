@@ -36,7 +36,7 @@ gh auth status -h github.com
 
 ```bash
 mkdir -p sdg-release
-gh release download v0.2.0-experimental.3 \
+gh release download v0.2.0-experimental.8 \
   --repo zycaskevin/Agentic-SDD-Governance \
   --pattern '*.whl' \
   --pattern 'SHA256SUMS.txt' \
@@ -78,7 +78,7 @@ Private Repo 的 Clone 同樣需要 GitHub 權限。
 使用 wheel 不需要 Git History。需要完整 Git History 時可從 bundle Clone：
 
 ```bash
-git clone agentic-sdd-governance-v0.2.0-experimental.3.bundle \
+git clone agentic-sdd-governance-v0.2.0-experimental.8.bundle \
   Agentic-SDD-Governance
 ```
 
@@ -144,6 +144,12 @@ sddgov doctor /absolute/path/to/project
 ## 5. 日常功能開發
 
 SDG v1.2 預設 `CONTINUE`。Issue、Branch、Commit、feature-branch Push、PR、Review、測試、CI、可恢復 Retry、Integrity verification 與通過必要 Gate 後的 L0/L1 Merge都是工程操作，不是 Owner Approval 點。只有 unresolved L2、concrete L3、Operational Action 或 Necessary UAT 才能輸出嚴格的 `ACTION REQUIRED`。詳見 [`AUTONOMOUS_DEVELOPMENT_V1_2.md`](AUTONOMOUS_DEVELOPMENT_V1_2.md)。
+
+### 例行送審不需要每次批准
+
+若 CodeRabbit 或其他 Reviewer 已經為這個公開 Repo 設定完成，Agent 可以自動送出 committed PR diff，以及審查所需的公開 `AGENTS.md`／治理指令。Agent 應自行核對 findings、修正有效問題並重新送審，不應要求 Arthur 逐次批准，也不應讓 Arthur 在不同 Agent 之間複製貼上審查內容。
+
+這個預先授權只涵蓋最小公開 Payload。Private Repo 內容、Secrets、Credentials、`private/raw`、未遮罩敏感資料、Production dump、真實使用者資料、新 Reviewer／Vendor／外部目的地、新登入／MFA／OAuth scope、帳號權限或其他新存取，以及新增費用都不在範圍內。Private Repo 與 Reviewer 的精確既有決策屬於另一條有界授權路徑，不是公開例行送審的例外。遇到這些情況必須先停止傳送，再依 L2／L3／Operational Action 分類。自動化第三方 Review 也不能取代 Merge Gate 所需的獨立簽章 Review receipt。
 
 建議循環：
 
@@ -264,14 +270,26 @@ sddgov event local_green_passed \
 排入一個有界的 Owner Action：
 
 ```bash
-sddgov external-action BILLING-001 \
+sddgov external-action queue BILLING-001 \
   --summary 'Confirm GitHub Actions budget' \
   --risk L3 \
   --owner Arthur \
+  --scope 'repository Actions billing budget' \
+  --class operational_action \
   --path .
 ```
 
-這個命令只建立 Queue record，不會替 Owner 操作 Billing。
+這個命令只建立 Queue record，不會替 Owner 操作 Billing。同一個 Action ID、Owner、Scope 與 request 只會提示一次；重複執行會讀取既有 pending 狀態，不會再問一次。
+
+Owner 完成或取消後，由受信任的外部簽署者建立 `EXTERNAL_ACTION_RESOLUTION_RECEIPT.json`，再匯入：
+
+```bash
+sddgov external-action resolve signed-resolution.json --path .
+```
+
+Operational Action 與 Necessary UAT 共用這套持久狀態。只有 exact Owner/Scope/request digest 相符的簽章收據才能完成或取消；過期、取消或不相符都 fail closed。若只阻塞一個 Work Package，其他工作會繼續。
+
+Necessary UAT 只用於 Agent 無法判斷的主觀品質。若工作其實能由測試、工具或 Runtime Evidence 判定，SDG 會以 `BLOCKED`／exit `1` 拒絕矛盾的 UAT 分類、要求 Agent 先蒐集證據並重新分類，不會詢問 Owner。CLI 只有完整有效的 `ACTION REQUIRED` 使用 exit `2`；指令格式、檔案系統或其他 Process Error 使用 exit `3`。
 
 ## 10. 升級
 

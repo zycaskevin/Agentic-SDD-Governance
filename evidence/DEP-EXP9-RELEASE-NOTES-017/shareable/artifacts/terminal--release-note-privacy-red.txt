@@ -1,0 +1,5 @@
+check=public-release-note-downstream-identifier-absence
+expected_matches=0
+actual_matches=1
+exit_status=1
+source_commit=4c2a1ca27c49e0db00550300ab5b2e3c6658a4eb

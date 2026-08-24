@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "terminal--independent-review-red.txt",
+      "output": "terminal--independent-review-red.txt",
+      "source_sha256": "cc64fc9f4feab359dd1ffb36f431f1f761d6b005842aec56976463021218c5a8",
+      "source_size": 619,
+      "output_sha256": "cc64fc9f4feab359dd1ffb36f431f1f761d6b005842aec56976463021218c5a8",
+      "output_size": 619,
+      "redactions": {}
+    }
+  ],
+  "blocked": [],
+  "totals": {},
+  "dep_id": "DEP-SDG-SECURITY-HARDENING-EXP8-R3-PROTECTED-004",
+  "generated_at": "2026-08-15T18:09:23Z"
+}
