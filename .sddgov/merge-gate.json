@@ -1,16 +1,17 @@
 {
   "schema_version": "1.0",
   "base_sha": "92f4ba8388ecf1ef1f3407db6c49cef62f6ee196",
-  "head_sha": "4ebd834702d286ba1baf405e55f5a01035750e80",
+  "head_sha": "047333726a35fff58d75d3b9bc6c6f70215d9bde",
   "risk_level": "L2",
   "builder_id": "codex-af26-trusted-runner-builder",
-  "change_digest": "33dfa3d7d77bdd34a5671c5a3e9620414253535c98d15eb8f51416806d48bed5",
+  "change_digest": "7b65354a19139e14b3aebdff94b76c6afe0d9d459fbe0a0074c9f2fd352dbdc5",
   "deps": [
     "evidence/DEP-AF26-EXTERNAL-TRUSTED-RUNNER-001",
     "evidence/DEP-AF26-PR-LOCAL-GATE-001",
     "evidence/DEP-AF26-MAIN-INTEGRATION-001",
-    "evidence/DEP-AF26-PR-REVIEW-FIX-001"
+    "evidence/DEP-AF26-PR-REVIEW-FIX-001",
+    "evidence/DEP-AF26-MERGE-ROLLBACK-NORMALIZATION-001"
   ],
-  "rollback_path": "evidence/DEP-AF26-PR-REVIEW-FIX-001/rollback.md",
+  "rollback_path": "evidence/DEP-AF26-MERGE-ROLLBACK-NORMALIZATION-001/rollback.md",
   "protected_file_review": ".sddgov/reviews/REV-AF26-TRUSTED-RUNNER-001.json"
 }
