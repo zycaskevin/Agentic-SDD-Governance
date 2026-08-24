@@ -5,7 +5,8 @@
 AF26 由多個相隔 Evidence／main-integration 的非 audit commits 組成，但 Merge Gate 的
 rollback contract 只接受一個可乾淨 revert、且 revert 後能把所有 Evidence／audit 以外內容
 精確恢復到 trusted Base 的 atomic commit。現有 `8fc5c47...` 只包含最後一輪 review fix，
-其 revert 無法移除較早的 AF26 implementation，因此整體 postcondition fail closed。
+其 revert 無法移除較早的 AF26 implementation；此外 rollback Markdown 的敘述行未標為 `#`
+註解，declarative parser會將它們視為非法欄位。兩項條件均使整體 postcondition fail closed。
 
 ## Supporting evidence
 
@@ -13,6 +14,8 @@ rollback contract 只接受一個可乾淨 revert、且 revert 後能把所有 E
 - `8fc5c47...` 位於 Base 與 reviewed head之間，且其後只有 Evidence commit；range 條件成立。
 - `8fc5c47...` 的 inverse 只回復最後 review fix，較早的 Trusted Runner、Schema、CLI、tests
   與 docs 仍不同於 Base，違反 `_rollback_ref_is_cleanly_revertible()` 的 Base tree equality。
+- `_rollback_contract()` 對未註解的說明段落回傳 `None`；parser contract要求所有非欄位敘述
+  必須是 `#` comment。
 
 ## Contradicting evidence
 
@@ -27,5 +30,5 @@ cleanly revertible，且完整 candidate change digest／產品 tree不變，則
 
 ## Conclusion
 
-Confirmed。根因是 rollback atomicity 與既有多段 commit history不相容，不是 Runtime、Schema、
-測試或 receipt 驗簽錯誤。
+Confirmed。根因是 rollback atomicity與 declarative comment格式不符合 verifier，不是 Runtime、
+Schema、測試或 receipt驗簽錯誤。

@@ -9,6 +9,8 @@
   且 `cmp` 逐位元相等；
 - `_rollback_ref_is_cleanly_revertible()` 對 atomic ref
   `8a8d43405701101a443512c7444b8ff44c0bfa93`、exact Base與該 reviewed head回傳 `True`。
+- `_rollback_contract()` 對最終 `rollback.md` 回傳 version `3.0` 與相同 immutable ref，
+  所有說明段落均為 comment，不會被當成可執行欄位。
 
 ## Related tests executed
 

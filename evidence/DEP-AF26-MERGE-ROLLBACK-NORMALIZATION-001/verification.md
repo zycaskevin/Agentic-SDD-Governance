@@ -5,6 +5,7 @@
 `cmp` normalization前後 binary patch：exit 0；兩份 SHA-256皆為
 `90eca65831b8f1fbc57429a71b9fbf605344a1767e39d6d2d45ab706f595cfde`。
 以 exact Base／atomic ref執行 `_rollback_ref_is_cleanly_revertible()`：`True`。
+以 immutable `rollback.md` bytes執行 `_rollback_contract()`：回傳有效 v3 contract。
 
 ## Before/after evidence
 
