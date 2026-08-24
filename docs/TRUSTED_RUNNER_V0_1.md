@@ -3,7 +3,9 @@
 ## 狀態與權限
 
 - 工作套件：`WP-AF26-EXTERNAL-TRUSTED-RUNNER-001`。
-- 本機實作風險：L1 security-sensitive engineering；Authentication 獨立審查必須通過。
+- 本機實作風險：L1 security-sensitive engineering；latest-main 的 synthetic rehearsal
+  evidence semantics 為已批准 L2，見
+  `docs/decisions/AF26-SYNTHETIC-CONTROL-PLANE-DECISION.md`；Authentication 獨立審查必須通過。
 - 真實 credential、Owner-signed L3 receipt、不同 UID service、Hermes／Provider
   process、network、費用與部署均屬另一筆精確 L3／Operational action，本 SDD 不授權。
 - v0.1 目前是 rehearsal reference implementation；`mode=production` 在 bootstrap
@@ -77,7 +79,8 @@ Request 必須精確綁定：
 - `openai-api／gpt-5.6-sol`、官方 endpoint、4,096 input bytes、1,000 output tokens、
   one call、USD 0.25、120 seconds、zero tools／approval／subagent／auxiliary；
 - exact input payload SHA-256 與 bootstrap-owned launch contract SHA-256；
-- 新鮮 Ed25519 approval envelope，其 operation ID 必須完全相同。
+- 新鮮 Ed25519 approval envelope，其 operation ID 與完整 canonical operation payload
+  必須完全相同；payload 綁定 repository／project／environment／scope／target／limits／effects。
 
 未知欄位、duplicate JSON key、路徑、argv、environment、secret value、false-valued
 安全宣稱或不相符 binding 一律 fail closed。
@@ -98,9 +101,11 @@ Request 必須精確綁定：
 
 1. 先驗證 peer、bootstrap、request、bindings、runtime 與 sealed bundle。
 2. 將 wire 內 signed envelope 寫入 service-private temporary file，以既有
-   `import_operation_approval` 驗簽；已匯入／nonce replay fail closed。
-3. 以既有 `evaluate_escalation` 在 decisions lock 內重驗 envelope、operation ID、
-   expiry、nonce 與 unused state，第一個 `CONTINUE` 原子耗用。
+   `import_operation_approval` 驗簽；receipt 必須含與 Runner request 決定性重算結果完全相同的
+   exact operation payload；已匯入／nonce replay fail closed。
+3. 以既有 `evaluate_escalation` 在 decisions lock 內重驗 envelope、operation ID／payload、
+   expiry、trusted runtime context 與 unused state；只有 root-provisioned independent nonce
+   broker 原子耗用後才回傳 `CONTINUE`。
 4. 只有收到 exact `fresh_l3_operation_approval_verified` 後才開啟 credential。
 5. Approval 已耗用後任何失敗不得 replay；重試需要新 receipt。
 
@@ -122,8 +127,10 @@ Request 必須精確綁定：
 
 ## 離線驗收
 
-- Rehearsal 以 ephemeral Ed25519 approver／Runner keys、固定 synthetic secret、
-  sealed memfd 與 synthetic child 完成 approval -> secret -> child -> cleanup 全鏈路。
+- Rehearsal test harness 以 ephemeral Ed25519 approver／Runner keys、固定 synthetic secret、
+  sealed memfd、synthetic child 與僅存在於 tests 的 control-plane double 完成
+  approval -> secret -> child -> cleanup；這只驗證 API、ordering 與 cleanup，不是真實 L3
+  control-plane 證據。移除 double 時必須在 approval 前 fail closed。
 - Agent Factory 0.3 request 與 9,925-entry full Hermes bundle 已完成跨 repository
   synthetic rehearsal；signed result 為 completed，且 `inference_applied=false`。
 - 攻擊測試覆蓋 same-UID production、root service、wrong peer、bootstrap mode／owner／
@@ -137,9 +144,10 @@ Request 必須精確綁定：
 ## 真實停止點
 
 Production cgroup v2／PID containment、runtime FD execution chain、service account、
-systemd socket/unit、`/etc` bootstrap、`/var/lib` state、Owner approver identity、真實
-credential 與網路規則都尚未配置。離線 Proof 完成後只能宣稱 rehearsal Runner-ready，
-不得宣稱 production、Live 或部署完成。
+systemd socket/unit、root-owned `/etc/sddgov/runtime-context.json`、root-provisioned independent
+nonce broker、`/etc` bootstrap、`/var/lib` state、Owner approver identity、真實 credential
+與網路規則都尚未配置。離線 Proof 只能宣稱 synthetic test-double rehearsal-ready，
+不得宣稱真實 L3 全鏈路、production、Live 或部署完成。
 
 ## 回滾
 

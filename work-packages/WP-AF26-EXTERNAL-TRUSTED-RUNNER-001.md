@@ -5,9 +5,10 @@
 - Issue：[#52](https://github.com/zycaskevin/Agentic-SDD-Governance/issues/52)；
   本機追蹤 ID `AF26-EXTERNAL-TRUSTED-RUNNER-001`。
 - SDD：`docs/TRUSTED_RUNNER_V0_1.md`
+- Decision：`docs/decisions/AF26-SYNTHETIC-CONTROL-PLANE-DECISION.md`
 - Evidence：`DEP-AF26-EXTERNAL-TRUSTED-RUNNER-001`、
-  `DEP-AF26-PR-LOCAL-GATE-001`
-- Risk：L1 security-sensitive preparation；任何真實 operation 仍為 L3。
+  `DEP-AF26-PR-LOCAL-GATE-001`、`DEP-AF26-MAIN-INTEGRATION-001`
+- Risk：L2 只限 synthetic rehearsal evidence semantics；任何真實 operation 仍為 L3。
 
 ## Objective Contract
 
@@ -15,7 +16,8 @@
   與 dedicated non-root UID production contract，完成 peer／bootstrap／sealed FD／
   exact approval／secret ordering／signed result；production 在 cgroup v2 descendant
   containment 與 FD-bound runtime chain 完成前 hard-deny。
-- Success：synthetic rehearsal 全鏈路通過；source manifest／profile 內容可重算；
+- Success：synthetic test-double rehearsal 全鏈路通過且 no-double path fail closed；
+  source manifest／profile 內容可重算；
   所有 caller forgery、replay、TOCTOU、timeout 與 cleanup attack tests fail closed；
   `mode=production` 固定回傳 `production_cgroup_containment_required`。
 - Guardrails：不讀真實 credential、不使用 Owner key、不執行 Hermes／network／
@@ -45,8 +47,10 @@
 - Owner：2026-08-23 回覆「繼續」，授權 AF26 離線開發並同意將本可信宿主納入
   修改範圍；不是 concrete L3 operation approval。2026-08-24 明確確認目標 repository
   為公開，並批准公開推送 AF26 原始碼、Trusted Runner 架構與安全驗證內容，以及建立
-  公開 Issue／PR。
+  公開 Issue／PR。2026-08-24 另批准僅在 synthetic offline test harness 使用
+  control-plane double；正式程式不得加入本地 nonce fallback，且文件不得宣稱真實 L3。
 - Builder：Codex。
 - Status：Rehearsal Runner、production hard-deny、Schema、Agent Factory 0.3 串接、
-  synthetic rehearsal、完整回歸與 Wheel／fresh doctor 均已完成；independent
-  security review blocking-free；兩個 DEP 均已進入 Proof 且 strict verification 通過。
+  synthetic test-double rehearsal、latest-main 251-test Local Green、Wheel／fresh doctor
+  與獨立安全審查均已完成；`DEP-AF26-MAIN-INTEGRATION-001` 正在封存 Proof，production
+  authority 未放寬，且不宣稱真實 L3 全鏈路。

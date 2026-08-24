@@ -114,6 +114,9 @@ _MAX_DURATION_SECONDS = 120
 _CHILD_WAIT_TIMEOUT_SECONDS = _MAX_DURATION_SECONDS
 _SHA256 = re.compile(r"sha256:[0-9a-f]{64}")
 _INHERITED_ENV_ALLOWLIST = ("LANG", "LC_ALL", "SSL_CERT_DIR", "SSL_CERT_FILE")
+_APPROVAL_REPOSITORY = "zycaskevin/Agent-Factory-core"
+_APPROVAL_PROJECT = "Agent Factory"
+_APPROVAL_TARGET = "external-trusted-runner"
 
 
 class TrustedRunnerViolation(RuntimeError):
@@ -140,6 +143,39 @@ def _canonical_bytes(value: Any) -> bytes:
 
 def _canonical_hash(value: Any) -> str:
     return _sha256(_canonical_bytes(value))
+
+
+def _approval_operation_payload(
+    operation: Mapping[str, Any], operation_id: str, plan_hash: str
+) -> dict[str, Any]:
+    """Map the AF26 request onto the current exact L3 approval payload."""
+    return {
+        "repository": _APPROVAL_REPOSITORY,
+        "project": _APPROVAL_PROJECT,
+        "environment": (
+            "synthetic-offline-rehearsal"
+            if operation.get("rehearsal_only") is True
+            else "production"
+        ),
+        "scope": operation_id,
+        "category": "high_risk_operation",
+        "target": _APPROVAL_TARGET,
+        "parameters": {
+            "action_id": operation.get("action_id"),
+            "operation_id": operation_id,
+            "plan_hash": plan_hash,
+            "sealed_bundle_hash": operation.get("sealed_bundle_hash"),
+            "route_profile_hash": operation.get("route_profile_hash"),
+            "containment_profile_hash": operation.get("containment_profile_hash"),
+            "provider": operation.get("provider"),
+            "model": operation.get("model"),
+            "output_limit": operation.get("max_output_tokens"),
+            "call_limit": operation.get("max_inference_calls"),
+            "cost_limit_usd": operation.get("max_cost_usd"),
+            "duration_limit_seconds": operation.get("max_duration_seconds"),
+        },
+        "effects": {"high_privilege": True},
+    }
 
 
 def _require_sha256(value: Any, label: str) -> str:
@@ -220,14 +256,15 @@ def _stable_read_regular(
         after_path = candidate.lstat()
     except OSError as exc:
         raise TrustedRunnerViolation(f"{label}_identity_changed") from exc
-    identity = lambda item: (
-        item.st_dev,
-        item.st_ino,
-        item.st_mode,
-        item.st_size,
-        item.st_mtime_ns,
-        item.st_ctime_ns,
-    )
+    def identity(item: os.stat_result) -> tuple[int, int, int, int, int, int]:
+        return (
+            item.st_dev,
+            item.st_ino,
+            item.st_mode,
+            item.st_size,
+            item.st_mtime_ns,
+            item.st_ctime_ns,
+        )
     if identity(opened) != identity(after_fd) or identity(opened) != identity(after_path):
         raise TrustedRunnerViolation(f"{label}_identity_changed")
     raw = b"".join(chunks)
@@ -275,14 +312,15 @@ def _stable_read_secret(
         finally:
             os.close(descriptor)
         after_path = candidate.lstat()
-        identity = lambda item: (
-            item.st_dev,
-            item.st_ino,
-            item.st_mode,
-            item.st_size,
-            item.st_mtime_ns,
-            item.st_ctime_ns,
-        )
+        def identity(item: os.stat_result) -> tuple[int, int, int, int, int, int]:
+            return (
+                item.st_dev,
+                item.st_ino,
+                item.st_mode,
+                item.st_size,
+                item.st_mtime_ns,
+                item.st_ctime_ns,
+            )
         if identity(opened) != identity(after_fd) or identity(opened) != identity(after_path):
             raise TrustedRunnerViolation("credential_source_identity_changed")
         return buffer
@@ -840,10 +878,15 @@ class TrustedRunner:
         if not isinstance(approval_id, str) or not approval_id.strip() or not isinstance(envelope, dict):
             raise TrustedRunnerViolation("approval_envelope_invalid")
         receipt = envelope.get("receipt")
+        expected_approval_payload = _approval_operation_payload(
+            operation, operation_id, plan_hash
+        )
         if (
             not isinstance(receipt, dict)
             or receipt.get("approval_id") != approval_id
             or receipt.get("operation_id") != operation_id
+            or receipt.get("scope") != operation_id
+            or receipt.get("operation_payload") != expected_approval_payload
         ):
             raise TrustedRunnerViolation("approval_operation_mismatch")
         return _ValidatedRequest(
@@ -1091,14 +1134,18 @@ class TrustedRunner:
             os.fsync(descriptor)
         finally:
             os.close(descriptor)
+        operation_payload = _approval_operation_payload(
+            request.operation, request.operation_id, request.plan_hash
+        )
         decision_request = {
             "risk_level": "L3",
             "category": "high_risk_operation",
             "effects": {"high_privilege": True},
             "operation_id": request.operation_id,
             "approval_id": request.approval_id,
+            "operation_payload": operation_payload,
             "decision_package": {
-                "decision_id": request.operation_id,
+                "decision_id": request.approval_id,
                 "risk_level": "L3",
                 "why_human_input_is_required": "The exact operation may read one secret and perform one metered inference.",
                 "what_agent_already_verified": [
@@ -1113,6 +1160,7 @@ class TrustedRunner:
                 "why": "Only an exact signed receipt can cross the trusted boundary.",
                 "impact_if_no_decision": "No credential is opened and no child starts.",
                 "scope_of_approval": request.operation_id,
+                "operation_payload": operation_payload,
             },
         }
         try:
@@ -1139,6 +1187,10 @@ class TrustedRunner:
             "next_action": "continue",
             "approval_id": request.approval_id,
             "operation_id": request.operation_id,
+            "authorized_operation_payload": operation_payload,
+            "operation_payload_sha256": hashlib.sha256(
+                _canonical_bytes(operation_payload)
+            ).hexdigest(),
             "approval_consumed": True,
         }
         if result != expected:

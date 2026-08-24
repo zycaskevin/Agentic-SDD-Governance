@@ -106,7 +106,7 @@ class RepositoryContractTests(unittest.TestCase):
     def test_current_repo_installed_governance_is_healthy_and_current(self):
         report = doctor(ROOT)
         self.assertTrue(report["ok"], report)
-        self.assertEqual(report["managed_file_count"], 66)
+        self.assertEqual(report["managed_file_count"], 69)
 
         triples = (
             (

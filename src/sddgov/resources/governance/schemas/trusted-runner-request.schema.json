@@ -97,9 +97,74 @@
     "approval_required": {"const": true},
     "credential_delivery": {"const": "external-runner-private-fd"},
     "approval_id": {"type": "string", "minLength": 1},
-    "approval_envelope": {"type": "object", "required": ["schema_version", "algorithm", "receipt", "signature"]},
+    "approval_envelope": {
+      "type": "object",
+      "required": ["schema_version", "algorithm", "receipt", "signature"],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "algorithm": {"const": "ed25519"},
+        "receipt": {
+          "type": "object",
+          "required": ["approval_id", "operation_id", "operation_payload", "summary", "scope", "approved_by", "issued_at", "expires_at", "nonce"],
+          "properties": {
+            "approval_id": {"type": "string", "minLength": 1},
+            "operation_id": {"type": "string", "pattern": "^AF25-HERMES-OPENAI-API-LIVE-UAT-L3-001@[0-9a-f]{64}$"},
+            "operation_payload": {"$ref": "#/$defs/operationPayload"},
+            "summary": {"type": "string", "minLength": 1},
+            "scope": {"type": "string", "pattern": "^AF25-HERMES-OPENAI-API-LIVE-UAT-L3-001@[0-9a-f]{64}$"},
+            "approved_by": {"type": "string", "minLength": 1},
+            "issued_at": {"type": "string", "minLength": 1},
+            "expires_at": {"type": "string", "minLength": 1},
+            "nonce": {"type": "string", "minLength": 12}
+          },
+          "additionalProperties": false
+        },
+        "signature": {"type": "string", "minLength": 44}
+      },
+      "additionalProperties": false
+    },
     "input_payload_b64": {"type": "string", "minLength": 4, "maxLength": 5464}
   },
-  "$defs": {"digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}},
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "operationPayload": {
+      "type": "object",
+      "required": ["repository", "project", "environment", "scope", "category", "target", "parameters", "effects"],
+      "properties": {
+        "repository": {"const": "zycaskevin/Agent-Factory-core"},
+        "project": {"const": "Agent Factory"},
+        "environment": {"enum": ["synthetic-offline-rehearsal", "production"]},
+        "scope": {"type": "string", "pattern": "^AF25-HERMES-OPENAI-API-LIVE-UAT-L3-001@[0-9a-f]{64}$"},
+        "category": {"const": "high_risk_operation"},
+        "target": {"const": "external-trusted-runner"},
+        "parameters": {
+          "type": "object",
+          "required": ["action_id", "operation_id", "plan_hash", "sealed_bundle_hash", "route_profile_hash", "containment_profile_hash", "provider", "model", "output_limit", "call_limit", "cost_limit_usd", "duration_limit_seconds"],
+          "properties": {
+            "action_id": {"const": "AF25-HERMES-OPENAI-API-LIVE-UAT-L3-001"},
+            "operation_id": {"type": "string", "pattern": "^AF25-HERMES-OPENAI-API-LIVE-UAT-L3-001@[0-9a-f]{64}$"},
+            "plan_hash": {"$ref": "#/$defs/digest"},
+            "sealed_bundle_hash": {"$ref": "#/$defs/digest"},
+            "route_profile_hash": {"$ref": "#/$defs/digest"},
+            "containment_profile_hash": {"$ref": "#/$defs/digest"},
+            "provider": {"const": "openai-api"},
+            "model": {"const": "gpt-5.6-sol"},
+            "output_limit": {"const": 1000},
+            "call_limit": {"const": 1},
+            "cost_limit_usd": {"const": "0.25"},
+            "duration_limit_seconds": {"const": 120}
+          },
+          "additionalProperties": false
+        },
+        "effects": {
+          "type": "object",
+          "required": ["high_privilege"],
+          "properties": {"high_privilege": {"const": true}},
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
   "additionalProperties": false
 }

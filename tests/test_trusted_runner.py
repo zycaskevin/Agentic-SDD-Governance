@@ -24,8 +24,10 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
 )
 
 import sddgov.trusted_runner as trusted_runner_module
+import sddgov.autonomy as autonomy_module
 from sddgov.cli import build_parser
 from sddgov.schema_validation import load_schema, validate_instance
+from sddgov.trust import load_control_plane_json as real_load_control_plane_json
 from sddgov.trusted_runner import (
     TrustedRunner,
     TrustedRunnerBootstrap,
@@ -101,6 +103,31 @@ class TrustedRunnerContractTests(unittest.TestCase):
         )
         self.root = Path(self.temporary.name)
         self.root.chmod(0o700)
+        self.runtime_context_path = self.root / "runtime-context.json"
+        _write_private(
+            self.runtime_context_path,
+            _canonical(
+                {
+                    "schema_version": "1.0",
+                    "repository": "zycaskevin/Agent-Factory-core",
+                    "project": "Agent Factory",
+                    "environment": "synthetic-offline-rehearsal",
+                }
+            ),
+        )
+        self.runtime_context_patch = patch(
+            "sddgov.autonomy.L3_RUNTIME_CONTEXT_FILE", self.runtime_context_path
+        )
+        self.runtime_context_patch.start()
+        self.control_plane_loader_patch = patch(
+            "sddgov.autonomy.load_control_plane_json",
+            side_effect=lambda path, _label: json.loads(Path(path).read_text()),
+        )
+        self.control_plane_loader_patch.start()
+        self.nonce_broker_patch = patch(
+            "sddgov.autonomy._consume_nonce_via_control_plane", return_value=True
+        )
+        self.nonce_broker_patch.start()
         self.state_root = self.root / "state"
         self.state_root.mkdir(mode=0o700)
         self.isolation_parent = self.root / "isolation"
@@ -170,6 +197,9 @@ target.chmod(0o600)
         self.bootstrap = TrustedRunnerBootstrap.load(self.bootstrap_path)
 
     def tearDown(self) -> None:
+        self.nonce_broker_patch.stop()
+        self.control_plane_loader_patch.stop()
+        self.runtime_context_patch.stop()
         self.temporary.cleanup()
 
     def _make_bootstrap(
@@ -277,12 +307,18 @@ target.chmod(0o600)
         }
         return descriptor, receipt
 
-    def _approval(self, operation_id: str, nonce: str) -> tuple[str, dict[str, object]]:
+    def _approval(
+        self,
+        operation_id: str,
+        nonce: str,
+        operation_payload: dict[str, object],
+    ) -> tuple[str, dict[str, object]]:
         now = datetime.now(timezone.utc).replace(microsecond=0)
         approval_id = f"APP-AF26-{nonce}"
         receipt = {
             "approval_id": approval_id,
             "operation_id": operation_id,
+            "operation_payload": operation_payload,
             "summary": "Synthetic AF26 exact operation",
             "scope": operation_id,
             "approved_by": "synthetic-owner",
@@ -305,7 +341,7 @@ target.chmod(0o600)
         bundle: dict[str, object],
         *,
         bootstrap: TrustedRunnerBootstrap | None = None,
-        nonce: str = "nonce-001",
+        nonce: str = "nonce-af26-001",
         input_payload: bytes = b"synthetic AF26 input",
     ) -> dict[str, object]:
         selected = bootstrap or self.bootstrap
@@ -356,7 +392,12 @@ target.chmod(0o600)
             + plan_hash.removeprefix("sha256:")
         )
         operation["operation_id"] = operation_id
-        approval_id, approval = self._approval(operation_id, nonce)
+        operation_payload = trusted_runner_module._approval_operation_payload(
+            operation, operation_id, plan_hash
+        )
+        approval_id, approval = self._approval(
+            operation_id, nonce, operation_payload
+        )
         capsule = {
             "contract_version": "0.3",
             "operation_id": operation_id,
@@ -460,6 +501,34 @@ target.chmod(0o600)
         self.assertNotIn(SYNTHETIC_KEY.decode("ascii"), encoded)
         self.assertNotIn(str(self.root), encoded)
         self.assertNotIn("AWS_SECRET_ACCESS_KEY", encoded)
+
+    def test_rehearsal_has_no_control_plane_fallback(self) -> None:
+        descriptor, bundle = self._sealed_bundle()
+        request = self._request(bundle, nonce="nonce-no-control-plane")
+        try:
+            with (
+                patch.object(
+                    autonomy_module,
+                    "load_control_plane_json",
+                    side_effect=real_load_control_plane_json,
+                ),
+                patch.object(
+                    autonomy_module,
+                    "_consume_nonce_via_control_plane",
+                    return_value=False,
+                ),
+            ):
+                result = self._verify_result_signature(
+                    TrustedRunner(self.bootstrap).execute(
+                        request, descriptor, peer_uid=os.geteuid()
+                    )
+                )
+        finally:
+            os.close(descriptor)
+        self.assertEqual(result["reason"], "approval_verification_failed")
+        self.assertFalse(result["approval_consumed"])
+        self.assertFalse(result["credential_material_opened"])
+        self.assertFalse(result["runtime_started"])
 
     def test_published_schemas_accept_exact_bootstrap_request_and_result(self) -> None:
         descriptor, bundle = self._sealed_bundle()

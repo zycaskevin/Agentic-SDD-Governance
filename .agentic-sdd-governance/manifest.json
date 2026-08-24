@@ -3,7 +3,7 @@
   "governance_version": "0.2.0-experimental.9",
   "agent": "codex",
   "profile": "team-standard",
-  "installed_at": "2026-08-22T15:14:10Z",
+  "installed_at": "2026-08-24T11:57:05Z",
   "managed_files": {
     ".agentic-sdd-governance/VERSION": "eb70fdf94d0b0f7a9c8f50f09d913a7cc0c46849b0d41a639d3552a7aa839605",
     ".agentic-sdd-governance/collectors/INTERFACE.md": "590055022bab5d99a1944dcccdff030c678574dcf3fbded9471ae86a4898653a",
@@ -44,6 +44,9 @@
     ".agentic-sdd-governance/schemas/runtime-context.schema.json": "dd3b99918524c8c99bc8f6bdd4ca686d5da24536cd32ae1c24f7a205bb526721",
     ".agentic-sdd-governance/schemas/trusted-approvers.schema.json": "d1ca4d6370af02c51783a40787397adaf858a306ee115fdab3dd44928e0cd605",
     ".agentic-sdd-governance/schemas/trusted-reviewers.schema.json": "05b4b7f50b99aef7338eb5ac53a7dd4d3b9a65f3ad749270d473c798a9fadaf8",
+    ".agentic-sdd-governance/schemas/trusted-runner-bootstrap.schema.json": "3446c2ee9165108cc4d58439c88830fa25cf00232c50d27d4181b578f2ee21df",
+    ".agentic-sdd-governance/schemas/trusted-runner-request.schema.json": "61a46f19d6eb35abe7133e332b72b200390f15c698120ad870bcf1fe42fc48b4",
+    ".agentic-sdd-governance/schemas/trusted-runner-result-envelope.schema.json": "0b0e18fe4d27a07fe55cd65f86732ee4a111446e60690a714e5985db609206e7",
     ".agentic-sdd-governance/schemas/work-claim.schema.json": "1ced3d4cd6564e28e75606e867faf8e0f5d179b97b957abe0880c46584e9d695",
     ".agentic-sdd-governance/templates/ACTION_REQUIRED.md": "81c8f0543ebe7d3c579d307316de865254d49326af66d79875d449be59555924",
     ".agentic-sdd-governance/templates/CHANGELOG_EVIDENCE.md": "4ff493c900cfd735bfae3d628b503237fdc30d29f098b84701fe56d3fa4dd30e",
