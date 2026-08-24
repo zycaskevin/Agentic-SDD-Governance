@@ -19,7 +19,9 @@ smoke imported no source checkout, validated both managed Agent adapters,
 passed the synthetic demo, and passed the native Linux Broker checks. An
 actual revert restored the exact trusted-Base non-audit tree; Base setup,
 Doctor, validation, build, Twine, and 237-test suite passed with one expected
-sandbox skip.
+sandbox skip. Canonical Owner-bound Local Green then passed all 537 tests,
+repository validation, and cryptographic reuse verification of the existing
+L2 product-decision receipt.
 
 ## Unaffected paths sampled
 

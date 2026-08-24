@@ -27,8 +27,14 @@
   the exact trusted-Base non-audit product tree. Base setup-agent, Doctor,
   validation, package build, and Twine validation passed; the Base suite ran
   237 tests with one expected sandbox skip and no failure.
-- Final Local Green, hosted, automated-review, and independent-review results
-  remain pending until the final R30 Evidence Head and Gate are frozen.
+- Canonical Owner-bound Local Green at Evidence Head
+  `b5c5d1af52ab2765b74b84632093d540879db73e`: PASS. It executed all 537
+  tests with five host-platform skips, repository validation, and the exact
+  stored L2 product-decision verification. The receipt remained bound to the
+  active Owner key, repository audience, request, assumptions, and current
+  Owner-client identity; expiry is `2026-09-23T12:17:28Z`.
+- Hosted, automated-review, and independent-review results remain pending
+  until the final R30 Evidence Head and Gate are frozen.
 
 ## Before/after evidence
 
