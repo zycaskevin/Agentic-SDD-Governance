@@ -6,7 +6,6 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .benchmark import compare
 from .autonomy import (
     checkpoint,
     evaluate_deployment,
@@ -18,9 +17,16 @@ from .autonomy import (
     record_decision,
     verify_artifact,
 )
+from .benchmark import compare
 from .ci_guard import run_local_gate, verify_guard
 from .evidence import attach, collect, make_dep, redact, transition, verify
-from .governance import claim_work, emit_event, enqueue_external_action, init_project, project_status
+from .governance import (
+    claim_work,
+    emit_event,
+    enqueue_external_action,
+    init_project,
+    project_status,
+)
 from .installer import AGENTS, doctor, setup_agent, uninstall_agent
 from .merge_gate import (
     DEFAULT_GATE,
@@ -31,6 +37,7 @@ from .merge_gate import (
 from .pilot import run_synthetic_muse_pilot
 from .reviewer import bootstrap_reviewer, export_trust, sign_protected_review
 from .schema_validation import check_schema, load_schema, validate_instance
+from .trusted_runner import describe_bootstrap, serve_connection
 
 
 class SDGArgumentParser(argparse.ArgumentParser):
@@ -141,6 +148,25 @@ def _autonomy_parsers(subparsers) -> None:
     deploy_evaluate.add_argument("--path", type=Path, default=Path.cwd())
 
 
+def _trusted_runner_parser(subparsers) -> None:
+    runner = subparsers.add_parser(
+        "trusted-runner",
+        help="Execute one operation inside a dedicated-UID trusted boundary",
+    )
+    commands = runner.add_subparsers(dest="trusted_runner_command", required=True)
+    describe = commands.add_parser(
+        "describe",
+        help="Emit only public identity bindings from a service-owned bootstrap",
+    )
+    describe.add_argument("--bootstrap", required=True, type=Path)
+    serve = commands.add_parser(
+        "serve-connection",
+        help="Serve one systemd-activated Unix SOCK_SEQPACKET connection",
+    )
+    serve.add_argument("--bootstrap", required=True, type=Path)
+    serve.add_argument("--connection-fd", type=int, default=3)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = SDGArgumentParser(prog="sddgov")
     parser.add_argument("--version", action="version", version=__version__)
@@ -148,6 +174,7 @@ def build_parser() -> argparse.ArgumentParser:
     _evidence_parser(sub)
     _ci_parser(sub)
     _autonomy_parsers(sub)
+    _trusted_runner_parser(sub)
     merge = sub.add_parser("merge", help="Enforce executable Merge policy gates")
     merge_commands = merge.add_subparsers(dest="merge_command", required=True)
     merge_digest = merge_commands.add_parser(
@@ -289,6 +316,11 @@ def _validate_repo(root: Path) -> list[str]:
         "schemas/trusted-reviewers.schema.json", "schemas/protected-review-receipt.schema.json",
         "schemas/merge-gate.schema.json", "src/sddgov/merge_gate.py",
         "src/sddgov/reviewer.py",
+        "schemas/trusted-runner-bootstrap.schema.json",
+        "schemas/trusted-runner-request.schema.json",
+        "schemas/trusted-runner-result-envelope.schema.json",
+        "src/sddgov/trusted_runner.py", "src/sddgov/_trusted_exec.py",
+        "docs/TRUSTED_RUNNER_V0_1.md",
         "schemas/ci-cost-guard.schema.json", "policies/ci-cost-guard.yaml",
         "skill/agentic-sdd-governance/SKILL.md",
         "skill/agentic-sdd-governance/references/ci-cost-guard.md",
@@ -430,6 +462,12 @@ def run(args: argparse.Namespace) -> int:
         result = evaluate_deployment(args.path, gate)
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0 if result.get("ok", result.get("state") == "CONTINUE") else 1
+    if args.command == "trusted-runner":
+        if args.trusted_runner_command == "describe":
+            result = describe_bootstrap(args.bootstrap)
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            return 0
+        return serve_connection(args.bootstrap, args.connection_fd)
     if args.command == "merge":
         if args.merge_command == "digest":
             result = compute_change_digest(args.path, args.base_ref)
