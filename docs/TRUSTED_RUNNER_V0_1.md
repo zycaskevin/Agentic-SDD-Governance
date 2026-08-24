@@ -120,6 +120,9 @@ Request 必須精確綁定：
 - Rehearsal 逾時先 TERM 再 KILL；任何路徑都關閉 descriptor、抹除 Runner 與 launcher
   持有的 mutable credential buffer、unlink input、移除 isolation root。這個欄位不宣稱
   可以抹除 kernel 或已 exec process 曾持有的所有副本。
+- `duration_ms` 是完整 child lifecycle 的 wall-clock observation；120 秒仍是 child execution
+  deadline，但 observation 可包含其後 bounded TERM／KILL cleanup。任何 parent-owned FD close
+  失敗必須以 `descriptors_closed=false` 與固定 schema-safe reason fail closed。
 - Process group 無法拘束自行 `setsid()` 的逃逸後代，因此 production 必須由 cgroup v2
   scope 擁有完整 descendant lifecycle 並 kill 整個 cgroup；v0.1 在此完成前 hard-deny。
 - Result 只含 hashes、usage／exit 類別、approval/runtime/cleanup booleans，並由

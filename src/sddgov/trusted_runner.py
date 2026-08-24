@@ -127,6 +127,14 @@ class TrustedRunnerViolation(RuntimeError):
         self.reason = reason
 
 
+class _ChildRunFailure(TrustedRunnerViolation):
+    """Safe child failure carrying the observed parent descriptor state."""
+
+    def __init__(self, reason: str, *, descriptors_closed: bool) -> None:
+        super().__init__(reason)
+        self.descriptors_closed = descriptors_closed
+
+
 def _sha256(value: bytes) -> str:
     return "sha256:" + hashlib.sha256(value).hexdigest()
 
@@ -1304,43 +1312,77 @@ class TrustedRunner:
         if self.bootstrap.mode == "rehearsal":
             environment["AGENT_FACTORY_OFFLINE_ONLY"] = "1"
         started = time.monotonic()
-        stdout_fd = os.open(
-            stdout_path,
-            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW,
-            0o600,
-        )
-        stderr_fd = os.open(
-            stderr_path,
-            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW,
-            0o600,
-        )
+        owned_fds = {
+            "stdout": -1,
+            "stderr": -1,
+            "secret_read": -1,
+            "secret_write": -1,
+        }
         child: subprocess.Popen[bytes] | None = None
         timed_out = False
-        if hasattr(os, "pipe2"):
-            secret_read_fd, secret_write_fd = os.pipe2(os.O_CLOEXEC)
-        else:  # pragma: no cover - Linux production environments expose pipe2.
-            secret_read_fd, secret_write_fd = os.pipe()
-            os.set_inheritable(secret_read_fd, False)
-            os.set_inheritable(secret_write_fd, False)
+        return_code: int | None = None
+        pending_error: Exception | None = None
+        descriptors_closed = True
+
+        def close_owned(name: str) -> None:
+            nonlocal descriptors_closed
+            descriptor = owned_fds[name]
+            if descriptor < 0:
+                return
+            owned_fds[name] = -1
+            try:
+                os.close(descriptor)
+            except OSError:
+                descriptors_closed = False
+
         try:
+            owned_fds["stdout"] = os.open(
+                stdout_path,
+                os.O_WRONLY
+                | os.O_CREAT
+                | os.O_EXCL
+                | os.O_CLOEXEC
+                | os.O_NOFOLLOW,
+                0o600,
+            )
+            owned_fds["stderr"] = os.open(
+                stderr_path,
+                os.O_WRONLY
+                | os.O_CREAT
+                | os.O_EXCL
+                | os.O_CLOEXEC
+                | os.O_NOFOLLOW,
+                0o600,
+            )
+            if hasattr(os, "pipe2"):
+                secret_read_fd, secret_write_fd = os.pipe2(os.O_CLOEXEC)
+            else:  # pragma: no cover - Linux production environments expose pipe2.
+                secret_read_fd, secret_write_fd = os.pipe()
+                os.set_inheritable(secret_read_fd, False)
+                os.set_inheritable(secret_write_fd, False)
+            owned_fds["secret_read"] = secret_read_fd
+            owned_fds["secret_write"] = secret_write_fd
             remaining = memoryview(secret)
             while remaining:
-                written = os.write(secret_write_fd, remaining)
+                written = os.write(owned_fds["secret_write"], remaining)
                 if written <= 0:
                     raise TrustedRunnerViolation("credential_pipe_write_failed")
                 remaining = remaining[written:]
-        finally:
-            os.close(secret_write_fd)
-        argv[5] = str(secret_read_fd)
-        try:
+            close_owned("secret_write")
+            if not descriptors_closed:
+                raise _ChildRunFailure(
+                    "descriptor_cleanup_failed",
+                    descriptors_closed=False,
+                )
+            argv[5] = str(owned_fds["secret_read"])
             child = subprocess.Popen(
                 argv,
                 cwd=isolation_root,
                 env=environment,
                 stdin=subprocess.DEVNULL,
-                stdout=stdout_fd,
-                stderr=stderr_fd,
-                pass_fds=(bundle_fd, secret_read_fd),
+                stdout=owned_fds["stdout"],
+                stderr=owned_fds["stderr"],
+                pass_fds=(bundle_fd, owned_fds["secret_read"]),
                 start_new_session=True,
             )
             try:
@@ -1354,10 +1396,34 @@ class TrustedRunner:
                     os.killpg(child.pid, signal.SIGKILL)
                     child.wait(timeout=2)
                 return_code = child.returncode
+        except Exception as exc:  # noqa: BLE001 - converted to a safe result below
+            pending_error = exc
         finally:
-            os.close(secret_read_fd)
-            os.close(stdout_fd)
-            os.close(stderr_fd)
+            for name in owned_fds:
+                close_owned(name)
+        if pending_error is not None:
+            if isinstance(pending_error, TrustedRunnerViolation):
+                reason = pending_error.reason
+            else:
+                reason = "unexpected_error"
+            if isinstance(pending_error, _ChildRunFailure):
+                descriptors_closed = (
+                    descriptors_closed and pending_error.descriptors_closed
+                )
+            raise _ChildRunFailure(
+                reason,
+                descriptors_closed=descriptors_closed,
+            ) from pending_error
+        if not descriptors_closed:
+            raise _ChildRunFailure(
+                "descriptor_cleanup_failed",
+                descriptors_closed=False,
+            )
+        if return_code is None:
+            raise _ChildRunFailure(
+                "unexpected_error",
+                descriptors_closed=True,
+            )
         stdout_raw, _ = _stable_read_regular(
             stdout_path,
             label="child_stdout",
@@ -1379,6 +1445,7 @@ class TrustedRunner:
             "stdout_hash": _sha256(stdout_raw),
             "stderr_hash": _sha256(stderr_raw),
             "duration_ms": max(0, int((time.monotonic() - started) * 1000)),
+            "descriptors_closed": True,
             "inference_applied": False,
             "input_tokens": None,
             "output_tokens": None,
@@ -1544,10 +1611,13 @@ class TrustedRunner:
             else:
                 result["outcome"] = "completed"
                 result["reason"] = "exact_operation_completed"
+        except _ChildRunFailure as exc:
+            result["reason"] = exc.reason
+            result["descriptors_closed"] = exc.descriptors_closed
         except TrustedRunnerViolation as exc:
             result["reason"] = exc.reason
-        except Exception as exc:  # noqa: BLE001 - never expose private diagnostics
-            result["reason"] = f"unexpected_error:{type(exc).__name__}"
+        except Exception:  # noqa: BLE001 - never expose private diagnostics
+            result["reason"] = "unexpected_error"
         finally:
             if secret is not None:
                 secret[:] = b"\x00" * len(secret)

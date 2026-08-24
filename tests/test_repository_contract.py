@@ -222,6 +222,8 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertEqual(actions["password"], "replace")
         self.assertEqual(actions["patient-identifier"], "mask")
         self.assertEqual(actions["customer-identifier"], "mask")
+        self.assertEqual(actions["home-path"], "replace")
+        self.assertEqual(actions["trailing-whitespace"], "remove")
 
     def test_security_critical_sources_and_dependency_inputs_are_protected(self):
         policy = yaml.safe_load(

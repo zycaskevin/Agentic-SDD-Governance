@@ -7,7 +7,8 @@
 - SDD：`docs/TRUSTED_RUNNER_V0_1.md`
 - Decision：`docs/decisions/AF26-SYNTHETIC-CONTROL-PLANE-DECISION.md`
 - Evidence：`DEP-AF26-EXTERNAL-TRUSTED-RUNNER-001`、
-  `DEP-AF26-PR-LOCAL-GATE-001`、`DEP-AF26-MAIN-INTEGRATION-001`
+  `DEP-AF26-PR-LOCAL-GATE-001`、`DEP-AF26-MAIN-INTEGRATION-001`、
+  `DEP-AF26-PR-REVIEW-FIX-001`
 - Risk：L2 只限 synthetic rehearsal evidence semantics；任何真實 operation 仍為 L3。
 
 ## Objective Contract
@@ -51,6 +52,7 @@
   control-plane double；正式程式不得加入本地 nonce fallback，且文件不得宣稱真實 L3。
 - Builder：Codex。
 - Status：Rehearsal Runner、production hard-deny、Schema、Agent Factory 0.3 串接、
-  synthetic test-double rehearsal、latest-main 251-test Local Green、Wheel／fresh doctor
-  與獨立安全審查均已完成；`DEP-AF26-MAIN-INTEGRATION-001` 已進入 Proof，production
-  authority 未放寬，且不宣稱真實 L3 全鏈路。
+  synthetic test-double rehearsal與 latest-main integration均已完成；PR #53 review findings
+  的 FD cleanup、schema、rollback與 evidence hygiene已依 `DEP-AF26-PR-REVIEW-FIX-001`
+  修復，本機 256-test Local Green與 fresh Wheel／doctor通過。Exact-head獨立複審、受信簽章、
+  replacement hosted run、Merge與部署尚未完成；production authority未放寬，且不宣稱真實 L3。

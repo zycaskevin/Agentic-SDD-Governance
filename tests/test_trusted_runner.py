@@ -101,6 +101,7 @@ class TrustedRunnerContractTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory(
             prefix="sddgov-af26-runner-", dir="/tmp"
         )
+        self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
         self.root.chmod(0o700)
         self.runtime_context_path = self.root / "runtime-context.json"
@@ -119,15 +120,18 @@ class TrustedRunnerContractTests(unittest.TestCase):
             "sddgov.autonomy.L3_RUNTIME_CONTEXT_FILE", self.runtime_context_path
         )
         self.runtime_context_patch.start()
+        self.addCleanup(self.runtime_context_patch.stop)
         self.control_plane_loader_patch = patch(
             "sddgov.autonomy.load_control_plane_json",
             side_effect=lambda path, _label: json.loads(Path(path).read_text()),
         )
         self.control_plane_loader_patch.start()
+        self.addCleanup(self.control_plane_loader_patch.stop)
         self.nonce_broker_patch = patch(
             "sddgov.autonomy._consume_nonce_via_control_plane", return_value=True
         )
         self.nonce_broker_patch.start()
+        self.addCleanup(self.nonce_broker_patch.stop)
         self.state_root = self.root / "state"
         self.state_root.mkdir(mode=0o700)
         self.isolation_parent = self.root / "isolation"
@@ -195,12 +199,6 @@ target.chmod(0o600)
         self.runtime_argv = ("-c", child_program)
         self.bootstrap_path = self._make_bootstrap()
         self.bootstrap = TrustedRunnerBootstrap.load(self.bootstrap_path)
-
-    def tearDown(self) -> None:
-        self.nonce_broker_patch.stop()
-        self.control_plane_loader_patch.stop()
-        self.runtime_context_patch.stop()
-        self.temporary.cleanup()
 
     def _make_bootstrap(
         self,
@@ -552,6 +550,188 @@ target.chmod(0o600)
         finally:
             os.close(descriptor)
         self.assertEqual(validate_instance(envelope, result_schema), [])
+
+        extended = json.loads(json.dumps(envelope))
+        extended["result"]["duration_ms"] = 124_000
+        self.assertEqual(validate_instance(extended, result_schema), [])
+
+    def test_unexpected_failure_emits_schema_safe_reason(self) -> None:
+        descriptor, bundle = self._sealed_bundle()
+        request = self._request(bundle, nonce="nonce-unexpected-error")
+        result_schema = load_schema(
+            ROOT / "schemas/trusted-runner-result-envelope.schema.json"
+        )
+        try:
+            with patch.object(
+                TrustedRunner,
+                "_verify_runtime",
+                side_effect=RuntimeError("private diagnostic must not escape"),
+            ):
+                envelope = TrustedRunner(self.bootstrap).execute(
+                    request, descriptor, peer_uid=os.geteuid()
+                )
+        finally:
+            os.close(descriptor)
+        result = self._verify_result_signature(envelope)
+        self.assertEqual(result["reason"], "unexpected_error")
+        self.assertEqual(validate_instance(envelope, result_schema), [])
+
+    def test_child_setup_failures_close_every_owned_descriptor(self) -> None:
+        real_open = os.open
+        real_pipe2 = os.pipe2
+        real_write = os.write
+
+        for label in ("stderr-open", "pipe-write", "popen"):
+            with self.subTest(label=label):
+                descriptor, bundle = self._sealed_bundle()
+                request = self._request(
+                    bundle,
+                    nonce=f"nonce-child-setup-{label}",
+                )
+                owned: dict[str, int] = {}
+
+                def observed_open(path, *args, **kwargs):
+                    name = Path(os.fsdecode(path)).name
+                    if label == "stderr-open" and name == "stderr.bin":
+                        raise OSError("synthetic stderr open failure")
+                    opened = real_open(path, *args, **kwargs)
+                    if name == "stdout.bin":
+                        owned["stdout"] = opened
+                    elif name == "stderr.bin":
+                        owned["stderr"] = opened
+                    return opened
+
+                def observed_pipe2(flags):
+                    read_fd, write_fd = real_pipe2(flags)
+                    owned["secret_read"] = read_fd
+                    owned["secret_write"] = write_fd
+                    return read_fd, write_fd
+
+                def observed_write(fd, value):
+                    if label == "pipe-write" and fd == owned.get("secret_write"):
+                        raise OSError("synthetic secret pipe write failure")
+                    return real_write(fd, value)
+
+                popen = (
+                    patch.object(
+                        trusted_runner_module.subprocess,
+                        "Popen",
+                        side_effect=OSError("synthetic child launch failure"),
+                    )
+                    if label == "popen"
+                    else patch.object(
+                        trusted_runner_module.subprocess,
+                        "Popen",
+                        wraps=trusted_runner_module.subprocess.Popen,
+                    )
+                )
+                try:
+                    with (
+                        patch.object(trusted_runner_module.os, "open", side_effect=observed_open),
+                        patch.object(trusted_runner_module.os, "pipe2", side_effect=observed_pipe2),
+                        patch.object(trusted_runner_module.os, "write", side_effect=observed_write),
+                        popen,
+                    ):
+                        result = self._verify_result_signature(
+                            TrustedRunner(self.bootstrap).execute(
+                                request, descriptor, peer_uid=os.geteuid()
+                            )
+                        )
+                    for fd in owned.values():
+                        with self.assertRaises(OSError):
+                            os.fstat(fd)
+                    self.assertTrue(result["descriptors_closed"])
+                    self.assertEqual(result["reason"], "unexpected_error")
+                finally:
+                    os.close(descriptor)
+                    for fd in owned.values():
+                        try:
+                            os.close(fd)
+                        except OSError:
+                            pass
+
+    def test_setup_failure_runs_registered_cleanups(self) -> None:
+        original_context = autonomy_module.L3_RUNTIME_CONTEXT_FILE
+        original_loader = autonomy_module.load_control_plane_json
+        original_broker = autonomy_module._consume_nonce_via_control_plane
+        case = type(self)("test_exact_rehearsal_consumes_approval_then_opens_secret_and_cleans_up")
+        try:
+            with patch.object(
+                type(self),
+                "_make_bootstrap",
+                side_effect=RuntimeError("synthetic setup failure"),
+            ):
+                with self.assertRaisesRegex(RuntimeError, "synthetic setup failure"):
+                    case.setUp()
+            temporary_root = case.root
+            case.doCleanups()
+            self.assertEqual(autonomy_module.L3_RUNTIME_CONTEXT_FILE, original_context)
+            self.assertIs(autonomy_module.load_control_plane_json, original_loader)
+            self.assertIs(autonomy_module._consume_nonce_via_control_plane, original_broker)
+            self.assertFalse(temporary_root.exists())
+        finally:
+            for name in (
+                "nonce_broker_patch",
+                "control_plane_loader_patch",
+                "runtime_context_patch",
+            ):
+                patcher = getattr(case, name, None)
+                if patcher is not None:
+                    patcher.stop()
+            temporary = getattr(case, "temporary", None)
+            if temporary is not None:
+                temporary.cleanup()
+
+    def test_descriptor_close_failure_is_reported_fail_closed(self) -> None:
+        descriptor, bundle = self._sealed_bundle()
+        request = self._request(bundle, nonce="nonce-descriptor-close-failure")
+        real_close = os.close
+        real_pipe2 = os.pipe2
+        owned: dict[str, int] = {}
+        close_failed = False
+
+        def observed_pipe2(flags):
+            read_fd, write_fd = real_pipe2(flags)
+            owned["secret_read"] = read_fd
+            owned["secret_write"] = write_fd
+            return read_fd, write_fd
+
+        def observed_close(fd):
+            nonlocal close_failed
+            if fd == owned.get("secret_read") and not close_failed:
+                close_failed = True
+                raise OSError("synthetic descriptor close failure")
+            return real_close(fd)
+
+        try:
+            with (
+                patch.object(
+                    trusted_runner_module.os,
+                    "pipe2",
+                    side_effect=observed_pipe2,
+                ),
+                patch.object(
+                    trusted_runner_module.os,
+                    "close",
+                    side_effect=observed_close,
+                ),
+            ):
+                result = self._verify_result_signature(
+                    TrustedRunner(self.bootstrap).execute(
+                        request, descriptor, peer_uid=os.geteuid()
+                    )
+                )
+            self.assertEqual(result["reason"], "descriptor_cleanup_failed")
+            self.assertFalse(result["descriptors_closed"])
+            self.assertTrue(close_failed)
+        finally:
+            real_close(descriptor)
+            read_fd = owned.get("secret_read", -1)
+            if read_fd >= 0:
+                try:
+                    real_close(read_fd)
+                except OSError:
+                    pass
 
     def test_wrong_peer_and_unknown_request_field_stop_before_approval(self) -> None:
         for label, mutate, peer_uid, expected in (

@@ -28,7 +28,7 @@
         "child_outcome": {"enum": ["completed", "stopped_fail_closed", "timed_out", "failed"]},
         "stdout_hash": {"anyOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]},
         "stderr_hash": {"anyOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]},
-        "duration_ms": {"type": "integer", "minimum": 0, "maximum": 120000},
+        "duration_ms": {"type": "integer", "minimum": 0, "description": "Observed child lifecycle wall time; may exceed the 120-second execution deadline while bounded TERM/KILL cleanup completes."},
         "credential_material_zeroized": {"type": "boolean"},
         "isolation_root_removed": {"type": "boolean"},
         "descriptors_closed": {"type": "boolean"},
