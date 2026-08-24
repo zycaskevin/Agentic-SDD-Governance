@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-AF26-PR-LOCAL-GATE-001",
+  "issue": "AF26-EXTERNAL-TRUSTED-RUNNER-001",
+  "sdd_references": [
+    "docs/TRUSTED_RUNNER_V0_1.md"
+  ],
+  "risk_level": "L1",
+  "created_at": "2026-08-24T03:32:22Z",
+  "updated_at": "2026-08-24T03:39:45Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-24T03:32:22Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-24T03:34:33Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-24T03:34:33Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-24T03:39:37Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-24T03:39:45Z"
+      }
+    ]
+  },
+  "expected_behavior": "Push 前 Local Green Gate 應能在契約指定的系統 python3 與 PYTHONPATH=src source checkout 中完成 113 tests；rehearsal child launcher 不應依賴 package 已預先安裝。",
+  "actual_behavior": "五個需要 child 啟動的 Trusted Runner tests fail closed；isolated child 以 -m sddgov._trusted_exec 啟動時忽略 PYTHONPATH，無法定位尚未安裝的 source-checkout package。",
+  "environment": {
+    "commit": "232be566c11d3981ebb5170cc5d310c6a9f021cb",
+    "branch": "codex/af26-trusted-runner",
+    "runtime": "Linux aarch64; system Python 3.12.3; synthetic offline tests only"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}

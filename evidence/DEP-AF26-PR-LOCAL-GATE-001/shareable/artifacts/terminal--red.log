@@ -1,0 +1,9 @@
+AF26 Push preflight Local Green regression - [REDACTED_PHONE_OR_NUMBER]
+Command: .venv/bin/sddgov ci local-gate .
+Exit: 1
+Configured command: python3 -m unittest discover -s tests -v with PYTHONPATH=src
+Result: 113 tests ran; five Trusted Runner rehearsal tests failed because completed operations became stopped_fail_closed or child_failed.
+Affected tests: exact rehearsal, authority snapshot, approval replay first consumer, socket activation, and timeout.
+Control evidence: the same 113-test suite passes under the repository editable .venv Python.
+Observed boundary: TrustedRunner launches sys.executable -I -m sddgov._trusted_exec; isolated mode cannot locate an uninstalled source-checkout package under the CI contract system python3.
+No real credential, network, inference, production action, release, or deployment occurred.

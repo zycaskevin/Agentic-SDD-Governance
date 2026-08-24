@@ -2,10 +2,11 @@
 
 ## References
 
-- Issue：本機追蹤 ID `AF26-EXTERNAL-TRUSTED-RUNNER-001`；GitHub Issue／PR 尚未建立，
-  因遠端分支發布需要 Owner 明確授權。
+- Issue：[#52](https://github.com/zycaskevin/Agentic-SDD-Governance/issues/52)；
+  本機追蹤 ID `AF26-EXTERNAL-TRUSTED-RUNNER-001`。
 - SDD：`docs/TRUSTED_RUNNER_V0_1.md`
-- Evidence：`DEP-AF26-EXTERNAL-TRUSTED-RUNNER-001`
+- Evidence：`DEP-AF26-EXTERNAL-TRUSTED-RUNNER-001`、
+  `DEP-AF26-PR-LOCAL-GATE-001`
 - Risk：L1 security-sensitive preparation；任何真實 operation 仍為 L3。
 
 ## Objective Contract
@@ -30,7 +31,8 @@
 - Trusted Runner request／result／bootstrap schemas 與 packaged resources。
 - Synthetic runner harness、adversarial tests、中文 docs、DEP 與跨 repo contract notes。
 - 非範圍：service account／systemd／`/etc`／`/var/lib` 配置、Owner signer、真實
-  credential、Hermes Live UAT、網路、費用、發布與部署。
+  credential、Hermes Live UAT、網路、費用、runtime／product 發布與部署；本次只建立
+  source branch、Issue 與 PR 工程紀錄。
 
 ## Verification
 
@@ -41,8 +43,10 @@
 ## Claim
 
 - Owner：2026-08-23 回覆「繼續」，授權 AF26 離線開發並同意將本可信宿主納入
-  修改範圍；不是 concrete L3 operation approval。
+  修改範圍；不是 concrete L3 operation approval。2026-08-24 明確確認目標 repository
+  為公開，並批准公開推送 AF26 原始碼、Trusted Runner 架構與安全驗證內容，以及建立
+  公開 Issue／PR。
 - Builder：Codex。
 - Status：Rehearsal Runner、production hard-deny、Schema、Agent Factory 0.3 串接、
   synthetic rehearsal、完整回歸與 Wheel／fresh doctor 均已完成；independent
-  security review blocking-free；DEP 已進入 Proof 且 strict verification 通過。
+  security review blocking-free；兩個 DEP 均已進入 Proof 且 strict verification 通過。

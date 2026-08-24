@@ -1214,11 +1214,11 @@ class TrustedRunner:
             str(self.bootstrap.runtime_executable),
             *[placeholders.get(value, value) for value in self.bootstrap.runtime_argv],
         ]
+        launcher_path = Path(__file__).with_name("_trusted_exec.py").resolve(strict=True)
         argv = [
             sys.executable,
             "-I",
-            "-m",
-            "sddgov._trusted_exec",
+            str(launcher_path),
             str(_MAX_CHILD_ARTIFACT_BYTES),
             str(_MAX_SECRET_BYTES),
             "{secret_fd}",
@@ -1279,7 +1279,7 @@ class TrustedRunner:
                 remaining = remaining[written:]
         finally:
             os.close(secret_write_fd)
-        argv[6] = str(secret_read_fd)
+        argv[5] = str(secret_read_fd)
         try:
             child = subprocess.Popen(
                 argv,

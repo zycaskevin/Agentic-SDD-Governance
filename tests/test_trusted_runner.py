@@ -414,6 +414,11 @@ target.chmod(0o600)
         real_popen = trusted_runner_module.subprocess.Popen
 
         def observed_popen(*args, **kwargs):
+            child_argv = args[0]
+            self.assertEqual(child_argv[1], "-I")
+            launcher = Path(child_argv[2])
+            self.assertTrue(launcher.is_absolute())
+            self.assertEqual(launcher.name, "_trusted_exec.py")
             self.assertNotIn("OPENAI_API_KEY", kwargs["env"])
             events.append("parent_env_secret_absent")
             return real_popen(*args, **kwargs)

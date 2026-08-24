@@ -1,0 +1,22 @@
+AF26 PR Local Green proof
+date: [REDACTED_PHONE_OR_NUMBER] Asia/Taipei
+branch: codex/af26-trusted-runner
+baseline: 232be566c11d3981ebb5170cc5d310c6a9f021cb
+risk: L1
+scope: synthetic offline rehearsal only
+
+targeted system source checkout: 13 tests passed
+targeted editable venv: 13 tests passed
+full local gate: 113 tests passed
+repository validation: passed
+ruff scoped checks: passed
+compileall: passed
+git diff check: passed
+fresh wheel: agentic_sdd_governance-0.2.0.dev6-py3-none-any.whl
+fresh wheel import origin: isolated /tmp target
+fresh wheel co-located launcher: present
+fresh setup-agent: 62 managed files
+fresh doctor: 0 errors, 0 warnings
+independent security review: no Critical, Major, or Medium blocker
+production hard deny: unchanged
+real credential/network/inference/promotion/deployment: not used
