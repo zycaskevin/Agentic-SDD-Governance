@@ -1,13 +1,16 @@
 {
   "schema_version": "1.0",
-  "base_sha": "55d480a09764827e89531eef75bb7c5f21ab18cd",
-  "head_sha": "cd9c7fa17cabb1e44768726a2bea074d3c0d12fb",
-  "risk_level": "L1",
-  "builder_id": "codex-local-green-serialization-builder",
-  "change_digest": "4ecdf23a9c7d7ab18d02adddac6408e5f524ec3a3e1fa15d9e76dee119db84b9",
+  "base_sha": "92f4ba8388ecf1ef1f3407db6c49cef62f6ee196",
+  "head_sha": "4ebd834702d286ba1baf405e55f5a01035750e80",
+  "risk_level": "L2",
+  "builder_id": "codex-af26-trusted-runner-builder",
+  "change_digest": "33dfa3d7d77bdd34a5671c5a3e9620414253535c98d15eb8f51416806d48bed5",
   "deps": [
-    "evidence/DEP-SDG-CI-LOCK-016"
+    "evidence/DEP-AF26-EXTERNAL-TRUSTED-RUNNER-001",
+    "evidence/DEP-AF26-PR-LOCAL-GATE-001",
+    "evidence/DEP-AF26-MAIN-INTEGRATION-001",
+    "evidence/DEP-AF26-PR-REVIEW-FIX-001"
   ],
-  "rollback_path": "evidence/DEP-SDG-CI-LOCK-016/rollback.md",
-  "protected_file_review": ".sddgov/reviews/REV-SDG-CI-LOCK-001.json"
+  "rollback_path": "evidence/DEP-AF26-PR-REVIEW-FIX-001/rollback.md",
+  "protected_file_review": ".sddgov/reviews/REV-AF26-TRUSTED-RUNNER-001.json"
 }
