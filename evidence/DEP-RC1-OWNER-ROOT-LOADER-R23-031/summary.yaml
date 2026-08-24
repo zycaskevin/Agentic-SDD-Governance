@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-OWNER-ROOT-LOADER-R23-031",
+  "issue": "RC1-OWNER-ROOT-LOADER-R23",
+  "sdd_references": [
+    "work-packages/WP-RC1-READINESS-008.md"
+  ],
+  "risk_level": "L2",
+  "created_at": "2026-08-23T15:01:33Z",
+  "updated_at": "2026-08-23T16:02:16Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-23T15:01:33Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-23T15:02:58Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-23T15:02:58Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-23T16:02:06Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-23T16:02:16Z"
+      }
+    ]
+  },
+  "expected_behavior": "The independently installed root Owner client reads only the two fixed root-owned public trust documents, renders the exact governed A/B card, and keeps the non-root Agent verifier's root refusal unchanged.",
+  "actual_behavior": "The first root Owner rehearsal passed runtime isolation but failed closed at the trusted-key card stage before signer or outbox access because the Owner client reused the Agent-facing loader, which deliberately rejects effective UID zero.",
+  "environment": {
+    "commit": "ede4e754fa779c822cf4051c834141cdfb058f88",
+    "branch": "feat/rc1-readiness-r22-owner-current-main",
+    "runtime": "Python 3.12; Linux; reviewed root Owner wheel 0.2.0rc1; fixed public trust stores and signer provisioned outside the repository"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}

@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "terminal--r29-code-review-red.txt",
+      "output": "terminal--r29-code-review-red.txt",
+      "source_sha256": "4029142b5a1a7ad0f18a84b7558049d711d79b1cb0348c09ed89680d84e95fa5",
+      "source_size": 621,
+      "output_sha256": "c169584bf857d85559438f918beea58d5e17eb0ec431c0a2376766c3c1ec3888",
+      "output_size": 653,
+      "redactions": {
+        "phone": 2
+      }
+    }
+  ],
+  "blocked": [],
+  "totals": {
+    "phone": 2
+  },
+  "dep_id": "DEP-RC1-BROKER-CONSUMER-R29-037",
+  "generated_at": "2026-08-24T04:48:20Z"
+}

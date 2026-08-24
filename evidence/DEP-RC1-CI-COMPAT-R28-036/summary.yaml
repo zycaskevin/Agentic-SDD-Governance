@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-CI-COMPAT-R28-036",
+  "issue": "#22: R27 CodeRabbit review found CI timeout compatibility and exemption gaps",
+  "sdd_references": [
+    "work-packages/WP-RC1-READINESS-008.md"
+  ],
+  "risk_level": "L2",
+  "created_at": "2026-08-24T04:12:03Z",
+  "updated_at": "2026-08-24T04:23:58Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-24T04:12:03Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-24T04:13:37Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-24T04:14:01Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-24T04:16:04Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-24T04:23:58Z"
+      }
+    ]
+  },
+  "expected_behavior": "A legacy schema-1.0 Local Green contract remains bounded and verifiable without the new timeout field, explicit invalid values fail closed, exempt workflows skip the documented concurrency controls, and every Monorepo fixture Git command uses the scaled setup timeout.",
+  "actual_behavior": "R27 rejected a preserved legacy contract after setup-agent --force, partially validated exempt concurrency, described a template-only value as managed, and applied the scaled benchmark timeout to only the initial bulk add and commit.",
+  "environment": {
+    "commit": "7784f00b0125e9e30fd056ccf8f8407135d102f0",
+    "branch": "feat/rc1-readiness-r28-coderabbit",
+    "runtime": "Python 3.12 isolated hash-locked governance environment on Linux"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}

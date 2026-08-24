@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-MACOS-LOCAL-GREEN-R24-032",
+  "issue": "RC1-MACOS-LOCAL-GREEN-R24",
+  "sdd_references": [
+    "work-packages/WP-RC1-READINESS-008.md"
+  ],
+  "risk_level": "L2",
+  "created_at": "2026-08-23T16:22:45Z",
+  "updated_at": "2026-08-23T16:31:03Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-23T16:22:45Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-23T16:23:54Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-23T16:23:54Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-23T16:29:00Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-23T16:31:03Z"
+      }
+    ]
+  },
+  "expected_behavior": "The same source suite passes on Linux and macOS without weakening canonical trust-domain paths, and Local Green can execute that complete suite without recursively waiting on its own global serialization lock.",
+  "actual_behavior": "The macOS hosted source stage reported 21 failures and 34 errors because synthetic tempfile bindings used non-canonical Darwin system aliases; local configured Green also deadlocked when one CI guard unit test reacquired the parent gate's global lock.",
+  "environment": {
+    "commit": "f52d6cb95ee39c72bf43969b8cde97cef49edf6b",
+    "branch": "feat/rc1-readiness-r23-owner-loader-final",
+    "runtime": "GitHub Actions macos-15 Python 3.12; local Linux Python 3.12; trusted Base 92f4ba8388ecf1ef1f3407db6c49cef62f6ee196"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}

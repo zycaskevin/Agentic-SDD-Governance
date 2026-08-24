@@ -1,0 +1,11 @@
+R18 forward-only Evidence correction and withdrawal notice
+
+This notice does not edit, delete, re-hash, or retroactively validate any predecessor DEP. The machine-readable withdrawal registry is authoritative for legacy shareable artifacts that contain host-specific temporary paths. Every listed artifact remains immutable audit history but is withdrawn from sharing, citation as current proof, and redistribution. R18 replacement Evidence must be used instead.
+
+Historical claim corrections:
+- R6: the attached transcript records 289 executed tests. Any prose claim of 290 tests is withdrawn.
+- R12: rollback equality covered the non-audit product tree. The phrase full-tree did not include Evidence or audit paths. Bare python3 lines do not establish the locked interpreter provenance; R18 uses the declared Governance and release environments.
+- R13: the offline bundle contains 12 payload files plus SHA256SUMS.txt, for 13 files total. The old bundle_file_count field represented payload files.
+- R14: package construction began before the recorded Local Green run. The R14 package artifact remains a package-integrity observation but does not prove Green-before-build ordering. R18 performs and records Green before package construction.
+
+The R17 independent rejection is retained as Red Evidence. R18 re-runs the complete current suite, exact trusted-Base verification, rollback proof, package build, offline bundle, and installed-wheel smoke after these corrections.

@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-MACOS-FALLBACK-R26-034",
+  "issue": "51",
+  "sdd_references": [
+    "work-packages/WP-RC1-READINESS-008.md"
+  ],
+  "risk_level": "L2",
+  "created_at": "2026-08-23T16:56:59Z",
+  "updated_at": "2026-08-23T17:04:51Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-23T16:56:59Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-23T16:58:10Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-23T16:58:10Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-23T17:04:51Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-23T17:04:51Z"
+      }
+    ]
+  },
+  "expected_behavior": "The fresh-wheel fallback workspace test accepts Darwin's fixed logical alias and its canonical target as the same safe workspace parent.",
+  "actual_behavior": "The R25 macOS source-Green job failed because the test compared the canonical workspace parent with the uncanonicalized fallback fixture path.",
+  "environment": {
+    "commit": "28a80236ba54d6b4ff17604ff3453a09c692047d",
+    "branch": "feat/rc1-readiness-r23-owner-loader-final",
+    "runtime": "GitHub-hosted macOS 15 and local Python 3.12"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}

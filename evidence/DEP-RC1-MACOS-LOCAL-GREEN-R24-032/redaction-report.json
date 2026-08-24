@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "terminal--hosted-macos-and-local-lock-red.txt",
+      "output": "terminal--hosted-macos-and-local-lock-red.txt",
+      "source_sha256": "63e2318e0ca4a9ee314351e8a623a0c350c02c5234cc529e054d86f65e01bb10",
+      "source_size": 1051,
+      "output_sha256": "63e2318e0ca4a9ee314351e8a623a0c350c02c5234cc529e054d86f65e01bb10",
+      "output_size": 1051,
+      "redactions": {}
+    }
+  ],
+  "blocked": [],
+  "totals": {},
+  "dep_id": "DEP-RC1-MACOS-LOCAL-GREEN-R24-032",
+  "generated_at": "2026-08-23T16:32:03Z"
+}

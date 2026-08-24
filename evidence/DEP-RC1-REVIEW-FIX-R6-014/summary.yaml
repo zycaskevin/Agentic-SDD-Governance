@@ -1,0 +1,72 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-REVIEW-FIX-R6-014",
+  "issue": "https://github.com/zycaskevin/Agentic-SDD-Governance/issues/22",
+  "sdd_references": [
+    "work-packages/WP-RC1-READINESS-008.md"
+  ],
+  "risk_level": "L1",
+  "created_at": "2026-08-21T15:24:35Z",
+  "updated_at": "2026-08-21T16:02:15Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-21T15:24:35Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-21T15:26:54Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-21T15:26:54Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-21T15:28:06Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-21T15:28:07Z"
+      }
+    ]
+  },
+  "expected_behavior": "The 0.2.0rc1 release path binds every dependency wheel to the declared lock, binds wheel and sdist metadata to the release version, installs only from a private verified snapshot, proves TestPyPI byte identity, validates consumer repositories correctly, bounds Broker request and response phases independently, normalizes unsupported Ed25519 backends, reconciles failed redaction publication without deleting a later writer, and closes Evidence collection after redaction.",
+  "actual_behavior": "The exact R5 CodeRabbit review on 7bd6a110768b1f98b6807d5337ed94c315379309 reported 16 inline issues and 10 nitpicks. The 91-test Red suite reproduced unbound release inputs, mutable post-verification install paths, consumer source-tree misclassification, inherited Broker timeouts, crypto-backend leakage, unsafe redaction cleanup, empty CI exception maps, incomplete pilot results, and non-portable commands. Evidence assembly additionally proved that collect accepted new raw bytes after a redaction report, which strict verification correctly rejected as stale.",
+  "environment": {
+    "commit": "4e45b924751d9bf4960972fad965b308a2cb8acb",
+    "branch": "feat/rc1-readiness-r6",
+    "runtime": "Linux aarch64, Python 3.12, 289 tests executed with 2 explicit skips in the attached R6 Local Green; package/fresh-wheel proof; public PR 27 review bound to exact R5 head. Later R7 proof supersedes the final-suite count."
+  },
+  "root_cause_status": "confirmed",
+  "attachments": [
+    {
+      "path": "shareable/artifacts/terminal--r6-red-tests.txt",
+      "sha256": "fdadbeda468fc04af4a163e200525aa113a642d684e582f27be4e7adc31457d1",
+      "collector": "terminal"
+    },
+    {
+      "path": "shareable/artifacts/git--r6-review-bindings.txt",
+      "sha256": "2c03e9377c67c37c36d37057c90f492ebed76fcafe8183ea94078740f9954177",
+      "collector": "git"
+    },
+    {
+      "path": "shareable/artifacts/terminal--r6-local-green.txt",
+      "sha256": "04fb952b3f449d34a8d4717c88e60a270cfb46f310afc8cc3a71249710822173",
+      "collector": "terminal"
+    },
+    {
+      "path": "shareable/artifacts/terminal--r6-release-bundle.json",
+      "sha256": "c173a5d76313e68917bcdfe316f7a477cef38571c1b42f31d9ac99e9cb77250d",
+      "collector": "terminal"
+    },
+    {
+      "path": "shareable/artifacts/terminal--r6-fresh-wheel-smoke.json",
+      "sha256": "cf49fdc97f2132bd516dba20a71c02362ec1023463502b5e9ad6936dc19f3e63",
+      "collector": "terminal"
+    }
+  ]
+}

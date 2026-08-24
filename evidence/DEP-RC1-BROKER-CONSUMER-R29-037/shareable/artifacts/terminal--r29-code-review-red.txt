@@ -1,0 +1,9 @@
+Exact public PR review: CodeRabbit review [REDACTED_PHONE_OR_NUMBER] on Gate a95b409962306da392443d83f8b40879b6f62e2e.
+Finding [REDACTED_PHONE_OR_NUMBER]: L3 nonce consumer accepts a root-owned Unix socket with mode 0640 even though the documented and readiness contract requires exact 0660 and the fixed platform group.
+
+Deterministic regression before the fix:
+test_l3_broker_rejects_noncanonical_socket_mode_before_connection ... FAIL
+AssertionError: True is not false
+Ran 1 test; FAILED (failures=1).
+
+Two additional review cleanups: rename one unused approval fixture result and add a bounded timeout to the hostile launcher subprocess regression.

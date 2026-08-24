@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-REVIEW-FIX-R15-023",
+  "issue": "PR #36 independent-review blocker remediation and RC1 readiness proof",
+  "sdd_references": [
+    "work-packages/WP-RC1-READINESS-008.md"
+  ],
+  "risk_level": "L2",
+  "created_at": "2026-08-22T03:31:04Z",
+  "updated_at": "2026-08-22T03:37:30Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-22T03:31:04Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-22T03:37:29Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-22T03:37:29Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-22T03:37:29Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-22T03:37:30Z"
+      }
+    ]
+  },
+  "expected_behavior": "The L3 Broker publishes a real AF_UNIX socket on Linux and Darwin without overwriting an existing endpoint, survives hostile cleanup races, and is exercised from the installed wheel on native CI. Merge and rollback audit windows inspect every commit edge rather than only their net diff.",
+  "actual_behavior": "PR #36 compared the socket descriptor inode with the filesystem pathname inode. Those are distinct Linux objects, so the Broker failed before listen and stranded its pathname; class-level mocks hid the defect. R15 replaces the publication protocol, adds native integration coverage, and corrects the authoritative Work Package provenance.",
+  "environment": {
+    "commit": "d2a3632a8e281552ac117a5b7db47fa73cb8f29f",
+    "branch": "feat/rc1-readiness-r15",
+    "runtime": "Linux aarch64; Python 3.12; isolated dual hash-locked environment; real AF_UNIX syscalls; no production data, root Broker store, Owner key, or reviewer private key"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}

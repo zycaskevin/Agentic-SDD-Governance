@@ -1,0 +1,15 @@
+R24 hosted and local verification Red
+
+GitHub Actions macOS source Green stage:
+- The complete suite executed.
+- Twenty-one failures and thirty-four errors occurred before packaging.
+- Synthetic trust-domain fixtures used logical Darwin temporary-directory aliases.
+- Product verification correctly canonicalized the fixed system aliases and rejected the non-canonical fixture binding.
+- One distribution test derived its synthetic environment from the same non-canonical temporary root and failed before reaching its intended duplicate-target assertion.
+
+Local configured Green:
+- A parent local-gate process held the per-user gate lock while running the complete suite.
+- The bare-Python interpreter unit test invoked the local gate without a private test runtime root.
+- The child test waited on the parent process lock, causing deterministic nested verification deadlock.
+
+No product trust check was weakened. The required fix is limited to canonical platform paths in synthetic fixtures and a private lock root for the nested CI guard unit test.

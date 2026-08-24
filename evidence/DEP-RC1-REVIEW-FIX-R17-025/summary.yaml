@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-REVIEW-FIX-R17-025",
+  "issue": "PR #38 independent review: unsafe public release reports and current L1/L2 metadata mismatch",
+  "sdd_references": [
+    "work-packages/WP-RC1-READINESS-008.md"
+  ],
+  "risk_level": "L1",
+  "created_at": "2026-08-22T04:23:59Z",
+  "updated_at": "2026-08-22T04:28:14Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-22T04:23:59Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-22T04:24:59Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-22T04:25:26Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-22T04:25:56Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-22T04:28:14Z"
+      }
+    ]
+  },
+  "expected_behavior": "Public release errors remove complete host-local paths, reports are created through descriptor-bound no-follow operations, compressed archive failures remain inside the sanitized JSON boundary, and the current authoritative DEP/Gate match the Work Package's L1 classification.",
+  "actual_behavior": "PR #38 leaked a bare home path and a residual suffix from a path containing spaces, followed a report symlink through direct pathlib writes, omitted zlib.error from the public failure boundary, and carried L2 current DEP/Gate metadata despite an L1 Work Package and empty decision store.",
+  "environment": {
+    "commit": "b827040cb8d8315cfd93afb309e4f9bf579775c9",
+    "branch": "feat/rc1-readiness-r17",
+    "runtime": "Linux aarch64; Python 3.12; isolated dual hash-locked governance/release environment; synthetic local paths and sentinel files only; no production data, Owner key, or reviewer private key"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}

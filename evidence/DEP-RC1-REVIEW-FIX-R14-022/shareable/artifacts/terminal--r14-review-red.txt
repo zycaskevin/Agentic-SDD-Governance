@@ -1,0 +1,13 @@
+Script started on [REDACTED_PHONE_OR_NUMBER]:27:28+08:00 [COMMAND="bash -c 'set -u; echo R13_HEAD=3d30519fdd96fb5500be573a1345633180d8b305; git show 3d30519fdd96fb5500be573a1345633180d8b305:requirements-release.lock | sed -n "/^setuptools==/p;/^wheel==/p"; git show 3d30519fdd96fb5500be573a1345633180d8b305:services/com.sddgov.broker.plist | sed -n "/StandardOutPath/,+3p"; git show 3d30519fdd96fb5500be573a1345633180d8b305:services/sddgov-broker.newsyslog.conf; echo REVIEW_FINDINGS=FAIL; exit 1'" <not executed on terminal>]
+R13_HEAD=3d30519fdd96fb5500be573a1345633180d8b305
+setuptools==80.10.2 \
+wheel==0.48.0 \
+  <key>StandardOutPath</key>
+  <string>/var/log/sddgov-broker.log</string>
+  <key>StandardErrorPath</key>
+  <string>/var/log/sddgov-broker.log</string>
+# log_file                          owner:group    mode count size(KiB) when flags
+/var/log/sddgov-broker.log          root:_sddgov   [REDACTED_PHONE_OR_NUMBER]      *    J
+REVIEW_FINDINGS=FAIL
+
+Script done on [REDACTED_PHONE_OR_NUMBER]:27:28+08:00 [COMMAND_EXIT_CODE="1"]

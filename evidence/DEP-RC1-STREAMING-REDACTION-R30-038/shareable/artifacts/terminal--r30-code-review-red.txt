@@ -1,0 +1,6 @@
+exact_revision=7c794b7100b4eae16a4c3986a7c65a334f840f04
+review_source=public automated review of the exact Gate
+input_shape=a quoted password field whose synthetic value spans two logical lines
+whole_text_result=one sensitive-field replacement and no surviving value fragments
+streaming_result=both synthetic value fragments survived and the replacement total was empty
+result=FAIL: streaming output published the multiline quoted value verbatim

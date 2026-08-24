@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-MACOS-OWNER-SMOKE-R25-033",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--hosted-macos-owner-smoke-red.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "77c64dec8aee4707e1b0b5532ab8361eb160b3dfcc793cccd3b2dc92477721ec",
+      "size": 614,
+      "collected_at": "2026-08-23T16:41:39Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--hosted-macos-owner-smoke-red.txt",
+      "sha256": "77c64dec8aee4707e1b0b5532ab8361eb160b3dfcc793cccd3b2dc92477721ec",
+      "size": 614,
+      "shareable": true
+    }
+  ]
+}

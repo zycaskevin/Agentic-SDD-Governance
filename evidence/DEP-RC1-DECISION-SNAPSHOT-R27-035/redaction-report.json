@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "terminal--r26-red.txt",
+      "output": "terminal--r26-red.txt",
+      "source_sha256": "0dc9f98fce5409585a44f20aab1fd83aa1f967901d3f223de9cd53143dd34c2d",
+      "source_size": 1053,
+      "output_sha256": "3e221d1c9d8a4a0bdb404336030b36cbf14c93dc3321208a5184dedbd3047dca",
+      "output_size": 1069,
+      "redactions": {
+        "phone": 1
+      }
+    }
+  ],
+  "blocked": [],
+  "totals": {
+    "phone": 1
+  },
+  "dep_id": "DEP-RC1-DECISION-SNAPSHOT-R27-035",
+  "generated_at": "2026-08-23T17:30:17Z"
+}

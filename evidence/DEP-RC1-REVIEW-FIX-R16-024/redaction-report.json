@@ -1,0 +1,76 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "git--r16-review-bindings.txt",
+      "output": "git--r16-review-bindings.txt",
+      "source_sha256": "1ecf516533645d3f60d7550d4ae79b9a31c6a80015d2c28f73477223dcfa0d71",
+      "source_size": 625,
+      "output_sha256": "1ecf516533645d3f60d7550d4ae79b9a31c6a80015d2c28f73477223dcfa0d71",
+      "output_size": 625,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--r16-darwin-red.txt",
+      "output": "terminal--r16-darwin-red.txt",
+      "source_sha256": "e8bdb8208e91de799bb8eedc463d0ff9018814a4cf9bdff49c0d8f124f2f8b4b",
+      "source_size": 706,
+      "output_sha256": "4f09f31c08948f72009bbc9f8340b146e38986b6635ee766a6e2d633286f0a2b",
+      "output_size": 721,
+      "redactions": {
+        "phone": 1
+      }
+    },
+    {
+      "source": "terminal--r16-fresh-wheel-smoke.json",
+      "output": "terminal--r16-fresh-wheel-smoke.json",
+      "source_sha256": "d69f08240a2fedbe3b58507186baed8644de8beda5d1fb36db2e08236d51f15f",
+      "source_size": 624,
+      "output_sha256": "d69f08240a2fedbe3b58507186baed8644de8beda5d1fb36db2e08236d51f15f",
+      "output_size": 624,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--r16-local-green.txt",
+      "output": "terminal--r16-local-green.txt",
+      "source_sha256": "8ee3e4da14f3fa68da416d7b409345a844542c271f881f917c566c397286d3e3",
+      "source_size": 809,
+      "output_sha256": "8ee3e4da14f3fa68da416d7b409345a844542c271f881f917c566c397286d3e3",
+      "output_size": 809,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--r16-package-proof.txt",
+      "output": "terminal--r16-package-proof.txt",
+      "source_sha256": "57ad17c469609ada66450c7b0d0ff51ea90d2cd054a33390e038d0ff5abf8050",
+      "source_size": 501,
+      "output_sha256": "57ad17c469609ada66450c7b0d0ff51ea90d2cd054a33390e038d0ff5abf8050",
+      "output_size": 501,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--r16-release-bundle.json",
+      "output": "terminal--r16-release-bundle.json",
+      "source_sha256": "c173a5d76313e68917bcdfe316f7a477cef38571c1b42f31d9ac99e9cb77250d",
+      "source_size": 303,
+      "output_sha256": "c173a5d76313e68917bcdfe316f7a477cef38571c1b42f31d9ac99e9cb77250d",
+      "output_size": 303,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--r16-rollback-drill.txt",
+      "output": "terminal--r16-rollback-drill.txt",
+      "source_sha256": "af3a5c903d9c889349aca870c622045071488056b69604ff93a8b182f59e0b45",
+      "source_size": 696,
+      "output_sha256": "af3a5c903d9c889349aca870c622045071488056b69604ff93a8b182f59e0b45",
+      "output_size": 696,
+      "redactions": {}
+    }
+  ],
+  "blocked": [],
+  "totals": {
+    "phone": 1
+  },
+  "dep_id": "DEP-RC1-REVIEW-FIX-R16-024",
+  "generated_at": "2026-08-22T03:51:36Z"
+}

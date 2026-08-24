@@ -1,0 +1,15 @@
+test_release_workflow_is_manual_isolated_and_attested (tests.test_repository_contract.RepositoryContractTests.test_release_workflow_is_manual_isolated_and_attested) ... ERROR
+
+======================================================================
+ERROR: test_release_workflow_is_manual_isolated_and_attested (tests.test_repository_contract.RepositoryContractTests.test_release_workflow_is_manual_isolated_and_attested)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/sddgov-r13-trusted-topology/tests/test_repository_contract.py", line 685, in test_release_workflow_is_manual_isolated_and_attested
+    self.assertLess(validate_run.index(release_install), validate_run.index(full_tests))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: substring not found
+
+----------------------------------------------------------------------
+Ran 1 test in 0.006s
+
+FAILED (errors=1)

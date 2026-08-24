@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-OWNER-ROOT-LOADER-R23-031",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r23-owner-root-loader-red.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "6b49cd9d6daa91e5913acfcbae414b3523e519327a49a508543cfba82d64d5d5",
+      "size": 1094,
+      "collected_at": "2026-08-23T15:01:44Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--r23-owner-root-loader-red.txt",
+      "sha256": "6b49cd9d6daa91e5913acfcbae414b3523e519327a49a508543cfba82d64d5d5",
+      "size": 1094,
+      "shareable": true
+    }
+  ]
+}

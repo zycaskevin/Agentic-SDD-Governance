@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-DECISION-SNAPSHOT-R27-035",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--r26-red.txt",
+      "source_suffix": ".txt",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "0dc9f98fce5409585a44f20aab1fd83aa1f967901d3f223de9cd53143dd34c2d",
+      "size": 1053,
+      "collected_at": "2026-08-23T17:30:12Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--r26-red.txt",
+      "sha256": "3e221d1c9d8a4a0bdb404336030b36cbf14c93dc3321208a5184dedbd3047dca",
+      "size": 1069,
+      "shareable": true
+    }
+  ]
+}

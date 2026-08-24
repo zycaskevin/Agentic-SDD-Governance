@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-RC1-DECISION-SNAPSHOT-R27-035",
+  "issue": "#22: R26 independent review rejected cross-generation decision verification and cached size-bound reuse",
+  "sdd_references": [
+    "work-packages/WP-RC1-READINESS-008.md"
+  ],
+  "risk_level": "L2",
+  "created_at": "2026-08-23T17:29:07Z",
+  "updated_at": "2026-08-24T03:47:30Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-23T17:29:07Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-23T17:31:20Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-23T17:31:20Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-24T03:47:30Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-24T03:47:30Z"
+      }
+    ]
+  },
+  "expected_behavior": "One stored product-decision verification consumes one retained request and assumption file set, reapplies the smallest byte bound on cache hits, and releases a timed-out Local Green command.",
+  "actual_behavior": "R26 read request, signed assumptions, and Owner-client markers through separate snapshots; a 300 KiB cached artifact passed a later 256 KiB bound; Local Green commands had no per-command deadline.",
+  "environment": {
+    "commit": "06e528d39fcbb156ed7352bd4e0e40b2b2698a33",
+    "branch": "feat/rc1-readiness-r23-owner-loader-final",
+    "runtime": "Python 3.12 isolated hash-locked reviewer environment on Linux"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}

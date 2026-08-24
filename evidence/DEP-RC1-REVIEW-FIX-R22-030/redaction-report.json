@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "terminal--r22-red-reproduction.txt",
+      "output": "terminal--r22-red-reproduction.txt",
+      "source_sha256": "066d4fc3e2098ff272697fa840e319b904ace7a7fc21ba0dc795a7f45bfb0d5d",
+      "source_size": 1408,
+      "output_sha256": "066d4fc3e2098ff272697fa840e319b904ace7a7fc21ba0dc795a7f45bfb0d5d",
+      "output_size": 1408,
+      "redactions": {}
+    }
+  ],
+  "blocked": [],
+  "totals": {},
+  "dep_id": "DEP-RC1-REVIEW-FIX-R22-030",
+  "generated_at": "2026-08-22T12:34:44Z"
+}
