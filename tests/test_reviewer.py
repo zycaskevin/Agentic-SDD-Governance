@@ -104,6 +104,7 @@ class ReviewerSigningTests(unittest.TestCase):
                     "local_green": {
                         "environment": {},
                         "commands": [[sys.executable, "-c", "pass"]],
+                        "command_timeout_seconds": 600,
                     },
                     "hosted": {
                         "max_runs_per_work_package": 1,

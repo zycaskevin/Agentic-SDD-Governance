@@ -8,7 +8,33 @@ Agentic SDD Governance（SDG）是一套給自主軟體開發 Agent 使用的「
 
 SDG v1.2 Hard Gates 已把三個剩餘信任缺口改為可執行 Gate：未知／危險 Action 不能自稱 L1、L3 只接受可信 Owner 簽章且一次性消耗的 Receipt、Merge 前必須執行 Local Green、DEP、Redaction、Rollback 與 Protected-file Review 驗證。詳見 [`docs/HARD_GATES_V1_2.md`](docs/HARD_GATES_V1_2.md)。
 
-## 一分鐘理解
+## 30 秒看懂
+
+在 Source checkout 直接執行；若 repo 內有虛擬環境，腳本會優先使用，否則使用目前已具備 SDG 相依套件的 Python 環境：
+
+```bash
+./demo/run.sh
+```
+
+已安裝 CLI 則執行：
+
+```bash
+sddgov pilot quick
+```
+
+這個完全離線的 synthetic demo 會展示：
+
+```text
+例行 L1 工程                         → CONTINUE
+偽裝成 L1 的 Production 破壞操作     → BLOCKED
+Evidence 內的 synthetic credential   → REDACTED
+未審查的二進位 Evidence              → BLOCKED
+Agent 安裝與 strict DEP              → VERIFIED
+```
+
+Demo 不使用網路、Credential、真實使用者、Production 或特權服務。
+
+## Runtime 模型
 
 日常任務只載入最小必要內容：
 
@@ -37,52 +63,85 @@ Red → Evidence → Fix → Green → Proof
 
 它不會替你完成 GitHub Billing、正式部署、MFA、付款、Production 資料操作或其他 Owner 才能授權的外部行為。
 
-## 最快開始
+## 安裝 CLI
 
-### 1. 取得 CLI
+### 快速試用路徑
 
-目前尚未發布到 PyPI。建議透過 GitHub Release 下載 wheel；Private Repo 必須先登入有權限的 GitHub 帳號：
+RC 發布到 PyPI 後，以獨立環境安裝精確 pre-release 版本：
+
+```bash
+python3 -m venv .venv-sddgov
+.venv-sddgov/bin/python -m pip install --pre 'agentic-sdd-governance==0.2.0rc1'
+.venv-sddgov/bin/sddgov --version
+.venv-sddgov/bin/sddgov pilot quick
+```
+
+這條路徑適合 synthetic 評估。正式受治理的 Repository 應鎖定已審查的精確版本，不要自動漂移到下一個 RC。
+
+### 可控驗證路徑
+
+必須先發布相符的 `v0.2.0rc1` GitHub Release。發布後，Linux x86_64／CPython 3.12 的受治理離線環境才能從該 Release 下載包含 hash-locked 執行期依賴的 bundle 與 checksum，讓機器核對壓縮檔及其完整清單；發布前執行以下命令會因找不到相符資產而失敗：
 
 ```bash
 set -eu
-gh auth login -h github.com
+test "$(uname -s)" = "Linux"
+test "$(uname -m)" = "x86_64"
 mkdir -p sdg-release
-gh release download v0.2.0-experimental.8 \
+gh release download v0.2.0rc1 \
   --repo zycaskevin/Agentic-SDD-Governance \
-  --pattern '*.whl' \
+  --pattern '*-offline-linux-x86_64-py312.zip' \
   --pattern 'SHA256SUMS.txt' \
   --dir sdg-release
 
-wheel_count=$(find sdg-release -maxdepth 1 -type f -name '*.whl' | wc -l | tr -d ' ')
-test "$wheel_count" -eq 1
-verified_wheel=$(find sdg-release -maxdepth 1 -type f -name '*.whl' -print -quit)
-case "$verified_wheel" in *-py3-none-any.whl) ;; *) exit 1 ;; esac
-python3 -c 'import sys; raise SystemExit(sys.version_info < (3, 10))'
-(cd sdg-release && rg "  $(basename "$verified_wheel")$" SHA256SUMS.txt > wheel.SHA256SUMS)
-(cd sdg-release && test -s wheel.SHA256SUMS)
-(cd sdg-release && shasum -a 256 -c wheel.SHA256SUMS --strict)
+archive_count=$(find sdg-release -maxdepth 1 -type f -name '*-offline-linux-x86_64-py312.zip' | wc -l | tr -d ' ')
+test "$archive_count" -eq 1
+verified_archive=$(find sdg-release -maxdepth 1 -type f -name '*-offline-linux-x86_64-py312.zip' -print -quit)
+(cd sdg-release && awk -v name="$(basename "$verified_archive")" 'NF == 2 && $2 == name { print }' SHA256SUMS.txt > offline.SHA256SUMS)
+(cd sdg-release && test "$(wc -l < offline.SHA256SUMS | tr -d ' ')" -eq 1)
+(cd sdg-release && sha256sum -c offline.SHA256SUMS)
+python3.12 -c 'import sys; assert sys.implementation.name == "cpython" and sys.version_info[:2] == (3, 12)'
+python3.12 -m zipfile -e "$verified_archive" sdg-release/extracted
 
-python3 -m venv .venv-sddgov
-.venv-sddgov/bin/python -m pip install "$verified_wheel"
+bundle_count=$(find sdg-release/extracted -mindepth 1 -maxdepth 1 -type d -name '*-offline-linux-x86_64-py312' | wc -l | tr -d ' ')
+test "$bundle_count" -eq 1
+bundle_root=$(find sdg-release/extracted -mindepth 1 -maxdepth 1 -type d -name '*-offline-linux-x86_64-py312' -print -quit)
+(cd "$bundle_root" && sha256sum -c SHA256SUMS.txt)
+wheel_count=$(find "$bundle_root/distributions" -maxdepth 1 -type f -name '*-py3-none-any.whl' | wc -l | tr -d ' ')
+test "$wheel_count" -eq 1
+project_wheel=$(find "$bundle_root/distributions" -maxdepth 1 -type f -name '*-py3-none-any.whl' -print -quit)
+
+python3.12 -m venv .venv-sddgov
+.venv-sddgov/bin/python -m pip install \
+  --no-index --find-links "$bundle_root/wheelhouse" --require-hashes \
+  -r "$bundle_root/requirements-governance.lock"
+.venv-sddgov/bin/python -m pip install --no-index --no-deps "$project_wheel"
 .venv-sddgov/bin/sddgov --version
+.venv-sddgov/bin/sddgov pilot quick
 ```
 
-若已 Clone 原始碼，也可以使用 editable install：
+RC1 的離線依賴 bundle 刻意鎖定平台；沒有相符 bundle 的 macOS 或其他受支援 POSIX 環境，應於隔離的連網環境安裝精確 PyPI RC。原生 Windows 的該安裝路徑僅供文件與 synthetic 評估：descriptor-bound Evidence 寫入、Release helpers、Merge／Rollback 驗證與 L3 Broker 只支援 Linux／macOS；完整治理流程請使用 WSL2。Private Release 下載才需要先執行 `gh auth login`。不要把 Token 或 checksum 貼到聊天中請人判斷。
+
+### Contributor 原始碼路徑
 
 ```bash
+git clone https://github.com/zycaskevin/Agentic-SDD-Governance.git
+cd Agentic-SDD-Governance
 python3 -m venv .venv
 .venv/bin/python -m pip install -e .
 .venv/bin/sddgov validate .
+./demo/run.sh
 ```
 
-### 2. 安裝到 Codex 專案
+### 安裝到 Codex 專案
 
 ```bash
-.venv-sddgov/bin/sddgov setup-agent /absolute/path/to/project \
+SDDGOV_BIN="$(pwd)/.venv-sddgov/bin/sddgov"  # Contributor checkout 請改用 "$(pwd)/.venv/bin/sddgov"
+"$SDDGOV_BIN" setup-agent /absolute/path/to/project \
   --agent codex \
   --profile team-standard
 
-.venv-sddgov/bin/sddgov doctor /absolute/path/to/project
+"$SDDGOV_BIN" doctor /absolute/path/to/project
+"$SDDGOV_BIN" status /absolute/path/to/project
 ```
 
 重新開啟一個 Codex task，Agent 應能從 `.agents/skills/agentic-sdd-governance/SKILL.md` 發現 Skill。你可以直接說：
@@ -91,14 +150,15 @@ python3 -m venv .venv
 請使用 Agentic SDD Governance 處理這個 Bug，依照 Red → Evidence → Fix → Green → Proof 完成。
 ```
 
-### 3. 安裝到 Hermes 專案
+### 安裝到 Hermes 專案
 
 ```bash
-.venv-sddgov/bin/sddgov setup-agent /absolute/path/to/project \
+SDDGOV_BIN="$(pwd)/.venv-sddgov/bin/sddgov"  # Contributor checkout 請改用 "$(pwd)/.venv/bin/sddgov"
+"$SDDGOV_BIN" setup-agent /absolute/path/to/project \
   --agent hermes \
   --profile team-standard
 
-.venv-sddgov/bin/sddgov doctor /absolute/path/to/project
+"$SDDGOV_BIN" doctor /absolute/path/to/project
 ```
 
 Hermes Adapter 與檔案安裝已支援；不同 Hermes Host 是否會自動發現並觸發 Skill，仍要在實際 GB10／Hermes Runtime 做一次 Pilot。`doctor` 通過只證明檔案與 Hash 正確，不等於 Agent 行為已完整驗收。
@@ -136,30 +196,34 @@ AGENTS.md                                      標記區塊
 
 證據能提高信心，但不會自動提高 Agent 權限。
 
+### Owner 做決策，Receipt 交給機器
+
+L2 Gate 不會把 Owner 變成人肉 Code Reviewer。`sddgov decision show-product-approval` 只驗證並顯示一張有界的 A／B 卡，不能簽章；獨立安裝的 `sddgov-owner` 會在 Owner 控制的 Terminal 詢問一次選項，自動計算 assumptions、nonce 與 receipt，交給每次都需要確認的外部 Ed25519 signer，並驗證結果。Owner 不需要編輯 JSON、比對 hash、貼 signature 或暴露 private key。Independent Review、Tests、Evidence 與 Merge 驗證仍由 Agent／機器完成。詳見 [Owner Key Ceremony](docs/OWNER_KEY_CEREMONY.md)。
+
 ## Evidence 快速範例
 
-以下命令可使用獨立的 `evidence` 入口，也可以寫成 `sddgov evidence ...`：
+以下範例使用標準 `sddgov evidence ...` 入口：
 
 ```bash
-evidence init --issue ISSUE-128 --risk L1 --sdd FAMILY-03
+sddgov evidence init --issue ISSUE-128 --risk L1 --sdd FAMILY-03
 
-evidence collect evidence/DEP-... \
+sddgov evidence collect evidence/DEP-... \
   --collector terminal \
   --input failing-test.log
 
-evidence redact evidence/DEP-...
-evidence transition evidence/DEP-... evidence
+sddgov evidence redact evidence/DEP-...
+sddgov evidence transition evidence/DEP-... evidence
 ```
 
 接著完成 DEP 內的 Root Cause Hypothesis、Fix Scope、Regression Evidence、Verification 與 Rollback，再依序推進：
 
 ```bash
-evidence transition evidence/DEP-... fix
-evidence transition evidence/DEP-... green
-evidence transition evidence/DEP-... proof
+sddgov evidence transition evidence/DEP-... fix
+sddgov evidence transition evidence/DEP-... green
+sddgov evidence transition evidence/DEP-... proof
 
-evidence verify evidence/DEP-... --strict
-evidence attach evidence/DEP-... --target pr
+sddgov evidence verify evidence/DEP-... --strict
+sddgov evidence attach evidence/DEP-... --target pr
 ```
 
 Collector 是「如何安全收集證據」的 Playbook；目前 CLI 的 `collect` 會匯入既有輸出，不會自動登入 Browser、Supabase 或 Production。可用路由包括：
@@ -221,6 +285,9 @@ sddgov uninstall-agent /absolute/path/to/project
 - [CI Cost Guard](docs/CI_COST_GUARD.md)
 - [SDG Autonomous Development v1.2](docs/AUTONOMOUS_DEVELOPMENT_V1_2.md)
 - [Local Redaction Gateway](redaction/LOCAL_REDACTION_GATEWAY.md)
+- [Owner Key Ceremony 與金鑰復原](docs/OWNER_KEY_CEREMONY.md)
+- [L3 Broker／WSL2／macOS 操作](docs/L3_BROKER_OPERATIONS.md)
+- [Rollback v3、Squash 與 Break-glass](docs/ROLLBACK_OPERATIONS.md)
 - [公開發布檢查清單](docs/PUBLIC_RELEASE_CHECKLIST.zh-TW.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Security Policy](SECURITY.md)
@@ -235,20 +302,24 @@ sddgov uninstall-agent /absolute/path/to/project
 - `collectors/`：不同 Stack 的 Evidence Playbook。
 - `redaction/`：本機分享邊界。
 - `src/sddgov/`：可執行 CLI。
+- `demo/`：離線 30 秒首次體驗。
+- `services/`：systemd 與 launchd Broker 範本。
 - `templates/`、`.github/`：Issue、PR、Commit、Changelog 與 Work Package 範本。
 - `benchmarks/`：成對 Debugging 評估 Harness。
 
 ## 發布與授權狀態
 
-- GitHub Release `v0.2.0-experimental.8` 是目前建議安裝版本；下載後必須由機器核對 `SHA256SUMS.txt`，不需要人工複製或貼回 Hash。
+- `v0.2.0-experimental.9` 是最近完成的 experimental release。
+- `0.2.0rc1` 是已準備的 PyPI pre-release 目標；正式發布仍是明確的外部 Release Action。
 - 專案使用 Apache License 2.0，詳見 [LICENSE](LICENSE)。
 - 公開前仍需由 Owner 接受 Git 歷史、作者資訊、Release Notes 與 experimental 風險；詳見 [公開發布檢查清單](docs/PUBLIC_RELEASE_CHECKLIST.zh-TW.md)。
 - 本專案沒有複製 BugEzy 原始碼、資產、Template 或 Schema；來源聲明見 [Baseline Provenance](docs/BASELINE_PROVENANCE.md) 與 [Third-Party Notices](THIRD_PARTY_NOTICES.md)。
 
 ## 已知限制
 
-- Local Redaction Gateway 是保守 MVP，不是法律上的匿名化認證。
+- Local Redaction Gateway 具有 10 MiB 單檔上限、1,048,576 個解碼字元的單一邏輯行上限，以及 64 KiB 串流 chunk／跨 chunk 比對；仍不是法律上的匿名化認證。
 - Screenshot、HAR、Trace ZIP、Video、Database dump 等二進位證據在人工審查前會 fail closed。
 - Benchmark fixture 只驗證 Harness，不能宣稱 Evidence-Driven Debugging 已實證勝出。
 - Codex Skill discovery 與 Hermes 檔案安裝已有驗證；新 Agent 行為與 GB10 Hermes Runtime 仍需 Pilot。
-- 專案目前不是正式穩定版，也尚未發布到 PyPI。
+- 專案目前不是正式穩定版；使用真實敏感資料前仍須完成 Owner key ceremony、Broker readiness 與實際 Runtime pilot。
+- 涉及安全邊界的 descriptor-relative 檔案系統流程只支援 Linux／macOS；原生 Windows 限於文件與 synthetic 評估，完整治理流程需使用 WSL2。

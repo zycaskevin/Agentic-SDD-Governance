@@ -20,16 +20,34 @@ sddgov ci verify .
 sddgov ci local-gate .
 ```
 
-`verify` checks the contract and automatic GitHub-hosted workflows. `local-gate` first acquires one owner-only current-user coordination lock, then verifies those controls, runs every configured local command sequentially, and stops on the first failure. Independent Local Green invocations for the same POSIX user wait rather than execute repository-controlled gates concurrently; the lock does not retry, skip, or change any configured command.
+`verify` checks the contract and automatic GitHub-hosted workflows. `local-gate`
+first acquires one owner-only current-user coordination lock, then verifies those
+controls, runs every configured local command sequentially, and stops on the
+first failure. `local_green.command_timeout_seconds` applies an explicit bounded
+deadline to each command. New templates set it to 600 seconds; schema `1.0`
+contracts that omit it use the same bounded legacy fallback, so an existing
+installation remains Green without allowing an unbounded command. Independent
+Local Green invocations for the same POSIX user wait rather than execute
+repository-controlled gates concurrently; the lock does not retry, skip, or
+change any configured command.
+
+Any `local-gate` failure starts or continues a DEP at Red. Capture the bounded
+local failure, advance through Evidence → Fix → Green → Proof, and do not spend
+another hosted run until the new revision is locally Green. A transient hosted
+provider failure may be rerun only when the DEP evidence identifies it as such.
 
 ## Workflow controls
 
-Automatic hosted workflows must:
+All hosted workflows must declare concurrency and per-job timeouts. Automatic
+hosted workflows must additionally cancel stale runs. Pull-request workflows
+must avoid allocating runners for Draft PRs. Every workflow must declare
+read-only default permissions.
 
-- declare read-only default permissions;
-- cancel stale runs for the same PR or ref;
-- avoid allocating runners for Draft PRs;
-- set `timeout-minutes` for every hosted job.
+Release jobs that require OIDC or GitHub Release publication must use
+`workflow_controls.write_permission_exceptions` to name the exact workflow,
+job, and write-capable permission. The verifier rejects unknown jobs, unused
+exceptions, and any other write permission. Do not exempt the whole release
+workflow: that also disables its timeout, concurrency, and permission checks.
 
 Draft skipping accepts either the exact legacy cross-event guard or a stricter
 flat conjunction. A stricter conjunction must contain independent top-level
@@ -47,6 +65,18 @@ under `exempt_workflows`. Use the one non-Draft PR verification as the Work
 Package's hosted run; keep `workflow_dispatch` for a deliberately requested
 Release verification. A successful Merge must not silently consume a second
 hosted run.
+
+Schema `1.0` also permits an older `local_green` object to omit
+`command_timeout_seconds`. Runtime verification and Local Green then use the
+600-second fallback. New installs and deliberately updated configurations
+should retain the explicit template value; invalid configured values still fail
+closed rather than falling back.
+
+Every `exempt_workflows` entry must be the exact filename of one workflow found
+under `.github/workflows`; display names, globs, missing files, and duplicates
+fail closed. Unlike `write_permission_exceptions`, a discovered but otherwise
+unused workflow exemption is not rejected. Exemption is a narrow, auditable
+mapping, not a pattern language.
 
 Do not use path or commit-message skipping for a required check without coordinating branch protection: GitHub may leave the required check pending. Prefer one cheap required workflow and conditionally activated expensive jobs.
 

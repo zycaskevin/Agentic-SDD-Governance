@@ -1,0 +1,294 @@
+name: publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_pypi:
+        description: In this same run, wait for protected PyPI approval after TestPyPI verification
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # Every release must update RELEASE_VERSION and WHEEL_NAME together.
+  RELEASE_VERSION: 0.2.0rc1
+  WHEEL_NAME: agentic_sdd_governance-0.2.0rc1-py3-none-any.whl
+
+jobs:
+  require-release-tag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Fail unless this dispatch targets the exact release tag
+        run: |
+          test "$GITHUB_REF_TYPE" = "tag"
+          test "$GITHUB_REF_NAME" = "v$RELEASE_VERSION"
+
+  build-and-smoke:
+    needs: require-release-tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the exact release source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements-governance.lock
+            requirements-release.lock
+      - name: Require the exact immutable release tag
+        run: |
+          test "$GITHUB_REF_TYPE" = "tag"
+          test "$GITHUB_REF_NAME" = "v$RELEASE_VERSION"
+          test "$GITHUB_SHA" = "$(git rev-list -n 1 "v$RELEASE_VERSION")"
+          test "$(uname -m)" = "x86_64"
+      - name: Install hash-locked release tools
+        run: python -m pip install --require-hashes -r requirements-release.lock
+      - name: Validate the source contracts
+        run: |
+          python -m venv .governance-venv
+          .governance-venv/bin/python -m pip install --require-hashes -r requirements-governance.lock
+          .governance-venv/bin/python -m pip install --require-hashes -r requirements-release.lock
+          PYTHONPATH=src .governance-venv/bin/python -m unittest discover -s tests -v
+          PYTHONPATH=src .governance-venv/bin/python -m sddgov.cli validate .
+      - name: Build and inspect distributions
+        run: |
+          python -m build --no-isolation
+          python -m twine check dist/*
+          test -f "dist/$WHEEL_NAME"
+          test "$(find dist -maxdepth 1 -type f -name '*.whl' | wc -l)" -eq 1
+      - name: Prepare a hash-locked offline dependency wheelhouse
+        run: python -m pip download --require-hashes -r requirements-governance.lock --dest wheelhouse
+      - name: Assemble inventoried release assets
+        run: >-
+          PYTHONPATH=src python scripts/prepare_release_bundle.py
+          --dist dist
+          --wheelhouse wheelhouse
+          --lock requirements-governance.lock
+          --output release
+          --version "$RELEASE_VERSION"
+          --platform-label linux-x86_64-py312
+          --report release-bundle.json
+      - name: Smoke-test only the fresh wheel
+        run: >-
+          PYTHONPATH=src python scripts/fresh_wheel_smoke.py
+          --wheel "dist/$WHEEL_NAME"
+          --expected-version "$RELEASE_VERSION"
+          --bundle-root release/offline
+          --output fresh-wheel-smoke.json
+      - name: Upload immutable release candidates
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: distributions-${{ github.sha }}
+          path: release/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-testpypi:
+    needs: build-and-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/agentic-sdd-governance
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out the exact protected release tag
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.12"
+      - name: Verify the protected TestPyPI environment
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_CONFIGURATION_READ_TOKEN }}
+        run: |
+          test "$GITHUB_REF_TYPE" = "tag"
+          test "$GITHUB_REF_NAME" = "v$RELEASE_VERSION"
+          test "$GITHUB_SHA" = "$(git rev-list -n 1 "v$RELEASE_VERSION")"
+          python scripts/check_release_environment.py --environment testpypi --expected-tag "v$RELEASE_VERSION"
+      - name: Download the tested distributions
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: distributions-${{ github.sha }}
+          path: release
+      - name: Re-verify the complete downloaded release inventory
+        run: PYTHONPATH=src python scripts/verify_release_assets.py release
+      - name: Publish to TestPyPI with OIDC and attestations
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          attestations: true
+          packages-dir: release/distributions
+
+  verify-testpypi:
+    needs: publish-testpypi
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the smoke-test harness
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.12"
+      - name: Require the exact immutable release tag
+        run: |
+          test "$GITHUB_REF_TYPE" = "tag"
+          test "$GITHUB_REF_NAME" = "v$RELEASE_VERSION"
+          test "$GITHUB_SHA" = "$(git rev-list -n 1 "v$RELEASE_VERSION")"
+      - name: Download the tested offline dependency bundle
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: distributions-${{ github.sha }}
+          path: release
+      - name: Re-verify the complete downloaded release inventory
+        run: PYTHONPATH=src python scripts/verify_release_assets.py release
+      - name: Download the exact wheel back from TestPyPI
+        run: |
+          mkdir -p testpypi-dist
+          for attempt in $(seq 1 12); do
+            if python -m pip download \
+              --index-url https://test.pypi.org/simple/ \
+              --no-cache-dir \
+              --no-deps \
+              --dest testpypi-dist \
+              "agentic-sdd-governance==$RELEASE_VERSION"; then
+              break
+            fi
+            if [ "$attempt" -eq 12 ]; then
+              printf '%s\n' "TestPyPI did not expose $RELEASE_VERSION within the bounded polling window" >&2
+              exit 1
+            fi
+            sleep 10
+          done
+      - name: Require byte equality with the built wheel
+        env:
+          PYTHONPATH: src
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from scripts.release_files import sha256_file
+
+          wheel_name = os.environ["WHEEL_NAME"]
+          built = sha256_file(Path("release/distributions") / wheel_name)
+          downloaded = sha256_file(Path("testpypi-dist") / wheel_name)
+          if downloaded != built:
+              raise SystemExit("TestPyPI wheel bytes differ from the built wheel")
+          print(f"verified identical wheel SHA-256: {built}")
+          PY
+      - name: Verify the registry round trip in a fresh environment
+        run: >-
+          PYTHONPATH=src python scripts/fresh_wheel_smoke.py
+          --wheel "testpypi-dist/$WHEEL_NAME"
+          --expected-version "$RELEASE_VERSION"
+          --bundle-root release/offline
+          --output testpypi-smoke.json
+
+  publish-github-release:
+    needs: verify-testpypi
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-release
+      url: https://github.com/${{ github.repository }}/releases/tag/v${{ env.RELEASE_VERSION }}
+    permissions:
+      contents: write
+    steps:
+      - name: Check out immutable release notes
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.12"
+      - name: Verify the protected GitHub Release environment
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_CONFIGURATION_READ_TOKEN }}
+        run: |
+          test "$GITHUB_REF_TYPE" = "tag"
+          test "$GITHUB_REF_NAME" = "v$RELEASE_VERSION"
+          test "$GITHUB_SHA" = "$(git rev-list -n 1 "v$RELEASE_VERSION")"
+          python scripts/check_release_environment.py --environment github-release --expected-tag "v$RELEASE_VERSION"
+      - name: Download the tested release assets
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: distributions-${{ github.sha }}
+          path: release
+      - name: Re-verify the complete downloaded release inventory
+        run: PYTHONPATH=src python scripts/verify_release_assets.py release
+      - name: Publish the exact protected-tag release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "$GITHUB_REF_NAME"
+          release/distributions/*
+          release/*-offline-*.zip
+          release/SHA256SUMS.txt
+          --verify-tag
+          --prerelease
+          --title "$GITHUB_REF_NAME"
+          --notes-file RELEASE_NOTES.md
+
+  publish-pypi:
+    if: ${{ inputs.publish_pypi }}
+    needs:
+      - verify-testpypi
+      - publish-github-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/p/agentic-sdd-governance
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out the exact protected release tag
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.12"
+      - name: Verify the protected PyPI environment
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_CONFIGURATION_READ_TOKEN }}
+        run: |
+          test "$GITHUB_REF_TYPE" = "tag"
+          test "$GITHUB_REF_NAME" = "v$RELEASE_VERSION"
+          test "$GITHUB_SHA" = "$(git rev-list -n 1 "v$RELEASE_VERSION")"
+          python scripts/check_release_environment.py --environment pypi --expected-tag "v$RELEASE_VERSION"
+      - name: Download the exact distributions tested before TestPyPI
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: distributions-${{ github.sha }}
+          path: release
+      - name: Re-verify the complete downloaded release inventory
+        run: PYTHONPATH=src python scripts/verify_release_assets.py release
+      - name: Publish to PyPI with OIDC and attestations
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          attestations: true
+          packages-dir: release/distributions

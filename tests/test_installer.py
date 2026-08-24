@@ -3,11 +3,14 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from sddgov import __version__ as RELEASE_VERSION
+from sddgov.cli import _validate_repo
+from sddgov.ci_guard import verify_guard
 from sddgov.installer import (
     END_MARKER,
     START_MARKER,
-    _resource_files,
     doctor,
+    resource_files,
     setup_agent,
     uninstall_agent,
 )
@@ -18,6 +21,82 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class InstallerTests(unittest.TestCase):
+    def test_forced_upgrade_preserves_legacy_and_custom_ci_timeouts(self):
+        workflow = """name: CI
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - run: true
+"""
+        for configured_timeout in (None, 321):
+            with self.subTest(
+                configured_timeout=configured_timeout
+            ), tempfile.TemporaryDirectory() as temporary:
+                project = Path(temporary)
+                setup_agent(project, "codex", "team-standard")
+                local_green = {
+                    "environment": {},
+                    "commands": [["python3", "-c", "pass"]],
+                }
+                if configured_timeout is not None:
+                    local_green["command_timeout_seconds"] = configured_timeout
+                contract = {
+                    "schema_version": "1.0",
+                    "profile": "team-standard",
+                    "local_green": local_green,
+                    "hosted": {
+                        "max_runs_per_work_package": 1,
+                        "max_reruns_per_revision": 1,
+                        "expected_minutes": 5,
+                        "full_matrix": "manual_or_ready_for_review",
+                        "post_merge_verification": "manual_only",
+                    },
+                    "workflow_controls": {
+                        "require_concurrency": True,
+                        "cancel_in_progress": True,
+                        "require_job_timeouts": True,
+                        "require_read_only_permissions": True,
+                        "skip_draft_pull_requests": True,
+                        "exempt_workflows": [],
+                        "write_permission_exceptions": {},
+                    },
+                }
+                guard_path = project / ".sddgov/ci-cost-guard.json"
+                guard_path.write_text(
+                    json.dumps(contract, indent=2) + "\n", encoding="utf-8"
+                )
+                workflows = project / ".github/workflows"
+                workflows.mkdir(parents=True)
+                (workflows / "ci.yml").write_text(workflow, encoding="utf-8")
+
+                before = guard_path.read_bytes()
+                setup_agent(
+                    project, "codex", "team-standard", force=True
+                )
+                after = guard_path.read_bytes()
+
+                self.assertEqual(after, before)
+                self.assertTrue(verify_guard(project)["ok"])
+
+    def test_python_consumer_with_pyproject_validates_installed_governance(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            (project / "pyproject.toml").write_text(
+                "[project]\nname = \"synthetic-consumer\"\nversion = \"1.0\"\n",
+                encoding="utf-8",
+            )
+            setup_agent(project, "codex", "team-standard")
+            self.assertEqual(_validate_repo(project), [])
+
     def test_codex_setup_is_discoverable_idempotent_and_preserves_agents(self):
         with tempfile.TemporaryDirectory() as temporary:
             project = Path(temporary)
@@ -231,10 +310,12 @@ class InstallerTests(unittest.TestCase):
                 events[-1]["payload"]["previous_governance_version"],
                 "0.2.0-experimental.3",
             )
-            self.assertEqual(events[-1]["payload"]["governance_version"], "0.2.0-experimental.9")
+            self.assertEqual(
+                events[-1]["payload"]["governance_version"], RELEASE_VERSION
+            )
 
     def test_packaged_install_assets_match_canonical_sources(self):
-        for relative, content in _resource_files().items():
+        for relative, content in resource_files().items():
             canonical = ROOT / relative
             self.assertTrue(canonical.is_file(), relative)
             self.assertEqual(content, canonical.read_bytes(), relative)

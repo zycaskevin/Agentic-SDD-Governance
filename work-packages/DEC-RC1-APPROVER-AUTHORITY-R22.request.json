@@ -1,0 +1,42 @@
+{
+  "risk_level": "L2",
+  "category": "product_decision",
+  "effects": {},
+  "decision_id": "DEC-RC1-APPROVER-AUTHORITY-R22",
+  "decision_scope": "For repository github.com/zycaskevin/agentic-sdd-governance and trust domain agentic-sdd-governance-owner-2026q3, retire and reject SDDGOV_TRUSTED_APPROVERS_FILE; make logical /etc/sddgov/trusted-approvers.json the sole Linux/macOS runtime approver key store; require the Base-compatible signed receipt plus the fixed root-controlled /etc/sddgov/trusted-approver-domains.json sidecar binding the Owner key to that repository, one exact separately provisioned host-local repository root, and that trust domain; and add the separated non-signing Agent card plus Owner-terminal Agent-inaccessible-signer flow, under the exact ownership, path-chain, migration, custody, fail-closed, and non-provisioning boundaries in work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.md.",
+  "assumption_paths": [
+    "work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.md",
+    "work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.request.json"
+  ],
+  "approver_id": "zycaskevin-agentic-sdd-governance-owner-2026q3",
+  "valid_days": 30,
+  "owner_client": {
+    "version": "0.2.0rc1",
+    "source_sha256": "feab8e03f188644ab056063ff6798df381636be1c592f69e320c096010facce6"
+  },
+  "decision_package": {
+    "risk_level": "L2",
+    "decision_id": "DEC-RC1-APPROVER-AUTHORITY-R22",
+    "why_human_input_is_required": "The trusted Base permits an environment-selected external root-owned approver store; fixing and rejecting that selector changes the public authority-source contract and cannot be authorized by the candidate itself.",
+    "what_agent_already_verified": [
+      "The trusted Base authority contract and current implementation were compared at exact current Base 92f4ba8388ecf1ef1f3407db6c49cef62f6ee196.",
+      "The fixed-path prototype rejects the legacy environment selector, fails closed for root Agents, bounds the JSON document, and retains and rechecks the complete root-owned non-writable path chain.",
+      "The Agent CLI can only render the validated card; the separate Owner CLI reconstructs and verifies a receipt without accepting private-key or signature material.",
+      "Actual /etc writes, real Owner key provisioning, service installation, and Production operations remain separate Operational/L3 actions."
+    ],
+    "options": [
+      {
+        "label": "A",
+        "description": "Approve the exact fixed-path authority contract, custody assumptions, and separated Owner approval client bound by work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.md."
+      },
+      {
+        "label": "B",
+        "description": "Retain the trusted Base behavior in which SDDGOV_TRUSTED_APPROVERS_FILE selects an external root-owned store."
+      }
+    ],
+    "recommended": "A",
+    "why": "It removes caller-selected authority routing, reduces the Owner action to one semantic choice through a separately held signer, preserves fail-closed separation, and does not grant the distinct privilege to provision or operate the control plane.",
+    "impact_if_no_decision": "Only the R22 merge remains blocked; tests, Evidence preparation, rollback proof, and independent review can continue.",
+    "scope_of_approval": "For repository github.com/zycaskevin/agentic-sdd-governance and trust domain agentic-sdd-governance-owner-2026q3, retire and reject SDDGOV_TRUSTED_APPROVERS_FILE; make logical /etc/sddgov/trusted-approvers.json the sole Linux/macOS runtime approver key store; require the Base-compatible signed receipt plus the fixed root-controlled /etc/sddgov/trusted-approver-domains.json sidecar binding the Owner key to that repository, one exact separately provisioned host-local repository root, and that trust domain; and add the separated non-signing Agent card plus Owner-terminal Agent-inaccessible-signer flow, under the exact ownership, path-chain, migration, custody, fail-closed, and non-provisioning boundaries in work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.md."
+  }
+}
