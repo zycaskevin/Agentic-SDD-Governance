@@ -10,6 +10,7 @@ from sddgov.evidence import verify as verify_dep
 from sddgov.installer import doctor
 from sddgov.schema_validation import load_schema, validate_instance
 
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -78,9 +79,6 @@ class RepositoryContractTests(unittest.TestCase):
             "schemas/protected-review-receipt.schema.json",
             "schemas/trusted-approvers.schema.json",
             "schemas/trusted-reviewers.schema.json",
-            "schemas/trusted-runner-bootstrap.schema.json",
-            "schemas/trusted-runner-request.schema.json",
-            "schemas/trusted-runner-result-envelope.schema.json",
             "templates/MERGE_GATE.json",
             "templates/EXTERNAL_ACTION_RESOLUTION_RECEIPT.json",
             "templates/CI_COST_GUARD.json",
@@ -106,7 +104,7 @@ class RepositoryContractTests(unittest.TestCase):
     def test_current_repo_installed_governance_is_healthy_and_current(self):
         report = doctor(ROOT)
         self.assertTrue(report["ok"], report)
-        self.assertEqual(report["managed_file_count"], 69)
+        self.assertEqual(report["managed_file_count"], 66)
 
         triples = (
             (
@@ -222,8 +220,6 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertEqual(actions["password"], "replace")
         self.assertEqual(actions["patient-identifier"], "mask")
         self.assertEqual(actions["customer-identifier"], "mask")
-        self.assertEqual(actions["home-path"], "replace")
-        self.assertEqual(actions["trailing-whitespace"], "remove")
 
     def test_security_critical_sources_and_dependency_inputs_are_protected(self):
         policy = yaml.safe_load(

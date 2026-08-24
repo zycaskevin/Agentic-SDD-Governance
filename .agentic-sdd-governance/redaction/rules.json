@@ -12,11 +12,9 @@
     {"id": "secret-field", "action": "replace"},
     {"id": "patient-identifier", "action": "mask"},
     {"id": "customer-identifier", "action": "mask"},
-    {"id": "home-path", "action": "replace"},
     {"id": "email", "action": "mask"},
     {"id": "phone", "action": "mask"},
-    {"id": "card-like", "action": "mask"},
-    {"id": "trailing-whitespace", "action": "remove"}
+    {"id": "card-like", "action": "mask"}
   ],
   "regulated_overrides": {
     "medical": "deny_raw_export",

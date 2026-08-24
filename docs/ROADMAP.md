@@ -26,11 +26,6 @@
 
 ## v0.2.0-experimental.6 — released 2026-08-15
 
-- External Trusted Runner preparation with dedicated-UID bootstrap contracts, exact
-  signed L3 operation handoff, sealed FD validation, bounded child cleanup, and an
-  Agent Factory cross-repository synthetic rehearsal. Production service provisioning
-  cgroup-v2 descendant containment, FD-bound runtime execution, and Live UAT remain
-  explicitly out of scope; production mode is hard-denied until those controls exist.
 - Fail-closed canonical action and sensitive-effect classification.
 - Trusted-owner Ed25519 L3 approval receipts with atomic single-use consumption.
 - Executable Merge policy with exact change digest, Local Green, strict DEP, Redaction, Rollback, raw-evidence exclusion, and protected-file independent Review.
