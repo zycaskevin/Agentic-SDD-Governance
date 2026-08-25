@@ -1,0 +1,39 @@
+test_production_activation_remains_denied (tests.test_production_containment.ProductionContainmentFoundationTests.test_production_activation_remains_denied) ... ok
+test_scope_requires_limits_atomic_attach_kill_empty_then_remove (tests.test_production_containment.ProductionContainmentFoundationTests.test_scope_requires_limits_atomic_attach_kill_empty_then_remove) ... ok
+test_script_or_hash_mismatch_is_rejected_before_execution (tests.test_production_containment.ProductionContainmentFoundationTests.test_script_or_hash_mismatch_is_rejected_before_execution) ... FAIL
+test_verified_held_elf_fd_survives_path_replacement (tests.test_production_containment.ProductionContainmentFoundationTests.test_verified_held_elf_fd_survives_path_replacement) ... ERROR
+
+======================================================================
+ERROR: test_verified_held_elf_fd_survives_path_replacement (tests.test_production_containment.ProductionContainmentFoundationTests.test_verified_held_elf_fd_survives_path_replacement)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File [REDACTED_LOCAL_PATH], line 45, in test_verified_held_elf_fd_survives_path_replacement
+    image.verify_held_identity()
+  File [REDACTED_LOCAL_PATH], line 121, in verify_held_identity
+    raise ProductionContainmentViolation("runtime_image_fd_identity_changed")
+sddgov.production_containment.ProductionContainmentViolation: runtime_image_fd_identity_changed
+
+======================================================================
+FAIL: test_script_or_hash_mismatch_is_rejected_before_execution (tests.test_production_containment.ProductionContainmentFoundationTests.test_script_or_hash_mismatch_is_rejected_before_execution)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File [REDACTED_LOCAL_PATH], line 75, in open_verified
+    descriptor = os.open(
+                 ^^^^^^^^
+OSError: [Errno 40] Too many levels of symbolic links: [REDACTED_LOCAL_PATH]
+
+The above exception was the direct cause of the following exception:
+
+sddgov.production_containment.ProductionContainmentViolation: runtime_image_unavailable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File [REDACTED_LOCAL_PATH], line 59, in test_script_or_hash_mismatch_is_rejected_before_execution
+    with self.assertRaisesRegex(ProductionContainmentViolation, "hash_mismatch"):
+AssertionError: "hash_mismatch" does not match "runtime_image_unavailable"
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.094s
+
+FAILED (failures=1, errors=1)

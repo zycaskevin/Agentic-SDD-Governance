@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-AF27-FOUNDATION-PROOF-001",
+  "issue": "54",
+  "sdd_references": [
+    "docs/TRUSTED_RUNNER_V0_2_AF27.md"
+  ],
+  "risk_level": "L1",
+  "created_at": "2026-08-25T16:44:50Z",
+  "updated_at": "2026-08-25T16:45:29Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-25T16:44:50Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-25T16:45:29Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-25T16:45:29Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-25T16:45:29Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-25T16:45:29Z"
+      }
+    ]
+  },
+  "expected_behavior": "AF27 offline contracts retain FD authority across pathname replacement, reject scripts and mismatches, require containment ordering, and leave production disabled; the Local Green test suite remains runnable.",
+  "actual_behavior": "Initial held-FD and non-POSIX test fixtures failed for test-contract reasons, then both were repaired without widening runtime authority.",
+  "environment": {
+    "commit": "372a36fd9cd5d8bac4c436dbe5d5451a9fa9f6a0",
+    "branch": "codex/af27-production-containment",
+    "runtime": "Linux aarch64; Python 3.11.15; sddgov 0.2.0rc1"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}

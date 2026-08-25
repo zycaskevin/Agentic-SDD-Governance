@@ -1,0 +1,17 @@
+test_release_helpers_fail_clearly_on_non_posix_hosts (tests.test_release_bundle.ReleaseBundleTests.test_release_helpers_fail_clearly_on_non_posix_hosts) ... ERROR
+
+======================================================================
+ERROR: test_release_helpers_fail_clearly_on_non_posix_hosts (tests.test_release_bundle.ReleaseBundleTests.test_release_helpers_fail_clearly_on_non_posix_hosts)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File [REDACTED_LOCAL_PATH], line 655, in test_release_helpers_fail_clearly_on_non_posix_hosts
+    open_directory(Path("C:/synthetic/release"), "release directory")
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File [REDACTED_LOCAL_PATH], line 873, in __new__
+    raise NotImplementedError("cannot instantiate %r on your system"
+NotImplementedError: cannot instantiate 'WindowsPath' on your system
+
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+FAILED (errors=1)

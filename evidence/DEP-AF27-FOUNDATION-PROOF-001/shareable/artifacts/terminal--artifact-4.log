@@ -1,0 +1,6 @@
+test_release_helpers_fail_clearly_on_non_posix_hosts (tests.test_release_bundle.ReleaseBundleTests.test_release_helpers_fail_clearly_on_non_posix_hosts) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+OK

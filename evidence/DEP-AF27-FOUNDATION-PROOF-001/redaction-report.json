@@ -1,0 +1,53 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "terminal--artifact-1.log",
+      "output": "terminal--artifact-1.log",
+      "source_sha256": "6d4b9a712a82e8c197dfb77645dff865be89a8bae3f7737da0abf18dc89c7832",
+      "source_size": 2958,
+      "output_sha256": "8e89006ea1c584a5de52b5a6e49c51caacb2ea313713157b92f6cd7c12b7ab5a",
+      "output_size": 2688,
+      "redactions": {
+        "local-path": 5
+      }
+    },
+    {
+      "source": "terminal--artifact-2.log",
+      "output": "terminal--artifact-2.log",
+      "source_sha256": "909c5329073a86b72715ad4c2eb378d95d60c2514158e51b4d022040aefd118a",
+      "source_size": 850,
+      "output_sha256": "909c5329073a86b72715ad4c2eb378d95d60c2514158e51b4d022040aefd118a",
+      "output_size": 850,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--artifact-3.log",
+      "output": "terminal--artifact-3.log",
+      "source_sha256": "1b0d6ce072a95ae6ab8c1f66b4dc3a1576e7807f6d2fffc5296c7af0b833281c",
+      "source_size": 1201,
+      "output_sha256": "3891b56338090b7b80e44f93503a810a3f1b86649036bd961595540ff38b7fed",
+      "output_size": 1016,
+      "redactions": {
+        "local-path": 2,
+        "phone": 1
+      }
+    },
+    {
+      "source": "terminal--artifact-4.log",
+      "output": "terminal--artifact-4.log",
+      "source_sha256": "d7d889e4bc22ee179117b71dfaae0a205ab1f5cc316428251fb0346196406657",
+      "source_size": 257,
+      "output_sha256": "d7d889e4bc22ee179117b71dfaae0a205ab1f5cc316428251fb0346196406657",
+      "output_size": 257,
+      "redactions": {}
+    }
+  ],
+  "blocked": [],
+  "totals": {
+    "local-path": 7,
+    "phone": 1
+  },
+  "dep_id": "DEP-AF27-FOUNDATION-PROOF-001",
+  "generated_at": "2026-08-25T16:44:50Z"
+}

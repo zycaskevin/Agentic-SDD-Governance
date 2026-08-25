@@ -1,0 +1,9 @@
+test_production_activation_remains_denied (tests.test_production_containment.ProductionContainmentFoundationTests.test_production_activation_remains_denied) ... ok
+test_scope_requires_limits_atomic_attach_kill_empty_then_remove (tests.test_production_containment.ProductionContainmentFoundationTests.test_scope_requires_limits_atomic_attach_kill_empty_then_remove) ... ok
+test_script_or_hash_mismatch_is_rejected_before_execution (tests.test_production_containment.ProductionContainmentFoundationTests.test_script_or_hash_mismatch_is_rejected_before_execution) ... ok
+test_verified_held_elf_fd_survives_path_replacement (tests.test_production_containment.ProductionContainmentFoundationTests.test_verified_held_elf_fd_survives_path_replacement) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.142s
+
+OK
