@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "terminal--targeted-green.log",
+      "output": "terminal--targeted-green.log",
+      "source_sha256": "d4bf808d9ddb4a8a3681fc854e175c542a79ab90f4363db798721893168dccab",
+      "source_size": 14835,
+      "output_sha256": "d4bf808d9ddb4a8a3681fc854e175c542a79ab90f4363db798721893168dccab",
+      "output_size": 14835,
+      "redactions": {}
+    }
+  ],
+  "blocked": [],
+  "totals": {},
+  "dep_id": "DEP-R22-SCOPED-LOCAL-GATE-001",
+  "generated_at": "2026-08-25T23:44:05Z"
+}

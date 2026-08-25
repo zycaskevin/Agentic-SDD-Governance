@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.1",
+  "dep_id": "DEP-R22-SCOPED-LOCAL-GATE-001",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--targeted-green.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "d4bf808d9ddb4a8a3681fc854e175c542a79ab90f4363db798721893168dccab",
+      "size": 14835,
+      "collected_at": "2026-08-25T23:37:41Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--targeted-green.log",
+      "sha256": "d4bf808d9ddb4a8a3681fc854e175c542a79ab90f4363db798721893168dccab",
+      "size": 14835,
+      "shareable": true
+    }
+  ]
+}
