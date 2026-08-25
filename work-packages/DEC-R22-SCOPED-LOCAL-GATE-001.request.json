@@ -1,0 +1,44 @@
+{
+  "risk_level": "L2",
+  "category": "product_decision",
+  "effects": {},
+  "decision_id": "DEC-R22-SCOPED-LOCAL-GATE-001",
+  "decision_scope": "For repository github.com/zycaskevin/agentic-sdd-governance and trust domain agentic-sdd-governance-owner-2026q3, activate only the fail-closed R22 scoped Local-Green rule described in work-packages/DEC-R22-SCOPED-LOCAL-GATE-001.md and docs/R22_SCOPED_VALIDATION.md: skip R22 only for a trusted Base-bound exact non-empty canonical change set containing no R22-protected path; require R22 for missing, malformed, ambiguous, candidate-supplied, or protected change data; and treat the classifier, Gate contract, decision record, R22 authority inputs, Owner-client source chain, trust data, and packaged governance resources as protected.",
+  "assumption_paths": [
+    "docs/R22_SCOPED_VALIDATION.md",
+    "src/sddgov/r22_scope.py",
+    "work-packages/DEC-R22-SCOPED-LOCAL-GATE-001.md",
+    "work-packages/DEC-R22-SCOPED-LOCAL-GATE-001.request.json"
+  ],
+  "approver_id": "zycaskevin-agentic-sdd-governance-owner-2026q3",
+  "valid_days": 30,
+  "owner_client": {
+    "version": "0.2.0rc1",
+    "source_sha256": "feab8e03f188644ab056063ff6798df381636be1c592f69e320c096010facce6"
+  },
+  "decision_package": {
+    "risk_level": "L2",
+    "decision_id": "DEC-R22-SCOPED-LOCAL-GATE-001",
+    "why_human_input_is_required": "Changing when an Owner-authority verification is required changes the public security-policy contract and cannot be authorized by the candidate itself.",
+    "what_agent_already_verified": [
+      "The current Local Green contract invokes R22 unconditionally.",
+      "The offline classifier fails closed for missing, empty, malformed, and protected path inputs.",
+      "The targeted R22 scope, CI Guard, and repository-contract tests passed without changing the active Gate.",
+      "No production action, credential, key, trust-store, deployment, or network operation is in scope."
+    ],
+    "options": [
+      {
+        "label": "A",
+        "description": "Activate the exact fail-closed scoped Local-Green rule bound by the listed assumptions."
+      },
+      {
+        "label": "B",
+        "description": "Keep unconditional R22 validation for every Local-Green invocation."
+      }
+    ],
+    "recommended": "A",
+    "why": "It unblocks unrelated offline work such as AF27 while retaining R22 validation for every authority-bearing change and every uncertain change set.",
+    "impact_if_no_decision": "AF27 and other unrelated changes remain blocked by the unconditional R22 Local-Green command.",
+    "scope_of_approval": "For repository github.com/zycaskevin/agentic-sdd-governance and trust domain agentic-sdd-governance-owner-2026q3, activate only the fail-closed R22 scoped Local-Green rule described in work-packages/DEC-R22-SCOPED-LOCAL-GATE-001.md and docs/R22_SCOPED_VALIDATION.md: skip R22 only for a trusted Base-bound exact non-empty canonical change set containing no R22-protected path; require R22 for missing, malformed, ambiguous, candidate-supplied, or protected change data; and treat the classifier, Gate contract, decision record, R22 authority inputs, Owner-client source chain, trust data, and packaged governance resources as protected."
+  }
+}
