@@ -9,6 +9,7 @@ import json
 import os
 import shutil
 import socket
+import sys
 import tempfile
 import threading
 import unittest
@@ -59,6 +60,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def _memfd_create(name: str) -> int:
+    if not sys.platform.startswith("linux"):
+        raise unittest.SkipTest("Linux memfd sealing is unavailable")
     if hasattr(os, "memfd_create"):
         return os.memfd_create(name, MFD_CLOEXEC | MFD_ALLOW_SEALING)
     libc = ctypes.CDLL(None, use_errno=True)
@@ -97,6 +100,14 @@ def _write_private(path: Path, raw: bytes) -> None:
 
 def _hash_path(path: Path) -> str:
     return _sha256(path.read_bytes())
+
+
+class TrustedRunnerPlatformBoundaryTests(unittest.TestCase):
+    def test_non_linux_memfd_contract_skips_cleanly(self) -> None:
+        with patch.object(sys, "platform", "darwin"), self.assertRaises(
+            unittest.SkipTest
+        ):
+            _memfd_create("af26-non-linux")
 
 
 class TrustedRunnerContractTests(unittest.TestCase):

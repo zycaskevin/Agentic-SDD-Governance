@@ -29,6 +29,7 @@ class ProductionContainmentFoundationTests(unittest.TestCase):
     def tearDown(self) -> None:
         shutil.rmtree(self.root)
 
+    @unittest.skipUnless(sys.platform.startswith("linux"), "requires Linux ELF")
     def test_verified_held_elf_fd_survives_path_replacement(self) -> None:
         runtime = self.root / "runtime"
         original = self.root / "original-runtime"
@@ -55,7 +56,7 @@ class ProductionContainmentFoundationTests(unittest.TestCase):
         finally:
             image.close()
 
-    def test_script_or_hash_mismatch_is_rejected_before_execution(self) -> None:
+    def test_script_runtime_is_rejected_before_execution(self) -> None:
         script = self.root / "runtime-script"
         script.write_text("#!/bin/sh\nexit 0\n")
         script.chmod(0o700)
@@ -65,6 +66,9 @@ class ProductionContainmentFoundationTests(unittest.TestCase):
                 expected_sha256=_digest(script),
                 allowed_uids=frozenset({os.geteuid()}),
             )
+
+    @unittest.skipUnless(sys.platform.startswith("linux"), "requires Linux ELF")
+    def test_elf_hash_mismatch_is_rejected_before_execution(self) -> None:
         elf = self.root / "runtime-elf"
         shutil.copy2(Path(sys.executable).resolve(), elf)
         elf.chmod(0o700)
@@ -100,6 +104,7 @@ class ProductionContainmentFoundationTests(unittest.TestCase):
             ],
         )
 
+    @unittest.skipUnless(sys.platform.startswith("linux"), "requires Linux ELF")
     def test_launcher_passes_exact_held_fd_in_required_order(self) -> None:
         runtime = self.root / "runtime"
         shutil.copy2(Path(sys.executable).resolve(), runtime)
@@ -136,6 +141,7 @@ class ProductionContainmentFoundationTests(unittest.TestCase):
         finally:
             image.close()
 
+    @unittest.skipUnless(sys.platform.startswith("linux"), "requires Linux ELF")
     def test_held_runtime_metadata_drift_fails_closed(self) -> None:
         runtime = self.root / "runtime"
         alias = self.root / "runtime-hardlink"
@@ -155,6 +161,7 @@ class ProductionContainmentFoundationTests(unittest.TestCase):
         finally:
             image.close()
 
+    @unittest.skipUnless(sys.platform.startswith("linux"), "requires Linux ELF")
     def test_closed_runtime_descriptor_fails_closed(self) -> None:
         runtime = self.root / "runtime"
         shutil.copy2(Path(sys.executable).resolve(), runtime)
