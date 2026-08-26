@@ -11,14 +11,3 @@ build/
 
 # Raw evidence is local-only and must not enter Git.
 evidence/**/private/raw/
-
-# agentic-sdd-governance:start
-# Raw Debug Evidence Packages stay local.
-evidence/**/private/raw/
-# Runtime locks are local coordination state.
-.sddgov/*.lock
-# Merge Gate, independent review receipts, and trusted approver public keys are auditable project policy.
-# Owner private signing keys must never enter the repository.
-*.ed25519.key
-.sddgov/keys/
-# agentic-sdd-governance:end
