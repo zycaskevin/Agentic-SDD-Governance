@@ -59,6 +59,7 @@ class RuntimeImage:
     expected_sha256: str
     device: int
     inode: int
+    owner_uid: int
 
     @classmethod
     def open_verified(
@@ -106,7 +107,13 @@ class RuntimeImage:
             if observed != expected_sha256:
                 raise ProductionContainmentViolation("runtime_image_hash_mismatch")
             os.lseek(descriptor, 0, os.SEEK_SET)
-            return cls(descriptor, expected_sha256, info.st_dev, info.st_ino)
+            return cls(
+                descriptor,
+                expected_sha256,
+                info.st_dev,
+                info.st_ino,
+                info.st_uid,
+            )
         except Exception:
             os.close(descriptor)
             raise
@@ -119,19 +126,31 @@ class RuntimeImage:
         if (
             not stat.S_ISREG(info.st_mode)
             or (info.st_dev, info.st_ino) != (self.device, self.inode)
+            or info.st_nlink != 1
+            or info.st_uid != self.owner_uid
             or info.st_mode & 0o022
         ):
             raise ProductionContainmentViolation("runtime_image_fd_identity_changed")
         os.lseek(self.descriptor, 0, os.SEEK_SET)
         digest = hashlib.sha256()
+        prefix = os.read(self.descriptor, len(_ELF_MAGIC))
+        digest.update(prefix)
         while True:
             chunk = os.read(self.descriptor, 128 * 1024)
             if not chunk:
                 break
             digest.update(chunk)
         os.lseek(self.descriptor, 0, os.SEEK_SET)
+        if prefix != _ELF_MAGIC:
+            raise ProductionContainmentViolation("runtime_image_fd_not_elf")
         if "sha256:" + digest.hexdigest() != self.expected_sha256:
             raise ProductionContainmentViolation("runtime_image_fd_hash_changed")
+
+    def fileno(self) -> int:
+        """Return only the reverified held descriptor for a native launcher."""
+
+        self.verify_held_identity()
+        return self.descriptor
 
     def close(self) -> None:
         if self.descriptor >= 0:
@@ -158,14 +177,24 @@ class SyntheticCgroupV2Scope:
         self.events.append("limits_configured")
 
     def attach_at_launch(self) -> None:
-        if not self.configured or self.killed or self.removed:
+        if (
+            not self.configured
+            or self.atomically_attached
+            or self.killed
+            or self.removed
+        ):
             raise ProductionContainmentViolation("cgroup_atomic_attach_required")
         self.atomically_attached = True
         self.populated = True
         self.events.append("atomically_attached")
 
     def kill_and_wait_empty(self, *, timeout_seconds: float = 1.0) -> None:
-        if not self.atomically_attached or self.removed or timeout_seconds <= 0:
+        if (
+            not self.atomically_attached
+            or self.killed
+            or self.removed
+            or timeout_seconds <= 0
+        ):
             raise ProductionContainmentViolation("cgroup_cleanup_invalid")
         self.killed = True
         self.events.append("cgroup_kill")
@@ -182,6 +211,44 @@ class SyntheticCgroupV2Scope:
             raise ProductionContainmentViolation("cgroup_remove_denied")
         self.removed = True
         self.events.append("scope_removed")
+
+
+@dataclass(slots=True)
+class SyntheticAtomicLauncher:
+    """Offline launch protocol model that never starts a process.
+
+    It proves that the exact reverified runtime descriptor is presented only
+    after limits are configured and as part of the synthetic atomic-attach
+    transition.  A later production implementation must replace this model
+    with a separately reviewed native launcher or service-manager primitive.
+    """
+
+    scope: SyntheticCgroupV2Scope
+    launched_descriptor: int | None = None
+    completed: bool = False
+
+    def launch(self, image: RuntimeImage) -> int:
+        if (
+            self.launched_descriptor is not None
+            or self.completed
+            or not self.scope.configured
+            or self.scope.atomically_attached
+            or self.scope.killed
+            or self.scope.removed
+        ):
+            raise ProductionContainmentViolation("atomic_launcher_state_invalid")
+        descriptor = image.fileno()
+        self.scope.events.append("runtime_fd_verified")
+        self.scope.attach_at_launch()
+        self.launched_descriptor = descriptor
+        return descriptor
+
+    def cleanup(self, *, timeout_seconds: float = 1.0) -> None:
+        if self.launched_descriptor is None or self.completed:
+            raise ProductionContainmentViolation("atomic_launcher_cleanup_invalid")
+        self.scope.kill_and_wait_empty(timeout_seconds=timeout_seconds)
+        self.scope.remove()
+        self.completed = True
 
 
 def production_activation_permitted() -> bool:

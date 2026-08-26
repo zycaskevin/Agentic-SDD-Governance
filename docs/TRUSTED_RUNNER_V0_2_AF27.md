@@ -11,9 +11,11 @@ launch Hermes.
 ## Cgroup v2 descendant containment
 
 The production path will accept only a delegated cgroup-v2 directory owned by
-the Runner service. Before a child starts it must create a unique child scope,
-write fixed `pids.max`, `memory.max` and `cpu.max` values, and move the child
-PID into that scope. Timeout or cleanup must write `1` to `cgroup.kill`, then
+the Runner service. Before a child starts it must create a unique child scope
+and write fixed `pids.max`, `memory.max` and `cpu.max` values. The child must be
+born inside that scope through `clone3(CLONE_INTO_CGROUP)` or an equivalently
+atomic, trusted service-manager primitive; launching first and moving a PID
+later is forbidden. Timeout or cleanup must write `1` to `cgroup.kill`, then
 observe `populated 0` in `cgroup.events` before removing the scope. Missing,
 non-v2, symlinked, writable-by-other, malformed or non-empty scopes fail
 closed. A process group is never accepted as an equivalent control.
@@ -21,17 +23,20 @@ closed. A process group is never accepted as an equivalent control.
 ## FD-bound runtime chain
 
 The Runner must open the allowlisted runtime with `O_NOFOLLOW`, verify its
-regular-file identity, ownership, permissions and SHA-256 while retaining that
-same descriptor, and pass it to the minimal launcher. The launcher executes
-only `/proc/self/fd/<verified-runtime-fd>`. Script/shebang runtimes are
-rejected; therefore a mutable interpreter lookup cannot enter the chain. The
-descriptor stays open until child completion and is closed on every failure.
+regular-file identity, link count, ownership, permissions, ELF identity and
+SHA-256 while retaining that same descriptor, and pass it to the minimal
+launcher. Production execution must use native `execveat(AT_EMPTY_PATH)` or
+`fexecve` against that held descriptor; pathname or `/proc/self/fd` execution
+is not accepted as production binding. Script/shebang runtimes are rejected;
+therefore a mutable interpreter lookup cannot enter the chain. The descriptor
+stays open until child completion and is closed on every failure.
 
 ## Offline acceptance
 
-Synthetic tests use a disposable fake cgroup-v2 filesystem only to exercise
-parsing and refusal paths; they cannot prove host delegation or kernel process
-containment. A real cgroup scope is deliberately not created by AF27 tests.
+Synthetic tests use an in-memory scope and launcher state machine only to
+exercise ordering, descriptor binding and refusal paths; they cannot prove
+host delegation, native execution or kernel process containment. A real cgroup
+scope is deliberately not created by AF27 tests.
 The implementation must retain the AF26 hard deny until a separately approved
 Operational Action provisions a dedicated UID, root-owned context, delegated
 cgroup hierarchy, independent nonce broker and service manager integration.

@@ -9,12 +9,12 @@
 
 ## Objective Contract
 
-- Outcome: add the executable Linux cgroup-v2 descendant-containment and
-  FD-bound-runtime primitives required by the Trusted Runner production design.
-- Success: primitives fail closed on a non-v2/unwritable hierarchy, reject
-  scripts and runtime identity drift, keep the verified runtime FD open through
-  child launch, and have deterministic tests for setup, timeout cleanup and
-  refusal paths.
+- Outcome: add offline executable contracts for the Linux cgroup-v2
+  descendant-containment and FD-bound-runtime primitives required by the
+  Trusted Runner production design.
+- Success: the held-runtime contract rejects scripts, link/permission/content
+  drift and path replacement; the synthetic scope requires limits, exact-FD
+  launch binding, kill, empty observation and removal in that order.
 - Keep: `mode=production` remains a bootstrap-time hard deny. No service
   account, systemd unit, `/etc` or `/var/lib` provisioning, credential, Hermes,
   network, inference, deployment or Live UAT is in scope.
@@ -23,8 +23,9 @@
 
 ## Scope
 
-- `src/sddgov/trusted_runner.py` and `src/sddgov/_trusted_exec.py`.
-- AF27 documentation, offline synthetic tests and Debug Evidence Package.
+- `src/sddgov/production_containment.py` offline contracts and synthetic model.
+- Trusted Runner production hard-deny regression, AF27 documentation and
+  offline synthetic tests.
 - No production activation or caller-visible widening of authority.
 
 ## Claim

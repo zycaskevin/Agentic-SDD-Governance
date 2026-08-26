@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Security
+
+- Added the AF27 offline production-containment contracts: reverified held ELF
+  descriptors, a strict synthetic atomic-launch/cgroup cleanup state machine,
+  and path-replacement, metadata-drift, ordering and re-entry regressions.
+  Production remains unconditionally hard-denied; no host cgroup, native
+  launcher, service, credential or runtime activation is included.
+
 ## 0.2.0rc1 — 2026-08-21 release candidate
 
 ### Added
