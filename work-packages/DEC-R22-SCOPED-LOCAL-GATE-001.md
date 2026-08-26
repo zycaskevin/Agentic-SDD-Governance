@@ -2,6 +2,8 @@
 
 Decision ID: `DEC-R22-SCOPED-LOCAL-GATE-001`
 
+Owner client binding: {"source_sha256":"feab8e03f188644ab056063ff6798df381636be1c592f69e320c096010facce6","version":"0.2.0rc1"}
+
 ## Exact scope
 
 This decision authorizes only the activation of an R22 scoped Local-Green

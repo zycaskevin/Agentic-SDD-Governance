@@ -1,9 +1,34 @@
+import json
 import unittest
+from pathlib import Path
 
 from sddgov.r22_scope import requires_r22_validation
 
 
+ROOT = Path(__file__).resolve().parents[1]
+
+
 class R22ScopeTests(unittest.TestCase):
+    def test_scoped_decision_binds_exact_owner_client_identity_once(self):
+        request = json.loads(
+            (
+                ROOT
+                / "work-packages/DEC-R22-SCOPED-LOCAL-GATE-001.request.json"
+            ).read_text(encoding="utf-8")
+        )
+        marker = "Owner client binding: " + json.dumps(
+            request["owner_client"],
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+        assumptions = [
+            (ROOT / relative).read_text(encoding="utf-8").splitlines()
+            for relative in request["assumption_paths"]
+        ]
+        self.assertEqual(sum(lines.count(marker) for lines in assumptions), 1)
+
     def test_unrelated_af27_change_does_not_require_r22(self):
         self.assertFalse(
             requires_r22_validation(
