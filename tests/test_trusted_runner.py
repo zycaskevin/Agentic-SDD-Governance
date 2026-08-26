@@ -1121,6 +1121,9 @@ target.chmod(0o600)
         self.assertEqual(outcome["code"], 0)
         self.assertEqual(result["outcome"], "completed")
 
+    @unittest.skipUnless(
+        hasattr(socket, "SO_PEERCRED"), "requires Linux peer credentials"
+    )
     def test_request_parse_failure_closes_received_bundle_descriptor(self) -> None:
         descriptor = os.open(self.bootstrap_path, os.O_RDONLY)
 
