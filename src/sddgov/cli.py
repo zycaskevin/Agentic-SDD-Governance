@@ -171,7 +171,10 @@ def _trusted_runner_parser(subparsers) -> None:
     describe.add_argument("--bootstrap", required=True, type=Path)
     serve = commands.add_parser(
         "serve-connection",
-        help="Serve one systemd-activated Unix SOCK_SEQPACKET connection",
+        help=(
+            "Serve one rehearsal-only systemd-activated Unix SOCK_SEQPACKET "
+            "connection; production is denied"
+        ),
     )
     serve.add_argument("--bootstrap", required=True, type=Path)
     serve.add_argument("--connection-fd", type=int, default=3)
@@ -373,12 +376,14 @@ def _validate_repo(root: Path) -> list[str]:
         "src/sddgov/owner_cli.py",
         "src/sddgov/trusted_runner.py",
         "src/sddgov/_trusted_exec.py",
+        "src/sddgov/production_containment.py",
         "src/sddgov/resources/governance/VERSION",
         "src/sddgov/resources/governance/skill/agentic-sdd-governance/SKILL.md",
         "skill/agentic-sdd-governance/SKILL.md",
         "skill/agentic-sdd-governance/references/ci-cost-guard.md",
         "skill/agentic-sdd-governance/references/independent-reviewer.md",
         "docs/AGENT_INSTALLATION.md", "docs/TRUSTED_RUNNER_V0_1.md",
+        "docs/TRUSTED_RUNNER_V0_2_AF27.md",
         "CHANGELOG.md", "docs/ROADMAP.md",
     )
     required = (

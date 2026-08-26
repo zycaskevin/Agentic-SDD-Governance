@@ -58,15 +58,15 @@ RULES: tuple[Rule, ...] = (
     Rule("secret-field", re.compile(r'''(?i)((?:"|')?(?:[A-Z0-9]+[_-])*(?:secret(?:[_-]?key)?|api[_-]?key|access[_-]?(?:token|key)|refresh[_-]?token|client[_-]?secret)(?:[_-][A-Z0-9]+)*(?:"|')?\s*[=:]\s*)("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s,;"']+)'''), r"\1[REDACTED_SECRET]"),
     Rule("patient-identifier", re.compile(r'''(?i)((?:"|')?\bpatient[_-]?(?:id|identifier)\b(?:"|')?\s*[=:]\s*)("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s,;"']+)'''), r"\1[REDACTED_PATIENT_IDENTIFIER]"),
     Rule("customer-identifier", re.compile(r'''(?i)((?:"|')?\bcustomer[_-]?(?:id|identifier)\b(?:"|')?\s*[=:]\s*)("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s,;"']+)'''), r"\1[REDACTED_CUSTOMER_IDENTIFIER]"),
-    Rule("email", re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b"), "[REDACTED_EMAIL]"),
-    Rule("phone", re.compile(r"(?<!\w)(?:\+?\d[\d .()-]{7,}\d)(?!\w)"), "[REDACTED_PHONE_OR_NUMBER]"),
-    Rule("card-like", re.compile(r"(?<!\d)(?:\d[ -]?){13,19}(?!\d)"), "[REDACTED_CARD_OR_NUMBER]"),
-    Rule("local-path", LOCAL_USER_PATH_PATTERN, "[REDACTED_LOCAL_PATH]"),
     Rule(
         "home-path",
         re.compile(r'''(?<!\w)/(?:home|Users)/[^\s'"<>]+'''),
         "[REDACTED_HOME_PATH]",
     ),
+    Rule("email", re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b"), "[REDACTED_EMAIL]"),
+    Rule("phone", re.compile(r"(?<!\w)(?:\+?\d[\d .()-]{7,}\d)(?!\w)"), "[REDACTED_PHONE_OR_NUMBER]"),
+    Rule("card-like", re.compile(r"(?<!\d)(?:\d[ -]?){13,19}(?!\d)"), "[REDACTED_CARD_OR_NUMBER]"),
+    Rule("local-path", LOCAL_USER_PATH_PATTERN, "[REDACTED_LOCAL_PATH]"),
     Rule("trailing-whitespace", re.compile(r"[ \t]+(?=\r?$)", re.M), ""),
 )
 

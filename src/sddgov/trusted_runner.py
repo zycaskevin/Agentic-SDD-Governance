@@ -533,7 +533,10 @@ class TrustedRunnerBootstrap:
             expected_mode=0o600,
             maximum_bytes=32,
         )
-        credential_info = self.credential_path.lstat()
+        try:
+            credential_info = self.credential_path.lstat()
+        except OSError as exc:
+            raise TrustedRunnerViolation("credential_source_unavailable") from exc
         if (
             stat.S_ISLNK(credential_info.st_mode)
             or not stat.S_ISREG(credential_info.st_mode)
@@ -1075,6 +1078,10 @@ class TrustedRunner:
             ):
                 raise TrustedRunnerViolation("approval_lock_not_private_regular")
             fcntl.flock(descriptor, fcntl.LOCK_EX)
+        except TrustedRunnerViolation:
+            if descriptor is not None:
+                os.close(descriptor)
+            raise
         except OSError as exc:
             if descriptor is not None:
                 os.close(descriptor)
@@ -1655,7 +1662,12 @@ def _receive_one(connection: socket.socket) -> tuple[dict[str, Any], int, int]:
         for descriptor in descriptors:
             os.close(descriptor)
         raise TrustedRunnerViolation("runner_bundle_fd_count_invalid")
-    return _strict_json_bytes(message, "runner_request"), descriptors[0], peer_uid
+    try:
+        request = _strict_json_bytes(message, "runner_request")
+    except BaseException:
+        os.close(descriptors[0])
+        raise
+    return request, descriptors[0], peer_uid
 
 
 def serve_connected_socket(

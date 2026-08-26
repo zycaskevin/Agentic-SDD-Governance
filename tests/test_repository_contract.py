@@ -119,6 +119,22 @@ class RepositoryContractTests(unittest.TestCase):
                     _validate_repo(ROOT),
                 )
 
+    def test_source_validation_requires_af27_runtime_and_design_assets(self):
+        original = Path.is_file
+        for relative in (
+            "src/sddgov/production_containment.py",
+            "docs/TRUSTED_RUNNER_V0_2_AF27.md",
+        ):
+            with self.subTest(path=relative), patch.object(
+                Path,
+                "is_file",
+                autospec=True,
+                side_effect=lambda path, *args, relative=relative, **kwargs: (
+                    False if path == ROOT / relative else original(path)
+                ),
+            ):
+                self.assertIn(f"missing {relative}", _validate_repo(ROOT))
+
     def test_source_validation_checks_every_embedded_governance_asset(self):
         with patch("sddgov.cli.resource_files", return_value={"VERSION": b"tampered\n"}):
             errors = _validate_repo(ROOT)

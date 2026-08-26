@@ -7,6 +7,7 @@ import fcntl
 import hashlib
 import json
 import os
+import shlex
 import shutil
 import socket
 import sys
@@ -196,7 +197,9 @@ class TrustedRunnerContractTests(unittest.TestCase):
         self.credential_path = self.root / "synthetic-openai-key"
         _write_private(self.credential_path, SYNTHETIC_KEY)
         self.runtime = self.root / "af26-python"
-        self.runtime.write_text("#!/bin/sh\nexec /usr/bin/python3 \"$@\"\n")
+        self.runtime.write_text(
+            f"#!/bin/sh\nexec {shlex.quote(sys.executable)} \"$@\"\n"
+        )
         self.runtime.chmod(0o700)
         child_program = """
 import json
@@ -565,6 +568,12 @@ target.chmod(0o600)
             [],
         )
         self.assertEqual(validate_instance(request, request_schema), [])
+        invalid_route = json.loads(json.dumps(request))
+        invalid_route["operation"]["route_profile"]["source_revision"] = "0" * 40
+        self.assertNotEqual(validate_instance(invalid_route, request_schema), [])
+        invalid_containment = json.loads(json.dumps(request))
+        invalid_containment["operation"]["containment_profile"]["unexpected"] = True
+        self.assertNotEqual(validate_instance(invalid_containment, request_schema), [])
         try:
             envelope = TrustedRunner(self.bootstrap).execute(
                 request, descriptor, peer_uid=os.geteuid()
@@ -612,6 +621,7 @@ target.chmod(0o600)
                     nonce=f"nonce-child-setup-{label}",
                 )
                 owned: dict[str, int] = {}
+                identities: dict[int, tuple[int, int]] = {}
 
                 def observed_open(path, *args, **kwargs):
                     name = Path(os.fsdecode(path)).name
@@ -620,14 +630,21 @@ target.chmod(0o600)
                     opened = real_open(path, *args, **kwargs)
                     if name == "stdout.bin":
                         owned["stdout"] = opened
+                        info = os.fstat(opened)
+                        identities[opened] = (info.st_dev, info.st_ino)
                     elif name == "stderr.bin":
                         owned["stderr"] = opened
+                        info = os.fstat(opened)
+                        identities[opened] = (info.st_dev, info.st_ino)
                     return opened
 
                 def observed_pipe2(flags):
                     read_fd, write_fd = real_pipe2(flags)
                     owned["secret_read"] = read_fd
                     owned["secret_write"] = write_fd
+                    for fd in (read_fd, write_fd):
+                        info = os.fstat(fd)
+                        identities[fd] = (info.st_dev, info.st_ino)
                     return read_fd, write_fd
 
                 def observed_write(fd, value):
@@ -660,18 +677,25 @@ target.chmod(0o600)
                                 request, descriptor, peer_uid=os.geteuid()
                             )
                         )
-                    for fd in owned.values():
-                        with self.assertRaises(OSError):
-                            os.fstat(fd)
+                    for name, fd in owned.items():
+                        try:
+                            info = os.fstat(fd)
+                        except OSError:
+                            continue
+                        self.assertNotEqual(
+                            (info.st_dev, info.st_ino), identities[fd], name
+                        )
                     self.assertTrue(result["descriptors_closed"])
                     self.assertEqual(result["reason"], "unexpected_error")
                 finally:
                     os.close(descriptor)
                     for fd in owned.values():
                         try:
-                            os.close(fd)
+                            info = os.fstat(fd)
                         except OSError:
-                            pass
+                            continue
+                        if (info.st_dev, info.st_ino) == identities.get(fd):
+                            os.close(fd)
 
     def test_setup_failure_runs_registered_cleanups(self) -> None:
         original_context = autonomy_module.L3_RUNTIME_CONTEXT_FILE
@@ -1034,6 +1058,39 @@ target.chmod(0o600)
         ):
             _production_directory_chain(self.root, "test", os.geteuid())
 
+    def test_missing_credential_source_uses_schema_safe_reason(self) -> None:
+        self.credential_path.unlink()
+        with self.assertRaisesRegex(
+            TrustedRunnerViolation, "credential_source_unavailable"
+        ):
+            self.bootstrap._validate()
+
+    def test_invalid_approval_lock_metadata_closes_descriptor(self) -> None:
+        decisions_dir = self.state_root / ".sddgov"
+        decisions_dir.mkdir(mode=0o700)
+        lock_path = decisions_dir / "trusted-runner-approval.lock"
+        lock_path.write_bytes(b"")
+        lock_path.chmod(0o644)
+        real_close = os.close
+        closed: list[int] = []
+
+        def observed_close(descriptor: int) -> None:
+            closed.append(descriptor)
+            real_close(descriptor)
+
+        with patch.object(
+            trusted_runner_module.os,
+            "close",
+            side_effect=observed_close,
+        ), self.assertRaisesRegex(
+            TrustedRunnerViolation, "approval_lock_not_private_regular"
+        ):
+            with TrustedRunner(self.bootstrap)._approval_consumption_lock():
+                self.fail("invalid approval lock must not yield")
+        self.assertEqual(len(closed), 1)
+        with self.assertRaises(OSError):
+            os.fstat(closed[0])
+
     def test_socket_activation_uses_kernel_peer_credentials_and_scm_rights(self) -> None:
         descriptor, bundle = self._sealed_bundle()
         request = self._request(bundle, nonce="nonce-socket")
@@ -1046,6 +1103,7 @@ target.chmod(0o600)
         thread = threading.Thread(target=serve)
         thread.start()
         rights = array.array("i", [descriptor])
+        client.settimeout(10)
         try:
             client.sendmsg(
                 [_canonical(request)],
@@ -1062,6 +1120,28 @@ target.chmod(0o600)
         result = self._verify_result_signature(envelope)
         self.assertEqual(outcome["code"], 0)
         self.assertEqual(result["outcome"], "completed")
+
+    def test_request_parse_failure_closes_received_bundle_descriptor(self) -> None:
+        descriptor = os.open(self.bootstrap_path, os.O_RDONLY)
+
+        class InvalidRequestConnection:
+            def getsockopt(self, _level, option, *_args):
+                if option == socket.SO_TYPE:
+                    return socket.SOCK_SEQPACKET
+                return trusted_runner_module.struct.pack(
+                    "3i", os.getpid(), os.geteuid(), os.getegid()
+                )
+
+            def recvmsg(self, *_args):
+                rights = array.array("i", [descriptor]).tobytes()
+                return b'{"invalid":', [
+                    (socket.SOL_SOCKET, socket.SCM_RIGHTS, rights)
+                ], 0, None
+
+        with self.assertRaisesRegex(TrustedRunnerViolation, "runner_request_invalid"):
+            trusted_runner_module._receive_one(InvalidRequestConnection())
+        with self.assertRaises(OSError):
+            os.fstat(descriptor)
 
     def test_duplicate_json_and_cli_surface_are_fail_closed(self) -> None:
         with self.assertRaisesRegex(TrustedRunnerViolation, "json_duplicate_key_denied"):

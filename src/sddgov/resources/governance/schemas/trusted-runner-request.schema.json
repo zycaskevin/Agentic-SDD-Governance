@@ -48,8 +48,8 @@
         },
         "route_profile_hash": {"$ref": "#/$defs/digest"},
         "containment_profile_hash": {"$ref": "#/$defs/digest"},
-        "route_profile": {"type": "object"},
-        "containment_profile": {"type": "object"},
+        "route_profile": {"$ref": "#/$defs/routeProfile"},
+        "containment_profile": {"$ref": "#/$defs/containmentProfile"},
         "provider": {"const": "openai-api"},
         "model": {"const": "gpt-5.6-sol"},
         "endpoint": {"const": "https://api.openai.com/v1"},
@@ -127,6 +127,61 @@
   },
   "$defs": {
     "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "rawDigest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "sourceHashes": {
+      "type": "object",
+      "required": ["agent/relay_llm.py", "agent/auxiliary_client.py", "hermes_cli/auth.py", "gateway/platforms/api_server.py", "agent/transports/codex.py"],
+      "properties": {
+        "agent/relay_llm.py": {"$ref": "#/$defs/rawDigest"},
+        "agent/auxiliary_client.py": {"$ref": "#/$defs/rawDigest"},
+        "hermes_cli/auth.py": {"$ref": "#/$defs/rawDigest"},
+        "gateway/platforms/api_server.py": {"$ref": "#/$defs/rawDigest"},
+        "agent/transports/codex.py": {"$ref": "#/$defs/rawDigest"}
+      },
+      "additionalProperties": false
+    },
+    "containmentProfile": {
+      "type": "object",
+      "required": ["contract_version", "hermes_version", "source_revision", "source_hashes", "provider", "model", "max_inference_calls", "max_output_tokens"],
+      "properties": {
+        "contract_version": {"const": "0.1"},
+        "hermes_version": {"const": "0.20.4"},
+        "source_revision": {"const": "f43eabee5f36e11448086ee8ee17c499958e81bf"},
+        "source_hashes": {"$ref": "#/$defs/sourceHashes"},
+        "provider": {"const": "openai-api"},
+        "model": {"const": "gpt-5.6-sol"},
+        "max_inference_calls": {"const": 1},
+        "max_output_tokens": {"const": 1000}
+      },
+      "additionalProperties": false
+    },
+    "routeProfile": {
+      "type": "object",
+      "required": ["contract_version", "containment_profile_hash", "hermes_version", "source_revision", "source_tree_hash", "provider", "model", "endpoint", "access_method", "credential_env_var", "max_input_bytes", "max_output_tokens", "max_inference_calls", "cost_control_mode", "max_cost_usd", "maximum_cost_usd", "input_price_per_million_usd", "output_price_per_million_usd", "price_snapshot_date", "offline_only"],
+      "properties": {
+        "contract_version": {"const": "0.1"},
+        "containment_profile_hash": {"$ref": "#/$defs/digest"},
+        "hermes_version": {"const": "0.20.4"},
+        "source_revision": {"const": "f43eabee5f36e11448086ee8ee17c499958e81bf"},
+        "source_tree_hash": {"$ref": "#/$defs/digest"},
+        "provider": {"const": "openai-api"},
+        "model": {"const": "gpt-5.6-sol"},
+        "endpoint": {"const": "https://api.openai.com/v1"},
+        "access_method": {"const": "api"},
+        "credential_env_var": {"const": "OPENAI_API_KEY"},
+        "max_input_bytes": {"const": 4096},
+        "max_output_tokens": {"const": 1000},
+        "max_inference_calls": {"const": 1},
+        "cost_control_mode": {"const": "metered_hard_cap"},
+        "max_cost_usd": {"const": "0.25"},
+        "maximum_cost_usd": {"const": "0.05048"},
+        "input_price_per_million_usd": {"const": "5"},
+        "output_price_per_million_usd": {"const": "30"},
+        "price_snapshot_date": {"const": "2026-08-23"},
+        "offline_only": {"const": true}
+      },
+      "additionalProperties": false
+    },
     "operationPayload": {
       "type": "object",
       "required": ["repository", "project", "environment", "scope", "category", "target", "parameters", "effects"],

@@ -72,8 +72,9 @@ sealed bundle FD。Socket client UID 必須由 Linux `SO_PEERCRED` 取得，不�
 Request 必須精確綁定：
 
 - AF25 contract/action/operation/plan hashes；
-- Hermes 0.20.4 pinned source、canonical source-tree manifest、五個 managed module 的
-  原始 bytes、完整 sealed receipt 與五個 replacement hashes；
+- Hermes 0.20.4 pinned source、canonical source-tree manifest，以及五個 managed
+  module 的原始 bytes 與 replacement hashes；這些 material 只存在 sealed bundle，
+  request 以 bundle size／hash／entry count、source-tree hash 與 managed hashes 綁定；
 - route／containment profile 的完整 canonical 文件與重算 hash；
 - Runner、approval authority、credential、runtime、isolation bindings；
 - `openai-api／gpt-5.6-sol`、官方 endpoint、4,096 input bytes、1,000 output tokens、
