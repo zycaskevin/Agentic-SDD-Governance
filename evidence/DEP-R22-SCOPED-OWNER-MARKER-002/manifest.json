@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.1",
+  "dep_id": "DEP-R22-SCOPED-OWNER-MARKER-002",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--owner-marker-red.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "dfbea54dfb44a7db8c3d73b97703c0a8b35232d6b4f6f38e8f236013cee17996",
+      "size": 164,
+      "collected_at": "2026-08-26T00:26:32Z",
+      "shareable": false
+    },
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--owner-marker-green.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "89e861c0aa4799a5d4641e9d3d1e3345b7429a33866c197abbfe8a3a1cf0fad2",
+      "size": 912,
+      "collected_at": "2026-08-26T00:26:32Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--owner-marker-green.log",
+      "sha256": "89e861c0aa4799a5d4641e9d3d1e3345b7429a33866c197abbfe8a3a1cf0fad2",
+      "size": 912,
+      "shareable": true
+    },
+    {
+      "path": "shareable/artifacts/terminal--owner-marker-red.log",
+      "sha256": "dfbea54dfb44a7db8c3d73b97703c0a8b35232d6b4f6f38e8f236013cee17996",
+      "size": 164,
+      "shareable": true
+    }
+  ]
+}

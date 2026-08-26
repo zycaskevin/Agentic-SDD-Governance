@@ -1,0 +1,4 @@
+command=git show HEAD:work-packages/DEC-R22-SCOPED-LOCAL-GATE-001.md | count exact Owner client marker
+marker_count=0
+expected_marker_count=1
+result=RED reproduced

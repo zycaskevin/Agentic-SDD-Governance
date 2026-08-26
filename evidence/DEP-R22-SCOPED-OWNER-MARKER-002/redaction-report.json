@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "terminal--owner-marker-green.log",
+      "output": "terminal--owner-marker-green.log",
+      "source_sha256": "89e861c0aa4799a5d4641e9d3d1e3345b7429a33866c197abbfe8a3a1cf0fad2",
+      "source_size": 912,
+      "output_sha256": "89e861c0aa4799a5d4641e9d3d1e3345b7429a33866c197abbfe8a3a1cf0fad2",
+      "output_size": 912,
+      "redactions": {}
+    },
+    {
+      "source": "terminal--owner-marker-red.log",
+      "output": "terminal--owner-marker-red.log",
+      "source_sha256": "dfbea54dfb44a7db8c3d73b97703c0a8b35232d6b4f6f38e8f236013cee17996",
+      "source_size": 164,
+      "output_sha256": "dfbea54dfb44a7db8c3d73b97703c0a8b35232d6b4f6f38e8f236013cee17996",
+      "output_size": 164,
+      "redactions": {}
+    }
+  ],
+  "blocked": [],
+  "totals": {},
+  "dep_id": "DEP-R22-SCOPED-OWNER-MARKER-002",
+  "generated_at": "2026-08-26T00:27:37Z"
+}

@@ -1,0 +1,10 @@
+test_authority_inputs_and_gate_configuration_require_r22 (tests.test_r22_scope.R22ScopeTests.test_authority_inputs_and_gate_configuration_require_r22) ... ok
+test_scoped_decision_binds_exact_owner_client_identity_once (tests.test_r22_scope.R22ScopeTests.test_scoped_decision_binds_exact_owner_client_identity_once) ... ok
+test_unknown_or_malformed_change_set_fails_closed (tests.test_r22_scope.R22ScopeTests.test_unknown_or_malformed_change_set_fails_closed) ... ok
+test_unrelated_af27_change_does_not_require_r22 (tests.test_r22_scope.R22ScopeTests.test_unrelated_af27_change_does_not_require_r22) ... ok
+test_card_requires_reviewed_client_identity_in_request_and_signed_assumption (tests.test_owner_approval.OwnerApprovalTests.test_card_requires_reviewed_client_identity_in_request_and_signed_assumption) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.023s
+
+OK
