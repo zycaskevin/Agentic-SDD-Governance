@@ -649,10 +649,11 @@ while True:
             self.assertFalse((redirected_output / "result.txt").exists())
 
     def test_release_helpers_fail_clearly_on_non_posix_hosts(self):
+        candidate = Path("/synthetic/release")
         with patch("scripts.release_files.os.name", "nt"), self.assertRaisesRegex(
             ValueError, "require Linux or macOS"
         ):
-            open_directory(Path("C:/synthetic/release"), "release directory")
+            open_directory(candidate, "release directory")
 
     def test_open_directory_create_only_creates_the_final_component(self):
         with tempfile.TemporaryDirectory() as temporary:
