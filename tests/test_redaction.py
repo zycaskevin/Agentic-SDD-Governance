@@ -232,9 +232,11 @@ class RedactionTests(unittest.TestCase):
             "C:/Users/erin",
         ):
             self.assertNotIn(exposed, cleaned)
-        self.assertEqual(cleaned.count("[REDACTED_LOCAL_PATH]"), 5)
-        self.assertEqual(counts["local-path"], 5)
-        self.assertIn("slash=[REDACTED_LOCAL_PATH]\n", cleaned)
+        self.assertEqual(cleaned.count("[REDACTED_HOME_PATH]"), 3)
+        self.assertEqual(cleaned.count("[REDACTED_LOCAL_PATH]"), 2)
+        self.assertEqual(counts["home-path"], 3)
+        self.assertEqual(counts["local-path"], 2)
+        self.assertIn("slash=C:[REDACTED_HOME_PATH]\n", cleaned)
 
     def test_masks_temporary_paths_and_paths_with_spaces(self):
         source = (
@@ -253,7 +255,8 @@ class RedactionTests(unittest.TestCase):
         ):
             self.assertNotIn(exposed, cleaned)
         self.assertIn("/tmpfile-is-not-a-temp-path", cleaned)
-        self.assertEqual(counts["local-path"], 4)
+        self.assertEqual(counts["home-path"], 1)
+        self.assertEqual(counts["local-path"], 3)
 
     def test_masks_canonical_darwin_and_wsl_workspace_paths(self):
         source = (
@@ -355,9 +358,9 @@ class RedactionTests(unittest.TestCase):
             cleaned = (output / source.name).read_text(encoding="utf-8")
             self.assertNotIn("/home/alice", cleaned)
             self.assertNotIn("C:/Users/erin", cleaned)
-            self.assertIn("project=[REDACTED_LOCAL_PATH]\n", cleaned)
-            self.assertIn("[REDACTED_LOCAL_PATH]", cleaned)
-            self.assertEqual(report["totals"]["local-path"], 2)
+            self.assertIn("project=C:[REDACTED_HOME_PATH]\n", cleaned)
+            self.assertEqual(cleaned.count("[REDACTED_HOME_PATH]"), 2)
+            self.assertEqual(report["totals"]["home-path"], 2)
 
     def test_streaming_redacts_secrets_and_private_keys_across_chunks(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -990,6 +993,20 @@ class RedactionTests(unittest.TestCase):
 
             self.assertFalse((output / source.name).exists())
             self.assertEqual(list(output.iterdir()), [])
+
+    def test_masks_home_paths_and_removes_trailing_whitespace(self):
+        source = (
+            '  File "/home/example/private/project/test_runner.py", line 10   \n'
+            "  File '/Users/example/private/project/test_runner.py', line 11\t\n"
+        )
+        cleaned, counts = redact_text(source)
+        self.assertNotIn("/home/example", cleaned)
+        self.assertNotIn("/Users/example", cleaned)
+        for line in cleaned.splitlines():
+            self.assertEqual(line, line.rstrip())
+        self.assertEqual(counts["home-path"], 2)
+        self.assertNotIn("local-path", counts)
+        self.assertEqual(counts["trailing-whitespace"], 2)
 
     def test_failed_post_publish_validation_preserves_changed_generation(self):
         with tempfile.TemporaryDirectory() as temporary:

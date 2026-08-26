@@ -10,13 +10,13 @@ import yaml
 from sddgov import __version__, _require_supported_python
 from sddgov.cli import _validate_repo
 from sddgov.evidence import verify as verify_dep
-from sddgov.installer import doctor
 from sddgov.owner_approval import _owner_client_identity
 from sddgov.redaction import (
     LOCAL_USER_PATH_PATTERN,
     MAX_LOGICAL_LINE_CHARACTERS,
     MAX_REDACTION_FILE_BYTES,
     STREAM_CHUNK_BYTES,
+    redact_text,
 )
 from sddgov.schema_validation import load_schema, validate_instance
 
@@ -99,7 +99,7 @@ class RepositoryContractTests(unittest.TestCase):
 
     def test_repository_assets_validate(self):
         self.assertEqual(_validate_repo(ROOT), [])
-        self.assertEqual(_validate_repo(ROOT / ".agentic-sdd-governance"), [])
+        self.assertFalse((ROOT / ".agentic-sdd-governance").exists())
 
     def test_source_validation_requires_runtime_and_owner_approval_modules(self):
         original = Path.is_file
@@ -118,6 +118,22 @@ class RepositoryContractTests(unittest.TestCase):
                     f"missing src/sddgov/{missing}",
                     _validate_repo(ROOT),
                 )
+
+    def test_source_validation_requires_af27_runtime_and_design_assets(self):
+        original = Path.is_file
+        for relative in (
+            "src/sddgov/production_containment.py",
+            "docs/TRUSTED_RUNNER_V0_2_AF27.md",
+        ):
+            with self.subTest(path=relative), patch.object(
+                Path,
+                "is_file",
+                autospec=True,
+                side_effect=lambda path, *args, relative=relative, **kwargs: (
+                    False if path == ROOT / relative else original(path)
+                ),
+            ):
+                self.assertIn(f"missing {relative}", _validate_repo(ROOT))
 
     def test_source_validation_checks_every_embedded_governance_asset(self):
         with patch("sddgov.cli.resource_files", return_value={"VERSION": b"tampered\n"}):
@@ -273,6 +289,9 @@ class RepositoryContractTests(unittest.TestCase):
             "schemas/trusted-approvers.schema.json",
             "schemas/trusted-approver-domains.schema.json",
             "schemas/trusted-reviewers.schema.json",
+            "schemas/trusted-runner-bootstrap.schema.json",
+            "schemas/trusted-runner-request.schema.json",
+            "schemas/trusted-runner-result-envelope.schema.json",
             "services/sddgov-broker.service",
             "services/com.sddgov.broker.plist",
             "templates/MERGE_GATE.json",
@@ -298,63 +317,15 @@ class RepositoryContractTests(unittest.TestCase):
                     (packaged / relative).read_bytes(),
                 )
 
-    def test_current_repo_installed_governance_is_healthy_and_current(self):
-        report = doctor(ROOT)
-        self.assertTrue(report["ok"], report)
-        self.assertEqual(report["managed_file_count"], 73)
-
-        triples = (
-            (
-                "docs/AUTONOMOUS_DEVELOPMENT_V1_2.md",
-                ".agentic-sdd-governance/docs/AUTONOMOUS_DEVELOPMENT_V1_2.md",
-            ),
-            (
-                "docs/HARD_GATES_V1_2.md",
-                ".agentic-sdd-governance/docs/HARD_GATES_V1_2.md",
-            ),
-            (
-                "docs/L3_BROKER_OPERATIONS.md",
-                ".agentic-sdd-governance/docs/L3_BROKER_OPERATIONS.md",
-            ),
-            (
-                "docs/OWNER_KEY_CEREMONY.md",
-                ".agentic-sdd-governance/docs/OWNER_KEY_CEREMONY.md",
-            ),
-            (
-                "docs/ROLLBACK_OPERATIONS.md",
-                ".agentic-sdd-governance/docs/ROLLBACK_OPERATIONS.md",
-            ),
-            (
-                "policies/autonomy-policy.json",
-                ".agentic-sdd-governance/policies/autonomy-policy.json",
-            ),
-            (
-                "schemas/autonomy-policy.schema.json",
-                ".agentic-sdd-governance/schemas/autonomy-policy.schema.json",
-            ),
-            (
-                "schemas/external-action-resolution-receipt.schema.json",
-                ".agentic-sdd-governance/schemas/external-action-resolution-receipt.schema.json",
-            ),
-            (
-                "schemas/external-action.schema.json",
-                ".agentic-sdd-governance/schemas/external-action.schema.json",
-            ),
-            (
-                "templates/EXTERNAL_ACTION_RESOLUTION_RECEIPT.json",
-                ".agentic-sdd-governance/templates/EXTERNAL_ACTION_RESOLUTION_RECEIPT.json",
-            ),
-            (
-                "skill/agentic-sdd-governance/references/autonomy-workflow.md",
-                ".agents/skills/agentic-sdd-governance/references/autonomy-workflow.md",
-            ),
-        )
-        packaged = ROOT / "src/sddgov/resources/governance"
-        for canonical_relative, installed_relative in triples:
-            with self.subTest(path=canonical_relative):
-                canonical = (ROOT / canonical_relative).read_bytes()
-                self.assertEqual(canonical, (packaged / canonical_relative).read_bytes())
-                self.assertEqual(canonical, (ROOT / installed_relative).read_bytes())
+    def test_current_repo_self_governance_remains_deactivated(self):
+        for relative in (
+            ".agentic-sdd-governance",
+            ".agents",
+            "AGENTS.md",
+            ".github/workflows/governance.yml",
+        ):
+            with self.subTest(path=relative):
+                self.assertFalse((ROOT / relative).exists())
 
     def test_codex_adapter_preserves_repository_bootstrap_before_layered_loading(self):
         codex = (ROOT / "adapters/codex/AGENTS.md").read_text(encoding="utf-8")
@@ -430,6 +401,8 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertEqual(actions["patient-identifier"], "mask")
         self.assertEqual(actions["customer-identifier"], "mask")
         self.assertEqual(actions["local-path"], "mask")
+        self.assertEqual(actions["home-path"], "replace")
+        self.assertEqual(actions["trailing-whitespace"], "remove")
         self.assertEqual(MAX_REDACTION_FILE_BYTES, 10 * 1024 * 1024)
         self.assertEqual(MAX_LOGICAL_LINE_CHARACTERS, 1024 * 1024)
         self.assertEqual(STREAM_CHUNK_BYTES, 64 * 1024)
@@ -463,18 +436,28 @@ class RepositoryContractTests(unittest.TestCase):
         withdrawals = registry["withdrawals"]
         registered = [row["path"] for row in withdrawals]
         self.assertEqual(registered, sorted(set(registered)))
-        self.assertEqual(exposed, registered)
+        local_path_withdrawals = [
+            row["path"]
+            for row in withdrawals
+            if row["reason"] == "legacy-local-path-redaction-gap"
+        ]
+        self.assertEqual(exposed, local_path_withdrawals)
         for row in withdrawals:
             self.assertEqual(row["status"], "withdrawn")
-            self.assertEqual(row["reason"], "legacy-local-path-redaction-gap")
+            self.assertIn(
+                row["reason"],
+                {
+                    "legacy-local-path-redaction-gap",
+                    "legacy-trailing-whitespace-redaction-gap",
+                },
+            )
             replacement = ROOT / row["replacement"]
             self.assertTrue(replacement.is_file(), row)
-            self.assertIsNone(
-                LOCAL_USER_PATH_PATTERN.search(
-                    replacement.read_text(encoding="utf-8")
-                ),
-                row,
-            )
+            replacement_text = replacement.read_text(encoding="utf-8")
+            self.assertIsNone(LOCAL_USER_PATH_PATTERN.search(replacement_text), row)
+            redacted, matches = redact_text(replacement_text)
+            self.assertEqual(matches, {}, row)
+            self.assertEqual(redacted, replacement_text, row)
 
     def test_rc1_work_package_and_rollback_bind_current_proof(self):
         work_package = (ROOT / "work-packages/WP-RC1-READINESS-008.md").read_text(
@@ -1104,7 +1087,6 @@ class RepositoryContractTests(unittest.TestCase):
             canonical = (ROOT / "services" / name).read_bytes()
             for mirror in (
                 ROOT / "src/sddgov/resources/governance/services" / name,
-                ROOT / ".agentic-sdd-governance/services" / name,
             ):
                 with self.subTest(name=name, mirror=mirror):
                     self.assertEqual(mirror.read_bytes(), canonical)
@@ -1117,7 +1099,6 @@ class RepositoryContractTests(unittest.TestCase):
             canonical = (ROOT / relative).read_bytes()
             for prefix in (
                 ROOT / "src/sddgov/resources/governance",
-                ROOT / ".agentic-sdd-governance",
             ):
                 with self.subTest(relative=relative, prefix=prefix):
                     self.assertEqual((prefix / relative).read_bytes(), canonical)
@@ -1357,50 +1338,7 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("AUTONOMY BY DEFAULT. ESCALATION BY EXCEPTION.", autonomy)
         self.assertIn("AUTOMATIC_REVIEW_IS_PREAUTHORIZED", autonomy)
         self.assertIn("Main Agent", autonomy)
-        workflow = yaml.safe_load(
-            (ROOT / ".github/workflows/governance.yml").read_text(encoding="utf-8")
-        )
-        verifier_jobs = [
-            job
-            for job in workflow["jobs"].values()
-            if any(
-                "merge verify" in str(step.get("run", ""))
-                for step in job.get("steps", [])
-            )
-        ]
-        self.assertEqual(len(verifier_jobs), 1)
-        verifier_steps = [
-            step
-            for step in verifier_jobs[0]["steps"]
-            if "merge verify" in str(step.get("run", ""))
-        ]
-        self.assertEqual(len(verifier_steps), 1)
-        self.assertIn(
-            "SDDGOV_TRUSTED_REVIEWERS_JSON", verifier_steps[0].get("env", {})
-        )
-        self.assertIn(
-            "SDDGOV_TRUSTED_REVIEWERS_FILE", verifier_steps[0].get("env", {})
-        )
-        checkout_steps = [
-            step
-            for step in verifier_jobs[0]["steps"]
-            if str(step.get("uses", "")).startswith("actions/checkout@")
-        ]
-        self.assertEqual(len(checkout_steps), 2)
-        by_path = {step["with"]["path"]: step for step in checkout_steps}
-        self.assertEqual(set(by_path), {"candidate", "trusted-verifier"})
-        self.assertEqual(by_path["candidate"]["with"]["fetch-depth"], 0)
-        self.assertFalse(by_path["candidate"]["with"]["persist-credentials"])
-        self.assertIn(
-            "pull_request.head.sha", by_path["candidate"]["with"]["ref"]
-        )
-        self.assertIn(
-            "pull_request.base.sha", by_path["trusted-verifier"]["with"]["ref"]
-        )
-        workflow_events = workflow[True]
-        self.assertIn("pull_request_target", workflow_events)
-        self.assertIn("workflow_dispatch", workflow_events)
-        self.assertNotIn("push", workflow_events)
+        self.assertFalse((ROOT / ".github/workflows/governance.yml").exists())
         cli = (ROOT / "src/sddgov/cli.py").read_text(encoding="utf-8")
         self.assertIn("import-product-approval", cli)
         self.assertIn("import-operation-approval", cli)
@@ -1418,30 +1356,8 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertNotIn("paste sha-256 to approve", all_runtime_text)
         self.assertNotIn("貼回 sha-256", all_runtime_text)
 
-    def test_pull_request_gate_uses_base_trusted_verifier(self):
-        workflow = (ROOT / ".github/workflows/governance.yml").read_text(
-            encoding="utf-8"
-        )
-        self.assertIn("pull_request_target:", workflow)
-        self.assertIn("path: candidate", workflow)
-        self.assertIn("path: trusted-verifier", workflow)
-        self.assertIn("github.event.pull_request.base.sha", workflow)
-        self.assertIn("github.event.pull_request.head.sha", workflow)
-        self.assertIn("PYTHONPATH", workflow)
-        self.assertIn("trusted-verifier/src", workflow)
-        self.assertIn("--skip-local-checks", workflow)
-        self.assertIn("core.hooksPath=/dev/null", workflow)
-        uses = re.findall(r"uses:\s*([^\s#]+)", workflow)
-        self.assertTrue(uses)
-        self.assertTrue(
-            all(re.fullmatch(r"[^@\s]+@[0-9a-f]{40}", value) for value in uses),
-            uses,
-        )
-        self.assertIn("--require-hashes", workflow)
-        self.assertIn("requirements-governance.lock", workflow)
-        lock = (ROOT / "requirements-governance.lock").read_text(encoding="utf-8")
-        self.assertIn("--hash=sha256:", lock)
-        self.assertNotIn("python -m pip install -e .", workflow)
+    def test_pull_request_governance_gate_remains_deactivated(self):
+        self.assertFalse((ROOT / ".github/workflows/governance.yml").exists())
 
     def test_native_broker_rehearsal_runs_real_linux_and_macos_sockets(self):
         workflow = (ROOT / ".github/workflows/broker-native.yml").read_text(
