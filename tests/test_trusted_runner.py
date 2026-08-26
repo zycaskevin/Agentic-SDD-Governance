@@ -598,6 +598,7 @@ target.chmod(0o600)
         self.assertEqual(result["reason"], "unexpected_error")
         self.assertEqual(validate_instance(envelope, result_schema), [])
 
+    @unittest.skipUnless(sys.platform.startswith("linux"), "requires Linux pipe2")
     def test_child_setup_failures_close_every_owned_descriptor(self) -> None:
         real_open = os.open
         real_pipe2 = os.pipe2
