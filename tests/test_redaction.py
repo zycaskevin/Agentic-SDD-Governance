@@ -1045,6 +1045,19 @@ class RedactionTests(unittest.TestCase):
             self.assertFalse((output / source.name).exists())
             self.assertEqual(list(output.iterdir()), [])
 
+    def test_masks_home_paths_and_removes_trailing_whitespace(self):
+        source = (
+            '  File "/home/example/private/project/test_runner.py", line 10   \n'
+            "  File '/Users/example/private/project/test_runner.py', line 11\t\n"
+        )
+        cleaned, counts = redact_text(source)
+        self.assertNotIn("/home/example", cleaned)
+        self.assertNotIn("/Users/example", cleaned)
+        for line in cleaned.splitlines():
+            self.assertEqual(line, line.rstrip())
+        self.assertEqual(counts["local-path"], 2)
+        self.assertEqual(counts["trailing-whitespace"], 2)
+
 
 if __name__ == "__main__":
     unittest.main()

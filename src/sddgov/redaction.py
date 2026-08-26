@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import codecs
 import hashlib
-import json
 import os
 import re
 import stat
@@ -62,6 +61,12 @@ RULES: tuple[Rule, ...] = (
     Rule("phone", re.compile(r"(?<!\w)(?:\+?\d[\d .()-]{7,}\d)(?!\w)"), "[REDACTED_PHONE_OR_NUMBER]"),
     Rule("card-like", re.compile(r"(?<!\d)(?:\d[ -]?){13,19}(?!\d)"), "[REDACTED_CARD_OR_NUMBER]"),
     Rule("local-path", LOCAL_USER_PATH_PATTERN, "[REDACTED_LOCAL_PATH]"),
+    Rule(
+        "home-path",
+        re.compile(r'''(?<!\w)/(?:home|Users)/[^\s'"<>]+'''),
+        "[REDACTED_HOME_PATH]",
+    ),
+    Rule("trailing-whitespace", re.compile(r"[ \t]+(?=\r?$)", re.M), ""),
 )
 
 STREAM_RULES: tuple[Rule, ...] = tuple(

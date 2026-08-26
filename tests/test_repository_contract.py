@@ -17,9 +17,9 @@ from sddgov.redaction import (
     MAX_LOGICAL_LINE_CHARACTERS,
     MAX_REDACTION_FILE_BYTES,
     STREAM_CHUNK_BYTES,
+    redact_text,
 )
 from sddgov.schema_validation import load_schema, validate_instance
-
 
 ROOT = Path(__file__).resolve().parents[1]
 WITHDRAWN_REDACTION_ERROR = re.compile(
@@ -275,6 +275,9 @@ class RepositoryContractTests(unittest.TestCase):
             "schemas/trusted-reviewers.schema.json",
             "services/sddgov-broker.service",
             "services/com.sddgov.broker.plist",
+            "schemas/trusted-runner-bootstrap.schema.json",
+            "schemas/trusted-runner-request.schema.json",
+            "schemas/trusted-runner-result-envelope.schema.json",
             "templates/MERGE_GATE.json",
             "templates/EXTERNAL_ACTION_RESOLUTION_RECEIPT.json",
             "templates/CI_COST_GUARD.json",
@@ -301,7 +304,7 @@ class RepositoryContractTests(unittest.TestCase):
     def test_current_repo_installed_governance_is_healthy_and_current(self):
         report = doctor(ROOT)
         self.assertTrue(report["ok"], report)
-        self.assertEqual(report["managed_file_count"], 73)
+        self.assertEqual(report["managed_file_count"], 76)
 
         triples = (
             (
@@ -430,6 +433,8 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertEqual(actions["patient-identifier"], "mask")
         self.assertEqual(actions["customer-identifier"], "mask")
         self.assertEqual(actions["local-path"], "mask")
+        self.assertEqual(actions["home-path"], "replace")
+        self.assertEqual(actions["trailing-whitespace"], "remove")
         self.assertEqual(MAX_REDACTION_FILE_BYTES, 10 * 1024 * 1024)
         self.assertEqual(MAX_LOGICAL_LINE_CHARACTERS, 1024 * 1024)
         self.assertEqual(STREAM_CHUNK_BYTES, 64 * 1024)
@@ -463,18 +468,28 @@ class RepositoryContractTests(unittest.TestCase):
         withdrawals = registry["withdrawals"]
         registered = [row["path"] for row in withdrawals]
         self.assertEqual(registered, sorted(set(registered)))
-        self.assertEqual(exposed, registered)
+        local_path_withdrawals = [
+            row["path"]
+            for row in withdrawals
+            if row["reason"] == "legacy-local-path-redaction-gap"
+        ]
+        self.assertEqual(exposed, local_path_withdrawals)
         for row in withdrawals:
             self.assertEqual(row["status"], "withdrawn")
-            self.assertEqual(row["reason"], "legacy-local-path-redaction-gap")
+            self.assertIn(
+                row["reason"],
+                {
+                    "legacy-local-path-redaction-gap",
+                    "legacy-trailing-whitespace-redaction-gap",
+                },
+            )
             replacement = ROOT / row["replacement"]
             self.assertTrue(replacement.is_file(), row)
-            self.assertIsNone(
-                LOCAL_USER_PATH_PATTERN.search(
-                    replacement.read_text(encoding="utf-8")
-                ),
-                row,
-            )
+            replacement_text = replacement.read_text(encoding="utf-8")
+            self.assertIsNone(LOCAL_USER_PATH_PATTERN.search(replacement_text), row)
+            redacted, matches = redact_text(replacement_text)
+            self.assertEqual(matches, {}, row)
+            self.assertEqual(redacted, replacement_text, row)
 
     def test_rc1_work_package_and_rollback_bind_current_proof(self):
         work_package = (ROOT / "work-packages/WP-RC1-READINESS-008.md").read_text(
