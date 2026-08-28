@@ -60,7 +60,7 @@ The digest remains available in the machine lock and provenance records, but ord
 
 ## Production deploy policy
 
-Production is external state, so an L0 deployment is not pre-authorized. A routine deployment may run autonomously as L1 only when a recorded Decision explicitly authorizes that exact deployment class, its assumptions remain unchanged, and every machine guard passes. A caller-supplied boolean is not authority:
+Release Readiness is an effect-free L1 channel with zero Owner operations. Actual Production deploy is external state and always crosses the L3 reality boundary. An L1 baseline or L2 product decision cannot authorize execution. Before one exact L3 deployment operation is presented, all machine guardrails must pass:
 
 - all required checks pass;
 - rollback is available;
@@ -71,13 +71,15 @@ Production is external state, so an L0 deployment is not pre-authorized. A routi
 - health check passes;
 - blast radius is within policy.
 
-Missing machine evidence blocks the deployment and triggers investigation, not an approval request. An L2 product-impacting deployment reuses a recorded decision only while its assumptions remain true. Destructive, high-privilege, Secret, permission-boundary, irreversible, or non-recoverable operations remain L3 and require fresh approval.
+Missing machine evidence blocks the deployment and triggers investigation, not an approval request. Once readiness is Green, every concrete L3 deployment operation binds the destination, scope, non-secret parameters, effects, and rollback and requires one fresh explicit approval. Public package publication is likewise a canonical `public_release` L3 operation with `public_publish: true`.
 
-Every known action request explicitly supplies `effects`, using `{}` when none apply. Omitted, null, unknown, or false-valued effect classifications fail closed. Unknown action categories and any action declaring Production, destructive, irreversible, Secret, permission-boundary, payment, or high-privilege effects fail closed when labeled L0/L1. The Agent must correct the classification; the mismatch does not become an owner approval prompt.
+Every known action request explicitly supplies `effects`, using `{}` when none apply. Omitted, null, unknown, or false-valued effect classifications fail closed. Effect-free `merge` and `release_readiness` are exact L1 channels. Any action declaring Production, public publication, destructive, irreversible, Secret, permission-boundary, payment, or high-privilege effects must be separated into a canonical L3 operation. The Agent corrects the classification; the mismatch does not become an owner approval prompt.
 
 ## Executable Merge gate
 
-`sddgov merge verify` binds the exact executable change to Local Green, strict DEP, Redaction, Rollback, raw-Evidence exclusion, and protected-file independent Review. GitHub workflows must execute it, and repository rulesets should require the resulting check.
+`sddgov merge verify` binds the exact executable change to Local Green, strict DEP, Redaction, Rollback, raw-Evidence exclusion, and protected-file independent Review. This RC1 candidate deliberately keeps repository self-governance deactivated, so an isolated independent Agent runs the exact-Base verifier before Merge. A hosted required-check workflow and matching repository ruleset are optional post-RC1 operational deployment; they must not be claimed until actually installed and verified.
+
+Merge itself is not intrinsically L3. If repository configuration makes Merge trigger Production deploy, public publication, or another reality effect, represent the engineering Merge and the external action separately; only the latter uses the L3 operation path.
 
 ## ACTION REQUIRED contract
 

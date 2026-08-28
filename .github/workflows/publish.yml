@@ -1,167 +1,215 @@
 name: publish
 
 on:
-  workflow_dispatch:
-    inputs:
-      publish_pypi:
-        description: In this same run, wait for protected PyPI approval after TestPyPI verification
-        required: true
-        default: false
-        type: boolean
+  workflow_run:
+    workflows: [release-candidate]
+    types: [completed]
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
-  group: publish-${{ github.ref }}
+  group: publish-v0.2.0rc1
   cancel-in-progress: false
 
 env:
-  # Every release must update RELEASE_VERSION and WHEEL_NAME together.
   RELEASE_VERSION: 0.2.0rc1
+  RELEASE_TAG: v0.2.0rc1
+  RELEASE_PACKAGE: agentic-sdd-governance
   WHEEL_NAME: agentic_sdd_governance-0.2.0rc1-py3-none-any.whl
+  PIP_DEFAULT_TIMEOUT: "30"
+  PIP_RETRIES: "3"
 
 jobs:
-  require-release-tag:
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
-    steps:
-      - name: Fail unless this dispatch targets the exact release tag
-        run: |
-          test "$GITHUB_REF_TYPE" = "tag"
-          test "$GITHUB_REF_NAME" = "v$RELEASE_VERSION"
-
-  build-and-smoke:
-    needs: require-release-tag
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Check out the exact release source
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-      - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: |
-            requirements-governance.lock
-            requirements-release.lock
-      - name: Require the exact immutable release tag
-        run: |
-          test "$GITHUB_REF_TYPE" = "tag"
-          test "$GITHUB_REF_NAME" = "v$RELEASE_VERSION"
-          test "$GITHUB_SHA" = "$(git rev-list -n 1 "v$RELEASE_VERSION")"
-          test "$(uname -m)" = "x86_64"
-      - name: Install hash-locked release tools
-        run: python -m pip install --require-hashes -r requirements-release.lock
-      - name: Validate the source contracts
-        run: |
-          python -m venv .governance-venv
-          .governance-venv/bin/python -m pip install --require-hashes -r requirements-governance.lock
-          .governance-venv/bin/python -m pip install --require-hashes -r requirements-release.lock
-          PYTHONPATH=src .governance-venv/bin/python -m unittest discover -s tests -v
-          PYTHONPATH=src .governance-venv/bin/python -m sddgov.cli validate .
-      - name: Build and inspect distributions
-        run: |
-          python -m build --no-isolation
-          python -m twine check dist/*
-          test -f "dist/$WHEEL_NAME"
-          test "$(find dist -maxdepth 1 -type f -name '*.whl' | wc -l)" -eq 1
-      - name: Prepare a hash-locked offline dependency wheelhouse
-        run: python -m pip download --require-hashes -r requirements-governance.lock --dest wheelhouse
-      - name: Assemble inventoried release assets
-        run: >-
-          PYTHONPATH=src python scripts/prepare_release_bundle.py
-          --dist dist
-          --wheelhouse wheelhouse
-          --lock requirements-governance.lock
-          --output release
-          --version "$RELEASE_VERSION"
-          --platform-label linux-x86_64-py312
-          --report release-bundle.json
-      - name: Smoke-test only the fresh wheel
-        run: >-
-          PYTHONPATH=src python scripts/fresh_wheel_smoke.py
-          --wheel "dist/$WHEEL_NAME"
-          --expected-version "$RELEASE_VERSION"
-          --bundle-root release/offline
-          --output fresh-wheel-smoke.json
-      - name: Upload immutable release candidates
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: distributions-${{ github.sha }}
-          path: release/
-          if-no-files-found: error
-          retention-days: 7
-
-  publish-testpypi:
-    needs: build-and-smoke
+  verify-readiness-handoff:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment:
-      name: testpypi
-      url: https://test.pypi.org/p/agentic-sdd-governance
-    permissions:
-      contents: read
-      id-token: write
+    outputs:
+      trusted-verifier-sha: ${{ steps.capture-trusted-verifier.outputs.sha }}
     steps:
-      - name: Check out the exact protected release tag
+      - name: Check out the trusted publication verifier
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          path: trusted
+          persist-credentials: false
+      - name: Capture the exact trusted publication verifier
+        id: capture-trusted-verifier
+        run: |
+          set -euo pipefail
+          sha="$(timeout --kill-after=5s 15s git -C trusted rev-parse HEAD)"
+          printf '%s' "$sha" | grep -Eq '^[0-9a-f]{40}$'
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+      - name: Verify the exact Owner release authority before requesting approval
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: >-
+          python trusted/scripts/check_release_environment.py
+          --environment release
+          --expected-ref "$DEFAULT_BRANCH"
+          --expected-ref-type branch
+          --authority-policy trusted/policies/release-authority.json
+      - name: Refuse duplicate or partial publication before requesting approval
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >-
+          python trusted/scripts/check_release_absence.py
+          --repository "$GITHUB_REPOSITORY"
+          --package "$RELEASE_PACKAGE"
+          --version "$RELEASE_VERSION"
+          --tag "$RELEASE_TAG"
+      - name: Require the candidate tag to be exact and contained in the default branch
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          READINESS_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          test "$READINESS_SHA" = "$(timeout --kill-after=5s 30s git -C trusted rev-list -n 1 "$RELEASE_TAG")"
+          timeout --kill-after=5s 30s git -C trusted merge-base --is-ancestor "$READINESS_SHA" "origin/$DEFAULT_BRANCH"
+      - name: Bind the successful readiness run to one machine-readable handoff
+        env:
+          READINESS_RUN_ID: ${{ github.event.workflow_run.id }}
+          READINESS_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: >-
+          python trusted/scripts/verify_readiness_handoff.py
+          --event "$GITHUB_EVENT_PATH"
+          --repository "$GITHUB_REPOSITORY"
+          --run-id "$READINESS_RUN_ID"
+          --sha "$READINESS_SHA"
+          --tag "$RELEASE_TAG"
+          --trusted-verifier-sha "${{ steps.capture-trusted-verifier.outputs.sha }}"
+          --workflow-name release-candidate
+          --workflow-path .github/workflows/release-candidate.yml
+          --output handoff/release-handoff.json
+      - name: Download only the artifact from the exact readiness run
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: distributions-${{ github.event.workflow_run.head_sha }}-${{ github.event.workflow_run.run_attempt }}
+          path: handoff/release
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id }}
+      - name: Verify the complete readiness artifact inventory
+        run: PYTHONPATH=trusted/src python trusted/scripts/verify_release_assets.py handoff/release
+      - name: Include immutable release notes without executing candidate code
+        env:
+          READINESS_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          PYTHONPATH=trusted/scripts python - <<'PY'
+          import os
+          from pathlib import Path
+          from release_validation import read_bounded_git_blob
+
+          notes = read_bounded_git_blob(
+              Path("trusted"),
+              f"{os.environ['READINESS_SHA']}:RELEASE_NOTES.md",
+          )
+          Path("handoff/RELEASE_NOTES.md").write_bytes(notes)
+          PY
+      - name: Upload the verified publication handoff
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: verified-release-${{ github.event.workflow_run.head_sha }}-${{ github.event.workflow_run.id }}
+          path: handoff/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Present one plain-language publication decision
+        env:
+          READINESS_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          READINESS_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          {
+            echo "## Ready for one publication approval"
+            echo "Release: $RELEASE_TAG"
+            echo "Verified readiness run: $READINESS_RUN_ID (attempt $READINESS_RUN_ATTEMPT)"
+            echo "Targets: TestPyPI, GitHub prerelease, and PyPI"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  publish-exact-release:
+    needs: verify-readiness-handoff
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment:
+      name: release
+      url: https://github.com/${{ github.repository }}/releases/tag/${{ env.RELEASE_TAG }}
+    permissions:
+      actions: read
+      contents: write
+      id-token: write
+    steps:
+      - name: Check out the trusted publication verifier
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.verify-readiness-handoff.outputs.trusted-verifier-sha }}
+          fetch-depth: 0
+          path: trusted
           persist-credentials: false
       - name: Set up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: "3.12"
-      - name: Verify the protected TestPyPI environment
+      - name: Verify the single protected release environment
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_CONFIGURATION_READ_TOKEN }}
-        run: |
-          test "$GITHUB_REF_TYPE" = "tag"
-          test "$GITHUB_REF_NAME" = "v$RELEASE_VERSION"
-          test "$GITHUB_SHA" = "$(git rev-list -n 1 "v$RELEASE_VERSION")"
-          python scripts/check_release_environment.py --environment testpypi --expected-tag "v$RELEASE_VERSION"
-      - name: Download the tested distributions
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: >-
+          python trusted/scripts/check_release_environment.py
+          --environment release
+          --expected-ref "$DEFAULT_BRANCH"
+          --expected-ref-type branch
+          --authority-policy trusted/policies/release-authority.json
+      - name: Download the verified handoff from this publication run
         uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
         with:
-          name: distributions-${{ github.sha }}
-          path: release
-      - name: Re-verify the complete downloaded release inventory
-        run: PYTHONPATH=src python scripts/verify_release_assets.py release
-      - name: Publish to TestPyPI with OIDC and attestations
+          name: verified-release-${{ github.event.workflow_run.head_sha }}-${{ github.event.workflow_run.id }}
+          path: handoff
+      - name: Rebind the handoff to the exact readiness run
+        env:
+          READINESS_RUN_ID: ${{ github.event.workflow_run.id }}
+          READINESS_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: >-
+          python trusted/scripts/verify_readiness_handoff.py
+          --event "$GITHUB_EVENT_PATH"
+          --repository "$GITHUB_REPOSITORY"
+          --run-id "$READINESS_RUN_ID"
+          --sha "$READINESS_SHA"
+          --tag "$RELEASE_TAG"
+          --trusted-verifier-sha "${{ needs.verify-readiness-handoff.outputs.trusted-verifier-sha }}"
+          --workflow-name release-candidate
+          --workflow-path .github/workflows/release-candidate.yml
+          --record handoff/release-handoff.json
+      - name: Re-verify the complete publication inventory
+        run: PYTHONPATH=trusted/src python trusted/scripts/verify_release_assets.py handoff/release
+      - name: Recheck the live source immediately before TestPyPI
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          READINESS_SHA: ${{ github.event.workflow_run.head_sha }}
+          TRUSTED_VERIFIER_SHA: ${{ needs.verify-readiness-handoff.outputs.trusted-verifier-sha }}
+        run: >-
+          python trusted/scripts/verify_release_source.py
+          --repository trusted
+          --default-branch "$DEFAULT_BRANCH"
+          --tag "$RELEASE_TAG"
+          --readiness-sha "$READINESS_SHA"
+          --trusted-verifier-sha "$TRUSTED_VERIFIER_SHA"
+      - name: Recheck the release transaction is still empty after approval
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >-
+          python trusted/scripts/check_release_absence.py
+          --repository "$GITHUB_REPOSITORY"
+          --package "$RELEASE_PACKAGE"
+          --version "$RELEASE_VERSION"
+          --tag "$RELEASE_TAG"
+      - name: Publish the exact distributions to TestPyPI with OIDC
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           repository-url: https://test.pypi.org/legacy/
           attestations: true
-          packages-dir: release/distributions
-
-  verify-testpypi:
-    needs: publish-testpypi
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Check out the smoke-test harness
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-      - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
-        with:
-          python-version: "3.12"
-      - name: Require the exact immutable release tag
-        run: |
-          test "$GITHUB_REF_TYPE" = "tag"
-          test "$GITHUB_REF_NAME" = "v$RELEASE_VERSION"
-          test "$GITHUB_SHA" = "$(git rev-list -n 1 "v$RELEASE_VERSION")"
-      - name: Download the tested offline dependency bundle
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
-        with:
-          name: distributions-${{ github.sha }}
-          path: release
-      - name: Re-verify the complete downloaded release inventory
-        run: PYTHONPATH=src python scripts/verify_release_assets.py release
+          packages-dir: handoff/release/distributions
       - name: Download the exact wheel back from TestPyPI
         run: |
           mkdir -p testpypi-dist
@@ -175,120 +223,107 @@ jobs:
               break
             fi
             if [ "$attempt" -eq 12 ]; then
-              printf '%s\n' "TestPyPI did not expose $RELEASE_VERSION within the bounded polling window" >&2
+              echo "TestPyPI did not expose $RELEASE_VERSION in time" >&2
               exit 1
             fi
             sleep 10
           done
-      - name: Require byte equality with the built wheel
+      - name: Verify the TestPyPI round trip and fresh-wheel behavior
         env:
-          PYTHONPATH: src
+          PYTHONPATH: trusted/src:trusted
         run: |
           python - <<'PY'
           import os
           from pathlib import Path
           from scripts.release_files import sha256_file
 
-          wheel_name = os.environ["WHEEL_NAME"]
-          built = sha256_file(Path("release/distributions") / wheel_name)
-          downloaded = sha256_file(Path("testpypi-dist") / wheel_name)
+          wheel = os.environ["WHEEL_NAME"]
+          built = sha256_file(Path("handoff/release/distributions") / wheel)
+          downloaded = sha256_file(Path("testpypi-dist") / wheel)
           if downloaded != built:
-              raise SystemExit("TestPyPI wheel bytes differ from the built wheel")
-          print(f"verified identical wheel SHA-256: {built}")
+              raise SystemExit("TestPyPI wheel bytes differ from the readiness artifact")
           PY
-      - name: Verify the registry round trip in a fresh environment
-        run: >-
-          PYTHONPATH=src python scripts/fresh_wheel_smoke.py
-          --wheel "testpypi-dist/$WHEEL_NAME"
-          --expected-version "$RELEASE_VERSION"
-          --bundle-root release/offline
-          --output testpypi-smoke.json
-
-  publish-github-release:
-    needs: verify-testpypi
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    environment:
-      name: github-release
-      url: https://github.com/${{ github.repository }}/releases/tag/v${{ env.RELEASE_VERSION }}
-    permissions:
-      contents: write
-    steps:
-      - name: Check out immutable release notes
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-      - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
-        with:
-          python-version: "3.12"
-      - name: Verify the protected GitHub Release environment
+          python trusted/scripts/fresh_wheel_smoke.py \
+            --wheel "testpypi-dist/$WHEEL_NAME" \
+            --expected-version "$RELEASE_VERSION" \
+            --bundle-root handoff/release/offline \
+            --output testpypi-smoke.json
+      - name: Recheck the live source immediately before GitHub Release
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_CONFIGURATION_READ_TOKEN }}
-        run: |
-          test "$GITHUB_REF_TYPE" = "tag"
-          test "$GITHUB_REF_NAME" = "v$RELEASE_VERSION"
-          test "$GITHUB_SHA" = "$(git rev-list -n 1 "v$RELEASE_VERSION")"
-          python scripts/check_release_environment.py --environment github-release --expected-tag "v$RELEASE_VERSION"
-      - name: Download the tested release assets
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
-        with:
-          name: distributions-${{ github.sha }}
-          path: release
-      - name: Re-verify the complete downloaded release inventory
-        run: PYTHONPATH=src python scripts/verify_release_assets.py release
-      - name: Publish the exact protected-tag release assets
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          READINESS_SHA: ${{ github.event.workflow_run.head_sha }}
+          TRUSTED_VERIFIER_SHA: ${{ needs.verify-readiness-handoff.outputs.trusted-verifier-sha }}
+        run: >-
+          python trusted/scripts/verify_release_source.py
+          --repository trusted
+          --default-branch "$DEFAULT_BRANCH"
+          --tag "$RELEASE_TAG"
+          --readiness-sha "$READINESS_SHA"
+          --trusted-verifier-sha "$TRUSTED_VERIFIER_SHA"
+      - name: Publish the exact assets as a GitHub prerelease
         env:
           GH_TOKEN: ${{ github.token }}
         run: >-
-          gh release create "$GITHUB_REF_NAME"
-          release/distributions/*
-          release/*-offline-*.zip
-          release/SHA256SUMS.txt
+          timeout --kill-after=10s 120s gh release create "$RELEASE_TAG"
+          handoff/release/distributions/*
+          handoff/release/*-offline-*.zip
+          handoff/release/SHA256SUMS.txt
           --verify-tag
           --prerelease
-          --title "$GITHUB_REF_NAME"
-          --notes-file RELEASE_NOTES.md
-
-  publish-pypi:
-    if: ${{ inputs.publish_pypi }}
-    needs:
-      - verify-testpypi
-      - publish-github-release
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    environment:
-      name: pypi
-      url: https://pypi.org/p/agentic-sdd-governance
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - name: Check out the exact protected release tag
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-      - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
-        with:
-          python-version: "3.12"
-      - name: Verify the protected PyPI environment
+          --title "$RELEASE_TAG"
+          --notes-file handoff/RELEASE_NOTES.md
+      - name: Recheck the live source immediately before PyPI
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_CONFIGURATION_READ_TOKEN }}
-        run: |
-          test "$GITHUB_REF_TYPE" = "tag"
-          test "$GITHUB_REF_NAME" = "v$RELEASE_VERSION"
-          test "$GITHUB_SHA" = "$(git rev-list -n 1 "v$RELEASE_VERSION")"
-          python scripts/check_release_environment.py --environment pypi --expected-tag "v$RELEASE_VERSION"
-      - name: Download the exact distributions tested before TestPyPI
-        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
-        with:
-          name: distributions-${{ github.sha }}
-          path: release
-      - name: Re-verify the complete downloaded release inventory
-        run: PYTHONPATH=src python scripts/verify_release_assets.py release
-      - name: Publish to PyPI with OIDC and attestations
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          READINESS_SHA: ${{ github.event.workflow_run.head_sha }}
+          TRUSTED_VERIFIER_SHA: ${{ needs.verify-readiness-handoff.outputs.trusted-verifier-sha }}
+        run: >-
+          python trusted/scripts/verify_release_source.py
+          --repository trusted
+          --default-branch "$DEFAULT_BRANCH"
+          --tag "$RELEASE_TAG"
+          --readiness-sha "$READINESS_SHA"
+          --trusted-verifier-sha "$TRUSTED_VERIFIER_SHA"
+      - name: Publish the same distributions to PyPI with OIDC
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           attestations: true
-          packages-dir: release/distributions
+          packages-dir: handoff/release/distributions
+      - name: Download the exact wheel back from PyPI
+        run: |
+          mkdir -p pypi-dist
+          for attempt in $(seq 1 12); do
+            if python -m pip download \
+              --index-url https://pypi.org/simple/ \
+              --no-cache-dir \
+              --no-deps \
+              --dest pypi-dist \
+              "agentic-sdd-governance==$RELEASE_VERSION"; then
+              break
+            fi
+            if [ "$attempt" -eq 12 ]; then
+              echo "PyPI did not expose $RELEASE_VERSION in time" >&2
+              exit 1
+            fi
+            sleep 10
+          done
+      - name: Verify the PyPI round trip and fresh-wheel behavior
+        env:
+          PYTHONPATH: trusted/src:trusted
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from scripts.release_files import sha256_file
+
+          wheel = os.environ["WHEEL_NAME"]
+          built = sha256_file(Path("handoff/release/distributions") / wheel)
+          downloaded = sha256_file(Path("pypi-dist") / wheel)
+          if downloaded != built:
+              raise SystemExit("PyPI wheel bytes differ from the readiness artifact")
+          PY
+          python trusted/scripts/fresh_wheel_smoke.py \
+            --wheel "pypi-dist/$WHEEL_NAME" \
+            --expected-version "$RELEASE_VERSION" \
+            --bundle-root handoff/release/offline \
+            --output pypi-smoke.json

@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentic-sdd.example/schemas/sdg-product-contract.schema.json",
+  "title": "SDG product contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "product_model",
+    "status",
+    "principle",
+    "channels",
+    "product_decisions",
+    "merge",
+    "review",
+    "release_handoff",
+    "integrity",
+    "strong_authorization",
+    "installer",
+    "legacy_rc1",
+    "success_metrics",
+    "stop_conditions"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "schema_version": {"const": "1.0.0"},
+    "product_model": {"const": "risk_effect_centric"},
+    "status": {"enum": ["draft", "approved_product_direction", "runtime_enforced"]},
+    "principle": {"type": "string", "minLength": 20},
+    "channels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["development", "release_readiness", "production_action"],
+      "properties": {
+        "development": {"$ref": "#/$defs/non_effect_channel"},
+        "release_readiness": {"$ref": "#/$defs/non_effect_channel"},
+        "production_action": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reality_effects", "owner_operations_max", "effects", "preferred_approval_surface", "strong_authorization"],
+          "properties": {
+            "reality_effects": {"const": true},
+            "owner_operations_max": {"const": 1},
+            "effects": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+            "preferred_approval_surface": {"const": "native_platform"},
+            "strong_authorization": {"const": "conditional_on_distinct_trust_boundary"}
+          }
+        }
+      }
+    },
+    "product_decisions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "profile", "owner_operations_max", "interaction", "cryptographic_receipt_required", "signed_receipt_profiles_retained", "reopen_only_when"],
+      "properties": {
+        "level": {"const": "L2"},
+        "profile": {"const": "team-standard"},
+        "owner_operations_max": {"const": 1},
+        "interaction": {"const": "bounded_plain_language_choice"},
+        "cryptographic_receipt_required": {"const": false},
+        "signed_receipt_profiles_retained": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {"enum": ["solo-fast", "regulated"]},
+          "allOf": [
+            {"contains": {"const": "solo-fast"}},
+            {"contains": {"const": "regulated"}}
+          ]
+        },
+        "reopen_only_when": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "merge": {"$ref": "#/$defs/open_object"},
+    "review": {"$ref": "#/$defs/open_object"},
+    "release_handoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_channel", "consumer_channel", "machine_verified_before_owner_approval", "owner_handles_integrity_fields", "protected_environment_jobs", "required_bindings"],
+      "properties": {
+        "source_channel": {"const": "release_readiness"},
+        "consumer_channel": {"const": "production_action"},
+        "machine_verified_before_owner_approval": {"const": true},
+        "owner_handles_integrity_fields": {"const": false},
+        "protected_environment_jobs": {"const": 1},
+        "required_bindings": {
+          "type": "array",
+          "minItems": 8,
+          "uniqueItems": true,
+          "items": {"enum": ["repository", "readiness_workflow_path", "readiness_run_id", "readiness_run_attempt", "release_tag", "head_sha", "trusted_verifier_sha", "artifact_name"]},
+          "allOf": [
+            {"contains": {"const": "repository"}},
+            {"contains": {"const": "readiness_workflow_path"}},
+            {"contains": {"const": "readiness_run_id"}},
+            {"contains": {"const": "readiness_run_attempt"}},
+            {"contains": {"const": "release_tag"}},
+            {"contains": {"const": "head_sha"}},
+            {"contains": {"const": "trusted_verifier_sha"}},
+            {"contains": {"const": "artifact_name"}}
+          ]
+        }
+      }
+    },
+    "integrity": {"$ref": "#/$defs/open_object"},
+    "strong_authorization": {"$ref": "#/$defs/open_object"},
+    "installer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["default_profile", "development_owner_operations", "release_readiness_owner_operations", "broker_service", "owner_signing", "strong_authorization", "copied_resources_are_authority"],
+      "properties": {
+        "default_profile": {"const": "team-standard"},
+        "development_owner_operations": {"const": 0},
+        "release_readiness_owner_operations": {"const": 0},
+        "broker_service": {"const": "not_installed_or_started"},
+        "owner_signing": {"const": "not_created_or_configured"},
+        "strong_authorization": {"const": "inactive_until_separately_provisioned"},
+        "copied_resources_are_authority": {"const": false}
+      }
+    },
+    "legacy_rc1": {"$ref": "#/$defs/open_object"},
+    "success_metrics": {"$ref": "#/$defs/open_object"},
+    "stop_conditions": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}}
+  },
+  "$defs": {
+    "non_effect_channel": {
+      "type": "object",
+      "required": ["reality_effects", "owner_operations_max", "agent_responsibilities"],
+      "properties": {
+        "reality_effects": {"const": false},
+        "owner_operations_max": {"const": 0},
+        "agent_responsibilities": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+        "human_ui_forbidden": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "result": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "open_object": {
+      "type": "object",
+      "minProperties": 1
+    }
+  }
+}

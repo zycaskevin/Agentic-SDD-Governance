@@ -7,7 +7,7 @@ independent_review:
 evidence:
   L0: targeted-test-proof
   L1: full-dep
-  L2: full-dep-plus-decision-package
+  L2: full-dep-plus-plain-language-decision-record
   L3: full-dep-plus-explicit-approval-and-rollback-drill
 debugging:
   screenshot_only_fix_allowed: false
@@ -24,3 +24,11 @@ approval_budget:
   l3_per_operation: 1
   milestone_uat: 1
   enforced_by: policies/autonomy-policy.json
+owner_experience:
+  development_operations: 0
+  release_readiness_operations: 0
+  l2_interaction: one_bounded_plain_language_choice
+  l2_terminal_or_signature_required: false
+  machine_integrity_fields_are_human_ui: false
+  merge_default_level: L1
+  production_action_level: L3

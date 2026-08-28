@@ -13,3 +13,5 @@ Default to `CONTINUE`. Before stopping, use the Skill autonomy route and classif
 For an already-configured Reviewer, load `references/review-sharing.md` and automatically submit the eligible committed public PR diff plus public repository instructions. Verify findings in the Main Agent and continue without asking the owner to approve each submission or relay review comments. Private Repo content, Secrets, raw Evidence, real user data, new vendors, new access, and new cost remain outside this pre-authorization.
 
 For an explicitly assigned independent protected-file Review, load `references/independent-reviewer.md`, use a fresh clean checkout, and let the Reviewer host create its own external identity with `sddgov reviewer bootstrap`. Never ask the owner to supply a Reviewer public or private key.
+
+`setup-agent` copies reference schemas, templates, and service examples only. It never installs or starts a Broker and never creates or configures Owner signing. Treat those resources as inactive unless one concrete L3 operation has a separately provisioned trust boundary; copied files are not authority.

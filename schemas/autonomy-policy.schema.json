@@ -8,6 +8,7 @@
     "default_state",
     "no_human_escalation_if_machine_verifiable",
     "action_classifier",
+    "effect_channels",
     "approval_budget",
     "checkpoint",
     "classifier_exit_codes",
@@ -17,7 +18,7 @@
     "trusted_verifier",
     "routine_external_review",
     "evidence_verification",
-    "l2_approval_receipts",
+    "l2_product_decisions",
     "l3_approval_receipts",
     "allowed_escalations",
     "production_deploy"
@@ -37,6 +38,19 @@
         "malformed_request_state": {"const": "BLOCKED"},
         "category_risk_must_match_exactly": {"const": true},
         "uncertainty_can_emit_action_required": {"const": false}
+      },
+      "additionalProperties": false
+    },
+    "effect_channels": {
+      "type": "object",
+      "required": ["merge_default_level", "merge_owner_operations", "release_readiness_level", "release_readiness_owner_operations", "reality_effect_requires_canonical_l3_operation", "public_publish_effect"],
+      "properties": {
+        "merge_default_level": {"const": "L1"},
+        "merge_owner_operations": {"const": 0},
+        "release_readiness_level": {"const": "L1"},
+        "release_readiness_owner_operations": {"const": 0},
+        "reality_effect_requires_canonical_l3_operation": {"const": true},
+        "public_publish_effect": {"const": "public_publish"}
       },
       "additionalProperties": false
     },
@@ -184,12 +198,15 @@
       },
       "additionalProperties": false
     },
-    "l2_approval_receipts": {
+    "l2_product_decisions": {
       "type": "object",
-      "required": ["algorithm", "caller_strings_are_authority", "bind_scope_and_assumptions", "reopen_state_when_context_changes"],
+      "required": ["team_standard_mode", "team_standard_cryptographic_receipt_required", "team_standard_owner_operations_max", "solo_fast_cryptographic_receipt_required", "regulated_cryptographic_receipt_required", "bind_scope_and_assumptions", "reopen_state_when_context_changes"],
       "properties": {
-        "algorithm": {"const": "ed25519"},
-        "caller_strings_are_authority": {"const": false},
+        "team_standard_mode": {"const": "bounded_plain_language_choice"},
+        "team_standard_cryptographic_receipt_required": {"const": false},
+        "team_standard_owner_operations_max": {"const": 1},
+        "solo_fast_cryptographic_receipt_required": {"const": true},
+        "regulated_cryptographic_receipt_required": {"const": true},
         "bind_scope_and_assumptions": {"const": true},
         "reopen_state_when_context_changes": {"const": "ACTION_REQUIRED"}
       },
@@ -233,13 +250,13 @@
     },
     "production_deploy": {
       "type": "object",
-      "required": ["l0_pre_authorized", "l1_pre_authorized", "l1_autonomous_with_recorded_baseline_authorization", "l1_requires_recorded_baseline_authorization", "l2_requires_recorded_decision", "l3_requires_fresh_explicit_approval", "required_guardrails"],
+      "required": ["l0_pre_authorized", "l1_pre_authorized", "l1_baseline_decision_can_authorize_execution", "l2_product_decision_can_authorize_execution", "actual_execution_requires_l3", "l3_requires_fresh_explicit_approval", "required_guardrails"],
       "properties": {
         "l0_pre_authorized": {"const": false},
         "l1_pre_authorized": {"const": false},
-        "l1_autonomous_with_recorded_baseline_authorization": {"const": true},
-        "l1_requires_recorded_baseline_authorization": {"const": true},
-        "l2_requires_recorded_decision": {"const": true},
+        "l1_baseline_decision_can_authorize_execution": {"const": false},
+        "l2_product_decision_can_authorize_execution": {"const": false},
+        "actual_execution_requires_l3": {"const": true},
         "l3_requires_fresh_explicit_approval": {"const": true},
         "required_guardrails": {
           "type": "array",

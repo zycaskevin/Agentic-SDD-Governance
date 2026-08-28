@@ -1,5 +1,22 @@
 # Roadmap
 
+## Product reset — active 2026-08-26
+
+- Replace approval-centric workflow-step governance with risk- and effect-centric governance.
+- Keep development and release readiness autonomous with zero Owner operations.
+- Use one plain-language interaction for an unresolved L2 product choice; reserve strong authorization for genuine L3 effects with a distinct trust boundary.
+- Treat Merge as L1 unless repository configuration makes it trigger a real L3 effect.
+- Keep hashes, exact refs, evidence, CI, rollback, and review as machine/Agent responsibilities.
+- Preserve RC1 Broker/signing work without making it a default dependency.
+- Executable baseline: `specs/sdg-product-contract.json`.
+
+The `0.2.0rc1` publication path remains externally paused while this product reset
+is active. Profile, classifier, CLI, primary documentation, and the separate
+machine-enforced readiness/publication channels are implemented in the candidate.
+Remaining gates are exact-final CodeRabbit and independent review, Gate/receipt,
+Merge, and live GitHub Environment, Trusted Publishing, tag, and registry
+readiness. No reset-complete or release claim is made before those gates pass.
+
 ## v0.2.0rc1 — local release candidate 2026-08-21
 
 - 30-second offline first-run demo plus aligned English/Traditional Chinese fast, controlled, and contributor installation paths.

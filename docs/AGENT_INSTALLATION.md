@@ -12,6 +12,12 @@ sddgov setup-agent /path/to/project --agent codex --profile team-standard
 
 Supported agents are `codex` and `hermes`. Supported Profiles are `solo-fast`, `team-standard`, and `regulated`.
 
+Setup installs governance files and Agent routing only. It never installs or
+starts a Broker service, never creates or configures Owner signing, and never
+turns copied templates into authority. `setup-agent` and `doctor` report this
+activation contract explicitly. Strong authorization remains inactive until one
+concrete L3 operation is separately provisioned across a real trust boundary.
+
 Setup preserves existing project instructions and manages only:
 
 ```text
@@ -32,6 +38,10 @@ sddgov status /path/to/project
 ```
 
 `doctor` verifies the install manifest, SHA-256 hashes, the managed `AGENTS.md` and `.gitignore` blocks, the selected Profile, and the Skill discovery path. A clean result proves the files and routing contract are installed; it does not replace a fresh-Agent behavior pilot.
+
+A clean result also reports that Broker and Owner signing remain unprovisioned;
+it must never be described as Broker-ready, signer-ready, installed system
+service, or activated strong authorization.
 
 ## First governed PR
 

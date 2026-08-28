@@ -29,7 +29,8 @@
                 "secret_change",
                 "permission_boundary_change",
                 "real_payment",
-                "high_privilege_production_operation"
+                "high_privilege_production_operation",
+                "public_release"
               ]
             },
             "target": {"type": "string", "minLength": 1},
@@ -37,7 +38,7 @@
             "effects": {
               "type": "object",
               "propertyNames": {
-                "enum": ["production", "destructive", "irreversible", "secret_change", "permission_boundary_change", "real_payment", "high_privilege"]
+                "enum": ["production", "destructive", "irreversible", "secret_change", "permission_boundary_change", "real_payment", "high_privilege", "public_publish"]
               },
               "additionalProperties": {"const": true}
             }

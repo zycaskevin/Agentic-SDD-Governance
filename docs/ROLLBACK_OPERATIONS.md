@@ -1,6 +1,8 @@
-# Rollback v3, Squash Merge, and Break-Glass Recovery
+# Rollback v4, Squash Merge, and Break-Glass Recovery
 
-Rollback v3 is intentionally narrow: pre-Merge proof accepts one immutable, full-SHA, single-parent implementation commit and a closed reconciliation/verification sequence. It does not accept a merge commit, symbolic ref, shell wrapper, force-push plan, or caller-selected bypass.
+Rollback v4 is intentionally narrow: pre-Merge proof accepts one immutable, full-SHA, single-parent implementation commit and a closed reconciliation/verification sequence. It does not accept a merge commit, symbolic ref, shell wrapper, force-push plan, or caller-selected bypass.
+
+Most consumer repositories use v3: reconciliation installs only managed governance files, then Doctor and the declared Python test module must return Green. This repository is different by deliberate product contract: it must remain self-governance-deactivated. Its closed v4 record therefore permits only `assert_self_governance_deactivated` plus `self_governance_deactivated`; the verifier performs the actual no-commit revert and checks that activation files are absent. Doctor is deliberately not run because it requires the installation which this product forbids. Candidate Local Green remains a separate required full-suite proof. This avoids treating host-specific `/etc` control-plane state as a rollback property.
 
 ## Why single-parent is required
 
@@ -20,7 +22,7 @@ trusted Base
 ```
 
 1. Before creating signed review artifacts, combine every non-Evidence change for the Work Package into one atomic, single-parent implementation commit on the feature branch.
-2. Run Local Green on that commit and record its full 40-character SHA as `rollback_ref` in the later `rollback.md` v3 record.
+2. Run Local Green on that commit and record its full 40-character SHA as `rollback_ref` in the later rollback record: consumer repositories use v3; this self-deactivated SDG product uses the closed v4 record described above.
 3. Between the atomic implementation commit and the reviewed Head, every descendant may change only `evidence/`. After that reviewed Head is fixed, later audit commits may change only `.sddgov/merge-gate.json` or `.sddgov/reviews/`. Any product, code, configuration, documentation, or out-of-window audit-path change requires a new implementation commit and a new rollback proof/review.
 4. Configure the repository to use squash-and-merge for governed PRs. Disable merge commits for this workflow; a force push to the protected branch is not a rollback method.
 5. GitHub creates a new single-parent squash commit on the protected branch. Immediately record the platform-generated squash SHA, source PR, reviewed Head, and pre-Merge `rollback_ref` in the post-Merge audit record. The tree is the reviewed PR result, while the actual incident revert target is now the squash SHA.
@@ -34,7 +36,7 @@ git switch -c incident/INC-YYYY-NNN "origin/$protected_branch"
 git revert --no-commit <full-squash-merge-sha>
 ```
 
-Then inspect the staged inverse, reconcile managed SDG files from the reverted source, run `sddgov doctor`, the declared Python test module, and the service health checks appropriate to the repository. Commit and merge the recovery through the normal protected emergency-PR path.
+Then inspect the staged inverse. Consumer repositories reconcile managed SDG files from reverted source, run `sddgov doctor`, the declared Python module, and appropriate service health checks. This self-deactivated SDG product instead requires its closed v4 inactive-state check and must not activate itself. Commit and merge the recovery through the normal protected emergency-PR path.
 
 Squash merging does not weaken the pre-Merge proof. It does mean the post-Merge audit system must retain the mapping from the reviewed atomic commit to the platform-created squash commit.
 

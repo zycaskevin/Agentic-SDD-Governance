@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "repository": "zycaskevin/Agentic-SDD-Governance",
+  "environment": "release",
+  "reviewers": [
+    {
+      "type": "User",
+      "id": 223135116,
+      "login": "zycaskevin"
+    }
+  ]
+}

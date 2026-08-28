@@ -31,7 +31,6 @@ from sddgov.cli import build_parser
 from sddgov.schema_validation import load_schema, validate_instance
 from sddgov.trust import (
     TRUSTED_APPROVERS_FILE,
-    load_control_plane_json as real_load_control_plane_json,
 )
 from sddgov.trusted_runner import (
     TrustedRunner,
@@ -525,22 +524,15 @@ target.chmod(0o600)
         self.assertNotIn(str(self.root), encoded)
         self.assertNotIn("AWS_SECRET_ACCESS_KEY", encoded)
 
-    def test_rehearsal_has_no_control_plane_fallback(self) -> None:
+    def test_rehearsal_requires_control_plane_nonce_consumption(self) -> None:
         descriptor, bundle = self._sealed_bundle()
         request = self._request(bundle, nonce="nonce-no-control-plane")
         try:
-            with (
-                patch.object(
-                    autonomy_module,
-                    "load_control_plane_json",
-                    side_effect=real_load_control_plane_json,
-                ),
-                patch.object(
-                    autonomy_module,
-                    "_consume_nonce_via_control_plane",
-                    return_value=False,
-                ),
-            ):
+            with patch.object(
+                autonomy_module,
+                "_consume_nonce_via_control_plane",
+                return_value=False,
+            ) as nonce_consumer:
                 result = self._verify_result_signature(
                     TrustedRunner(self.bootstrap).execute(
                         request, descriptor, peer_uid=os.geteuid()
@@ -548,10 +540,11 @@ target.chmod(0o600)
                 )
         finally:
             os.close(descriptor)
-        self.assertEqual(result["reason"], "approval_verification_failed")
+        self.assertEqual(result["reason"], "approval_not_consumed")
         self.assertFalse(result["approval_consumed"])
         self.assertFalse(result["credential_material_opened"])
         self.assertFalse(result["runtime_started"])
+        nonce_consumer.assert_called_once()
 
     def test_published_schemas_accept_exact_bootstrap_request_and_result(self) -> None:
         descriptor, bundle = self._sealed_bundle()

@@ -12,13 +12,36 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from pathlib import Path
 from typing import Any
 
+if __package__:
+    from .release_validation import (
+        MAX_AUTHORITY_POLICY_BYTES,
+        MAX_ENVIRONMENT_NAME_CHARS,
+        MAX_REF_CHARS,
+        MAX_REVIEWER_LOGIN_CHARS,
+        bounded_text,
+        bounded_token,
+        load_bounded_object,
+        positive_github_integer,
+        repository_slug,
+    )
+else:  # pragma: no cover - direct release workflow execution
+    from release_validation import (
+        MAX_AUTHORITY_POLICY_BYTES,
+        MAX_ENVIRONMENT_NAME_CHARS,
+        MAX_REF_CHARS,
+        MAX_REVIEWER_LOGIN_CHARS,
+        bounded_text,
+        bounded_token,
+        load_bounded_object,
+        positive_github_integer,
+        repository_slug,
+    )
 
-REPOSITORY_PATTERN = re.compile(
-    r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?/[A-Za-z0-9._-]+$"
-)
 MAX_RATE_LIMIT_DELAY_SECONDS = 60.0
+MAX_RESPONSE_BYTES = 1_048_576
 
 
 def _rate_limit_delay(error: urllib.error.HTTPError) -> float:
@@ -64,7 +87,9 @@ def _is_rate_limit_error(error: urllib.error.HTTPError) -> bool:
 def validate_environment(
     environment: dict[str, Any],
     branch_policies: dict[str, Any],
-    expected_tag: str,
+    expected_ref: str,
+    expected_ref_type: str,
+    expected_reviewers: list[tuple[str, int, str]],
 ) -> list[str]:
     errors: list[str] = []
     rules = environment.get("protection_rules")
@@ -83,6 +108,34 @@ def validate_environment(
         reviewers = rule.get("reviewers")
         if not isinstance(reviewers, list) or not reviewers:
             errors.append("environment must require at least one reviewer")
+        else:
+            actual_reviewers: list[tuple[str, int, str]] = []
+            for row in reviewers:
+                reviewer = row.get("reviewer") if isinstance(row, dict) else None
+                reviewer_type = row.get("type") if isinstance(row, dict) else None
+                reviewer_id = reviewer.get("id") if isinstance(reviewer, dict) else None
+                reviewer_login = (
+                    reviewer.get("login") if isinstance(reviewer, dict) else None
+                )
+                if (
+                    reviewer_type not in {"User", "Team"}
+                    or not isinstance(reviewer_id, int)
+                    or isinstance(reviewer_id, bool)
+                    or reviewer_id <= 0
+                    or not isinstance(reviewer_login, str)
+                    or not reviewer_login
+                ):
+                    errors.append("environment reviewer inventory is malformed")
+                    break
+                actual_reviewers.append(
+                    (reviewer_type, reviewer_id, reviewer_login)
+                )
+            else:
+                if actual_reviewers != expected_reviewers:
+                    errors.append(
+                        "environment reviewer identity does not match the trusted "
+                        f"release authority; got {actual_reviewers!r}"
+                    )
         if rule.get("prevent_self_review") is not True:
             errors.append("environment must prevent self-review")
     if environment.get("can_admins_bypass") is not False:
@@ -114,27 +167,75 @@ def validate_environment(
             for row in policies
             if isinstance(row, dict)
         ]
-        if total_count != 1 or normalized != [(expected_tag, "tag")]:
+        if total_count != 1 or normalized != [(expected_ref, expected_ref_type)]:
             errors.append(
-                f"environment must allow only the exact tag {expected_tag!r}; got {normalized!r}"
+                "environment must allow only the exact deployment ref "
+                f"{expected_ref!r} ({expected_ref_type}); got {normalized!r}"
             )
     return errors
 
 
-def _get_json(url: str, token: str) -> dict[str, Any]:
+def load_release_authority(
+    path: Path, repository: str, environment_name: str
+) -> list[tuple[str, int, str]]:
+    value = load_bounded_object(
+        path,
+        "trusted release authority policy",
+        MAX_AUTHORITY_POLICY_BYTES,
+    )
+    if not isinstance(value, dict) or set(value) != {
+        "schema_version",
+        "repository",
+        "environment",
+        "reviewers",
+    }:
+        raise ValueError("trusted release authority policy has an invalid contract")
+    if (
+        value.get("schema_version") != "1.0"
+        or value.get("repository") != repository
+        or value.get("environment") != environment_name
+    ):
+        raise ValueError("trusted release authority policy does not match this operation")
+    reviewers = value.get("reviewers")
+    if not isinstance(reviewers, list) or len(reviewers) != 1:
+        raise ValueError("trusted release authority must name exactly one reviewer")
+    row = reviewers[0]
+    if not isinstance(row, dict) or set(row) != {"type", "id", "login"}:
+        raise ValueError("trusted release authority reviewer is malformed")
+    reviewer_type = row.get("type")
+    reviewer_id = row.get("id")
+    reviewer_login = row.get("login")
+    if (
+        reviewer_type not in {"User", "Team"}
+        or not isinstance(reviewer_login, str)
+    ):
+        raise ValueError("trusted release authority reviewer is malformed")
+    positive_github_integer(reviewer_id, "trusted release authority reviewer ID")
+    bounded_text(
+        reviewer_login,
+        "trusted release authority reviewer login",
+        MAX_REVIEWER_LOGIN_CHARS,
+    )
+    return [(reviewer_type, reviewer_id, reviewer_login)]
+
+
+def _get_json(url: str, token: str | None = None) -> dict[str, Any]:
+    token = bounded_token(token)
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
     request = urllib.request.Request(
         url,
-        headers={
-            "Accept": "application/vnd.github+json",
-            "Authorization": f"Bearer {token}",
-            "X-GitHub-Api-Version": "2022-11-28",
-        },
+        headers=headers,
     )
     for attempt in range(3):
         delay: float | None = None
         try:
             with urllib.request.urlopen(request, timeout=30) as response:
-                value = json.load(response)
+                payload = response.read(MAX_RESPONSE_BYTES + 1)
             break
         except urllib.error.HTTPError as exc:
             rate_limited = _is_rate_limit_error(exc)
@@ -148,19 +249,35 @@ def _get_json(url: str, token: str) -> dict[str, Any]:
             if attempt == 2:
                 raise
         time.sleep(delay if delay is not None else 0.25 * (2**attempt))
+    if len(payload) > MAX_RESPONSE_BYTES:
+        raise ValueError("GitHub API response exceeds the bounded size")
+    value = json.loads(payload.decode("utf-8"))
     if not isinstance(value, dict):
         raise ValueError("GitHub API returned a non-object response")
     return value
 
 
-def check(repository: str, environment_name: str, expected_tag: str, token: str) -> None:
-    if REPOSITORY_PATTERN.fullmatch(repository) is None:
-        raise ValueError("repository must use owner/name form")
-    owner, name = repository.split("/", 1)
-    if owner in {".", ".."} or name in {".", ".."}:
-        raise ValueError("repository must use owner/name form")
-    if not environment_name or not expected_tag.startswith("v"):
-        raise ValueError("environment and exact v-prefixed tag are required")
+def check(
+    repository: str,
+    environment_name: str,
+    expected_ref: str,
+    expected_ref_type: str,
+    token: str | None,
+    authority_policy: Path,
+) -> None:
+    repository = repository_slug(repository)
+    environment_name = bounded_text(
+        environment_name,
+        "environment",
+        MAX_ENVIRONMENT_NAME_CHARS,
+    )
+    expected_ref = bounded_text(expected_ref, "exact ref", MAX_REF_CHARS)
+    token = bounded_token(token)
+    if expected_ref_type not in {"branch", "tag"}:
+        raise ValueError("environment, exact ref, and branch/tag ref type are required")
+    expected_reviewers = load_release_authority(
+        authority_policy, repository, environment_name
+    )
     base = "https://api.github.com/repos/" + urllib.parse.quote(
         repository, safe="/"
     )
@@ -172,7 +289,13 @@ def check(repository: str, environment_name: str, expected_tag: str, token: str)
         f"{base}/environments/{encoded_environment}/deployment-branch-policies?per_page=100",
         token,
     )
-    errors = validate_environment(environment, policies, expected_tag)
+    errors = validate_environment(
+        environment,
+        policies,
+        expected_ref,
+        expected_ref_type,
+        expected_reviewers,
+    )
     if errors:
         raise ValueError("; ".join(errors))
 
@@ -181,19 +304,29 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repository", default=os.environ.get("GITHUB_REPOSITORY"))
     parser.add_argument("--environment", required=True)
-    parser.add_argument("--expected-tag", required=True)
+    parser.add_argument("--expected-ref", required=True)
+    parser.add_argument("--expected-ref-type", choices=("branch", "tag"), required=True)
+    parser.add_argument("--authority-policy", type=Path, required=True)
     args = parser.parse_args()
     token = os.environ.get("GITHUB_TOKEN")
-    if not args.repository or not token:
-        print("release environment preflight failed: GITHUB_REPOSITORY and GITHUB_TOKEN are required")
+    if not args.repository:
+        print("release environment preflight failed: GITHUB_REPOSITORY is required")
         return 1
     try:
-        check(args.repository, args.environment, args.expected_tag, token)
+        check(
+            args.repository,
+            args.environment,
+            args.expected_ref,
+            args.expected_ref_type,
+            token,
+            args.authority_policy,
+        )
     except (OSError, ValueError, http.client.HTTPException) as exc:
         print(f"release environment preflight failed: {exc}")
         return 1
     print(
-        f"release environment preflight passed: {args.environment} allows only {args.expected_tag}"
+        "release environment preflight passed: "
+        f"{args.environment} allows only {args.expected_ref_type} {args.expected_ref}"
     )
     return 0
 
