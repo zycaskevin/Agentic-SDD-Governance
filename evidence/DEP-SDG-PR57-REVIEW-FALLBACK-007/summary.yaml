@@ -1,0 +1,46 @@
+{
+  "$schema": "../../schemas/debug-evidence-package.schema.json",
+  "schema_version": "1.0",
+  "dep_id": "DEP-SDG-PR57-REVIEW-FALLBACK-007",
+  "issue": "WP-SDG-AF27-PRODUCT-RESET-INTEGRATION-007",
+  "sdd_references": [
+    "SDG-PRODUCT-CONTRACT"
+  ],
+  "risk_level": "L2",
+  "created_at": "2026-08-28T16:17:04Z",
+  "updated_at": "2026-08-28T16:18:12Z",
+  "workflow": {
+    "phase": "proof",
+    "history": [
+      {
+        "phase": "red",
+        "at": "2026-08-28T16:17:04Z"
+      },
+      {
+        "phase": "evidence",
+        "at": "2026-08-28T16:18:12Z"
+      },
+      {
+        "phase": "fix",
+        "at": "2026-08-28T16:18:12Z"
+      },
+      {
+        "phase": "green",
+        "at": "2026-08-28T16:18:12Z"
+      },
+      {
+        "phase": "proof",
+        "at": "2026-08-28T16:18:12Z"
+      }
+    ]
+  },
+  "expected_behavior": "Automated review findings are mandatory to repair, but provider skip or outage has a bounded independent-review fallback.",
+  "actual_behavior": "A provider skip status and unusable CLI attempts acted as an indefinite single merge blocker without adding review evidence.",
+  "environment": {
+    "commit": "a5589c5f2d1904a13a1d9da4677aa6354cb3ef39",
+    "branch": "detached clean rebuild",
+    "runtime": "Linux aarch64; Python 3.12.3"
+  },
+  "root_cause_status": "confirmed",
+  "attachments": []
+}

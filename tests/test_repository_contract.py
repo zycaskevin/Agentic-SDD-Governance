@@ -10,6 +10,7 @@ import yaml
 from sddgov import __version__, _require_supported_python
 from sddgov.cli import _validate_repo
 from sddgov.evidence import verify as verify_dep
+from sddgov.installer import doctor
 from sddgov.owner_approval import _owner_client_identity
 from sddgov.redaction import (
     LOCAL_USER_PATH_PATTERN,
@@ -100,6 +101,7 @@ class RepositoryContractTests(unittest.TestCase):
     def test_repository_assets_validate(self):
         self.assertEqual(_validate_repo(ROOT), [])
         self.assertFalse((ROOT / ".agentic-sdd-governance").exists())
+        self.assertFalse((ROOT / ".agents").exists())
 
     def test_source_validation_requires_runtime_and_owner_approval_modules(self):
         original = Path.is_file
@@ -223,6 +225,14 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("references/autonomy-workflow.md", text)
         self.assertIn("references/independent-reviewer.md", text)
         self.assertIn("references/review-sharing.md", text)
+        autonomy = (
+            ROOT
+            / "skill/agentic-sdd-governance/references/autonomy-workflow.md"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            "solo-fast and regulated retain the separate-identity signed L2 path",
+            autonomy,
+        )
         self.assertNotIn("# Evidence-Driven SDD", text)
 
     def test_json_schemas_are_parseable(self):
@@ -317,7 +327,7 @@ class RepositoryContractTests(unittest.TestCase):
                     (packaged / relative).read_bytes(),
                 )
 
-    def test_current_repo_self_governance_remains_deactivated(self):
+    def test_current_repo_self_governance_install_remains_deactivated(self):
         for relative in (
             ".agentic-sdd-governance",
             ".agents",
@@ -326,6 +336,14 @@ class RepositoryContractTests(unittest.TestCase):
         ):
             with self.subTest(path=relative):
                 self.assertFalse((ROOT / relative).exists())
+        report = doctor(ROOT)
+        self.assertFalse(report["ok"], report)
+        self.assertEqual(
+            report["errors"],
+            [".agentic-sdd-governance/manifest.json is missing; run sddgov setup-agent"],
+        )
+        self.assertFalse((ROOT / ".agentic-sdd-governance").exists())
+        self.assertFalse((ROOT / ".agents").exists())
 
     def test_codex_adapter_preserves_repository_bootstrap_before_layered_loading(self):
         codex = (ROOT / "adapters/codex/AGENTS.md").read_text(encoding="utf-8")
@@ -799,7 +817,7 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertNotIn("packaging==26.3", lock)
         self.assertNotIn("cryptography==46.0.7", lock)
 
-    def test_owner_approval_is_a_separate_non_key_cli_contract(self):
+    def test_regulated_owner_client_is_isolated_and_retired_r22_fails_closed(self):
         pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
         agent_cli = (ROOT / "src/sddgov/cli.py").read_text(encoding="utf-8")
         owner_cli = (ROOT / "src/sddgov/owner_cli.py").read_text(encoding="utf-8")
@@ -847,11 +865,11 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertRegex(request["owner_client"]["source_sha256"], r"^[a-f0-9]{64}$")
         current_owner_client = _owner_client_identity()
         self.assertEqual(
-            request["owner_client"],
-            {
-                "version": current_owner_client["version"],
-                "source_sha256": current_owner_client["source_sha256"],
-            },
+            request["owner_client"]["version"], current_owner_client["version"]
+        )
+        self.assertNotEqual(
+            request["owner_client"]["source_sha256"],
+            current_owner_client["source_sha256"],
         )
         decision_contract = (
             ROOT / "work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.md"
@@ -863,164 +881,156 @@ class RepositoryContractTests(unittest.TestCase):
             separators=(",", ":"),
         )
         self.assertEqual(decision_contract.count(expected_binding), 1)
+        current_decision = (
+            ROOT / "work-packages/DEC-SDG-EFFECT-BOUNDARY-001.md"
+        ).read_text(encoding="utf-8")
+        self.assertIn("supersedes", current_decision)
+        self.assertIn("DEC-RC1-APPROVER-AUTHORITY-R22", current_decision)
 
-    def test_release_workflow_is_manual_isolated_and_attested(self):
-        source = (ROOT / ".github/workflows/publish.yml").read_text(encoding="utf-8")
+    def test_release_workflow_consumes_one_verified_handoff_before_one_approval(self):
+        publish_source = (ROOT / ".github/workflows/publish.yml").read_text(
+            encoding="utf-8"
+        )
+        readiness_source = (
+            ROOT / ".github/workflows/release-readiness.yml"
+        ).read_text(encoding="utf-8")
+        candidate_source = (
+            ROOT / ".github/workflows/release-candidate.yml"
+        ).read_text(encoding="utf-8")
         # BaseLoader preserves workflow keys such as `on` as strings.
-        workflow = yaml.load(source, Loader=yaml.BaseLoader)  # noqa: S506
-        self.assertEqual(set(workflow["on"]), {"workflow_dispatch"})
-        self.assertEqual(workflow["permissions"], {"contents": "read"})
+        publish = yaml.load(publish_source, Loader=yaml.BaseLoader)  # noqa: S506
+        readiness = yaml.load(readiness_source, Loader=yaml.BaseLoader)  # noqa: S506
+        candidate = yaml.load(candidate_source, Loader=yaml.BaseLoader)  # noqa: S506
+
+        self.assertEqual(set(publish["on"]), {"workflow_run"})
         self.assertEqual(
-            set(workflow["jobs"]),
-            {
-                "require-release-tag",
-                "build-and-smoke",
-                "publish-testpypi",
-                "verify-testpypi",
-                "publish-github-release",
-                "publish-pypi",
-            },
+            publish["on"]["workflow_run"],
+            {"workflows": ["release-candidate"], "types": ["completed"]},
         )
-        for name, job in workflow["jobs"].items():
-            permissions = job.get("permissions", {})
-            if name in {"publish-testpypi", "publish-pypi"}:
-                self.assertEqual(
-                    permissions,
-                    {"contents": "read", "id-token": "write"},
-                )
-                publish_steps = [step for step in job["steps"] if "pypi-publish@" in step.get("uses", "")]
-                self.assertEqual(len(publish_steps), 1)
-                self.assertEqual(publish_steps[0]["with"]["attestations"], "true")
-            else:
-                self.assertNotIn("id-token", permissions)
-        self.assertNotIn("if", workflow["jobs"]["require-release-tag"])
         self.assertEqual(
-            workflow["jobs"]["build-and-smoke"]["needs"], "require-release-tag"
+            publish["permissions"], {"actions": "read", "contents": "read"}
         )
-        self.assertEqual(workflow["jobs"]["publish-testpypi"]["needs"], "build-and-smoke")
-        self.assertEqual(workflow["jobs"]["verify-testpypi"]["needs"], "publish-testpypi")
-        for name in (
-            "build-and-smoke",
-            "publish-testpypi",
-            "verify-testpypi",
-            "publish-github-release",
-        ):
-            self.assertNotIn("if", workflow["jobs"][name])
+        self.assertEqual(publish["concurrency"]["group"], "publish-v0.2.0rc1")
+        self.assertEqual(publish["concurrency"]["cancel-in-progress"], "false")
         self.assertEqual(
-            workflow["jobs"]["publish-pypi"]["needs"],
-            ["verify-testpypi", "publish-github-release"],
+            set(publish["jobs"]),
+            {"verify-readiness-handoff", "publish-exact-release"},
         )
-        self.assertIn("inputs.publish_pypi", workflow["jobs"]["publish-pypi"]["if"])
-        self.assertEqual(workflow["jobs"]["publish-pypi"]["environment"]["name"], "pypi")
-        for name in ("publish-testpypi", "publish-github-release", "publish-pypi"):
-            job = workflow["jobs"][name]
-            self.assertIn("environment", job)
-            setup_steps = [
-                step
-                for step in job["steps"]
-                if str(step.get("uses", "")).startswith("actions/setup-python@")
-            ]
-            self.assertEqual(len(setup_steps), 1, name)
-            self.assertEqual(setup_steps[0]["with"]["python-version"], "3.12")
-            token_steps = [
-                step
-                for step in job["steps"]
-                if "RELEASE_CONFIGURATION_READ_TOKEN"
-                in str(step.get("env", {}))
-            ]
-            self.assertEqual(len(token_steps), 1, name)
-            self.assertIn('test "$GITHUB_REF_TYPE" = "tag"', token_steps[0]["run"])
-        self.assertIn("test.pypi.org", source)
-        self.assertIn('test "$GITHUB_REF_TYPE" = "tag"', source)
-        self.assertIn('test "$GITHUB_REF_NAME" = "v$RELEASE_VERSION"', source)
-        self.assertIn("fresh_wheel_smoke.py", source)
-        self.assertIn("prepare_release_bundle.py", source)
+        preflight = publish["jobs"]["verify-readiness-handoff"]
+        external = publish["jobs"]["publish-exact-release"]
         self.assertEqual(
-            source.count(
-                "PYTHONPATH=src python scripts/verify_release_assets.py release"
-            ),
-            4,
+            set(preflight["outputs"]), {"trusted-verifier-sha"}
+        )
+        self.assertNotIn("environment", preflight)
+        self.assertEqual(external["needs"], "verify-readiness-handoff")
+        self.assertEqual(external["environment"]["name"], "release")
+        self.assertEqual(
+            external["permissions"],
+            {"actions": "read", "contents": "write", "id-token": "write"},
+        )
+        self.assertEqual(
+            sum("environment" in job for job in publish["jobs"].values()), 1
+        )
+        self.assertIn("workflow_dispatch", preflight["if"])
+        self.assertEqual(publish_source.count("verify_readiness_handoff.py"), 2)
+        self.assertEqual(publish_source.count("--trusted-verifier-sha"), 5)
+        self.assertIn(
+            "ref: ${{ needs.verify-readiness-handoff.outputs.trusted-verifier-sha }}",
+            publish_source,
+        )
+        self.assertEqual(publish_source.count("verify_release_source.py"), 3)
+        self.assertIn("github-token: ${{ github.token }}", publish_source)
+        self.assertIn("run-id: ${{ github.event.workflow_run.id }}", publish_source)
+        self.assertIn("merge-base --is-ancestor", publish_source)
+        self.assertIn("--expected-ref-type branch", publish_source)
+        self.assertEqual(publish_source.count("check_release_environment.py"), 2)
+        self.assertIn(
+            "--authority-policy trusted/policies/release-authority.json",
+            publish_source,
+        )
+        self.assertEqual(publish_source.count("check_release_absence.py"), 2)
+        verified_handoff_name = (
+            "verified-release-${{ github.event.workflow_run.head_sha }}-"
+            "${{ github.event.workflow_run.id }}"
+        )
+        self.assertEqual(publish_source.count(verified_handoff_name), 2)
+        self.assertNotIn(
+            f"{verified_handoff_name}-${{{{ github.run_attempt }}}}",
+            publish_source,
+        )
+        self.assertNotIn(
+            "group: publish-${{ github.event.workflow_run.id }}",
+            publish_source,
+        )
+        self.assertNotIn("python -m build", publish_source)
+        self.assertNotIn("prepare_release_bundle.py", publish_source)
+        self.assertNotIn("unittest discover", publish_source)
+        self.assertNotIn("skip-existing", publish_source)
+        self.assertEqual(publish_source.count("pypa/gh-action-pypi-publish@"), 2)
+        self.assertIn("test.pypi.org", publish_source)
+        self.assertIn("https://pypi.org/simple/", publish_source)
+        self.assertIn("gh release create", publish_source)
+        self.assertIn(
+            "timeout --kill-after=10s 120s gh release create",
+            publish_source,
         )
         self.assertIn(
-            "PYTHONPATH=src python scripts/prepare_release_bundle.py", source
+            "timeout --kill-after=5s 15s git -C trusted rev-parse HEAD",
+            publish_source,
         )
-        self.assertGreaterEqual(
-            source.count("PYTHONPATH=src python scripts/fresh_wheel_smoke.py"),
-            2,
+        self.assertIn("read_bounded_git_blob", publish_source)
+        self.assertNotIn(
+            'git -C trusted show "$READINESS_SHA:RELEASE_NOTES.md" >',
+            publish_source,
         )
-        self.assertIn("check_release_environment.py", source)
-        self.assertIn("RELEASE_CONFIGURATION_READ_TOKEN", source)
-        self.assertIn("--bundle-root release/offline", source)
-        self.assertIn('test "$(uname -m)" = "x86_64"', source)
-        self.assertIn("--platform-label linux-x86_64-py312", source)
-        self.assertIn("packages-dir: release/distributions", source)
-        self.assertIn("--require-hashes -r requirements-release.lock", source)
-        self.assertIn("--require-hashes -r requirements-governance.lock", source)
-        self.assertIn("python -m venv .governance-venv", source)
+        self.assertNotIn("wc -c < handoff/RELEASE_NOTES.md", publish_source)
+        self.assertNotIn("RELEASE_CONFIGURATION_READ_TOKEN", publish_source)
+
+        package = candidate["jobs"]["package-release-candidate"]
+        self.assertEqual(package["needs"], "native-package-readiness")
+        self.assertNotIn("environment", package)
+        self.assertEqual(set(candidate["on"]), {"workflow_dispatch"})
+        self.assertEqual(
+            candidate["concurrency"],
+            {"group": "release-candidate-v0.2.0rc1", "cancel-in-progress": "false"},
+        )
+        self.assertIn("python -m build --no-isolation", candidate_source)
+        self.assertIn("prepare_release_bundle.py", candidate_source)
+        self.assertIn("fresh_wheel_smoke.py", candidate_source)
         self.assertIn(
-            "PYTHONPATH=src .governance-venv/bin/python -m unittest", source
+            "distributions-${{ github.sha }}-${{ github.run_attempt }}",
+            candidate_source,
         )
-        validate_step = next(
-            step
-            for step in workflow["jobs"]["build-and-smoke"]["steps"]
-            if step.get("name") == "Validate the source contracts"
+        for source in (readiness_source, candidate_source):
+            self.assertNotIn("pypa/gh-action-pypi-publish", source)
+            self.assertNotIn("gh release create", source)
+            self.assertNotIn("id-token: write", source)
+            self.assertNotIn("contents: write", source)
+
+        for workflow in (publish, readiness, candidate):
+            self.assertEqual(workflow["env"]["PIP_DEFAULT_TIMEOUT"], "30")
+            self.assertEqual(workflow["env"]["PIP_RETRIES"], "3")
+
+        for source in (publish_source, readiness_source, candidate_source):
+            uses = re.findall(r"uses:\s*([^\s#]+)", source)
+            self.assertTrue(uses)
+            self.assertTrue(
+                all(re.fullmatch(r"[^@\s]+@[0-9a-f]{40}", value) for value in uses),
+                uses,
+            )
+
+        guard = json.loads(
+            (ROOT / ".sddgov/ci-cost-guard.json").read_text(encoding="utf-8")
         )
-        validate_run = validate_step["run"]
-        governance_install = (
-            ".governance-venv/bin/python -m pip install --require-hashes "
-            "-r requirements-governance.lock"
-        )
-        release_install = (
-            ".governance-venv/bin/python -m pip install --require-hashes "
-            "-r requirements-release.lock"
-        )
-        full_tests = "PYTHONPATH=src .governance-venv/bin/python -m unittest"
-        self.assertIn(governance_install, validate_run)
-        self.assertIn(release_install, validate_run)
-        self.assertLess(
-            validate_run.index(governance_install), validate_run.index(full_tests)
-        )
-        self.assertLess(validate_run.index(release_install), validate_run.index(full_tests))
-        self.assertIn("for attempt in", source)
-        self.assertIn("--no-cache-dir", source)
-        self.assertIn("sleep 10", source)
-        self.assertIn("Require byte equality with the built wheel", source)
-        byte_equality_step = next(
-            step
-            for step in workflow["jobs"]["verify-testpypi"]["steps"]
-            if step.get("name") == "Require byte equality with the built wheel"
-        )
-        self.assertEqual(byte_equality_step.get("env", {}).get("PYTHONPATH"), "src")
-        self.assertNotIn("skip-existing", source)
-        uses = re.findall(r"uses:\s*([^\s#]+)", source)
-        self.assertTrue(uses)
-        self.assertTrue(
-            all(re.fullmatch(r"[^@\s]+@[0-9a-f]{40}", value) for value in uses),
-            uses,
-        )
-        guard = json.loads((ROOT / ".sddgov/ci-cost-guard.json").read_text(encoding="utf-8"))
-        self.assertIn(
-            [
-                "python3",
-                "-m",
-                "sddgov.cli",
-                "decision",
-                "verify-product",
-                "DEC-RC1-APPROVER-AUTHORITY-R22",
-                "work-packages/DEC-RC1-APPROVER-AUTHORITY-R22.request.json",
-                "--path",
-                ".",
-            ],
-            guard["local_green"]["commands"],
-        )
+        local_green = json.dumps(guard["local_green"], sort_keys=True)
+        self.assertNotIn("verify-product", local_green)
+        self.assertNotIn("DEC-RC1-APPROVER-AUTHORITY-R22", local_green)
         self.assertEqual(guard["workflow_controls"]["exempt_workflows"], [])
         self.assertEqual(
             guard["workflow_controls"]["write_permission_exceptions"],
             {
                 "publish.yml": {
-                    "publish-testpypi": ["id-token"],
-                    "publish-github-release": ["contents"],
-                    "publish-pypi": ["id-token"],
+                    "publish-exact-release": ["contents", "id-token"]
                 }
             },
         )
@@ -1085,11 +1095,9 @@ class RepositoryContractTests(unittest.TestCase):
             "com.sddgov.broker.plist",
         ):
             canonical = (ROOT / "services" / name).read_bytes()
-            for mirror in (
-                ROOT / "src/sddgov/resources/governance/services" / name,
-            ):
-                with self.subTest(name=name, mirror=mirror):
-                    self.assertEqual(mirror.read_bytes(), canonical)
+            packaged = ROOT / "src/sddgov/resources/governance/services" / name
+            with self.subTest(name=name):
+                self.assertEqual(packaged.read_bytes(), canonical)
 
     def test_security_configuration_mirrors_are_byte_identical(self):
         for relative in (
@@ -1097,11 +1105,9 @@ class RepositoryContractTests(unittest.TestCase):
             "redaction/rules.json",
         ):
             canonical = (ROOT / relative).read_bytes()
-            for prefix in (
-                ROOT / "src/sddgov/resources/governance",
-            ):
-                with self.subTest(relative=relative, prefix=prefix):
-                    self.assertEqual((prefix / relative).read_bytes(), canonical)
+            packaged = ROOT / "src/sddgov/resources/governance" / relative
+            with self.subTest(relative=relative):
+                self.assertEqual(packaged.read_bytes(), canonical)
 
     def test_release_tool_lock_excludes_reviewed_vulnerable_ranges(self):
         requirements = (ROOT / "requirements-release.in").read_text(
@@ -1259,6 +1265,21 @@ class RepositoryContractTests(unittest.TestCase):
                 for fragment in fragments:
                     self.assertIn(fragment, text)
 
+    def test_operation_receipt_schema_has_public_release_effect(self):
+        receipt_schema = json.loads(
+            (ROOT / "schemas/operation-approval-receipt.schema.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        operation_properties = receipt_schema["properties"]["receipt"]["properties"][
+            "operation_payload"
+        ]["properties"]
+        self.assertIn("public_release", operation_properties["category"]["enum"])
+        self.assertIn(
+            "public_publish",
+            operation_properties["effects"]["propertyNames"]["enum"],
+        )
+
     def test_autonomy_v1_2_contract_is_machine_enforced(self):
         policy = json.loads(
             (ROOT / "policies/autonomy-policy.json").read_text(encoding="utf-8")
@@ -1267,11 +1288,25 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertTrue(policy["no_human_escalation_if_machine_verifiable"])
         self.assertEqual(policy["action_classifier"]["unknown_category_state"], "BLOCKED")
         self.assertTrue(policy["action_classifier"]["sensitive_effects_require_l3"])
+        self.assertEqual(policy["effect_channels"]["merge_default_level"], "L1")
+        self.assertEqual(policy["effect_channels"]["merge_owner_operations"], 0)
+        self.assertEqual(
+            policy["effect_channels"]["release_readiness_owner_operations"], 0
+        )
+        self.assertTrue(
+            policy["effect_channels"][
+                "reality_effect_requires_canonical_l3_operation"
+            ]
+        )
         self.assertEqual(policy["approval_budget"]["L0"], 0)
         self.assertEqual(policy["approval_budget"]["L1"], 0)
         self.assertTrue(policy["integrity"]["human_copy_paste_forbidden"])
         self.assertFalse(policy["integrity"]["mismatch_requires_human_approval"])
         self.assertEqual(policy["classifier_exit_codes"]["PROCESS_ERROR"], 3)
+        l2 = policy["l2_product_decisions"]
+        self.assertFalse(l2["team_standard_cryptographic_receipt_required"])
+        self.assertTrue(l2["solo_fast_cryptographic_receipt_required"])
+        self.assertTrue(l2["regulated_cryptographic_receipt_required"])
         self.assertTrue(
             policy["external_action_lifecycle"][
                 "necessary_uat_requires_subjective_judgment"
@@ -1323,11 +1358,17 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertTrue(policy["l3_approval_receipts"]["consume_atomically_on_continue"])
         self.assertFalse(policy["production_deploy"]["l0_pre_authorized"])
         self.assertFalse(policy["production_deploy"]["l1_pre_authorized"])
-        self.assertTrue(
+        self.assertFalse(
             policy["production_deploy"][
-                "l1_autonomous_with_recorded_baseline_authorization"
+                "l1_baseline_decision_can_authorize_execution"
             ]
         )
+        self.assertFalse(
+            policy["production_deploy"][
+                "l2_product_decision_can_authorize_execution"
+            ]
+        )
+        self.assertTrue(policy["production_deploy"]["actual_execution_requires_l3"])
         kernel = (ROOT / "core/POLICY_KERNEL.md").read_text(encoding="utf-8")
         self.assertIn("NO_HUMAN_ESCALATION_IF_MACHINE_VERIFIABLE", kernel)
         self.assertIn("AUTOMATIC_REVIEW_IS_PREAUTHORIZED", kernel)
@@ -1356,13 +1397,33 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertNotIn("paste sha-256 to approve", all_runtime_text)
         self.assertNotIn("貼回 sha-256", all_runtime_text)
 
-    def test_pull_request_governance_gate_remains_deactivated(self):
+    def test_repository_self_governance_workflow_remains_deactivated(self):
         self.assertFalse((ROOT / ".github/workflows/governance.yml").exists())
+        self.assertTrue((ROOT / ".github/workflows/publish.yml").is_file())
+        self.assertTrue((ROOT / ".github/workflows/release-readiness.yml").is_file())
+        self.assertTrue((ROOT / ".github/workflows/release-candidate.yml").is_file())
 
-    def test_native_broker_rehearsal_runs_real_linux_and_macos_sockets(self):
-        workflow = (ROOT / ".github/workflows/broker-native.yml").read_text(
+    def test_local_green_has_no_retired_owner_authority_gate(self):
+        contract = json.loads(
+            (ROOT / ".sddgov/ci-cost-guard.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(
+            contract["local_green"]["commands"],
+            [
+                ["python3", "-m", "unittest", "discover", "-s", "tests", "-v"],
+                ["python3", "-m", "sddgov.cli", "validate", "."],
+            ],
+        )
+        serialized = json.dumps(contract["local_green"], sort_keys=True)
+        self.assertNotIn("DEC-RC1-APPROVER-AUTHORITY-R22", serialized)
+        self.assertNotIn("verify-product", serialized)
+
+    def test_release_readiness_runs_complete_linux_and_macos_package_proof(self):
+        workflow = (ROOT / ".github/workflows/release-readiness.yml").read_text(
             encoding="utf-8"
         )
+        self.assertIn("name: release-readiness", workflow)
+        self.assertIn("native-package-readiness:", workflow)
         self.assertIn("os: [ubuntu-latest, macos-15]", workflow)
         self.assertIn("timeout-minutes: 10", workflow)
         source_green = workflow.index("Run source Green before packaging")
@@ -1373,6 +1434,9 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("python -m build --no-isolation --outdir", workflow)
         self.assertIn("SDDGOV_EXPECT_INSTALLED_WHEEL", workflow)
         self.assertIn('"${GITHUB_WORKSPACE}/tests/test_broker_native.py" -v', workflow)
+        self.assertIn(
+            "Verify the optional strong-authorization Unix capability", workflow
+        )
         self.assertIn("pilot quick --output", workflow)
         self.assertIn("scripts/fresh_wheel_smoke.py", workflow)
         self.assertNotIn("PYTHONPATH: src", workflow)

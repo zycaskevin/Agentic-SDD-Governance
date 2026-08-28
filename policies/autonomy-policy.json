@@ -11,6 +11,14 @@
     "category_risk_must_match_exactly": true,
     "uncertainty_can_emit_action_required": false
   },
+  "effect_channels": {
+    "merge_default_level": "L1",
+    "merge_owner_operations": 0,
+    "release_readiness_level": "L1",
+    "release_readiness_owner_operations": 0,
+    "reality_effect_requires_canonical_l3_operation": true,
+    "public_publish_effect": "public_publish"
+  },
   "approval_budget": {
     "L0": 0,
     "L1": 0,
@@ -91,9 +99,12 @@
     "reject_duplicate_paths_or_labels": true,
     "reject_unregistered_artifacts": true
   },
-  "l2_approval_receipts": {
-    "algorithm": "ed25519",
-    "caller_strings_are_authority": false,
+  "l2_product_decisions": {
+    "team_standard_mode": "bounded_plain_language_choice",
+    "team_standard_cryptographic_receipt_required": false,
+    "team_standard_owner_operations_max": 1,
+    "solo_fast_cryptographic_receipt_required": true,
+    "regulated_cryptographic_receipt_required": true,
     "bind_scope_and_assumptions": true,
     "reopen_state_when_context_changes": "ACTION_REQUIRED"
   },
@@ -123,9 +134,9 @@
   "production_deploy": {
     "l0_pre_authorized": false,
     "l1_pre_authorized": false,
-    "l1_autonomous_with_recorded_baseline_authorization": true,
-    "l1_requires_recorded_baseline_authorization": true,
-    "l2_requires_recorded_decision": true,
+    "l1_baseline_decision_can_authorize_execution": false,
+    "l2_product_decision_can_authorize_execution": false,
+    "actual_execution_requires_l3": true,
     "l3_requires_fresh_explicit_approval": true,
     "required_guardrails": [
       "all_required_checks_pass",

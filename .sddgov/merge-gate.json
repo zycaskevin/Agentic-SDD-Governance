@@ -1,13 +1,13 @@
 {
   "schema_version": "1.0",
-  "base_sha": "92f4ba8388ecf1ef1f3407db6c49cef62f6ee196",
-  "head_sha": "d16039cd3ccfc66ac7b8a416283790a86e095434",
+  "base_sha": "412c0416965e1091b61fa4ea7790498c36ca5505",
+  "head_sha": "8daaf005d8de844f88cea145edee40c39ba5d13d",
   "risk_level": "L2",
-  "builder_id": "codex-r30-streaming-redaction-builder",
-  "change_digest": "9f9bc7c5a6d47a968658d67731f5a6e387593bed74d83f15e5dbafecf6be93a0",
+  "builder_id": "codex-pr57-product-reset-builder",
+  "change_digest": "8305134b3d477bd57e6a28b761fcf5e852491b0b02fc526e170e2363a81f6bc4",
   "deps": [
-    "evidence/DEP-RC1-STREAMING-REDACTION-R30-038"
+    "evidence/DEP-SDG-PR57-REVIEW-FALLBACK-007"
   ],
-  "rollback_path": "evidence/DEP-RC1-STREAMING-REDACTION-R30-038/rollback.md",
-  "protected_file_review": ".sddgov/reviews/REV-RC1-READINESS-R30.json"
+  "rollback_path": "evidence/DEP-SDG-PR57-REVIEW-FALLBACK-007/rollback.md",
+  "protected_file_review": ".sddgov/reviews/REV-SDG-PR57-FINAL-PRODUCT-001.json"
 }

@@ -31,6 +31,14 @@ GITIGNORE_BLOCK = (
     ".sddgov/keys/\n"
     f"{GITIGNORE_END_MARKER}"
 )
+INSTALLATION_ACTIVATION = {
+    "development_owner_operations": 0,
+    "release_readiness_owner_operations": 0,
+    "broker_service": "not_installed_or_started",
+    "owner_signing": "not_created_or_configured",
+    "strong_authorization": "inactive_until_separately_provisioned",
+    "copied_resources_are_authority": False,
+}
 
 
 def _stamp() -> str:
@@ -218,6 +226,11 @@ def _installation_errors(root: Path, manifest: dict[str, Any]) -> list[str]:
         errors.append("manifest agent is invalid")
     if manifest.get("profile") not in PROFILES:
         errors.append("manifest profile is invalid")
+    if (
+        "activation" in manifest
+        and manifest.get("activation") != INSTALLATION_ACTIVATION
+    ):
+        errors.append("manifest activation contract is invalid")
     managed = manifest.get("managed_files")
     if not isinstance(managed, dict):
         return errors + ["manifest managed_files must be an object"]
@@ -294,12 +307,18 @@ def doctor(root: Path) -> dict[str, Any]:
         warnings.append(
             f"installed governance version {manifest.get('governance_version')} differs from CLI {__version__}"
         )
+    if "activation" not in manifest:
+        warnings.append(
+            "legacy install manifest has no activation declaration; "
+            "run setup-agent with the same agent and profile to refresh it"
+        )
     return {
         "ok": not errors,
         "project": str(root),
         "agent": manifest.get("agent"),
         "profile": manifest.get("profile"),
         "governance_version": manifest.get("governance_version"),
+        "activation": manifest.get("activation"),
         "managed_file_count": len(manifest.get("managed_files", {})),
         "errors": errors,
         "warnings": warnings,
@@ -337,17 +356,23 @@ def setup_agent(root: Path, agent: str, profile: str, force: bool = False) -> di
             and existing.get("profile") == profile
             and existing.get("governance_version") == __version__
         )
+        activation_missing = "activation" not in existing
         if not errors and same_config and not force:
-            return {
-                "ok": True,
-                "status": "already-installed",
-                "project": str(root),
-                "agent": agent,
-                "profile": profile,
-                "governance_version": __version__,
-                "managed_file_count": len(existing.get("managed_files", {})),
-            }
-        if not force:
+            if not activation_missing:
+                return {
+                    "ok": True,
+                    "status": "already-installed",
+                    "project": str(root),
+                    "agent": agent,
+                    "profile": profile,
+                    "governance_version": __version__,
+                    "activation": dict(INSTALLATION_ACTIVATION),
+                    "managed_file_count": len(existing.get("managed_files", {})),
+                }
+            # A legacy manifest with otherwise exact managed state can be
+            # refreshed without --force.  This records inactive authority; it
+            # never installs, starts, or claims a Broker.
+        elif not force:
             detail = "; ".join(errors) if errors else "agent, profile, or version differs"
             raise ValueError(f"existing installation differs: {detail}; inspect with doctor or rerun with --force")
     elif not force:
@@ -409,6 +434,7 @@ def setup_agent(root: Path, agent: str, profile: str, force: bool = False) -> di
         "governance_version": __version__,
         "agent": agent,
         "profile": profile,
+        "activation": dict(INSTALLATION_ACTIVATION),
         "installed_at": _stamp(),
         "managed_files": managed_hashes,
         "agents_block_sha256": _sha256(block.encode("utf-8")),
@@ -430,6 +456,7 @@ def setup_agent(root: Path, agent: str, profile: str, force: bool = False) -> di
         "agent": agent,
         "profile": profile,
         "governance_version": __version__,
+        "activation": dict(INSTALLATION_ACTIVATION),
         "managed_file_count": len(managed_hashes),
         "created_state": [str(path.relative_to(root)) for path in created_state],
     }

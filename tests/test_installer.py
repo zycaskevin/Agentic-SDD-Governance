@@ -8,6 +8,7 @@ from sddgov.cli import _validate_repo
 from sddgov.ci_guard import verify_guard
 from sddgov.installer import (
     END_MARKER,
+    INSTALLATION_ACTIVATION,
     START_MARKER,
     doctor,
     resource_files,
@@ -21,6 +22,92 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class InstallerTests(unittest.TestCase):
+    def test_setup_reports_strong_authorization_as_inactive_for_every_profile(self):
+        for profile in ("solo-fast", "team-standard", "regulated"):
+            with self.subTest(profile=profile), tempfile.TemporaryDirectory() as temporary:
+                project = Path(temporary)
+                result = setup_agent(project, "codex", profile)
+                manifest = json.loads(
+                    (project / ".agentic-sdd-governance/manifest.json").read_text(
+                        encoding="utf-8"
+                    )
+                )
+                report = doctor(project)
+
+                self.assertEqual(result["activation"], INSTALLATION_ACTIVATION)
+                self.assertEqual(manifest["activation"], INSTALLATION_ACTIVATION)
+                self.assertEqual(report["activation"], INSTALLATION_ACTIVATION)
+                self.assertTrue(report["ok"], report)
+                agents = (project / "AGENTS.md").read_text(encoding="utf-8")
+                self.assertIn("never installs or starts a Broker", agents)
+                self.assertIn("copied files are not authority", agents)
+
+    def test_doctor_rejects_a_forged_activation_claim(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            setup_agent(project, "codex", "team-standard")
+            manifest_path = project / ".agentic-sdd-governance/manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["activation"]["broker_service"] = "active"
+            manifest_path.write_text(
+                json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+
+            report = doctor(project)
+            self.assertFalse(report["ok"])
+            self.assertIn("manifest activation contract is invalid", report["errors"])
+
+    def test_legacy_manifest_without_activation_is_upgradeable_but_explicit_drift_fails(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            project = Path(temporary)
+            setup_agent(project, "codex", "team-standard")
+            manifest_path = project / ".agentic-sdd-governance/manifest.json"
+            project_path = project / ".sddgov/project.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            project_state = json.loads(project_path.read_text(encoding="utf-8"))
+
+            manifest.pop("activation")
+            manifest_path.write_text(
+                json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            report = doctor(project)
+            self.assertTrue(report["ok"], report)
+            self.assertIsNone(report["activation"])
+            self.assertTrue(
+                any("no activation declaration" in row for row in report["warnings"])
+            )
+            refreshed = setup_agent(project, "codex", "team-standard")
+            self.assertEqual(refreshed["status"], "updated")
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            self.assertEqual(manifest["activation"], INSTALLATION_ACTIVATION)
+
+            manifest["governance_version"] = "0.1.0"
+            project_state["governance_version"] = "0.1.0"
+            manifest.pop("activation")
+            manifest_path.write_text(
+                json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            project_path.write_text(
+                json.dumps(project_state, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+
+            report = doctor(project)
+            self.assertTrue(report["ok"], report)
+            self.assertTrue(any("differs from CLI" in row for row in report["warnings"]))
+
+            manifest["activation"] = {"broker_service": "active"}
+            manifest_path.write_text(
+                json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            report = doctor(project)
+            self.assertFalse(report["ok"])
+            self.assertIn("manifest activation contract is invalid", report["errors"])
+
     def test_forced_upgrade_preserves_legacy_and_custom_ci_timeouts(self):
         workflow = """name: CI
 on:

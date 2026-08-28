@@ -18,6 +18,7 @@ from .autonomy import (
     lock_artifact,
     record_decision,
     verify_artifact,
+    _project_profile,
 )
 from .ci_guard import run_local_gate, verify_guard
 from .evidence import attach, collect, make_dep, redact, transition, verify
@@ -113,13 +114,15 @@ def _autonomy_parsers(subparsers) -> None:
     decision = subparsers.add_parser("decision", help="Record and reuse bounded L2/L3 decisions")
     decision_commands = decision.add_subparsers(dest="decision_command", required=True)
     record = decision_commands.add_parser(
-        "record", help="Deprecated unsafe L2 path; always fails closed"
+        "record",
+        help="Record one bounded team-standard L2 choice; solo-fast and regulated fail closed",
     )
     record.add_argument("decision_id")
     record.add_argument("--summary", required=True)
     record.add_argument("--scope", required=True)
     record.add_argument("--basis", required=True)
     record.add_argument("--reopen-condition", required=True)
+    record.add_argument("--request", required=True)
     record.add_argument("--path", type=Path, default=Path.cwd())
     import_product = decision_commands.add_parser(
         "import-product-approval",
@@ -534,16 +537,23 @@ def run(args: argparse.Namespace) -> int:
                 args.scope,
                 args.basis,
                 args.reopen_condition,
+                args.request,
             )
         elif args.decision_command == "import-product-approval":
             result = import_product_approval(args.path, args.receipt)
         elif args.decision_command == "show-product-approval":
             _request, card = build_product_approval_card(args.path, args.request)
+            profile = _project_profile(args.path)
             result = {
                 "state": "ACTION_REQUIRED",
                 "requires_response": True,
                 "approval_card": card,
-                "next_action": "select_one_displayed_option; SDG handles receipt construction and signing",
+                "next_action": (
+                    "select_one_displayed_option_in_plain_language; "
+                    "the Agent records the decision without terminal signing"
+                    if profile == "team-standard"
+                    else "select_one_displayed_option; SDG handles receipt construction and signing"
+                ),
             }
         elif args.decision_command == "verify-product":
             result = verify_product_decision(

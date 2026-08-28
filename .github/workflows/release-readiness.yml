@@ -1,4 +1,4 @@
-name: broker-native
+name: release-readiness
 
 on:
   pull_request:
@@ -8,12 +8,16 @@ on:
 permissions:
   contents: read
 
+env:
+  PIP_DEFAULT_TIMEOUT: "30"
+  PIP_RETRIES: "3"
+
 concurrency:
-  group: broker-native-${{ github.event.pull_request.number || github.ref }}
+  group: release-readiness-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  native-af-unix:
+  native-package-readiness:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     strategy:
       fail-fast: false
@@ -48,13 +52,13 @@ jobs:
           "${RUNNER_TEMP}/broker-venv/bin/python" -m pip install --require-hashes -r requirements-governance.lock
           "${RUNNER_TEMP}/broker-venv/bin/python" -m pip install --no-deps "${RUNNER_TEMP}"/dist/*.whl
           "${RUNNER_TEMP}/broker-venv/bin/python" -m pip check
-      - name: Run real AF_UNIX publication tests from the installed wheel
+      - name: Verify the optional strong-authorization Unix capability
         env:
           SDDGOV_EXPECT_INSTALLED_WHEEL: "1"
         run: |
           cd "${RUNNER_TEMP}"
           "${RUNNER_TEMP}/broker-venv/bin/python" "${GITHUB_WORKSPACE}/tests/test_broker_native.py" -v
-      - name: Run installed Pilot and source demo output smoke
+      - name: Run installed Pilot and source demo smoke
         run: |
           cd "${RUNNER_TEMP}"
           "${RUNNER_TEMP}/broker-venv/bin/sddgov" pilot quick --output "${RUNNER_TEMP}/installed-pilot-quick.json"

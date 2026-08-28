@@ -437,6 +437,14 @@ class AutonomyTests(unittest.TestCase):
                         self.root,
                         {"risk_level": risk, "category": category},
                     )
+                    if category == "merge" and risk == "L0":
+                        self.assertEqual(result["state"], "BLOCKED")
+                        self.assertFalse(result["requires_response"])
+                        self.assertEqual(
+                            result["reason"],
+                            "merge_requires_exact_l1_without_reality_effects",
+                        )
+                        continue
                     self.assertEqual(result["state"], "CONTINUE")
                     self.assertFalse(result["requires_response"])
 
@@ -935,16 +943,282 @@ class AutonomyTests(unittest.TestCase):
             "action_required_risk_does_not_match_request",
         )
 
-    def test_unsigned_l2_decision_cannot_be_recorded_as_approved(self):
-        with self.assertRaisesRegex(ValueError, "signed.*L2"):
+    def test_effect_free_merge_and_release_readiness_are_zero_owner_l1_channels(self):
+        expected_channels = {
+            "merge": "development",
+            "release_readiness": "release_readiness",
+        }
+        for category, channel in expected_channels.items():
+            with self.subTest(category=category):
+                result = evaluate_escalation(
+                    self.root,
+                    {"risk_level": "L1", "category": category},
+                )
+                self.assertEqual(result["state"], "CONTINUE")
+                self.assertFalse(result["requires_response"])
+                self.assertEqual(result["channel"], channel)
+                self.assertFalse(result["reality_boundary"])
+                self.assertEqual(result["owner_operations_required"], 0)
+
+                wrong_level = evaluate_escalation(
+                    self.root,
+                    {"risk_level": "L0", "category": category},
+                )
+                self.assertEqual(wrong_level["state"], "BLOCKED")
+                self.assertEqual(wrong_level["required_risk_levels"], ["L1"])
+
+    def test_merge_or_readiness_with_real_effect_reclassifies_to_l3_operation(self):
+        production = evaluate_escalation(
+            self.root,
+            {
+                "risk_level": "L1",
+                "category": "merge",
+                "effects": {"production": True},
+            },
+        )
+        self.assertEqual(production["state"], "BLOCKED")
+        self.assertTrue(production["reality_boundary"])
+        self.assertEqual(production["required_risk_levels"], ["L3"])
+        self.assertEqual(production["required_category"], "high_risk_operation")
+
+        publication = evaluate_escalation(
+            self.root,
+            {
+                "risk_level": "L1",
+                "category": "release_readiness",
+                "effects": {"public_publish": True},
+            },
+        )
+        self.assertEqual(publication["state"], "BLOCKED")
+        self.assertEqual(publication["required_category"], "public_release")
+        self.assertFalse(publication["requires_response"])
+
+    def test_public_release_is_one_exact_l3_operation(self):
+        effects = {"public_publish": True}
+        payload = operation_payload(
+            "RELEASE-001", category="public_release", effects=effects
+        )
+        request = {
+            "risk_level": "L3",
+            "category": "public_release",
+            "effects": effects,
+            "operation_id": "RELEASE-001",
+            "approval_id": "APP-RELEASE-001",
+            "operation_payload": payload,
+            "decision_package": decision_package(
+                "L3",
+                "APP-RELEASE-001",
+                "one exact operation:RELEASE-001",
+                payload=payload,
+            ),
+        }
+        result = evaluate_escalation(self.root, request)
+        self.assertEqual(result["state"], "ACTION_REQUIRED")
+        self.assertTrue(result["requires_response"])
+        self.assertEqual(
+            result["decision_package"]["operation_payload"]["category"],
+            "public_release",
+        )
+
+        missing_effect = evaluate_escalation(
+            self.root,
+            {**request, "effects": {}, "operation_payload": {**payload, "effects": {}}},
+        )
+        self.assertEqual(missing_effect["state"], "BLOCKED")
+        self.assertEqual(
+            missing_effect["reason"], "public_release_requires_public_publish_effect"
+        )
+
+    def test_team_standard_records_and_reuses_one_plain_language_l2_choice(self):
+        scope = "Choose the synthetic-only control plane; no Production action."
+        request = {
+            "risk_level": "L2",
+            "category": "product_decision",
+            "effects": {},
+            "decision_id": "DEC-PLAIN-L2",
+            "decision_scope": scope,
+            "decision_package": decision_package(
+                "L2", "DEC-PLAIN-L2", scope
+            ),
+        }
+        request_path = self.root / "DEC-PLAIN-L2.request.json"
+        request_path.write_text(json.dumps(request), encoding="utf-8")
+
+        recorded = record_decision(
+            self.root,
+            "DEC-PLAIN-L2",
+            "Use synthetic-only control plane",
+            scope,
+            "owner_explicit_choice:A",
+            "scope_or_assumptions_change",
+            request_path.name,
+        )
+        self.assertEqual(recorded["verification"], "PLAIN_LANGUAGE_DECISION_RECORDED")
+        reused = evaluate_escalation(self.root, request)
+        self.assertEqual(reused["state"], "CONTINUE")
+        self.assertFalse(reused["requires_response"])
+
+        alternate_input = copy.deepcopy(request)
+        alternate_input["decision_package"]["options"][0]["description"] = (
+            "Approve a materially different product contract."
+        )
+        alternate = evaluate_escalation(self.root, alternate_input)
+        self.assertEqual(alternate["state"], "BLOCKED")
+        self.assertFalse(alternate["requires_response"])
+        self.assertEqual(
+            alternate["reason"],
+            "existing_plain_language_decision_package_changed",
+        )
+
+        verified = verify_product_decision(
+            self.root, "DEC-PLAIN-L2", request_path.name
+        )
+        self.assertEqual(
+            verified["verification"], "PLAIN_LANGUAGE_DECISION_VERIFIED"
+        )
+
+        tampered = copy.deepcopy(request)
+        tampered["decision_package"]["why"] = "Changed after the Owner choice."
+        request_path.write_text(json.dumps(tampered), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "does not match"):
+            verify_product_decision(self.root, "DEC-PLAIN-L2", request_path.name)
+        self.assertEqual(evaluate_escalation(self.root, tampered)["state"], "ACTION_REQUIRED")
+        request_path.write_text(json.dumps(request), encoding="utf-8")
+
+        changed_scope = evaluate_escalation(
+            self.root,
+            {
+                **request,
+                "decision_scope": "A different product scope",
+                "decision_package": decision_package(
+                    "L2", "DEC-PLAIN-L2", "A different product scope"
+                ),
+            },
+        )
+        self.assertEqual(changed_scope["state"], "ACTION_REQUIRED")
+
+    def test_plain_language_l2_requires_one_canonical_ab_card(self):
+        scope = "Choose one bounded synthetic product direction."
+        valid_request = {
+            "risk_level": "L2",
+            "category": "product_decision",
+            "effects": {},
+            "decision_id": "DEC-MALFORMED-PLAIN-L2",
+            "decision_scope": scope,
+            "decision_package": decision_package(
+                "L2", "DEC-MALFORMED-PLAIN-L2", scope
+            ),
+        }
+        request_path = self.root / "DEC-MALFORMED-PLAIN-L2.request.json"
+        malformed_label = copy.deepcopy(valid_request)
+        malformed_label["decision_package"]["options"][0]["label"] = ["not", "text"]
+        wrong_labels = copy.deepcopy(valid_request)
+        wrong_labels["decision_package"]["options"][0]["label"] = "C"
+        extra_option = copy.deepcopy(valid_request)
+        extra_option["decision_package"]["options"].append(
+            {"label": "C", "description": "A third choice."}
+        )
+        wrong_recommendation = copy.deepcopy(valid_request)
+        wrong_recommendation["decision_package"]["recommended"] = "B"
+
+        for request in (
+            malformed_label,
+            wrong_labels,
+            extra_option,
+            wrong_recommendation,
+        ):
+            with self.subTest(package=request["decision_package"]):
+                request_path.write_text(json.dumps(request), encoding="utf-8")
+                with self.assertRaisesRegex(
+                    ValueError, "invalid Decision Package|bounded A/B"
+                ):
+                    record_decision(
+                        self.root,
+                        "DEC-MALFORMED-PLAIN-L2",
+                        "Use one synthetic product direction",
+                        scope,
+                        "owner_explicit_choice:A",
+                        "scope_or_assumptions_change",
+                        request_path.name,
+                    )
+
+    def test_team_standard_plain_l2_requires_an_explicit_bounded_choice(self):
+        with self.assertRaisesRegex(ValueError, "owner_explicit_choice"):
             record_decision(
                 self.root,
-                "DEC-UNSIGNED",
-                "Unsigned product decision",
-                "product:contract",
-                "caller assertion",
-                "reopen when assumptions change",
+                "DEC-AMBIGUOUS",
+                "Ambiguous product decision",
+                "one product scope",
+                "Agent inferred approval",
+                "scope_or_assumptions_change",
+                "missing.request.json",
             )
+
+    def test_team_standard_decision_record_cli_needs_no_signer_or_terminal(self):
+        scope = "Choose offline mode; no Production action."
+        request = {
+            "risk_level": "L2",
+            "category": "product_decision",
+            "effects": {},
+            "decision_id": "DEC-CLI-PLAIN",
+            "decision_scope": scope,
+            "decision_package": decision_package(
+                "L2", "DEC-CLI-PLAIN", scope
+            ),
+        }
+        request_path = self.root / "DEC-CLI-PLAIN.request.json"
+        request_path.write_text(json.dumps(request), encoding="utf-8")
+        output = io.StringIO()
+        with (
+            patch(
+                "sys.argv",
+                [
+                    "sddgov",
+                    "decision",
+                    "record",
+                    "DEC-CLI-PLAIN",
+                    "--summary",
+                    "Use offline mode",
+                    "--scope",
+                    scope,
+                    "--basis",
+                    "owner_explicit_choice:A",
+                    "--reopen-condition",
+                    "scope_or_assumptions_change",
+                    "--request",
+                    request_path.name,
+                    "--path",
+                    str(self.root),
+                ],
+            ),
+            redirect_stdout(output),
+            self.assertRaises(SystemExit) as exit_info,
+        ):
+            main()
+        self.assertEqual(exit_info.exception.code, 0)
+        result = json.loads(output.getvalue())
+        self.assertEqual(result["verification"], "PLAIN_LANGUAGE_DECISION_RECORDED")
+        self.assertNotIn("signature", result)
+        self.assertNotIn("receipt", result)
+
+    def test_solo_fast_and_regulated_l2_require_a_signed_owner_receipt(self):
+        project_path = self.root / ".sddgov" / "project.json"
+        original = json.loads(project_path.read_text(encoding="utf-8"))
+        for profile in ("solo-fast", "regulated"):
+            with self.subTest(profile=profile):
+                project = dict(original)
+                project["profile"] = profile
+                project_path.write_text(json.dumps(project), encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, "signed.*L2"):
+                    record_decision(
+                        self.root,
+                        "DEC-UNSIGNED",
+                        "Unsigned product decision",
+                        "product:contract",
+                        "caller assertion",
+                        "reopen when assumptions change",
+                        "missing.request.json",
+                    )
 
     def test_l2_owner_receipt_tampering_fails_closed(self):
         path, envelope = self._signed_product_approval("DEC-TAMPERED")
@@ -2256,6 +2530,16 @@ class AutonomyTests(unittest.TestCase):
     def test_autonomy_cli_maps_malformed_packages_to_blocked_exit_one(self):
         malformed_requests = (
             {
+                "risk_level": [],
+                "category": "commit",
+                "effects": {},
+            },
+            {
+                "risk_level": {},
+                "category": "commit",
+                "effects": {},
+            },
+            {
                 "risk_level": "L3",
                 "category": "high_risk_operation",
                 "effects": {},
@@ -2343,30 +2627,32 @@ class AutonomyTests(unittest.TestCase):
         self.assertEqual(result["state"], "CONTINUE")
         self.assertFalse(result["requires_response"])
 
-    def test_routine_production_deploy_requires_every_machine_guard(self):
-        approval_path, approval = self._signed_product_approval(
-            "DEC-DEPLOY-WEB",
-            "production_deploy:web_app",
-            "approved-release-baseline-v1",
-        )
-        import_product_approval(self.root, approval_path)
+    def test_production_deploy_requires_green_readiness_then_exact_l3_operation(self):
         gate = {name: True for name in DEPLOY_GUARDS}
         gate.update(
             {
                 "risk_level": "L1",
                 "deployment_class": "web_app",
-                "baseline_decision_id": "DEC-DEPLOY-WEB",
+                "baseline_decision_id": "DEC-OLD-L1-BASELINE",
             }
         )
-        allowed = evaluate_deployment(self.root, gate)
-        self.assertTrue(allowed["ok"])
-        self.assertEqual(allowed["state"], "CONTINUE")
-        self.assertFalse(allowed["requires_response"])
+        l1 = evaluate_deployment(self.root, gate)
+        self.assertEqual(l1["state"], "BLOCKED")
+        self.assertEqual(l1["required_risk_levels"], ["L3"])
+        self.assertTrue(l1["reality_boundary"])
+        self.assertIn("exact_l3", l1["reason"])
 
-        forged = dict(gate)
-        forged["baseline_deployment_authorized"] = True
-        forged["baseline_decision_id"] = "DEC-NOT-RECORDED"
-        self.assertEqual(evaluate_deployment(self.root, forged)["state"], "BLOCKED")
+        for malformed_risk in ([], {}):
+            with self.subTest(malformed_risk=malformed_risk):
+                malformed_gate = dict(gate)
+                malformed_gate["risk_level"] = malformed_risk
+                malformed = evaluate_deployment(self.root, malformed_gate)
+                self.assertEqual(malformed["state"], "BLOCKED")
+                self.assertFalse(malformed["requires_response"])
+                self.assertEqual(
+                    malformed["reason"],
+                    "deployment_gate_has_an_invalid_contract",
+                )
 
         gate["rollback_available"] = False
         blocked = evaluate_deployment(self.root, gate)
@@ -2375,10 +2661,84 @@ class AutonomyTests(unittest.TestCase):
         self.assertIn("rollback_available", blocked["failed_guards"])
 
         gate["rollback_available"] = True
-        gate["risk_level"] = "L0"
-        l0 = evaluate_deployment(self.root, gate)
-        self.assertEqual(l0["state"], "BLOCKED")
-        self.assertIn("at_least_l1", l0["reason"])
+        effects = {"production": True}
+        payload = operation_payload("PROD-DEPLOY-001", effects=effects)
+        gate["risk_level"] = "L3"
+        for invalid_request in ("risk_level=L3", 3, [["risk_level", "L3"]]):
+            with self.subTest(invalid_request=invalid_request):
+                gate["escalation_request"] = invalid_request
+                invalid = evaluate_deployment(self.root, gate)
+                self.assertEqual(invalid["state"], "BLOCKED")
+                self.assertFalse(invalid["requires_response"])
+                self.assertEqual(
+                    invalid["reason"],
+                    "deployment_escalation_request_has_an_invalid_contract",
+                )
+        for contradictory_request in (
+            {"risk_level": "L1"},
+            {"risk_level": "L2", "category": "high_risk_operation"},
+            {"risk_level": "L3", "category": "public_release"},
+        ):
+            with self.subTest(contradictory_request=contradictory_request):
+                gate["escalation_request"] = contradictory_request
+                contradictory = evaluate_deployment(self.root, gate)
+                self.assertEqual(contradictory["state"], "BLOCKED")
+                self.assertFalse(contradictory["requires_response"])
+                self.assertEqual(
+                    contradictory["reason"],
+                    "deployment_escalation_request_does_not_match_the_exact_l3_gate",
+                )
+                self.assertEqual(contradictory["required_risk_levels"], ["L3"])
+                self.assertEqual(
+                    contradictory["required_category"], "high_risk_operation"
+                )
+        for malformed_request in (
+            {"risk_level": []},
+            {"risk_level": {}},
+            {"category": []},
+            {"category": {}},
+        ):
+            with self.subTest(malformed_request=malformed_request):
+                gate["escalation_request"] = malformed_request
+                malformed = evaluate_deployment(self.root, gate)
+                self.assertEqual(malformed["state"], "BLOCKED")
+                self.assertFalse(malformed["requires_response"])
+                self.assertEqual(
+                    malformed["reason"],
+                    "deployment_escalation_request_has_an_invalid_contract",
+                )
+        for invalid_nested_contract in (
+            {},
+            {"effects": []},
+            {"effects": {"production": True}, "decision_package": []},
+        ):
+            with self.subTest(invalid_nested_contract=invalid_nested_contract):
+                gate["escalation_request"] = invalid_nested_contract
+                invalid_nested = evaluate_deployment(self.root, gate)
+                self.assertEqual(invalid_nested["state"], "BLOCKED")
+                self.assertFalse(invalid_nested["requires_response"])
+                self.assertIn(
+                    invalid_nested["reason"],
+                    {
+                        "deployment_escalation_request_has_an_invalid_contract",
+                        "decision_package_has_an_invalid_contract",
+                    },
+                )
+        gate["escalation_request"] = {
+            "effects": effects,
+            "operation_id": "PROD-DEPLOY-001",
+            "approval_id": "APP-PROD-DEPLOY-001",
+            "operation_payload": payload,
+            "decision_package": decision_package(
+                "L3",
+                "APP-PROD-DEPLOY-001",
+                "one exact operation:PROD-DEPLOY-001",
+                payload=payload,
+            ),
+        }
+        l3 = evaluate_deployment(self.root, gate)
+        self.assertEqual(l3["state"], "ACTION_REQUIRED")
+        self.assertTrue(l3["requires_response"])
 
 
 if __name__ == "__main__":

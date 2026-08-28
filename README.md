@@ -1,12 +1,17 @@
 # Agentic SDD Governance
 
+> **The product reset is active.** The former RC1 publication path is paused.
+> SDG is moving from approval-centric workflow gates to risk- and effect-centric
+> governance. RC1 PyPI installation and GitHub Release downloads below are not
+> available until publication completes. See the [SDG Product Charter](docs/SDG_PRODUCT_CHARTER.md).
+
 [English](README.md) | [繁體中文](README.zh-TW.md)
 
 Agentic SDD Governance (SDG) is an authorization, evidence, and risk-governance layer for autonomous software engineering Agents. It does not write code for the Agent. It tells Codex, Hermes, and similar systems what is already authorized, when they must stop, what debugging evidence is required, and how a Merge can be proven safe.
 
 > SDG is experimental. It is executable and testable, but fixture benchmarks do not prove that it is superior to another workflow. Pilot it with synthetic or staging data before adopting it for sensitive systems.
 
-SDG v1.2 Hard Gates close three common trust gaps: unknown or dangerous actions cannot call themselves L1, L2/L3 approvals require signed exact-scope receipts, and a Pull Request never supplies the verifier that judges that same Pull Request. See [`docs/HARD_GATES_V1_2.md`](docs/HARD_GATES_V1_2.md).
+SDG v1.2 Hard Gates close three common trust gaps: unknown or dangerous actions cannot call themselves L1, team-standard L2 uses a bounded plain-language decision record while solo-fast/regulated L2 and genuine L3 retain signed exact-scope receipts, and a Pull Request never supplies the verifier that judges that same Pull Request. See [`docs/HARD_GATES_V1_2.md`](docs/HARD_GATES_V1_2.md).
 
 ## Understand it in 30 seconds
 
@@ -184,6 +189,12 @@ AGENTS.md                                      governance marked block only
 
 Existing unrelated `AGENTS.md` and `.gitignore` content is preserved. If a managed file was modified, setup, upgrade, or uninstall fails closed until the difference is reviewed.
 
+`setup-agent` copies reference schemas, templates, and service examples; it does
+not install or start a Broker and does not create or configure Owner signing.
+`setup-agent` and `doctor` report these capabilities as inactive until a concrete
+L3 operation is separately provisioned across a real trust boundary. Copied
+files are not authority.
+
 ## Profiles
 
 | Profile | Intended use | Main behavior |
@@ -199,13 +210,23 @@ Existing unrelated `AGENTS.md` and `.gitignore` content is preserved. If a manag
 | L0 | Documentation, a bounded non-regression fix, an explicit local task | Complete autonomously and provide targeted proof. |
 | L1 | Regression, cross-module change, authentication, reliability, data flow | Gather evidence first, create a full DEP, and complete the approved scope autonomously. |
 | L2 | Product behavior, quota, pricing, privacy, or public API change | Research and safe prototypes may continue, but one bounded Owner decision is required before changing the contract. |
-| L3 | Production, payment, formal data deletion, credentials, MFA | Prepare dry run, exact operation, rollback, and proof; the concrete operation requires explicit signed authorization. |
+| L3 | Production deploy, public publication, payment, formal data deletion, credentials, MFA | Prepare readiness, exact operation, rollback, and proof; the concrete operation requires explicit authorization. |
 
 Evidence can increase confidence. It never lowers the authority level.
 
-### Owners decide; machines build the receipt
+Merge and Release Readiness are effect-free L1 engineering channels. If Merge
+configuration triggers deploy or publication, SDG separates the code Merge from
+that exact L3 external operation instead of treating every Merge as L3.
 
-An L2 gate does not turn the Owner into a code reviewer. `sddgov decision show-product-approval` validates and displays one bounded A/B card; it cannot sign. The separately installed `sddgov-owner` client asks for one choice on an Owner-controlled terminal, computes the assumptions, nonce, and receipt, delegates to a confirmation-constrained external Ed25519 signer, and verifies the result. The Owner never edits JSON, compares hashes, pastes a signature, or exposes a private key. Independent Review, tests, Evidence, and Merge verification remain Agent/machine work. See the [Owner Key Ceremony](docs/OWNER_KEY_CEREMONY.md).
+### Owners decide once; Agents record the choice
+
+Under `team-standard`, `sddgov decision show-product-approval` validates and
+displays one bounded A/B card. The Owner answers once in plain language; the
+Agent records and reuses that exact-scope choice. No Owner Terminal, digest,
+signer, Broker, or cryptographic receipt is required. Independent Review, tests,
+Evidence, and Merge verification remain Agent/machine work. Regulated workflows
+may retain the separate-identity signed path described in the
+[Owner Key Ceremony](docs/OWNER_KEY_CEREMONY.md).
 
 ## Evidence quick start
 

@@ -1100,6 +1100,11 @@ class OwnerApprovalTests(unittest.TestCase):
         rendered = json.loads(output.getvalue())
         self.assertEqual(rendered["state"], "ACTION_REQUIRED")
         self.assertEqual(rendered["approval_card"]["decision_id"], "DEC-SYNTHETIC")
+        self.assertEqual(
+            rendered["next_action"],
+            "select_one_displayed_option_in_plain_language; "
+            "the Agent records the decision without terminal signing",
+        )
 
     def test_owner_cli_declines_without_json_or_key_arguments(self):
         args = build_owner_parser().parse_args(

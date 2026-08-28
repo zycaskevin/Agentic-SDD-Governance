@@ -18,6 +18,7 @@ from sddgov.merge_gate import (
     _is_protected,
     _protected_patterns,
     _real_rollback,
+    _rollback_contract,
     _rollback_postcondition_is_green,
     _rollback_ref_is_cleanly_revertible,
     change_digest,
@@ -911,6 +912,34 @@ jobs:
             )
         )
 
+    def test_v4_self_deactivated_rollback_is_a_closed_alternative(self):
+        template = (
+            "rollback_version: 4.0\n"
+            "target: self-deactivated repository rollback\n"
+            "rollback_action: git_revert\n"
+            "rollback_ref: {ref}\n"
+            "reconcile_action: assert_self_governance_deactivated\n"
+            "verify_action: self_governance_deactivated\n"
+        )
+        self.assertFalse(_real_rollback(template.format(ref="HEAD")))
+        self.assertTrue(_real_rollback(template.format(ref="a" * 40)))
+        parsed = _rollback_contract(template.format(ref="a" * 40))
+        self.assertIsNotNone(parsed)
+        self.assertEqual(parsed["version"], "4.0")
+        self.assertFalse(
+            _real_rollback(
+                template.format(ref="a" * 40).replace(
+                    "assert_self_governance_deactivated",
+                    "setup_agent_from_reverted_source",
+                )
+            )
+        )
+        self.assertFalse(
+            _real_rollback(
+                template.format(ref="a" * 40) + "verify_module: unittest\n"
+            )
+        )
+
     def test_v2_postcondition_bootstrap_requires_exact_comment_contract(self):
         bounded_ref = "a" * 40
         valid = (
@@ -982,6 +1011,77 @@ jobs:
                 reviewed_head_sha="3dfd3061bb3bd58b40a3877039a87c45bdd9d943",
             )
         )
+
+    @patch("sddgov.merge_gate.subprocess.run")
+    def test_rollback_postcondition_verifies_reverted_source_before_reconcile(
+        self, mocked_run
+    ):
+        calls = []
+
+        def successful_run(argv, **_kwargs):
+            calls.append(argv)
+            return subprocess.CompletedProcess(argv, 0)
+
+        mocked_run.side_effect = successful_run
+        rollback = {
+            "rollback_ref": "a" * 40,
+            "reconcile_action": "setup_agent_from_reverted_source",
+            "reconcile_agent": "codex",
+            "reconcile_profile": "team-standard",
+            "verify_action": "doctor_and_python_module",
+            "verify_module": "unittest",
+        }
+        self.assertTrue(
+            _rollback_postcondition_is_green(
+                self.root,
+                rollback,
+                reviewed_head_sha="b" * 40,
+            )
+        )
+        test_index = next(
+            index
+            for index, argv in enumerate(calls)
+            if argv[1:3] == ["-m", "unittest"]
+        )
+        setup_index = next(
+            index
+            for index, argv in enumerate(calls)
+            if argv[1:4] == ["-m", "sddgov.cli", "setup-agent"]
+        )
+        doctor_index = next(
+            index
+            for index, argv in enumerate(calls)
+            if argv[1:4] == ["-m", "sddgov.cli", "doctor"]
+        )
+        self.assertLess(test_index, setup_index)
+        self.assertLess(setup_index, doctor_index)
+
+    @patch("sddgov.merge_gate.subprocess.run")
+    def test_v4_rollback_postcondition_never_activates_self_governance(
+        self, mocked_run
+    ):
+        calls = []
+
+        def successful_run(argv, **_kwargs):
+            calls.append(argv)
+            return subprocess.CompletedProcess(argv, 0)
+
+        mocked_run.side_effect = successful_run
+        rollback = {
+            "version": "4.0",
+            "rollback_ref": "a" * 40,
+            "reconcile_action": "assert_self_governance_deactivated",
+            "verify_action": "self_governance_deactivated",
+        }
+        self.assertTrue(
+            _rollback_postcondition_is_green(
+                self.root,
+                rollback,
+                reviewed_head_sha="b" * 40,
+            )
+        )
+        self.assertFalse(any(argv[1:4] == ["-m", "sddgov.cli", "doctor"] for argv in calls))
+        self.assertFalse(any("setup-agent" in argv for argv in calls))
 
     def test_builtin_union_merge_cannot_mask_a_non_base_rollback_result(self):
         with tempfile.TemporaryDirectory() as temporary:

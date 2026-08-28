@@ -17,7 +17,12 @@ invariants:
   pull_request_controls_active_verifier: false
   evidence_artifacts_recalculated: true
   symlink_and_path_escape_allowed: false
-  l2_requires_owner_signature: true
+  team_standard_l2_decision_mode: bounded_plain_language_choice
+  team_standard_l2_requires_owner_signature: false
+  solo_fast_l2_decision_mode: signed_exact_scope_receipt
+  solo_fast_l2_requires_owner_signature: true
+  regulated_l2_decision_mode: signed_exact_scope_receipt
+  regulated_l2_requires_owner_signature: true
   l3_binds_complete_operation_payload: true
   routine_review_submission_pre_authorized: true
   routine_review_owner_response_required: false

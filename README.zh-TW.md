@@ -1,5 +1,10 @@
 # Agentic SDD Governance
 
+> **SDG 產品重置進行中。** 原 RC1 發布路線已暫停。SDG 正從「以授權為
+> 中心的流程關卡」改為「以風險與實際影響為中心的治理」。詳見
+> [SDG 產品憲章](docs/SDG_PRODUCT_CHARTER.zh-TW.md)。RC1 完成發布前，下方
+> PyPI 安裝與 GitHub Release 下載指令目前不可用。
+
 [English](README.md) | [繁體中文](README.zh-TW.md)
 
 Agentic SDD Governance（SDG）是一套給自主軟體開發 Agent 使用的「授權、證據與風險治理層」。它不是另一個會替你寫程式的 Agent，而是讓 Codex、Hermes 等 Agent 知道：哪些工作可以自主完成、什麼時候必須停下來、除錯要收集哪些證據，以及合併前如何證明結果。
@@ -67,7 +72,7 @@ Red → Evidence → Fix → Green → Proof
 
 ### 快速試用路徑
 
-RC 發布到 PyPI 後，以獨立環境安裝精確 pre-release 版本：
+目前尚不可用；RC 發布到 PyPI 後，才能以獨立環境安裝精確 pre-release 版本：
 
 ```bash
 python3 -m venv .venv-sddgov
@@ -80,7 +85,7 @@ python3 -m venv .venv-sddgov
 
 ### 可控驗證路徑
 
-必須先發布相符的 `v0.2.0rc1` GitHub Release。發布後，Linux x86_64／CPython 3.12 的受治理離線環境才能從該 Release 下載包含 hash-locked 執行期依賴的 bundle 與 checksum，讓機器核對壓縮檔及其完整清單；發布前執行以下命令會因找不到相符資產而失敗：
+目前尚不可用；必須先發布相符的 `v0.2.0rc1` GitHub Release。發布後，Linux x86_64／CPython 3.12 的受治理離線環境才能從該 Release 下載包含 hash-locked 執行期依賴的 bundle 與 checksum，讓機器核對壓縮檔及其完整清單；發布前執行以下命令會因找不到相符資產而失敗：
 
 ```bash
 set -eu
@@ -177,6 +182,11 @@ AGENTS.md                                      標記區塊
 
 既有 `AGENTS.md` 與 `.gitignore` 的其他內容會保留。若受管理檔案被手動修改，安裝、升級或解除安裝會 fail closed，要求先檢查差異。
 
+`setup-agent` 只複製治理 Schema、範本與 service 範例；它不會安裝或啟動 Broker，
+也不會建立或設定 Owner 簽章。`setup-agent` 與 `doctor` 會明確回報這些能力尚未
+啟用；只有具體 L3 操作在不同信任邊界完成獨立佈建後才可能啟用。複製進 Repo 的
+檔案本身不是授權。
+
 ## 三種 Profile
 
 | Profile | 適合情境 | 主要特性 |
@@ -192,13 +202,22 @@ AGENTS.md                                      標記區塊
 | L0 | 文件、小型非 Regression 修正、明確局部工作 | 自主完成並提供 targeted proof |
 | L1 | Regression、跨模組、Auth、Reliability、資料流 | 先收證據，建立完整 DEP，自主完成已核准範圍 |
 | L2 | 產品行為、Quota、Pricing、Privacy、Public API 改變 | 可研究與做安全 Prototype，但需一個明確 Owner 決策 |
-| L3 | Production、付款、刪除正式資料、Credential、MFA | 只準備 Dry run、Rollback 與 Proof；具體操作需明確授權 |
+| L3 | Production deploy、公開發布、付款、刪除正式資料、Credential、MFA | 先完成準備、Rollback 與 Proof；具體操作需明確授權 |
 
-證據能提高信心，但不會自動提高 Agent 權限。
+證據能提高信心，但不會降低該操作的授權等級，也不會提高 Agent 權限。
 
-### Owner 做決策，Receipt 交給機器
+Merge 與 Release Readiness 是沒有現實副作用的 L1 工程通道。如果 Repo 設定會讓
+Merge 自動觸發 deploy 或發布，SDG 會把程式碼 Merge 與那一個精確 L3 外部操作
+分開，不再把所有 Merge 一律當成 L3。
 
-L2 Gate 不會把 Owner 變成人肉 Code Reviewer。`sddgov decision show-product-approval` 只驗證並顯示一張有界的 A／B 卡，不能簽章；獨立安裝的 `sddgov-owner` 會在 Owner 控制的 Terminal 詢問一次選項，自動計算 assumptions、nonce 與 receipt，交給每次都需要確認的外部 Ed25519 signer，並驗證結果。Owner 不需要編輯 JSON、比對 hash、貼 signature 或暴露 private key。Independent Review、Tests、Evidence 與 Merge 驗證仍由 Agent／機器完成。詳見 [Owner Key Ceremony](docs/OWNER_KEY_CEREMONY.md)。
+### Owner 只決定一次，Agent 自動記錄
+
+在 `team-standard` 下，`sddgov decision show-product-approval` 只驗證並顯示
+一張有界的 A／B 卡。Owner 在對話中用白話回答一次，Agent 便記錄並重用相同
+範圍的選擇；不需要 Owner 開 Terminal、處理 digest、signer、Broker 或
+cryptographic receipt。Independent Review、Tests、Evidence 與 Merge 驗證仍由
+Agent／機器完成。`regulated` 流程仍可使用 [Owner Key Ceremony](docs/OWNER_KEY_CEREMONY.md)
+所描述的獨立身分簽章路徑。
 
 ## Evidence 快速範例
 

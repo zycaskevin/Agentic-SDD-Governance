@@ -9,6 +9,13 @@ merge_human_approval:
   L1: forbidden_when_required_checks_pass
   L2: recorded_decision_only
   L3: fresh_concrete_operation_approval
+effect_classification:
+  default_merge_level: L1
+  effect_free_merge_owner_operations: 0
+  release_readiness_level: L1
+  release_readiness_owner_operations: 0
+  reality_effect_requires_canonical_l3_operation: true
+  public_publish_effect: public_publish
 prohibited:
   - raw_evidence_attachment
   - acceptance_criteria_weakening

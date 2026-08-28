@@ -58,6 +58,7 @@ ROUTINE_OPERATIONS = {
     "integrity_verification",
     "ci",
     "merge",
+    "release_readiness",
 }
 ESCALATION_CATEGORIES = {
     "uncertainty",
@@ -73,6 +74,7 @@ HIGH_RISK_CATEGORIES = {
     "permission_boundary_change",
     "real_payment",
     "high_privilege_production_operation",
+    "public_release",
 }
 SENSITIVE_EFFECTS = {
     "production",
@@ -82,6 +84,7 @@ SENSITIVE_EFFECTS = {
     "permission_boundary_change",
     "real_payment",
     "high_privilege",
+    "public_publish",
 }
 KNOWN_CATEGORIES = ROUTINE_OPERATIONS | ESCALATION_CATEGORIES | HIGH_RISK_CATEGORIES | {
     "checkpoint",
@@ -203,6 +206,105 @@ def _decision_lock(root: Path):
             fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
 
+def _project_profile(root: Path) -> str:
+    project = _read_json(root / ".sddgov" / "project.json")
+    if not isinstance(project, dict) or project.get("profile") not in {
+        "solo-fast",
+        "team-standard",
+        "regulated",
+    }:
+        raise ValueError(".sddgov/project.json has an invalid profile")
+    return project["profile"]
+
+
+def _plain_l2_request_binding(
+    root: Path,
+    request_path: str,
+    *,
+    decision_id: str,
+    scope: str,
+    selected_label: str,
+    decision_package: Any = None,
+) -> str:
+    pure = PurePosixPath(request_path)
+    if (
+        not request_path
+        or "\\" in request_path
+        or "\x00" in request_path
+        or pure.is_absolute()
+        or str(pure) != request_path
+        or any(part in {"", ".", ".."} for part in pure.parts)
+    ):
+        raise ValueError("plain-language product decision request must be repository-relative")
+    raw = _read_repository_regular_file(root, pure)
+    request = _load_unique_json_bytes(raw, "plain-language product decision request")
+    allowed = {
+        "risk_level",
+        "category",
+        "effects",
+        "decision_id",
+        "decision_scope",
+        "decision_package",
+    }
+    if (
+        not isinstance(request, dict)
+        or set(request) != allowed
+        or request.get("risk_level") != "L2"
+        or request.get("category") != "product_decision"
+        or request.get("effects") != {}
+        or request.get("decision_id") != decision_id
+        or request.get("decision_scope") != scope
+    ):
+        raise ValueError("plain-language product decision request is not exact")
+    try:
+        package = build_action_required(**request["decision_package"])
+    except (AttributeError, KeyError, TypeError, ValueError) as exc:
+        raise ValueError(
+            "plain-language product decision request has an invalid Decision Package"
+        ) from exc
+    if _action_required_binding_error(request, package) is not None:
+        raise ValueError("plain-language product decision request is not scope-bound")
+    options = _require_bounded_ab_card(package)
+    labels = [option["label"] for option in options]
+    if labels.count(selected_label) != 1:
+        raise ValueError("selected product decision label is not in the bounded card")
+    if decision_package is not None:
+        try:
+            incoming_package = build_action_required(**decision_package)
+        except (AttributeError, TypeError, ValueError) as exc:
+            raise ValueError(
+                "incoming plain-language Decision Package is invalid"
+            ) from exc
+        if incoming_package != package:
+            raise ValueError(
+                "incoming plain-language Decision Package differs from the approved request"
+            )
+    return hashlib.sha256(raw).hexdigest()
+
+
+def _require_bounded_ab_card(package: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return one canonical two-option Owner card or fail closed.
+
+    Both plain-language and signed L2 paths use this validator so recording and
+    later verification cannot drift into different card shapes.
+    """
+    options = package.get("options")
+    if (
+        not isinstance(options, list)
+        or len(options) != 2
+        or not all(isinstance(option, dict) for option in options)
+        or [option.get("label") for option in options] != ["A", "B"]
+        or package.get("recommended") != "A"
+        or not all(
+            isinstance(option.get("description"), str)
+            and bool(option["description"].strip())
+            for option in options
+        )
+    ):
+        raise ValueError("product decision request must present one bounded A/B card")
+    return options
+
+
 def record_decision(
     root: Path,
     decision_id: str,
@@ -210,12 +312,79 @@ def record_decision(
     scope: str,
     basis: str,
     reopen_condition: str,
+    request_path: str,
 ) -> dict[str, Any]:
-    """Reject the legacy caller-authorized L2 path."""
-    del root, decision_id, summary, scope, basis, reopen_condition
-    raise ValueError(
-        "a signed owner L2 approval is required; use import-product-approval"
+    """Record one bounded plain-language L2 choice for team-standard.
+
+    This is an auditable product-direction record, not authority for an L3
+    operation. Solo-fast and regulated profiles retain the signed receipt path.
+    """
+    profile = _project_profile(root)
+    if profile != "team-standard":
+        raise ValueError(
+            "this profile requires a signed owner L2 approval; "
+            "use import-product-approval"
+        )
+    fields = {
+        "decision_id": decision_id,
+        "summary": summary,
+        "scope": scope,
+        "basis": basis,
+        "reopen_condition": reopen_condition,
+    }
+    if any(
+        not isinstance(value, str)
+        or not value.strip()
+        or len(value.encode("utf-8")) > 4096
+        for value in fields.values()
+    ):
+        raise ValueError("plain-language product decision fields must be bounded text")
+    if not basis.startswith("owner_explicit_choice:") or not basis.removeprefix(
+        "owner_explicit_choice:"
+    ).strip():
+        raise ValueError(
+            "plain-language product decision basis must be owner_explicit_choice:<label>"
+        )
+    if reopen_condition != "scope_or_assumptions_change":
+        raise ValueError(
+            "plain-language product decision reopen_condition must be "
+            "scope_or_assumptions_change"
+        )
+    selected_label = basis.removeprefix("owner_explicit_choice:").strip()
+    request_sha256 = _plain_l2_request_binding(
+        root,
+        request_path,
+        decision_id=decision_id,
+        scope=scope,
+        selected_label=selected_label,
     )
+    with _decision_lock(root):
+        data = _decision_store(root)
+        if any(row["decision_id"] == decision_id for row in data["decisions"]):
+            raise ValueError("product decision ID already exists")
+        decision = {
+            "decision_id": decision_id,
+            "risk_level": "L2",
+            "summary": summary,
+            "scope": scope,
+            "basis": basis,
+            "status": "approved",
+            "recorded_at": _stamp(),
+            "reopen_condition": reopen_condition,
+            "approval_mode": "plain_language_owner_choice",
+            "profile": profile,
+            "approved_by": "project_owner",
+            "request_path": request_path,
+            "request_sha256": request_sha256,
+        }
+        data["decisions"].append(decision)
+        _atomic_json(_decisions_path(root), data)
+    return {
+        "decision_id": decision_id,
+        "verification": "PLAIN_LANGUAGE_DECISION_RECORDED",
+        "approval_mode": decision["approval_mode"],
+        "profile": profile,
+    }
 
 
 def _canonical_receipt(receipt: dict[str, Any]) -> bytes:
@@ -340,6 +509,12 @@ def _validate_operation_payload(payload: Any) -> str:
         for key, value in effects.items()
     ):
         raise ValueError("operation_payload effects are invalid")
+    if payload["category"] == "public_release" and effects.get(
+        "public_publish"
+    ) is not True:
+        raise ValueError("public_release operation must declare public_publish")
+    if "public_publish" in effects and payload["category"] != "public_release":
+        raise ValueError("public_publish effect requires public_release category")
     return _canonical_digest(payload)
 
 
@@ -752,9 +927,45 @@ def verify_product_decision(
             ) from exc
         if _action_required_binding_error(request, package) is not None:
             raise ValueError("product decision request package is not bound to its scope")
+        options = _require_bounded_ab_card(package)
         decision = _find_decision(root, decision_id)
         if decision is None:
+            if _project_profile(root) == "team-standard":
+                raise ValueError("stored plain-language product decision is missing")
             raise ValueError("stored product decision failed cryptographic verification")
+        if decision.get("approval_mode") == "plain_language_owner_choice":
+            allowed = {
+                "risk_level",
+                "category",
+                "effects",
+                "decision_id",
+                "decision_scope",
+                "decision_package",
+            }
+            if (
+                set(request) != allowed
+                or decision.get("request_path") != request_path
+                or not isinstance(decision.get("request_sha256"), str)
+                or not secrets.compare_digest(
+                    decision["request_sha256"], hashlib.sha256(raw).hexdigest()
+                )
+                or not _plain_l2_approval_matches(
+                    root,
+                    decision,
+                    scope=request.get("decision_scope"),
+                    decision_package=package_input,
+                )
+            ):
+                raise ValueError(
+                    "stored plain-language product decision does not match the request"
+                )
+            return {
+                "decision_id": decision_id,
+                "verification": "PLAIN_LANGUAGE_DECISION_VERIFIED",
+                "approval_mode": decision["approval_mode"],
+                "profile": decision["profile"],
+                "recorded_at": decision["recorded_at"],
+            }
         try:
             receipt, receipt_sha256 = _verify_product_envelope(
                 root,
@@ -864,15 +1075,8 @@ def verify_product_decision(
             raise ValueError(
                 "signed product decision does not bind one exact Owner client identity"
             )
-        options = package.get("options")
         if (
-            not isinstance(options, list)
-            or len(options) != 2
-            or [row.get("label") for row in options if isinstance(row, dict)]
-            != ["A", "B"]
-            or package.get("recommended") != "A"
-            or not isinstance(options[0].get("description"), str)
-            or receipt.get("summary")
+            receipt.get("summary")
             != f"Approved option A: {options[0]['description']}"
         ):
             raise ValueError(
@@ -1241,6 +1445,77 @@ def _find_decision(root: Path, decision_id: str | None) -> dict[str, Any] | None
     )
 
 
+def _plain_l2_approval_matches(
+    root: Path,
+    decision: dict[str, Any],
+    *,
+    scope: Any,
+    decision_package: Any = None,
+) -> bool:
+    required = {
+        "decision_id",
+        "risk_level",
+        "summary",
+        "scope",
+        "basis",
+        "status",
+        "recorded_at",
+        "reopen_condition",
+        "approval_mode",
+        "profile",
+        "approved_by",
+        "request_path",
+        "request_sha256",
+    }
+    if (
+        set(decision) != required
+        or decision.get("risk_level") != "L2"
+        or decision.get("status") != "approved"
+        or decision.get("approval_mode") != "plain_language_owner_choice"
+        or decision.get("profile") != "team-standard"
+        or decision.get("approved_by") != "project_owner"
+        or decision.get("reopen_condition") != "scope_or_assumptions_change"
+        or not isinstance(scope, str)
+        or not scope.strip()
+        or decision.get("scope") != scope
+    ):
+        return False
+    try:
+        if _project_profile(root) != "team-standard":
+            return False
+        _parse_time(decision.get("recorded_at"), "recorded_at")
+    except ValueError:
+        return False
+    basis = decision.get("basis")
+    if not isinstance(basis, str) or not basis.startswith("owner_explicit_choice:"):
+        return False
+    selected = basis.removeprefix("owner_explicit_choice:").strip()
+    if not selected:
+        return False
+    request_path = decision.get("request_path")
+    request_sha256 = decision.get("request_sha256")
+    if (
+        not isinstance(request_path, str)
+        or not isinstance(request_sha256, str)
+        or SHA256_PATTERN.fullmatch(request_sha256) is None
+    ):
+        return False
+    try:
+        current_request_sha256 = _plain_l2_request_binding(
+            root,
+            request_path,
+            decision_id=decision["decision_id"],
+            scope=decision["scope"],
+            selected_label=selected,
+            decision_package=decision_package,
+        )
+    except (AttributeError, OSError, ValueError):
+        return False
+    if not secrets.compare_digest(current_request_sha256, request_sha256):
+        return False
+    return True
+
+
 def _l2_approval_matches_verified(
     decision: dict[str, Any],
     *,
@@ -1279,6 +1554,8 @@ def _l2_approval_matches(
     *,
     scope: Any,
 ) -> bool:
+    if decision.get("approval_mode") == "plain_language_owner_choice":
+        return _plain_l2_approval_matches(root, decision, scope=scope)
     try:
         receipt, receipt_sha256 = _verify_product_envelope(
             root, decision.get("approval_envelope")
@@ -1624,8 +1901,13 @@ def _action_required_binding_error(
 def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
     risk = request.get("risk_level")
     category = request.get("category")
-    if risk not in RISK_LEVELS:
-        raise ValueError("risk_level must be L0, L1, L2, or L3")
+    if not isinstance(risk, str) or risk not in RISK_LEVELS:
+        return {
+            "state": "BLOCKED",
+            "requires_response": False,
+            "reason": "autonomy_request_has_an_invalid_contract",
+            "next_action": "repair_the_machine_request_before_reclassification",
+        }
     if not isinstance(category, str) or not category:
         raise ValueError("category is required")
     if category not in KNOWN_CATEGORIES:
@@ -1679,6 +1961,47 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
             "requires_response": False,
             "reason": category_envelope_error,
             "next_action": "rebuild_request_with_one_exact_category_schema",
+        }
+    if "public_publish" in effects and category != "public_release":
+        return {
+            "state": "BLOCKED",
+            "requires_response": False,
+            "reason": "public_publish_requires_canonical_public_release_category",
+            "required_risk_levels": ["L3"],
+            "required_category": "public_release",
+            "reality_boundary": True,
+            "next_action": "prepare_one_exact_public_release_operation",
+        }
+    if category == "public_release" and effects.get("public_publish") is not True:
+        return {
+            "state": "BLOCKED",
+            "requires_response": False,
+            "reason": "public_release_requires_public_publish_effect",
+            "required_risk_levels": ["L3"],
+            "reality_boundary": True,
+            "next_action": "declare_the_public_publish_effect",
+        }
+    if category in {"merge", "release_readiness"} and effects:
+        required_category = (
+            "public_release" if "public_publish" in effects else "high_risk_operation"
+        )
+        return {
+            "state": "BLOCKED",
+            "requires_response": False,
+            "reason": "reality_effect_requires_canonical_l3_operation",
+            "required_risk_levels": ["L3"],
+            "required_category": required_category,
+            "reality_boundary": True,
+            "next_action": "separate_readiness_from_the_exact_external_operation",
+        }
+    if category in {"merge", "release_readiness"} and risk != "L1":
+        return {
+            "state": "BLOCKED",
+            "requires_response": False,
+            "reason": f"{category}_requires_exact_l1_without_reality_effects",
+            "required_risk_levels": ["L1"],
+            "reality_boundary": False,
+            "next_action": "reclassify_the_effect_free_engineering_channel_as_l1",
         }
     if category == "product_decision" and risk != "L2":
         return {
@@ -1745,10 +2068,23 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
         and category in ROUTINE_OPERATIONS
         and risk in {"L0", "L1"}
     ):
-        return _continue(
+        result = _continue(
             "no_human_escalation_if_machine_verifiable",
             "verify_with_repo_decisions_tests_ci_or_tools",
         )
+        if category in {"merge", "release_readiness"}:
+            result.update(
+                {
+                    "channel": (
+                        "release_readiness"
+                        if category == "release_readiness"
+                        else "development"
+                    ),
+                    "reality_boundary": False,
+                    "owner_operations_required": 0,
+                }
+            )
+        return result
     if (
         not forced_human_category
         and request.get("machine_verifiable")
@@ -1764,15 +2100,35 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
     decision_id = request.get("decision_id")
     if risk == "L2" and category == "product_decision":
         recorded = _find_decision(root, decision_id)
-        if (
+        plain_language_match = bool(
             recorded
-            and _l2_approval_matches(
+            and recorded.get("approval_mode") == "plain_language_owner_choice"
+            and _plain_l2_approval_matches(
                 root,
                 recorded,
                 scope=request.get("decision_scope"),
+                decision_package=request.get("decision_package"),
+            )
+        )
+        if (
+            recorded
+            and (
+                plain_language_match
+                or _l2_approval_matches(
+                    root,
+                    recorded,
+                    scope=request.get("decision_scope"),
+                )
             )
         ):
-            if "decision_package" in request:
+            if "decision_package" in request and not plain_language_match:
+                if recorded.get("approval_mode") == "plain_language_owner_choice":
+                    return {
+                        "state": "BLOCKED",
+                        "requires_response": False,
+                        "reason": "existing_plain_language_decision_package_changed",
+                        "next_action": "reopen_one_bounded_product_decision",
+                    }
                 return {
                     "state": "BLOCKED",
                     "requires_response": False,
@@ -1851,7 +2207,7 @@ def evaluate_escalation(root: Path, request: dict[str, Any]) -> dict[str, Any]:
         )
     try:
         package = build_action_required(**package_input)
-    except (TypeError, ValueError) as exc:
+    except (AttributeError, TypeError, ValueError) as exc:
         return _blocked(
             "decision_package_has_an_invalid_contract",
             "rebuild_one_strict_decision_package",
@@ -2081,8 +2437,14 @@ def verify_artifact(artifact: Path, lock_path: Path) -> dict[str, Any]:
 
 def evaluate_deployment(root: Path, gate: dict[str, Any]) -> dict[str, Any]:
     risk = gate.get("risk_level")
-    if risk not in RISK_LEVELS:
-        raise ValueError("deployment risk_level must be L0, L1, L2, or L3")
+    if not isinstance(risk, str) or risk not in RISK_LEVELS:
+        return {
+            "ok": False,
+            "state": "BLOCKED",
+            "requires_response": False,
+            "reason": "deployment_gate_has_an_invalid_contract",
+            "next_action": "repair_the_machine_gate_before_reclassification",
+        }
     missing = [name for name in DEPLOY_GUARDS if gate.get(name) is not True]
     if missing:
         return {
@@ -2093,44 +2455,64 @@ def evaluate_deployment(root: Path, gate: dict[str, Any]) -> dict[str, Any]:
             "failed_guards": missing,
             "next_action": "investigate_and_restore_machine_verifiable_guards",
         }
-    if risk == "L0":
+    if risk != "L3":
         return {
             "ok": False,
             "state": "BLOCKED",
             "requires_response": False,
-            "reason": "production_deploy_requires_at_least_l1_classification",
-            "next_action": "reclassify_as_l1_and_verify_recorded_baseline_authorization",
+            "reason": "actual_production_deploy_requires_exact_l3_operation",
+            "required_risk_levels": ["L3"],
+            "reality_boundary": True,
+            "next_action": "prepare_release_readiness_then_one_exact_l3_deploy_operation",
         }
-    if risk == "L1":
-        deployment_class = gate.get("deployment_class")
-        baseline = _find_decision(root, gate.get("baseline_decision_id"))
-        baseline_is_valid = (
-            isinstance(deployment_class, str)
-            and bool(deployment_class.strip())
-            and baseline is not None
-            and _l2_approval_matches(
-                root,
-                baseline,
-                scope=f"production_deploy:{deployment_class}",
-            )
-        )
-        if not baseline_is_valid:
-            return {
-                "ok": False,
-                "state": "BLOCKED",
-                "requires_response": False,
-                "reason": "recorded_baseline_deployment_authorization_missing",
-                "next_action": "look_up_sdd_adr_or_decision_log",
-            }
+    request_input = gate.get("escalation_request")
+    if not isinstance(request_input, dict):
         return {
-            "ok": True,
-            "state": "CONTINUE",
+            "ok": False,
+            "state": "BLOCKED",
             "requires_response": False,
-            "reason": "routine_reversible_l1_deploy_pre_authorized",
-            "baseline_decision_id": baseline["decision_id"],
-            "deployment_class": deployment_class,
+            "reason": "deployment_escalation_request_has_an_invalid_contract",
+            "next_action": "prepare_one_exact_l3_escalation_request_object",
         }
-    request = dict(gate.get("escalation_request") or {})
-    request.setdefault("risk_level", risk)
-    request.setdefault("category", "product_decision" if risk == "L2" else "high_risk_operation")
-    return evaluate_escalation(root, request)
+    required_category = "high_risk_operation"
+    supplied_risk = request_input.get("risk_level")
+    supplied_category = request_input.get("category")
+    if (
+        supplied_risk is not None and not isinstance(supplied_risk, str)
+    ) or (
+        supplied_category is not None and not isinstance(supplied_category, str)
+    ):
+        return {
+            "ok": False,
+            "state": "BLOCKED",
+            "requires_response": False,
+            "reason": "deployment_escalation_request_has_an_invalid_contract",
+            "next_action": "prepare_one_exact_l3_escalation_request_object",
+        }
+    if (
+        supplied_risk not in (None, risk)
+        or supplied_category not in (None, required_category)
+    ):
+        return {
+            "ok": False,
+            "state": "BLOCKED",
+            "requires_response": False,
+            "reason": "deployment_escalation_request_does_not_match_the_exact_l3_gate",
+            "required_risk_levels": ["L3"],
+            "required_category": required_category,
+            "reality_boundary": True,
+            "next_action": "rebuild_one_exact_l3_escalation_request_object",
+        }
+    request = dict(request_input)
+    request["risk_level"] = risk
+    request["category"] = required_category
+    try:
+        return evaluate_escalation(root, request)
+    except (AttributeError, KeyError, TypeError, ValueError):
+        return {
+            "ok": False,
+            "state": "BLOCKED",
+            "requires_response": False,
+            "reason": "deployment_escalation_request_has_an_invalid_contract",
+            "next_action": "prepare_one_exact_l3_escalation_request_object",
+        }

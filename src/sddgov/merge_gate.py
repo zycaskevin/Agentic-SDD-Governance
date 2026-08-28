@@ -598,27 +598,59 @@ def _rollback_contract(
         "reconcile_agent",
         "reconcile_profile",
     }
-    if set(fields) != required_v3 or version != "3.0":
+    if version == "3.0":
+        if set(fields) != required_v3:
+            return None
+        if fields["rollback_action"] != "git_revert":
+            return None
+        if not re.fullmatch(r"[0-9a-f]{40}", fields["rollback_ref"]):
+            return None
+        if fields["reconcile_action"] != "setup_agent_from_reverted_source":
+            return None
+        if fields["reconcile_agent"] not in {"codex", "hermes"}:
+            return None
+        if fields["reconcile_profile"] not in {
+            "solo-fast",
+            "team-standard",
+            "regulated",
+        }:
+            return None
+        if fields["verify_action"] != "doctor_and_python_module":
+            return None
+        if fields["verify_module"] not in {"pytest", "unittest"}:
+            return None
+        return {key: fields[key] for key in required_v3}
+
+    # This repository deliberately does not install SDG into itself.  Running
+    # setup-agent as part of a rollback drill would manufacture the very files
+    # its product contract prohibits.  V4 therefore has one closed alternative
+    # for a self-deactivated repository: prove the reverted tree is inactive
+    # after the actual declarative revert.  Doctor requires an installation,
+    # so it cannot be a health check for a repository whose contract forbids
+    # that installation. It is not
+    # a caller-selectable substitute for v3 in a consumer repository.
+    required_v4 = {
+        "rollback_version",
+        "target",
+        "rollback_action",
+        "rollback_ref",
+        "reconcile_action",
+        "verify_action",
+    }
+    if version != "4.0" or set(fields) != required_v4:
         return None
     if fields["rollback_action"] != "git_revert":
         return None
     if not re.fullmatch(r"[0-9a-f]{40}", fields["rollback_ref"]):
         return None
-    if fields["reconcile_action"] != "setup_agent_from_reverted_source":
+    if fields["reconcile_action"] != "assert_self_governance_deactivated":
         return None
-    if fields["reconcile_agent"] not in {"codex", "hermes"}:
+    if fields["verify_action"] != "self_governance_deactivated":
         return None
-    if fields["reconcile_profile"] not in {
-        "solo-fast",
-        "team-standard",
-        "regulated",
-    }:
-        return None
-    if fields["verify_action"] != "doctor_and_python_module":
-        return None
-    if fields["verify_module"] not in {"pytest", "unittest"}:
-        return None
-    return {key: fields[key] for key in required_v3}
+    return {
+        "version": version,
+        **{key: fields[key] for key in required_v4 if key != "rollback_version"},
+    }
 
 
 def _real_rollback(
@@ -823,13 +855,23 @@ def _rollback_postcondition_is_green(
     """Execute the closed rollback post-condition only in local verification.
 
     The privileged hosted verifier never calls this function because it receives
-    ``--skip-local-checks``.  A fresh local clone loads the reverted source tree,
-    reconciles only managed Agent-governance files, then runs Doctor and the
-    allowlisted Python test module without a shell. Candidate-controlled
-    reverted CLI and test code still has the local reviewer's process access;
-    callers must provide a disposable no-credential, network-isolated runtime.
+    ``--skip-local-checks``.  A fresh local clone either reconciles managed
+    Agent-governance files and runs Doctor plus the allowlisted Python test
+    module (v3), or uses the closed self-deactivated v4 verification without
+    creating an installation. Candidate-controlled reverted CLI and test code
+    still has the local reviewer's process access; callers must provide a
+    disposable no-credential, network-isolated runtime.
     """
-    if (
+    v4_self_deactivated = rollback.get("version") == "4.0"
+    if v4_self_deactivated:
+        if (
+            rollback.get("reconcile_action")
+            != "assert_self_governance_deactivated"
+            or rollback.get("verify_action")
+            != "self_governance_deactivated"
+        ):
+            return False
+    elif (
         rollback.get("reconcile_action")
         != "setup_agent_from_reverted_source"
         or rollback.get("verify_action") != "doctor_and_python_module"
@@ -838,12 +880,13 @@ def _rollback_postcondition_is_green(
     agent = rollback.get("reconcile_agent")
     profile = rollback.get("reconcile_profile")
     verify_module = rollback.get("verify_module")
-    if agent not in {"codex", "hermes"}:
-        return False
-    if profile not in {"solo-fast", "team-standard", "regulated"}:
-        return False
-    if verify_module not in {"pytest", "unittest"}:
-        return False
+    if not v4_self_deactivated:
+        if agent not in {"codex", "hermes"}:
+            return False
+        if profile not in {"solo-fast", "team-standard", "regulated"}:
+            return False
+        if verify_module not in {"pytest", "unittest"}:
+            return False
 
     environment = os.environ.copy()
     for key in tuple(environment):
@@ -944,42 +987,69 @@ def _rollback_postcondition_is_green(
 
             python_environment = dict(environment)
             python_environment["PYTHONPATH"] = str(drill / "src")
-            python_commands = [
-                [
-                    sys.executable,
-                    "-m",
-                    "sddgov.cli",
-                    "setup-agent",
-                    str(drill),
-                    "--agent",
-                    agent,
-                    "--profile",
-                    profile,
-                    "--force",
-                ],
-                [
-                    sys.executable,
-                    "-m",
-                    "sddgov.cli",
-                    "doctor",
-                    str(drill),
-                ],
-            ]
-            if verify_module == "pytest":
-                python_commands.append([sys.executable, "-m", "pytest"])
-            else:
-                python_commands.append(
-                    [
-                        sys.executable,
-                        "-m",
-                        "unittest",
-                        "discover",
-                        "-s",
-                        "tests",
-                        "-v",
-                    ]
+            if v4_self_deactivated:
+                inactive_paths = (
+                    drill / ".agentic-sdd-governance",
+                    drill / ".agents",
+                    drill / "AGENTS.md",
                 )
-            for index, argv in enumerate(python_commands):
+                if any(path.exists() or path.is_symlink() for path in inactive_paths):
+                    return False
+                python_commands: tuple[tuple[list[str], int], ...] = ()
+            elif verify_module == "pytest":
+                verification_command = [sys.executable, "-m", "pytest"]
+                python_commands = (
+                    (verification_command, 300),
+                    (
+                        [
+                            sys.executable,
+                            "-m",
+                            "sddgov.cli",
+                            "setup-agent",
+                            str(drill),
+                            "--agent",
+                            agent,
+                            "--profile",
+                            profile,
+                            "--force",
+                        ],
+                        60,
+                    ),
+                    ([sys.executable, "-m", "sddgov.cli", "doctor", str(drill)], 60),
+                )
+            else:
+                verification_command = [
+                    sys.executable,
+                    "-m",
+                    "unittest",
+                    "discover",
+                    "-s",
+                    "tests",
+                    "-v",
+                ]
+                python_commands = (
+                    (verification_command, 300),
+                    (
+                        [
+                            sys.executable,
+                            "-m",
+                            "sddgov.cli",
+                            "setup-agent",
+                            str(drill),
+                            "--agent",
+                            agent,
+                            "--profile",
+                            profile,
+                            "--force",
+                        ],
+                        60,
+                    ),
+                    ([sys.executable, "-m", "sddgov.cli", "doctor", str(drill)], 60),
+                )
+            # V3 verifies the reverted product before reconciliation writes
+            # managed installation files. V4 never reconciles or invokes
+            # Doctor because this product deliberately remains uninstalled.
+            for argv, timeout in python_commands:
                 completed = subprocess.run(
                     argv,
                     cwd=drill,
@@ -987,10 +1057,14 @@ def _rollback_postcondition_is_green(
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                     env=python_environment,
-                    timeout=300 if index == len(python_commands) - 1 else 60,
+                    timeout=timeout,
                 )
                 if completed.returncode != 0:
                     return False
+            if v4_self_deactivated and any(
+                path.exists() or path.is_symlink() for path in inactive_paths
+            ):
+                return False
     except (OSError, KeyError, subprocess.TimeoutExpired):
         return False
     return True

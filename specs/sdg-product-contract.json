@@ -1,0 +1,164 @@
+{
+  "$schema": "../schemas/sdg-product-contract.schema.json",
+  "schema_version": "1.0.0",
+  "product_model": "risk_effect_centric",
+  "status": "approved_product_direction",
+  "principle": "Invisible by default; appear only when risk or real-world effects rise; never ask the Owner to solve machine-verifiable work.",
+  "channels": {
+    "development": {
+      "reality_effects": false,
+      "owner_operations_max": 0,
+      "agent_responsibilities": [
+        "implementation",
+        "targeted_tests",
+        "lint",
+        "review",
+        "finding_repair",
+        "pull_request"
+      ],
+      "human_ui_forbidden": [
+        "sha256",
+        "base_ref",
+        "head_ref",
+        "receipt",
+        "signer",
+        "tty",
+        "ssh_agent",
+        "dep_manifest"
+      ]
+    },
+    "release_readiness": {
+      "reality_effects": false,
+      "owner_operations_max": 0,
+      "agent_responsibilities": [
+        "full_ci",
+        "build",
+        "integration_tests",
+        "independent_review",
+        "coderabbit",
+        "rollback_validation",
+        "artifact_verification"
+      ],
+      "result": "ready_not_released"
+    },
+    "production_action": {
+      "reality_effects": true,
+      "owner_operations_max": 1,
+      "effects": [
+        "public_package_publish",
+        "production_deploy",
+        "production_database_migration",
+        "secret_change",
+        "iam_change",
+        "real_payment",
+        "destructive_operation",
+        "irreversible_operation"
+      ],
+      "preferred_approval_surface": "native_platform",
+      "strong_authorization": "conditional_on_distinct_trust_boundary"
+    }
+  },
+  "product_decisions": {
+    "level": "L2",
+    "profile": "team-standard",
+    "owner_operations_max": 1,
+    "interaction": "bounded_plain_language_choice",
+    "cryptographic_receipt_required": false,
+    "signed_receipt_profiles_retained": [
+      "solo-fast",
+      "regulated"
+    ],
+    "reopen_only_when": [
+      "decision_scope_changed",
+      "recorded_assumption_changed"
+    ]
+  },
+  "merge": {
+    "default_level": "L1",
+    "intrinsically_l3": false,
+    "escalate_to_l3_only_when": [
+      "merge_triggers_production_deploy",
+      "merge_triggers_publication",
+      "merge_triggers_other_l3_effect"
+    ]
+  },
+  "review": {
+    "independent_review_retained": true,
+    "owner_relays_findings": false,
+    "main_agent_absorbs_findings": true,
+    "automated_third_party_review": "required_when_service_returns_an_actual_review",
+    "skip_or_unavailable_fallback": "signed_independent_review_plus_full_gate_and_hosted_ci",
+    "provider_status_without_review_is_not_review": true,
+    "external_provider_is_single_merge_blocker": false,
+    "automatic_retry_limit_per_exact_revision": 1
+  },
+  "release_handoff": {
+    "source_channel": "release_readiness",
+    "consumer_channel": "production_action",
+    "machine_verified_before_owner_approval": true,
+    "owner_handles_integrity_fields": false,
+    "protected_environment_jobs": 1,
+    "required_bindings": [
+      "repository",
+      "readiness_workflow_path",
+      "readiness_run_id",
+      "readiness_run_attempt",
+      "release_tag",
+      "head_sha",
+      "trusted_verifier_sha",
+      "artifact_name"
+    ]
+  },
+  "integrity": {
+    "sha256_retained": true,
+    "owner_handles_hashes": false,
+    "machine_only_fields": [
+      "sha256",
+      "base_ref",
+      "head_ref",
+      "artifact_digest",
+      "receipt_digest"
+    ]
+  },
+  "strong_authorization": {
+    "default_enabled": false,
+    "allowed_only_when": {
+      "true_reality_effect": true,
+      "distinct_trust_boundary": true
+    },
+    "retained_components": [
+      "broker",
+      "ed25519",
+      "hardware_key",
+      "audit_receipt",
+      "owner_controlled_tty"
+    ]
+  },
+  "installer": {
+    "default_profile": "team-standard",
+    "development_owner_operations": 0,
+    "release_readiness_owner_operations": 0,
+    "broker_service": "not_installed_or_started",
+    "owner_signing": "not_created_or_configured",
+    "strong_authorization": "inactive_until_separately_provisioned",
+    "copied_resources_are_authority": false
+  },
+  "legacy_rc1": {
+    "release_work_paused": true,
+    "broker_default_dependency": false,
+    "bootstrap_default_dependency": false,
+    "artifacts_deleted": false
+  },
+  "success_metrics": {
+    "development_owner_interruptions": 0,
+    "release_readiness_owner_interruptions": 0,
+    "product_decision_owner_interactions_max": 1,
+    "production_action_owner_interactions_max": 1
+  },
+  "stop_conditions": [
+    "ordinary_development_still_requires_owner_terminal_or_hash_handling",
+    "release_readiness_still_requires_owner_relay_or_signature",
+    "same_device_copy_paste_is_presented_as_strong_authorization",
+    "governance_cost_exceeds_measured_risk_reduction_without_bounded_remediation"
+  ]
+}
