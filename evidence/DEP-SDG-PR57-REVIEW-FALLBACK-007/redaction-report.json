@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    {
+      "source": "terminal--p23-local-green.log",
+      "output": "terminal--p23-local-green.log",
+      "source_sha256": "304058526ec247fb703df1073ea164533b9cb371b022a57d6937dc0d5aa2ae31",
+      "source_size": 756,
+      "output_sha256": "304058526ec247fb703df1073ea164533b9cb371b022a57d6937dc0d5aa2ae31",
+      "output_size": 756,
+      "redactions": {}
+    }
+  ],
+  "blocked": [],
+  "totals": {},
+  "dep_id": "DEP-SDG-PR57-REVIEW-FALLBACK-007",
+  "generated_at": "2026-08-28T16:17:55Z"
+}

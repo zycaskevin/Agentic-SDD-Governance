@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.1",
+  "dep_id": "DEP-SDG-PR57-REVIEW-FALLBACK-007",
+  "raw": [
+    {
+      "collector": "terminal",
+      "path": "private/raw/terminal--p23-local-green.log",
+      "source_suffix": ".log",
+      "media_type": "text/plain; charset=utf-8",
+      "sha256": "304058526ec247fb703df1073ea164533b9cb371b022a57d6937dc0d5aa2ae31",
+      "size": 756,
+      "collected_at": "2026-08-28T16:17:55Z",
+      "shareable": false
+    }
+  ],
+  "shareable": [
+    {
+      "path": "shareable/artifacts/terminal--p23-local-green.log",
+      "sha256": "304058526ec247fb703df1073ea164533b9cb371b022a57d6937dc0d5aa2ae31",
+      "size": 756,
+      "shareable": true
+    }
+  ]
+}
